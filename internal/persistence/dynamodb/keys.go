@@ -14,6 +14,11 @@ func routeSortKey(routeID string) string {
 	return "ROUTE#" + routeID
 }
 
+// credentialSortKey returns the documented integration-credential sort key.
+func credentialSortKey(credentialID string) string {
+	return "CREDENTIAL#" + credentialID
+}
+
 // intentPartitionKey returns the documented purchase-intent partition key.
 func intentPartitionKey(intentID string) string {
 	return "INTENT#" + intentID

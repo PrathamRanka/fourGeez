@@ -14,6 +14,7 @@ type IDPrefix string
 
 const (
 	SellerIDPrefix      IDPrefix = "sel_"
+	CredentialIDPrefix  IDPrefix = "key_"
 	RouteIDPrefix       IDPrefix = "rte_"
 	IntentIDPrefix      IDPrefix = "int_"
 	ApprovalIDPrefix    IDPrefix = "aps_"
@@ -24,6 +25,7 @@ const (
 
 var supportedIDPrefixes = []IDPrefix{
 	SellerIDPrefix,
+	CredentialIDPrefix,
 	RouteIDPrefix,
 	IntentIDPrefix,
 	ApprovalIDPrefix,

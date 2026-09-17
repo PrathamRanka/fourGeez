@@ -11,6 +11,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -37,6 +38,7 @@ func main() {
 	transactionRepository := memory.NewTransactionRepository()
 	evidenceRepository := memory.NewEvidenceRepository()
 	disputeRepository := memory.NewDisputeRepository()
+	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
@@ -47,6 +49,17 @@ func main() {
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
 	catalogController.RegisterRoutes(mux)
+	integrationService := integrations.NewService(
+		integrationCredentialRepository,
+		catalogService,
+		idGenerator,
+		integrations.NewSecureTokenGenerator(nil),
+		clock,
+	)
+	integrations.NewHTTPController(
+		integrationService,
+		idempotencyStore,
+	).RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,
 		catalogRepository,

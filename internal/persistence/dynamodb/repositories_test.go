@@ -12,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -27,6 +28,7 @@ func TestDocumentedKeys(t *testing.T) {
 	}{
 		{name: "seller", got: sellerPartitionKey("sel_123"), want: "SELLER#sel_123"},
 		{name: "route", got: routeSortKey("rte_123"), want: "ROUTE#rte_123"},
+		{name: "credential", got: credentialSortKey("key_123"), want: "CREDENTIAL#key_123"},
 		{name: "intent", got: intentPartitionKey("int_123"), want: "INTENT#int_123"},
 		{name: "approval", got: approvalPartitionKey("aps_123"), want: "APPROVAL#aps_123"},
 		{name: "transaction", got: transactionPartitionKey("txn_123"), want: "TXN#txn_123"},
@@ -43,6 +45,71 @@ func TestDocumentedKeys(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestIntegrationCredentialRepositoryUsesSellerScopedKeys verifies no scan path.
+func TestIntegrationCredentialRepositoryUsesSellerScopedKeys(t *testing.T) {
+	t.Parallel()
+
+	credential := testDynamoIntegrationCredential(t)
+	client := &fakeClient{}
+	repository := NewIntegrationCredentialRepository(client, "agentpay-dev")
+	if err := repository.Create(t.Context(), credential); err != nil {
+		t.Fatal(err)
+	}
+	if client.putInput == nil {
+		t.Fatal("Create() did not write a credential")
+	}
+	if readStringAttribute(client.putInput.Item["PK"]) !=
+		sellerPartitionKey(credential.SellerID().String()) ||
+		readStringAttribute(client.putInput.Item["SK"]) !=
+			credentialSortKey(credential.CredentialID().String()) {
+		t.Fatalf("credential item = %#v", client.putInput.Item)
+	}
+
+	client.queryOutput = &awssdk.QueryOutput{
+		Items: []map[string]types.AttributeValue{client.putInput.Item},
+	}
+	credentials, err := repository.ListBySeller(
+		t.Context(),
+		credential.SellerID(),
+	)
+	if err != nil || len(credentials) != 1 {
+		t.Fatalf("ListBySeller() = (%v, %v)", credentials, err)
+	}
+	if client.queryInput == nil ||
+		client.queryInput.KeyConditionExpression == nil ||
+		!strings.Contains(*client.queryInput.KeyConditionExpression, "begins_with") {
+		t.Fatalf("query input = %#v", client.queryInput)
+	}
+}
+
+// testDynamoIntegrationCredential creates a valid credential fixture.
+func testDynamoIntegrationCredential(t *testing.T) integrations.Credential {
+	t.Helper()
+
+	credential, err := integrations.NewCredential(
+		integrations.CredentialParams{
+			CredentialID: mustDynamoID(
+				t,
+				"key_01K5D09YJ0C0M7RJM4FWQ0K9H8",
+				domain.CredentialIDPrefix,
+			),
+			SellerID: mustDynamoID(
+				t,
+				"sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+				domain.SellerIDPrefix,
+			),
+			TokenHash: strings.Repeat("a", 64),
+			Label:     "Codex",
+			Scopes:    []integrations.Scope{integrations.ScopeRead},
+			CreatedAt: testDynamoTime(),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return credential
 }
 
 // TestTransactionCreateConditionallyClaimsPaymentIdentifier verifies replay protection.

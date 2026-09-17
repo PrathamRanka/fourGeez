@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 const (
@@ -47,6 +48,22 @@ func NewService(
 		idGenerator: idGenerator,
 		clock:       clock,
 	}
+}
+
+// AuthorizeSeller verifies ownership without exposing another seller's record.
+func (service *Service) AuthorizeSeller(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+) error {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return err
+	}
+	if seller.OwnerSubject != ownerSubject {
+		return persistence.ErrNotFound
+	}
+	return nil
 }
 
 // CreateSeller creates a seller owned by the authenticated subject.

@@ -21,6 +21,7 @@ func TestParseID(t *testing.T) {
 		wantRule  string
 	}{
 		{name: "seller ID", raw: "sel_" + validULID, prefix: SellerIDPrefix, want: ID("sel_" + validULID)},
+		{name: "credential ID", raw: "key_" + validULID, prefix: CredentialIDPrefix, want: ID("key_" + validULID)},
 		{name: "wrong prefix", raw: "txn_" + validULID, prefix: SellerIDPrefix, wantErr: true, wantField: "id", wantRule: "prefix"},
 		{name: "malformed ULID", raw: "sel_not-a-ulid", prefix: SellerIDPrefix, wantErr: true, wantField: "id", wantRule: "format"},
 		{name: "empty", raw: "", prefix: SellerIDPrefix, wantErr: true, wantField: "id", wantRule: "required"},

@@ -14,6 +14,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -184,6 +185,64 @@ func TestDisputeAndIdempotencyRepositories(t *testing.T) {
 	loaded, found, err := idempotencyStore.Load(ctx, record.Scope, key)
 	if err != nil || !found || loaded.RequestHash != record.RequestHash {
 		t.Fatalf("Load() = (%v, %v, %v)", loaded, found, err)
+	}
+}
+
+// TestIntegrationCredentialRepositoryEnforcesSellerScopeAndVersion verifies storage guards.
+func TestIntegrationCredentialRepositoryEnforcesSellerScopeAndVersion(t *testing.T) {
+	t.Parallel()
+
+	repository := NewIntegrationCredentialRepository()
+	sellerID := mustID(
+		t,
+		"sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+		domain.SellerIDPrefix,
+	)
+	credentialID := mustID(
+		t,
+		"key_01K5D09YJ0C0M7RJM4FWQ0K9H8",
+		domain.CredentialIDPrefix,
+	)
+	credential, err := integrations.NewCredential(
+		integrations.CredentialParams{
+			CredentialID: credentialID,
+			SellerID:     sellerID,
+			TokenHash:    strings.Repeat("a", 64),
+			Label:        "Claude Code",
+			Scopes:       []integrations.Scope{integrations.ScopeRead},
+			CreatedAt:    testTime(),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Create(t.Context(), credential); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.Get(
+		t.Context(),
+		mustID(
+			t,
+			"sel_01K5D09YJ0C0M7RJM4FWQ0K9H8",
+			domain.SellerIDPrefix,
+		),
+		credentialID,
+	); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("cross-seller Get() error = %v", err)
+	}
+	listed, err := repository.ListBySeller(t.Context(), sellerID)
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("ListBySeller() = (%v, %v)", listed, err)
+	}
+	if err := credential.Revoke(testTime().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Update(
+		t.Context(),
+		credential,
+		99,
+	); !errors.Is(err, persistence.ErrConditionFailed) {
+		t.Fatalf("stale Update() error = %v", err)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/realtime"
@@ -32,21 +33,24 @@ func TestOpenAPIM3OperationAndResponseCoverage(t *testing.T) {
 
 	operations := readOpenAPIOperations(t)
 	expected := map[string][]string{
-		"getHealth":              {"200", "429", "503"},
-		"createSeller":           {"201", "400", "409"},
-		"createPaidRoute":        {"201", "400", "404", "409"},
-		"updatePaidRoutePrice":   {"200", "400", "404", "409"},
-		"listSellerTransactions": {"200", "404"},
-		"createPurchaseIntent":   {"201", "400", "409"},
-		"getPurchaseIntent":      {"200", "404"},
-		"createApprovalSession":  {"201", "409", "422"},
-		"getApprovalSession":     {"200", "404"},
-		"decideApproval":         {"200", "409", "410"},
-		"getTransaction":         {"200", "404"},
-		"createDispute":          {"201", "404", "409"},
-		"getDispute":             {"200", "404"},
-		"getStorefrontManifest":  {"200", "404"},
-		"getStorefrontLlmsText":  {"200", "404"},
+		"getHealth":                   {"200", "429", "503"},
+		"createSeller":                {"201", "400", "409"},
+		"createPaidRoute":             {"201", "400", "404", "409"},
+		"updatePaidRoutePrice":        {"200", "400", "404", "409"},
+		"listSellerTransactions":      {"200", "404"},
+		"listIntegrationCredentials":  {"200", "400", "404"},
+		"createIntegrationCredential": {"201", "400", "404", "409"},
+		"revokeIntegrationCredential": {"200", "400", "404", "409"},
+		"createPurchaseIntent":        {"201", "400", "409"},
+		"getPurchaseIntent":           {"200", "404"},
+		"createApprovalSession":       {"201", "409", "422"},
+		"getApprovalSession":          {"200", "404"},
+		"decideApproval":              {"200", "409", "410"},
+		"getTransaction":              {"200", "404"},
+		"createDispute":               {"201", "404", "409"},
+		"getDispute":                  {"200", "404"},
+		"getStorefrontManifest":       {"200", "404"},
+		"getStorefrontLlmsText":       {"200", "404"},
 	}
 	delete(operations, "getPaidResource")
 	delete(operations, "postPaidResource")
@@ -71,6 +75,9 @@ func TestM3OpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "createPaidRoute", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/routes", wantStatus: http.StatusUnauthorized},
 		{operationID: "updatePaidRoutePrice", method: http.MethodPatch, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/routes/rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
 		{operationID: "listSellerTransactions", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/transactions", wantStatus: http.StatusUnauthorized},
+		{operationID: "listIntegrationCredentials", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials", wantStatus: http.StatusUnauthorized},
+		{operationID: "createIntegrationCredential", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials", wantStatus: http.StatusUnauthorized},
+		{operationID: "revokeIntegrationCredential", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials/key_01K5D09YJ0C0M7RJM4FWQ0K9H8/revoke", wantStatus: http.StatusUnauthorized},
 		{operationID: "createPurchaseIntent", method: http.MethodPost, path: "/v1/intents", wantStatus: http.StatusUnauthorized},
 		{operationID: "getPurchaseIntent", method: http.MethodGet, path: "/v1/intents/int_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
 		{operationID: "createApprovalSession", method: http.MethodPost, path: "/v1/intents/int_01K5D09YJ0C0M7RJM4FWQ0K9H7/approval-sessions", wantStatus: http.StatusUnauthorized},
@@ -163,6 +170,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	transactionRepository := memory.NewTransactionRepository()
 	evidenceRepository := memory.NewEvidenceRepository()
 	disputeRepository := memory.NewDisputeRepository()
+	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(
 		clock,
@@ -188,6 +196,19 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	})
 	catalogService := catalog.NewService(catalogRepository, idGenerator, clock)
 	catalog.NewHTTPController(catalogService, idempotencyStore).RegisterRoutes(mux)
+	integrationService := integrations.NewService(
+		integrationCredentialRepository,
+		catalogService,
+		idGenerator,
+		integrations.NewSecureTokenGenerator(
+			strings.NewReader(strings.Repeat("k", 512)),
+		),
+		clock,
+	)
+	integrations.NewHTTPController(
+		integrationService,
+		idempotencyStore,
+	).RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,
 		catalogRepository,

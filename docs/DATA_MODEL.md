@@ -36,7 +36,7 @@ The dual-channel milestone adds `purchaseChannel` and `paymentRail` to new purch
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
 
-### IntegrationCredential (planned M6)
+### IntegrationCredential
 
 An integration credential authorizes one coding-agent or MCP connection to a
 single seller. Raw credential values are displayed only at creation and are
@@ -50,7 +50,6 @@ never persisted.
 | `label` | string | Seller-visible installation name |
 | `scopes` | string array | Explicit read, configure, publish, validate, or rotate permissions |
 | `expiresAt` | timestamp/null | Required for temporary setup credentials |
-| `lastUsedAt` | timestamp/null | Non-sensitive audit metadata |
 | `revokedAt` | timestamp/null | Revocation makes the credential unusable immediately |
 | `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
 | `version` | integer | Used for guarded rotation and revocation |
@@ -58,6 +57,10 @@ never persisted.
 Credential scope never implies permission to deploy a seller repository or
 access seller infrastructure. Deployment authorization remains local to the
 seller's coding-agent environment.
+
+Raw credentials use `apc1.<sellerId>.<credentialId>.<randomSecret>`. The
+seller and credential identifiers permit a point read, but they grant no
+authority without constant-time verification of the complete token hash.
 
 ### PaidRoute
 
@@ -235,6 +238,10 @@ PK=IDEMPOTENCY#<scope>  SK=<key>
 PK=PAYMENT#<paymentIdentifier> SK=CLAIM
 PK=SLUG#<slug>          SK=CLAIM
 ```
+
+Integration credentials remain in the seller partition so listing and
+authorization use point/query operations. Production authentication must never
+scan by token hash.
 
 `PAYMENT#...` and `SLUG#...` claim items are created in the same DynamoDB transaction as their owning record with `attribute_not_exists(PK)` conditions. They enforce uniqueness; the corresponding GSIs remain the query paths for transaction and storefront lookup.
 

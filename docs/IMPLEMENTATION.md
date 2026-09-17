@@ -86,7 +86,7 @@ M5 acceptance: Bedrock cannot execute an unknown route, change an approved inten
 ## Milestone M6 — Automated seller launch
 
 - [x] **AUT-001** Define the automated seller-launch product contract, security boundaries, buyer channels, and implementation order.
-- [ ] **AUT-002** Define and implement seller-scoped integration credentials with read, configure, publish, validate, and rotate scopes.
+- [x] **AUT-002** Define and implement seller-scoped integration credentials with read, configure, publish, validate, and rotate scopes.
 - [ ] **AUT-003** Publish a remote MCP server with authenticated read-only seller, storefront, route, transaction-summary, and integration-document resources.
 - [ ] **AUT-004** Add idempotent MCP mutation tools for storefront creation, route configuration, price changes, validation, and publication with explicit confirmation metadata.
 - [ ] **AUT-005** Implement deterministic OpenAPI and repository-manifest analysis that proposes supported paid routes without publishing them automatically.
