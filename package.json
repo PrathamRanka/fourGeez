@@ -4,25 +4,28 @@
   "private": true,
   "workspaces": [
     "apps/web",
-    "infra"
+    "infra",
+    "verification/node"
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace @agentpay/web",
     "dev:api": "go run ./cmd/api",
     "dev:seller": "go run ./examples/demo-seller",
     "dev:facilitator": "go run ./examples/mock-facilitator",
-    "build": "npm run build:web && npm run build:api && npm run build:infra",
+    "build": "npm run build:web && npm run build:api && npm run build:verification && npm run build:infra",
     "build:web": "npm run build --workspace @agentpay/web",
-    "build:api": "node scripts/go-tool.mjs build ./cmd/... ./internal/... ./examples/...",
+    "build:api": "node scripts/go-tool.mjs build ./cmd/... ./internal/... ./examples/... ./verification/go",
+    "build:verification": "npm run build --workspace @agentpay/verify-node",
     "build:infra": "npm run build --workspace @agentpay/infra",
     "lint": "npm run lint:web && npm run lint:contracts && npm run lint:go",
     "lint:web": "npm run lint --workspace @agentpay/web",
-    "lint:go": "node scripts/go-tool.mjs vet ./cmd/... ./internal/... ./examples/...",
+    "lint:go": "node scripts/go-tool.mjs vet ./cmd/... ./internal/... ./examples/... ./verification/go",
     "lint:contracts": "redocly lint docs/api/openapi.yaml && node scripts/validate-asyncapi.mjs",
-    "test": "npm run test:web && npm run test:go",
+    "test": "npm run test:web && npm run test:go && npm run test:verification",
     "test:web": "npm run test --workspace @agentpay/web",
-    "test:go": "node scripts/go-tool.mjs test ./cmd/... ./internal/... ./examples/...",
-    "typecheck": "npm run typecheck --workspace @agentpay/web && npm run typecheck --workspace @agentpay/infra",
+    "test:go": "node scripts/go-tool.mjs test ./cmd/... ./internal/... ./examples/... ./verification/go",
+    "test:verification": "npm run test --workspace @agentpay/verify-node && node scripts/run-python-verification-tests.mjs",
+    "typecheck": "npm run typecheck --workspace @agentpay/web && npm run typecheck --workspace @agentpay/verify-node && npm run typecheck --workspace @agentpay/infra",
     "cdk:synth": "npm run synth --workspace @agentpay/infra"
   },
   "devDependencies": {

@@ -10,6 +10,7 @@ npm-debug.log*
 /bin/
 *.test
 coverage.out
+verification/node/dist/
 
 # Python / RL research
 .venv/
