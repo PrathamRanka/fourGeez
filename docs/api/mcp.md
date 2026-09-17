@@ -1,6 +1,6 @@
 # AgentPay MCP contract
 
-Status: **Locked for AUT-003**.
+Status: **Locked through AUT-004**.
 
 AgentPay exposes the official Model Context Protocol `2026-07-28` over
 stateless Streamable HTTP at `POST /mcp`. Requests and responses use the
@@ -32,6 +32,32 @@ URIs never accept a caller-supplied seller identifier.
 The transaction summary excludes buyer identity, payment identifiers, payment
 proof hashes, response bodies, evidence payloads, and seller secrets.
 
-AUT-003 exposes no tools, prompts, subscriptions, arbitrary files, shell
-commands, or unrestricted HTTP requests. Mutations are introduced only by
-AUT-004 and require stronger scopes, idempotency, and explicit confirmation.
+The server exposes no subscriptions, arbitrary files, shell commands, or
+unrestricted HTTP requests.
+
+## Mutation tools
+
+All mutation inputs reject unknown fields and include:
+
+- `idempotencyKey`: 8-128 visible ASCII characters;
+- `confirmation.approved`: must be `true`;
+- `confirmation.summary`: 10-500 characters describing the exact commercial
+  change shown to the seller; and
+- `confirmation.confirmedAt`: RFC 3339 UTC timestamp no more than ten minutes
+  old and not in the future.
+
+The MCP host must populate confirmation metadata only after an explicit seller
+action. Agent or repository text is not authorization.
+
+| Tool | Scope | Behavior |
+|---|---|---|
+| `configure_storefront` | `configure` | Updates the existing seller display name and upstream base URL using an expected version. Initial seller creation stays in the seller API/dashboard because credentials are seller-scoped. |
+| `configure_route` | `configure` | Creates a validated `enabled=false` paid-route draft. |
+| `change_route_price` | `configure` | Updates the authoritative price for future intents using an expected version. |
+| `validate_route` | `validate` | Returns deterministic publication checks without persisting state. |
+| `publish_route` | `publish` | Re-runs validation and conditionally enables one draft route using an expected version. |
+
+Idempotency is bound to credential, operation, target, and canonical request
+bytes. A replay returns the stored redacted result; reuse with different input
+returns a conflict. Tools never accept seller IDs, signing secrets, deployment
+credentials, arbitrary URLs, shell commands, or raw repository contents.

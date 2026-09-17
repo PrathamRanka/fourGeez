@@ -74,7 +74,7 @@ type TransactionSummaryItem struct {
 
 // CredentialAuthenticator validates one integration credential and scope.
 type CredentialAuthenticator interface {
-	Authenticate(context.Context, string, integrations.Scope) (integrations.Principal, error)
+	AuthenticateToken(context.Context, string) (integrations.Principal, error)
 }
 
 // CatalogReader reads seller-owned catalog records without mutating them.

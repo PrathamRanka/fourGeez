@@ -15,14 +15,14 @@ var ErrResourceNotFound = errors.New("MCP resource was not found")
 
 const integrationDocumentation = `# AgentPay coding-agent integration
 
-This AUT-003 endpoint is read-only. Inspect the seller, storefront, route, and
-transaction-summary resources before proposing repository changes.
+Inspect the seller, storefront, route, and transaction-summary resources before
+proposing repository changes.
 
 Keep the AgentPay integration credential in ignored server-side configuration.
 Never place it in browser code, logs, prompts, generated source, or commits.
 
-Commercial mutations are unavailable here. AUT-004 adds bounded, idempotent
-tools that require explicit seller confirmation and stronger scopes.
+Commercial mutations use bounded, idempotent tools that require explicit seller
+confirmation and operation-specific scopes.
 `
 
 // Service assembles seller-scoped MCP resource documents.

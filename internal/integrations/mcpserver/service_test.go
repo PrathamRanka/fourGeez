@@ -73,7 +73,7 @@ func TestServiceReadsSellerScopedResources(t *testing.T) {
 			name:     "integration documentation",
 			uri:      IntegrationDocumentationResourceURI,
 			mimeType: MarkdownMIMEType,
-			contains: []string{"AgentPay", "read-only", "AUT-004"},
+			contains: []string{"AgentPay", "idempotent", "operation-specific scopes"},
 		},
 	}
 

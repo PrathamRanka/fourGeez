@@ -277,6 +277,40 @@ func TestServiceAuthenticatePropagatesRepositoryFailure(t *testing.T) {
 	}
 }
 
+// TestServiceAuthenticatesTokenBeforeApplyingOperationScope separates identity from authorization.
+func TestServiceAuthenticatesTokenBeforeApplyingOperationScope(t *testing.T) {
+	t.Parallel()
+
+	service := testCredentialService()
+	created, err := service.Create(
+		t.Context(),
+		"owner-123",
+		domain.ID(testSellerID),
+		CreateCredentialRequest{
+			Label:  "Configuration only",
+			Scopes: []Scope{ScopeConfigure},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	principal, err := service.AuthenticateToken(t.Context(), created.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !principal.HasScope(ScopeConfigure) || principal.HasScope(ScopeRead) {
+		t.Fatalf("principal scopes = %#v", principal.Scopes)
+	}
+	if _, err := service.Authenticate(
+		t.Context(),
+		created.Token,
+		ScopeRead,
+	); !errors.Is(err, ErrScopeDenied) {
+		t.Fatalf("Authenticate() error = %v", err)
+	}
+}
+
 // testCredentialService creates a deterministic credential service.
 func testCredentialService() *Service {
 	return NewService(

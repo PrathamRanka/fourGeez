@@ -84,6 +84,14 @@ authority without constant-time verification of the complete token hash.
 
 Price updates apply only to purchase intents created after the update. Existing intents retain their frozen amount until they expire or execute.
 
+`enabled` is the V1 publication flag. Seller API route creation remains an
+explicit seller-authorized operation and creates an enabled route for backward
+compatibility. MCP route configuration creates `enabled=false` drafts. The MCP
+publish operation revalidates seller ownership, active seller status, signing
+configuration, route configuration, confirmation metadata, expected version,
+and idempotency before changing the draft to `enabled=true` with a conditional
+write. Validation results are computed responses and are not persisted.
+
 Approval threshold evaluation is inclusive: an amount equal to or greater than the applicable threshold requires approval. A missing threshold means no approval requirement from that policy. The recorded policy version is `approval-threshold-v1`.
 
 ### PurchaseIntent

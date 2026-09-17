@@ -7,10 +7,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -21,6 +23,7 @@ func TestHTTPControllerServesAuthenticatedResources(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{},
 		newTestResourceService(t),
+		nil,
 	)
 	server := httptest.NewServer(controller)
 	t.Cleanup(server.Close)
@@ -68,6 +71,7 @@ func TestHTTPControllerRequiresReadableCredential(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{},
 		newTestResourceService(t),
+		nil,
 	)
 	requestBody := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`
 
@@ -78,7 +82,6 @@ func TestHTTPControllerRequiresReadableCredential(t *testing.T) {
 	}{
 		{name: "missing", wantStatus: http.StatusUnauthorized},
 		{name: "invalid", token: "invalid-token", wantStatus: http.StatusUnauthorized},
-		{name: "scope denied", token: "no-read-token", wantStatus: http.StatusForbidden},
 	}
 
 	for _, testCase := range testCases {
@@ -109,6 +112,127 @@ func TestHTTPControllerRequiresReadableCredential(t *testing.T) {
 	}
 }
 
+// TestHTTPControllerEnforcesPerOperationScopes verifies scoped resources and tools.
+func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
+	t.Parallel()
+
+	clock := domain.FixedClock{
+		Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
+	}
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		NewMutationService(
+			&testCatalogMutator{},
+			memory.NewIdempotencyStore(),
+			clock,
+		),
+	)
+	server := httptest.NewServer(controller)
+	t.Cleanup(server.Close)
+	client := protocol.NewClient(
+		&protocol.Implementation{Name: "agentpay-scope-test", Version: "1.0.0"},
+		nil,
+	)
+	session, err := client.Connect(
+		t.Context(),
+		&protocol.StreamableClientTransport{
+			Endpoint:             server.URL,
+			HTTPClient:           authenticatedHTTPClient("no-read-token"),
+			DisableStandaloneSSE: true,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = session.Close()
+	})
+
+	if _, err := session.ReadResource(
+		t.Context(),
+		&protocol.ReadResourceParams{URI: SellerResourceURI},
+	); err == nil {
+		t.Fatal("configure-only credential read a seller resource")
+	}
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 5 {
+		t.Fatalf("tool count = %d, want 5", len(tools.Tools))
+	}
+	result, err := session.CallTool(
+		t.Context(),
+		&protocol.CallToolParams{
+			Name: "configure_route",
+			Arguments: map[string]any{
+				"idempotencyKey": "route-create-003",
+				"confirmation": map[string]any{
+					"approved":    true,
+					"summary":     "Create the reviewed paid research route",
+					"confirmedAt": clock.Now().Format(time.RFC3339),
+				},
+				"route": map[string]any{
+					"method":                  "POST",
+					"pathPattern":             "/research",
+					"description":             "Research",
+					"mimeType":                "application/json",
+					"amount":                  "100",
+					"asset":                   "USDC",
+					"network":                 "eip155:84532",
+					"payTo":                   "0x123",
+					"approvalThresholdAmount": nil,
+					"upstreamTimeoutSeconds":  20,
+				},
+			},
+		},
+	)
+	if err != nil || result.IsError {
+		message := ""
+		if result != nil && len(result.Content) > 0 {
+			if textContent, ok := result.Content[0].(*protocol.TextContent); ok {
+				message = textContent.Text
+			}
+		}
+		t.Fatalf("CallTool() error = %v, message = %s", err, message)
+	}
+	unknownFieldResult, err := session.CallTool(
+		t.Context(),
+		&protocol.CallToolParams{
+			Name: "configure_route",
+			Arguments: map[string]any{
+				"idempotencyKey": "route-create-004",
+				"confirmation": map[string]any{
+					"approved":    true,
+					"summary":     "Create the reviewed paid research route",
+					"confirmedAt": clock.Now().Format(time.RFC3339),
+				},
+				"route": map[string]any{},
+				"admin": true,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !unknownFieldResult.IsError {
+		t.Fatal("configure_route accepted an unknown argument")
+	}
+}
+
+// TestMutationToolResultRedactsUnexpectedErrors verifies safe MCP failures.
+func TestMutationToolResultRedactsUnexpectedErrors(t *testing.T) {
+	t.Parallel()
+
+	repositoryError := errors.New("private dynamodb endpoint")
+	_, _, err := mutationToolResult(MutationResult{}, repositoryError)
+	if err == nil || strings.Contains(err.Error(), repositoryError.Error()) {
+		t.Fatalf("mutationToolResult() error = %v", err)
+	}
+}
+
 // TestHTTPControllerRedactsCredentialRepositoryFailures verifies safe errors.
 func TestHTTPControllerRedactsCredentialRepositoryFailures(t *testing.T) {
 	t.Parallel()
@@ -117,6 +241,7 @@ func TestHTTPControllerRedactsCredentialRepositoryFailures(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{err: repositoryError},
 		newTestResourceService(t),
+		nil,
 	)
 	request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
 	request.Header.Set("Authorization", "Bearer valid-token")
@@ -139,6 +264,7 @@ func TestHTTPControllerLimitsRequestBodies(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{},
 		newTestResourceService(t),
+		nil,
 	)
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -162,10 +288,9 @@ type testCredentialAuthenticator struct {
 }
 
 // Authenticate returns deterministic credential outcomes for transport tests.
-func (authenticator *testCredentialAuthenticator) Authenticate(
+func (authenticator *testCredentialAuthenticator) AuthenticateToken(
 	_ context.Context,
 	rawToken string,
-	_ integrations.Scope,
 ) (integrations.Principal, error) {
 	if authenticator.err != nil {
 		return integrations.Principal{}, authenticator.err
@@ -178,7 +303,11 @@ func (authenticator *testCredentialAuthenticator) Authenticate(
 			Scopes:       []integrations.Scope{integrations.ScopeRead},
 		}, nil
 	case "no-read-token":
-		return integrations.Principal{}, integrations.ErrScopeDenied
+		return integrations.Principal{
+			SellerID:     domain.ID(testSellerID),
+			CredentialID: domain.ID(testCredentialID),
+			Scopes:       []integrations.Scope{integrations.ScopeConfigure},
+		}, nil
 	default:
 		return integrations.Principal{}, integrations.ErrCredentialInvalid
 	}

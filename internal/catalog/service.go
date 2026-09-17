@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"errors"
 	"mime"
 	"net"
 	"net/url"
@@ -26,8 +27,10 @@ const (
 )
 
 var (
-	sellerSlugPattern = regexp.MustCompile(`^[a-z0-9-]{3,48}$`)
-	routePathPattern  = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
+	sellerSlugPattern  = regexp.MustCompile(`^[a-z0-9-]{3,48}$`)
+	routePathPattern   = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
+	ErrRoutePublished  = errors.New("paid route is already published")
+	ErrRouteValidation = errors.New("paid route failed publication validation")
 )
 
 // Service coordinates catalog domain rules with persistence boundaries.
@@ -166,6 +169,209 @@ func (service *Service) UpdateRoutePrice(
 	return route, nil
 }
 
+// ConfigureStorefrontForIntegration updates the credential-bound seller.
+func (service *Service) ConfigureStorefrontForIntegration(
+	ctx context.Context,
+	sellerID domain.ID,
+	request ConfigureStorefrontRequest,
+) (SellerResponse, error) {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return SellerResponse{}, err
+	}
+	if err := seller.Configure(
+		request.Name,
+		request.UpstreamBaseURL,
+		domain.NewTimestamp(service.clock.Now()),
+	); err != nil {
+		return SellerResponse{}, err
+	}
+	if err := service.repository.UpdateSeller(
+		ctx,
+		seller,
+		request.ExpectedVersion,
+	); err != nil {
+		return SellerResponse{}, err
+	}
+	return sellerResponse(seller), nil
+}
+
+// CreateDraftRouteForIntegration creates an unpublished seller route.
+func (service *Service) CreateDraftRouteForIntegration(
+	ctx context.Context,
+	sellerID domain.ID,
+	request CreateRouteRequest,
+) (PaidRoute, error) {
+	if _, err := service.repository.GetSeller(ctx, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
+	routeID, err := service.idGenerator.New(domain.RouteIDPrefix)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	route, err := NewDraftPaidRoute(PaidRouteParams{
+		RouteID:                 routeID,
+		SellerID:                sellerID,
+		Method:                  request.Method,
+		PathPattern:             request.PathPattern,
+		Description:             request.Description,
+		MIMEType:                request.MIMEType,
+		Amount:                  request.Amount,
+		Asset:                   request.Asset,
+		Network:                 request.Network,
+		PayTo:                   request.PayTo,
+		ApprovalThresholdAmount: request.ApprovalThresholdAmount,
+		UpstreamTimeoutSeconds:  request.UpstreamTimeoutSeconds,
+		CreatedAt:               domain.NewTimestamp(service.clock.Now()),
+	})
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.CreateRoute(ctx, route); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// UpdateRoutePriceForIntegration changes one credential-bound seller route.
+func (service *Service) UpdateRoutePriceForIntegration(
+	ctx context.Context,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request UpdateRoutePriceRequest,
+) (PaidRoute, error) {
+	route, err := service.ownedRoute(ctx, sellerID, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := route.ChangePrice(
+		request.Amount,
+		domain.NewTimestamp(service.clock.Now()),
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.UpdateRoute(
+		ctx,
+		route,
+		request.ExpectedVersion,
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// ValidateRouteForIntegration computes deterministic publication checks.
+func (service *Service) ValidateRouteForIntegration(
+	ctx context.Context,
+	sellerID domain.ID,
+	routeID domain.ID,
+) (RouteValidationResult, error) {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return RouteValidationResult{}, err
+	}
+	route, err := service.ownedRoute(ctx, sellerID, routeID)
+	if err != nil {
+		return RouteValidationResult{}, err
+	}
+	checks := []RouteValidationCheck{
+		{
+			Name:    "seller_active",
+			Passed:  seller.Status == SellerStatusActive,
+			Message: "seller must be active",
+		},
+		{
+			Name:    "signing_secret_configured",
+			Passed:  strings.TrimSpace(seller.SigningSecretRef) != "",
+			Message: "seller request signing must be configured",
+		},
+		{
+			Name:    "route_configuration_valid",
+			Passed:  len(validatePaidRouteParams(routeParams(route))) == 0,
+			Message: "stored route must satisfy current validation",
+		},
+	}
+	valid := true
+	for _, check := range checks {
+		if !check.Passed {
+			valid = false
+		}
+	}
+	return RouteValidationResult{
+		SellerID: sellerID,
+		RouteID:  routeID,
+		Valid:    valid,
+		Checks:   checks,
+		Version:  route.Version,
+	}, nil
+}
+
+// PublishRouteForIntegration validates and conditionally enables one draft.
+func (service *Service) PublishRouteForIntegration(
+	ctx context.Context,
+	sellerID domain.ID,
+	routeID domain.ID,
+	expectedVersion uint64,
+) (PaidRoute, error) {
+	validation, err := service.ValidateRouteForIntegration(ctx, sellerID, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if !validation.Valid {
+		return PaidRoute{}, ErrRouteValidation
+	}
+	route, err := service.ownedRoute(ctx, sellerID, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := route.Publish(domain.NewTimestamp(service.clock.Now())); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.UpdateRoute(
+		ctx,
+		route,
+		expectedVersion,
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// ownedRoute loads one route and revalidates its seller binding.
+func (service *Service) ownedRoute(
+	ctx context.Context,
+	sellerID domain.ID,
+	routeID domain.ID,
+) (PaidRoute, error) {
+	route, err := service.repository.GetRoute(ctx, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if route.SellerID != sellerID {
+		return PaidRoute{}, persistence.ErrNotFound
+	}
+	return route, nil
+}
+
+// routeParams reconstructs validation input from one stored route.
+func routeParams(route PaidRoute) PaidRouteParams {
+	return PaidRouteParams{
+		RouteID:                 route.RouteID,
+		SellerID:                route.SellerID,
+		Method:                  route.Method,
+		PathPattern:             route.PathPattern,
+		Description:             route.Description,
+		MIMEType:                route.MIMEType,
+		Amount:                  route.Amount,
+		Asset:                   route.Asset,
+		Network:                 route.Network,
+		PayTo:                   route.PayTo,
+		ApprovalThresholdAmount: route.ApprovalThresholdAmount,
+		UpstreamTimeoutSeconds:  route.UpstreamTimeoutSeconds,
+		CreatedAt:               route.CreatedAt,
+	}
+}
+
 // GetStorefrontManifest resolves a seller and its enabled public routes.
 func (service *Service) GetStorefrontManifest(
 	ctx context.Context,
@@ -265,6 +471,16 @@ func NewSeller(params SellerParams) (Seller, error) {
 
 // NewPaidRoute validates and creates an enabled paid route.
 func NewPaidRoute(params PaidRouteParams) (PaidRoute, error) {
+	return newPaidRoute(params, true)
+}
+
+// NewDraftPaidRoute validates and creates an unpublished paid route.
+func NewDraftPaidRoute(params PaidRouteParams) (PaidRoute, error) {
+	return newPaidRoute(params, false)
+}
+
+// newPaidRoute creates one validated route with explicit publication state.
+func newPaidRoute(params PaidRouteParams, enabled bool) (PaidRoute, error) {
 	validationErrors := validatePaidRouteParams(params)
 	if len(validationErrors) > 0 {
 		return PaidRoute{}, validationErrors
@@ -289,11 +505,131 @@ func NewPaidRoute(params PaidRouteParams) (PaidRoute, error) {
 		PayTo:                   strings.TrimSpace(params.PayTo),
 		ApprovalThresholdAmount: approvalThreshold,
 		UpstreamTimeoutSeconds:  params.UpstreamTimeoutSeconds,
-		Enabled:                 true,
+		Enabled:                 enabled,
 		CreatedAt:               params.CreatedAt,
 		UpdatedAt:               params.CreatedAt,
 		Version:                 1,
 	}, nil
+}
+
+// Configure updates seller fields that coding-agent setup may safely change.
+func (seller *Seller) Configure(
+	name string,
+	upstreamBaseURL string,
+	changedAt domain.Timestamp,
+) error {
+	params := SellerParams{
+		SellerID:        seller.SellerID,
+		OwnerSubject:    seller.OwnerSubject,
+		Slug:            seller.Slug,
+		Name:            name,
+		UpstreamBaseURL: upstreamBaseURL,
+		CreatedAt:       seller.CreatedAt,
+	}
+	validationErrors := validateSellerParams(params)
+	if len(validationErrors) > 0 {
+		return validationErrors
+	}
+	if changedAt.Before(seller.UpdatedAt) {
+		return domain.NewValidationError(
+			"updatedAt",
+			"chronology",
+			"cannot occur before the previous update",
+		)
+	}
+	seller.Name = strings.TrimSpace(name)
+	seller.UpstreamBaseURL = normalizeUpstreamBaseURL(upstreamBaseURL)
+	seller.UpdatedAt = changedAt
+	seller.Version++
+	return nil
+}
+
+// Activate enables the seller after a signing secret has been provisioned.
+func (seller *Seller) Activate(
+	signingSecretRef string,
+	changedAt domain.Timestamp,
+) error {
+	trimmedReference := strings.TrimSpace(signingSecretRef)
+	if trimmedReference == "" || len(trimmedReference) > maximumSigningReferenceLength {
+		return domain.NewValidationError(
+			"signingSecretRef",
+			"required",
+			"must reference a provisioned seller signing secret",
+		)
+	}
+	if changedAt.Before(seller.UpdatedAt) {
+		return domain.NewValidationError(
+			"updatedAt",
+			"chronology",
+			"cannot occur before the previous update",
+		)
+	}
+	seller.SigningSecretRef = trimmedReference
+	seller.Status = SellerStatusActive
+	seller.UpdatedAt = changedAt
+	seller.Version++
+	return nil
+}
+
+// Suspend prevents the seller from issuing new payment challenges.
+func (seller *Seller) Suspend(changedAt domain.Timestamp) error {
+	if changedAt.Before(seller.UpdatedAt) {
+		return domain.NewValidationError(
+			"updatedAt",
+			"chronology",
+			"cannot occur before the previous update",
+		)
+	}
+	seller.Status = SellerStatusSuspended
+	seller.UpdatedAt = changedAt
+	seller.Version++
+	return nil
+}
+
+// ChangePrice updates the route price used by future purchase intents.
+func (paidRoute *PaidRoute) ChangePrice(
+	amount domain.Amount,
+	changedAt domain.Timestamp,
+) error {
+	if amount.IsZero() {
+		return domain.NewValidationError(
+			"amount",
+			"positive",
+			"must be greater than zero",
+		)
+	}
+	if changedAt.Before(paidRoute.UpdatedAt) {
+		return domain.NewValidationError(
+			"updatedAt",
+			"chronology",
+			"cannot occur before the previous update",
+		)
+	}
+	if paidRoute.Amount == amount {
+		return nil
+	}
+	paidRoute.Amount = amount
+	paidRoute.UpdatedAt = changedAt
+	paidRoute.Version++
+	return nil
+}
+
+// Publish enables a validated draft route for new purchase intents.
+func (paidRoute *PaidRoute) Publish(changedAt domain.Timestamp) error {
+	if paidRoute.Enabled {
+		return ErrRoutePublished
+	}
+	if changedAt.Before(paidRoute.UpdatedAt) {
+		return domain.NewValidationError(
+			"updatedAt",
+			"chronology",
+			"cannot occur before the previous update",
+		)
+	}
+	paidRoute.Enabled = true
+	paidRoute.UpdatedAt = changedAt
+	paidRoute.Version++
+	return nil
 }
 
 // validateSellerParams validates seller creation fields.

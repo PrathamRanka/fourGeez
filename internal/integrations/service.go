@@ -192,6 +192,21 @@ func (service *Service) Authenticate(
 	rawToken string,
 	requiredScope Scope,
 ) (Principal, error) {
+	principal, err := service.AuthenticateToken(ctx, rawToken)
+	if err != nil {
+		return Principal{}, err
+	}
+	if !principal.HasScope(requiredScope) {
+		return Principal{}, ErrScopeDenied
+	}
+	return principal, nil
+}
+
+// AuthenticateToken verifies credential identity, lifetime, and revocation.
+func (service *Service) AuthenticateToken(
+	ctx context.Context,
+	rawToken string,
+) (Principal, error) {
 	sellerID, credentialID, err := parseCredentialToken(rawToken)
 	if err != nil {
 		return Principal{}, ErrCredentialInvalid
@@ -216,10 +231,6 @@ func (service *Service) Authenticate(
 	if expiresAt := credential.ExpiresAt(); expiresAt != nil && !now.Before(expiresAt.Time()) {
 		return Principal{}, ErrCredentialExpired
 	}
-	if !credential.HasScope(requiredScope) {
-		return Principal{}, ErrScopeDenied
-	}
-
 	return Principal{
 		SellerID:     sellerID,
 		CredentialID: credentialID,

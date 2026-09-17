@@ -67,6 +67,11 @@ func main() {
 			catalogRepository,
 			transactionRepository,
 		),
+		mcpserver.NewMutationService(
+			catalogService,
+			idempotencyStore,
+			clock,
+		),
 	).RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,

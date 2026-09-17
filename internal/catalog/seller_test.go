@@ -135,3 +135,35 @@ func TestSellerActivationAndSuspension(t *testing.T) {
 		t.Fatalf("suspended seller = %#v", seller)
 	}
 }
+
+// TestSellerConfigurationUpdatesMutableStorefrontFields verifies guarded configuration.
+func TestSellerConfigurationUpdatesMutableStorefrontFields(t *testing.T) {
+	t.Parallel()
+
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC))
+	seller, err := NewSeller(SellerParams{
+		SellerID:        mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		OwnerSubject:    "cognito-user-123",
+		Slug:            "acme-research",
+		Name:            "Acme Research",
+		UpstreamBaseURL: "https://seller.example/api",
+		CreatedAt:       createdAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedAt := createdAt.Add(time.Minute)
+	if err := seller.Configure(
+		"Acme Intelligence",
+		"https://api.acme.example/v1/",
+		changedAt,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if seller.Name != "Acme Intelligence" ||
+		seller.UpstreamBaseURL != "https://api.acme.example/v1" ||
+		seller.Version != 2 ||
+		seller.UpdatedAt != changedAt {
+		t.Fatalf("configured seller = %#v", seller)
+	}
+}

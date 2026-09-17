@@ -2,18 +2,22 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/catalog"
+	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/persistence"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	serverName    = "agentpay"
-	serverVersion = "0.2.0"
+	serverVersion = "0.3.0"
 )
 
 type principalContextKey struct{}
@@ -22,6 +26,7 @@ type principalContextKey struct{}
 type HTTPController struct {
 	authenticator   CredentialAuthenticator
 	resourceService *Service
+	mutationService *MutationService
 	streamHandler   http.Handler
 }
 
@@ -29,10 +34,12 @@ type HTTPController struct {
 func NewHTTPController(
 	authenticator CredentialAuthenticator,
 	resourceService *Service,
+	mutationService *MutationService,
 ) *HTTPController {
 	controller := &HTTPController{
 		authenticator:   authenticator,
 		resourceService: resourceService,
+		mutationService: mutationService,
 	}
 	controller.streamHandler = protocol.NewStreamableHTTPHandler(
 		controller.serverForRequest,
@@ -61,10 +68,9 @@ func (controller *HTTPController) ServeHTTP(
 		http.Error(response, "integration credential is required", http.StatusUnauthorized)
 		return
 	}
-	principal, err := controller.authenticator.Authenticate(
+	principal, err := controller.authenticator.AuthenticateToken(
 		request.Context(),
 		rawToken,
-		integrations.ScopeRead,
 	)
 	if err != nil {
 		controller.writeAuthenticationError(response, err)
@@ -109,6 +115,9 @@ func (controller *HTTPController) serverForRequest(
 				ctx context.Context,
 				request *protocol.ReadResourceRequest,
 			) (*protocol.ReadResourceResult, error) {
+				if !principal.HasScope(integrations.ScopeRead) {
+					return nil, integrations.ErrScopeDenied
+				}
 				document, err := controller.resourceService.Read(
 					ctx,
 					principal,
@@ -132,7 +141,145 @@ func (controller *HTTPController) serverForRequest(
 			},
 		)
 	}
+	if controller.mutationService != nil {
+		controller.registerTools(server, principal)
+	}
 	return server
+}
+
+// registerTools adds the fixed, scoped AUT-004 mutation surface.
+func (controller *HTTPController) registerTools(
+	server *protocol.Server,
+	principal integrations.Principal,
+) {
+	annotations := &protocol.ToolAnnotations{
+		IdempotentHint: true,
+		ReadOnlyHint:   false,
+	}
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "configure_storefront",
+			Description: "Update the existing seller storefront after explicit confirmation",
+			Annotations: annotations,
+		},
+		func(
+			ctx context.Context,
+			_ *protocol.CallToolRequest,
+			input ConfigureStorefrontInput,
+		) (*protocol.CallToolResult, map[string]any, error) {
+			result, err := controller.mutationService.ConfigureStorefront(
+				ctx,
+				principal,
+				input,
+			)
+			return mutationToolResult(result, err)
+		},
+	)
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "configure_route",
+			Description: "Create an unpublished paid-route draft after explicit confirmation",
+			Annotations: annotations,
+		},
+		func(
+			ctx context.Context,
+			_ *protocol.CallToolRequest,
+			input ConfigureRouteInput,
+		) (*protocol.CallToolResult, map[string]any, error) {
+			result, err := controller.mutationService.ConfigureRoute(ctx, principal, input)
+			return mutationToolResult(result, err)
+		},
+	)
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "change_route_price",
+			Description: "Change future-intent pricing after explicit confirmation",
+			Annotations: annotations,
+		},
+		func(
+			ctx context.Context,
+			_ *protocol.CallToolRequest,
+			input ChangeRoutePriceInput,
+		) (*protocol.CallToolResult, map[string]any, error) {
+			result, err := controller.mutationService.ChangeRoutePrice(ctx, principal, input)
+			return mutationToolResult(result, err)
+		},
+	)
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "validate_route",
+			Description: "Run deterministic publication checks without publishing",
+			Annotations: &protocol.ToolAnnotations{
+				IdempotentHint: true,
+				ReadOnlyHint:   true,
+			},
+		},
+		func(
+			ctx context.Context,
+			_ *protocol.CallToolRequest,
+			input ValidateRouteInput,
+		) (*protocol.CallToolResult, map[string]any, error) {
+			result, err := controller.mutationService.ValidateRoute(ctx, principal, input)
+			return mutationToolResult(result, err)
+		},
+	)
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "publish_route",
+			Description: "Validate and publish one draft route after explicit confirmation",
+			Annotations: annotations,
+		},
+		func(
+			ctx context.Context,
+			_ *protocol.CallToolRequest,
+			input PublishRouteInput,
+		) (*protocol.CallToolResult, map[string]any, error) {
+			result, err := controller.mutationService.PublishRoute(ctx, principal, input)
+			return mutationToolResult(result, err)
+		},
+	)
+}
+
+// mutationToolResult converts domain JSON types into their exact MCP wire shape.
+func mutationToolResult(
+	result MutationResult,
+	err error,
+) (*protocol.CallToolResult, map[string]any, error) {
+	if err != nil {
+		return nil, nil, safeMutationError(err)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return nil, nil, err
+	}
+	var structuredResult map[string]any
+	if err := json.Unmarshal(encoded, &structuredResult); err != nil {
+		return nil, nil, err
+	}
+	return nil, structuredResult, nil
+}
+
+// safeMutationError preserves actionable domain errors and redacts internals.
+func safeMutationError(err error) error {
+	var validationError domain.ValidationError
+	var validationErrors domain.ValidationErrors
+	if errors.As(err, &validationError) ||
+		errors.As(err, &validationErrors) ||
+		errors.Is(err, integrations.ErrScopeDenied) ||
+		errors.Is(err, api.ErrIdempotencyConflict) ||
+		errors.Is(err, catalog.ErrRouteValidation) ||
+		errors.Is(err, catalog.ErrRoutePublished) ||
+		errors.Is(err, persistence.ErrNotFound) ||
+		errors.Is(err, persistence.ErrAlreadyExists) ||
+		errors.Is(err, persistence.ErrConditionFailed) {
+		return err
+	}
+	return errors.New("AgentPay mutation failed")
 }
 
 // writeAuthenticationError maps credential failures without leaking internals.

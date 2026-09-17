@@ -125,6 +125,29 @@ type UpdateRoutePriceRequest struct {
 	ExpectedVersion uint64        `json:"expectedVersion"`
 }
 
+// ConfigureStorefrontRequest contains safe mutable seller configuration.
+type ConfigureStorefrontRequest struct {
+	Name            string `json:"name"`
+	UpstreamBaseURL string `json:"upstreamBaseUrl"`
+	ExpectedVersion uint64 `json:"expectedVersion"`
+}
+
+// RouteValidationCheck records one deterministic publication precondition.
+type RouteValidationCheck struct {
+	Name    string `json:"name"`
+	Passed  bool   `json:"passed"`
+	Message string `json:"message"`
+}
+
+// RouteValidationResult contains all publication checks for one route.
+type RouteValidationResult struct {
+	SellerID domain.ID              `json:"sellerId"`
+	RouteID  domain.ID              `json:"routeId"`
+	Valid    bool                   `json:"valid"`
+	Checks   []RouteValidationCheck `json:"checks"`
+	Version  uint64                 `json:"version"`
+}
+
 // StorefrontSeller is the public seller identity in discovery documents.
 type StorefrontSeller struct {
 	Name string `json:"name"`
@@ -142,6 +165,7 @@ type Repository interface {
 	CreateSeller(ctx context.Context, seller Seller) error
 	GetSeller(ctx context.Context, sellerID domain.ID) (Seller, error)
 	ResolveSellerBySlug(ctx context.Context, slug string) (Seller, error)
+	UpdateSeller(ctx context.Context, seller Seller, expectedVersion uint64) error
 	CreateRoute(ctx context.Context, route PaidRoute) error
 	GetRoute(ctx context.Context, routeID domain.ID) (PaidRoute, error)
 	UpdateRoute(ctx context.Context, route PaidRoute, expectedVersion uint64) error

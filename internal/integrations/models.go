@@ -80,6 +80,16 @@ type Principal struct {
 	Scopes       []Scope
 }
 
+// HasScope reports whether the credential grants one exact capability.
+func (principal Principal) HasScope(required Scope) bool {
+	for _, scope := range principal.Scopes {
+		if scope == required {
+			return true
+		}
+	}
+	return false
+}
+
 // Repository persists seller-scoped integration credentials.
 type Repository interface {
 	Create(context.Context, Credential) error

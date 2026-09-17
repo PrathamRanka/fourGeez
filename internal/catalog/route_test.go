@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -129,5 +130,42 @@ func TestPaidRouteChangePrice(t *testing.T) {
 	}
 	if paidRoute.Amount.String() != "40000000" || paidRoute.Version != 2 {
 		t.Fatal("failed price change mutated route")
+	}
+}
+
+// TestDraftPaidRoutePublication verifies explicit publication state changes.
+func TestDraftPaidRoutePublication(t *testing.T) {
+	t.Parallel()
+
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC))
+	paidRoute, err := NewDraftPaidRoute(PaidRouteParams{
+		RouteID:                mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
+		SellerID:               mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		Method:                 RouteMethodPost,
+		PathPattern:            "/research",
+		Description:            "Generate market research",
+		MIMEType:               "application/json",
+		Amount:                 domain.MustParseAmount("35000000"),
+		Asset:                  "test-usdc",
+		Network:                "test-network",
+		PayTo:                  "0x1234567890abcdef",
+		UpstreamTimeoutSeconds: 20,
+		CreatedAt:              createdAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paidRoute.Enabled {
+		t.Fatal("draft route was published during construction")
+	}
+	publishedAt := createdAt.Add(time.Minute)
+	if err := paidRoute.Publish(publishedAt); err != nil {
+		t.Fatal(err)
+	}
+	if !paidRoute.Enabled || paidRoute.Version != 2 || paidRoute.UpdatedAt != publishedAt {
+		t.Fatalf("published route = %#v", paidRoute)
+	}
+	if err := paidRoute.Publish(publishedAt.Add(time.Minute)); !errors.Is(err, ErrRoutePublished) {
+		t.Fatalf("second Publish() error = %v", err)
 	}
 }
