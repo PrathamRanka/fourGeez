@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.3.4
+  version: 0.3.5
   description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
   license:
     name: Proprietary
@@ -30,6 +30,8 @@ tags:
     description: Payment, delivery, and evidence status.
   - name: Billing
     description: Seller plans, entitlements, usage, and invoice exports.
+  - name: Audit
+    description: Immutable seller-visible control-plane change history.
   - name: Disputes
     description: Deterministic dispute classification and review.
   - name: Proxy
@@ -141,6 +143,24 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /v1/sellers/{sellerId}/audit-events:
+    get:
+      summary: List immutable seller audit history
+      tags: [Audit]
+      operationId: listSellerAuditEvents
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/AuditLimit' }
+        - { $ref: '#/components/parameters/AuditCursor' }
+      responses:
+        '200':
+          description: Newest-first bounded seller audit page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEventPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/sellers/{sellerId}/routes:
     post:
       summary: Add a paid route to a seller
@@ -811,6 +831,8 @@ components:
     DeliveryId: { name: deliveryId, in: path, required: true, schema: { type: string, pattern: '^whd_[A-Za-z0-9]+$' } }
     DeliveryLimit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
     DeliveryCursor: { name: cursor, in: query, required: false, schema: { type: string, pattern: '^whd_[A-Za-z0-9]+$' } }
+    AuditLimit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    AuditCursor: { name: cursor, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 512 } }
     TransactionFrom: { name: from, in: query, required: false, schema: { type: string, format: date-time } }
     TransactionTo: { name: to, in: query, required: false, schema: { type: string, format: date-time } }
     TransactionRouteId: { name: routeId, in: query, required: false, schema: { type: string, pattern: '^rte_[A-Za-z0-9]+$' } }
@@ -912,6 +934,38 @@ components:
         lineItems:
           type: array
           items: { $ref: '#/components/schemas/InvoiceLineItem' }
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [auditEventId, sellerId, actorType, actorId, action, targetType, targetId, outcome, requestId, changedFields, occurredAt]
+      properties:
+        auditEventId: { type: string, pattern: '^aud_[A-Za-z0-9]+$' }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        actorType: { type: string, enum: [seller_user, integration_credential, administrator, system] }
+        actorId: { type: string, minLength: 1, maxLength: 256 }
+        action:
+          type: string
+          enum: [credential.created, credential.revoked, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
+        targetType: { type: string, enum: [integration_credential, payment_destination, paid_route, webhook_subscription, seller] }
+        targetId: { type: string, minLength: 1, maxLength: 64 }
+        outcome: { type: string, enum: [succeeded, failed, denied] }
+        requestId: { type: string, minLength: 1, maxLength: 128 }
+        changedFields:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
+        occurredAt: { type: string, format: date-time }
+    AuditEventPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/AuditEvent' }
+        nextCursor: { type: string, minLength: 1, maxLength: 512 }
     CreateRouteRequest:
       type: object
       additionalProperties: false

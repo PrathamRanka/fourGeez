@@ -12,6 +12,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
@@ -58,6 +59,7 @@ type Service struct {
 	idGenerator      domain.IDGenerator
 	tokenGenerator   TokenGenerator
 	clock            domain.Clock
+	auditRecorder    audit.Recorder
 }
 
 // NewService creates the integration credential application service.
@@ -67,6 +69,7 @@ func NewService(
 	idGenerator domain.IDGenerator,
 	tokenGenerator TokenGenerator,
 	clock domain.Clock,
+	auditRecorder audit.Recorder,
 ) *Service {
 	return &Service{
 		repository:       repository,
@@ -74,6 +77,7 @@ func NewService(
 		idGenerator:      idGenerator,
 		tokenGenerator:   tokenGenerator,
 		clock:            clock,
+		auditRecorder:    auditRecorder,
 	}
 }
 
@@ -119,6 +123,22 @@ func (service *Service) Create(
 		return CredentialCreated{}, err
 	}
 	if err := service.repository.Create(ctx, credential); err != nil {
+		return CredentialCreated{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionCredentialCreated,
+		TargetType: audit.TargetTypeIntegrationCredential,
+		TargetID:   credential.CredentialID().String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"label",
+			"scopes",
+			"expiresAt",
+		},
+	}); err != nil {
 		return CredentialCreated{}, err
 	}
 
@@ -181,6 +201,20 @@ func (service *Service) Revoke(
 		credential,
 		expectedVersion,
 	); err != nil {
+		return CredentialView{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionCredentialRevoked,
+		TargetType: audit.TargetTypeIntegrationCredential,
+		TargetID:   credentialID.String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"revokedAt",
+		},
+	}); err != nil {
 		return CredentialView{}, err
 	}
 	return credentialView(credential), nil

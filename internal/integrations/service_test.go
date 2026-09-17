@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
@@ -30,6 +31,7 @@ func TestServiceCreatesAndAuthenticatesScopedCredential(t *testing.T) {
 		&credentialIDGenerator{id: domain.ID(testCredentialID)},
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		clock,
+		audit.NoopRecorder{},
 	)
 	expiresAt := domain.NewTimestamp(clock.Now().Add(time.Hour))
 
@@ -165,6 +167,7 @@ func TestServiceRejectsModifiedAndExpiredTokens(t *testing.T) {
 		&credentialIDGenerator{id: domain.ID(testCredentialID)},
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		clock,
+		audit.NoopRecorder{},
 	)
 	expiresAt := domain.NewTimestamp(clock.now.Add(time.Minute))
 	created, err := service.Create(
@@ -234,6 +237,7 @@ func TestServiceRejectsCrossSellerManagement(t *testing.T) {
 		domain.FixedClock{
 			Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
 		},
+		audit.NoopRecorder{},
 	)
 	_, err := service.Create(
 		t.Context(),
@@ -264,6 +268,7 @@ func TestServiceAuthenticatePropagatesRepositoryFailure(t *testing.T) {
 		domain.FixedClock{
 			Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
 		},
+		audit.NoopRecorder{},
 	)
 	rawToken := credentialToken(
 		domain.ID(testSellerID),
@@ -321,6 +326,7 @@ func testCredentialService() *Service {
 		domain.FixedClock{
 			Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
 		},
+		audit.NoopRecorder{},
 	)
 }
 

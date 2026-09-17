@@ -52,6 +52,8 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `notifications`: signed seller webhook subscriptions and delivery attempts.
 - `billing`: seller plans, quotas, usage meters, and invoice exports; it never
   controls buyer funds or seller settlement.
+- `audit`: immutable seller-visible control-plane change history and bounded
+  tenant-scoped reads.
 
 The billing package owns a versioned static plan catalog plus one seller plan
 assignment record. Other packages may read entitlements through a narrow

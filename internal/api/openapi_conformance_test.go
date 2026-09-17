@@ -17,6 +17,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
@@ -42,6 +43,7 @@ func TestOpenAPIM3OperationAndResponseCoverage(t *testing.T) {
 		"listSellerPlans":                   {"200", "429"},
 		"getSellerPlan":                     {"200", "400", "404"},
 		"getSellerInvoiceExport":            {"200", "400", "404", "422"},
+		"listSellerAuditEvents":             {"200", "400", "404"},
 		"createPaidRoute":                   {"201", "400", "404", "409"},
 		"updatePaidRoutePrice":              {"200", "400", "404", "409"},
 		"listPaymentDestinations":           {"200", "400", "404"},
@@ -207,6 +209,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
 	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
+	auditEventRepository := memory.NewAuditEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(
@@ -219,6 +222,11 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
+	auditAppender := audit.NewAppender(
+		auditEventRepository,
+		idGenerator,
+		clock,
+	)
 	evidenceSigner, err := evidence.NewLocalHMACSigner(
 		"conformance-key-v1",
 		[]byte(strings.Repeat("e", 32)),
@@ -231,8 +239,21 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	mux.HandleFunc("GET /health", func(response http.ResponseWriter, _ *http.Request) {
 		_ = api.WriteJSON(response, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	catalogService := catalog.NewService(catalogRepository, idGenerator, clock)
+	catalogService := catalog.NewService(
+		catalogRepository,
+		idGenerator,
+		clock,
+		auditAppender,
+	)
 	catalog.NewHTTPController(catalogService, idempotencyStore).RegisterRoutes(mux)
+	audit.NewHTTPController(
+		audit.NewService(
+			auditEventRepository,
+			catalogService,
+			idGenerator,
+			clock,
+		),
+	).RegisterRoutes(mux)
 	billingService := billing.NewService(
 		sellerPlanRepository,
 		catalogService,
@@ -258,6 +279,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		),
 		settlement.NewEVMPersonalSignOwnershipVerifier(),
 		clock,
+		auditAppender,
 	)
 	settlement.NewHTTPController(
 		settlementService,
@@ -271,6 +293,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 			strings.NewReader(strings.Repeat("k", 512)),
 		),
 		clock,
+		auditAppender,
 	)
 	integrations.NewHTTPController(
 		integrationService,
@@ -286,6 +309,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 			),
 			webhookSecretStore,
 			clock,
+			auditAppender,
 		),
 		idempotencyStore,
 	).RegisterRoutes(mux)

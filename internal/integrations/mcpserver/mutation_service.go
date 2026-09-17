@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
@@ -36,6 +37,7 @@ type MutationService struct {
 	idempotencyStore domain.IdempotencyStore
 	clock            domain.Clock
 	sandboxValidator SandboxValidator
+	auditRecorder    audit.Recorder
 }
 
 // NewMutationService creates the MCP catalog mutation service.
@@ -44,12 +46,14 @@ func NewMutationService(
 	idempotencyStore domain.IdempotencyStore,
 	clock domain.Clock,
 	sandboxValidator SandboxValidator,
+	auditRecorder audit.Recorder,
 ) *MutationService {
 	return &MutationService{
 		catalogMutator:   catalogMutator,
 		idempotencyStore: idempotencyStore,
 		clock:            clock,
 		sandboxValidator: sandboxValidator,
+		auditRecorder:    auditRecorder,
 	}
 }
 
@@ -133,6 +137,30 @@ func (service *MutationService) ConfigureRoute(
 			if err != nil {
 				return MutationResult{}, err
 			}
+			if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+				SellerID:   principal.SellerID,
+				ActorType:  audit.ActorTypeIntegrationCredential,
+				ActorID:    principal.CredentialID.String(),
+				Action:     audit.ActionRouteDraftCreated,
+				TargetType: audit.TargetTypePaidRoute,
+				TargetID:   route.RouteID.String(),
+				Outcome:    audit.OutcomeSucceeded,
+				ChangedFields: []string{
+					"method",
+					"pathPattern",
+					"description",
+					"mimeType",
+					"amount",
+					"asset",
+					"network",
+					"payTo",
+					"approvalThresholdAmount",
+					"upstreamTimeoutSeconds",
+					"enabled",
+				},
+			}); err != nil {
+				return MutationResult{}, err
+			}
 			return MutationResult{Operation: "configure_route", Route: &route}, nil
 		},
 	)
@@ -172,6 +200,20 @@ func (service *MutationService) ChangeRoutePrice(
 				},
 			)
 			if err != nil {
+				return MutationResult{}, err
+			}
+			if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+				SellerID:   principal.SellerID,
+				ActorType:  audit.ActorTypeIntegrationCredential,
+				ActorID:    principal.CredentialID.String(),
+				Action:     audit.ActionRoutePriceChanged,
+				TargetType: audit.TargetTypePaidRoute,
+				TargetID:   routeID.String(),
+				Outcome:    audit.OutcomeSucceeded,
+				ChangedFields: []string{
+					"amount",
+				},
+			}); err != nil {
 				return MutationResult{}, err
 			}
 			return MutationResult{Operation: "change_route_price", Route: &route}, nil
@@ -284,6 +326,20 @@ func (service *MutationService) PublishRoute(
 				input.ExpectedVersion,
 			)
 			if err != nil {
+				return MutationResult{}, err
+			}
+			if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+				SellerID:   principal.SellerID,
+				ActorType:  audit.ActorTypeIntegrationCredential,
+				ActorID:    principal.CredentialID.String(),
+				Action:     audit.ActionRoutePublished,
+				TargetType: audit.TargetTypePaidRoute,
+				TargetID:   routeID.String(),
+				Outcome:    audit.OutcomeSucceeded,
+				ChangedFields: []string{
+					"enabled",
+				},
+			}); err != nil {
 				return MutationResult{}, err
 			}
 			return MutationResult{Operation: "publish_route", Route: &route}, nil

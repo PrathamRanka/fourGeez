@@ -18,6 +18,7 @@ const (
 	PaymentDestinationIDPrefix  IDPrefix = "dst_"
 	WebhookSubscriptionIDPrefix IDPrefix = "whk_"
 	WebhookDeliveryIDPrefix     IDPrefix = "whd_"
+	AuditEventIDPrefix          IDPrefix = "aud_"
 	UsageMeterEventIDPrefix     IDPrefix = "mtr_"
 	RouteIDPrefix               IDPrefix = "rte_"
 	IntentIDPrefix              IDPrefix = "int_"
@@ -33,6 +34,7 @@ var supportedIDPrefixes = []IDPrefix{
 	PaymentDestinationIDPrefix,
 	WebhookSubscriptionIDPrefix,
 	WebhookDeliveryIDPrefix,
+	AuditEventIDPrefix,
 	UsageMeterEventIDPrefix,
 	RouteIDPrefix,
 	IntentIDPrefix,

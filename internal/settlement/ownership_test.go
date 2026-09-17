@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
@@ -110,6 +111,7 @@ func TestServiceRejectsInvalidOwnershipChallenges(t *testing.T) {
 				fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
 				testOwnershipVerifier{valid: test.verifierValid},
 				clock,
+				audit.NoopRecorder{},
 			)
 			destination := createOwnershipTestDestination(
 				t,
@@ -225,6 +227,7 @@ func newOwnershipTestService(
 		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
 		testOwnershipVerifier{valid: true},
 		clock,
+		audit.NoopRecorder{},
 	)
 	return service, repository, sellerID
 }

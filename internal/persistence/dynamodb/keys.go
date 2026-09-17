@@ -17,6 +17,11 @@ func usageMeterSourceSortKey(meterName string, sourceID string) string {
 	return "METER_SOURCE#" + meterName + "#" + sourceID
 }
 
+// auditEventSortKey returns the chronological immutable audit key.
+func auditEventSortKey(occurredAt time.Time, auditEventID string) string {
+	return "AUDIT#" + occurredAt.UTC().Format(time.RFC3339Nano) + "#" + auditEventID
+}
+
 const profileSortKey = "PROFILE"
 
 const sellerPlanSortKey = "BILLING_PLAN"

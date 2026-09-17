@@ -8,6 +8,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
@@ -51,10 +52,16 @@ func main() {
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
 	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
+	auditEventRepository := memory.NewAuditEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
+	auditAppender := audit.NewAppender(
+		auditEventRepository,
+		idGenerator,
+		clock,
+	)
 	sellerSigner := proxy.NewHMACSigner(
 		proxy.NewLocalSecretProvider(
 			[]byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
@@ -73,9 +80,18 @@ func main() {
 		catalogRepository,
 		idGenerator,
 		clock,
+		auditAppender,
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
 	catalogController.RegisterRoutes(mux)
+	audit.NewHTTPController(
+		audit.NewService(
+			auditEventRepository,
+			catalogService,
+			idGenerator,
+			clock,
+		),
+	).RegisterRoutes(mux)
 	billingService := billing.NewService(
 		sellerPlanRepository,
 		catalogService,
@@ -98,6 +114,7 @@ func main() {
 		settlement.NewSecureOwnershipNonceGenerator(nil),
 		settlement.NewEVMPersonalSignOwnershipVerifier(),
 		clock,
+		auditAppender,
 	)
 	settlement.NewHTTPController(
 		settlementService,
@@ -109,6 +126,7 @@ func main() {
 		idGenerator,
 		integrations.NewSecureTokenGenerator(nil),
 		clock,
+		auditAppender,
 	)
 	integrations.NewHTTPController(
 		integrationService,
@@ -122,6 +140,7 @@ func main() {
 			notifications.NewSecureSecretGenerator(nil),
 			webhookSecretStore,
 			clock,
+			auditAppender,
 		),
 		idempotencyStore,
 	).RegisterRoutes(mux)
@@ -148,6 +167,7 @@ func main() {
 			idempotencyStore,
 			clock,
 			sandboxService,
+			auditAppender,
 		),
 		analyzer.NewService(),
 	).RegisterRoutes(mux)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
@@ -201,6 +202,7 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 			memory.NewIdempotencyStore(),
 			clock,
 			&testSandboxValidator{valid: true},
+			audit.NoopRecorder{},
 		),
 		nil,
 	)
@@ -373,6 +375,7 @@ func TestHTTPControllerRunsSandboxValidation(t *testing.T) {
 			memory.NewIdempotencyStore(),
 			clock,
 			&testSandboxValidator{valid: true},
+			audit.NoopRecorder{},
 		),
 		nil,
 	)

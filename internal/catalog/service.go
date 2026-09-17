@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
@@ -35,9 +36,10 @@ var (
 
 // Service coordinates catalog domain rules with persistence boundaries.
 type Service struct {
-	repository  Repository
-	idGenerator domain.IDGenerator
-	clock       domain.Clock
+	repository    Repository
+	idGenerator   domain.IDGenerator
+	clock         domain.Clock
+	auditRecorder audit.Recorder
 }
 
 // NewService creates the catalog application service.
@@ -45,11 +47,13 @@ func NewService(
 	repository Repository,
 	idGenerator domain.IDGenerator,
 	clock domain.Clock,
+	auditRecorder audit.Recorder,
 ) *Service {
 	return &Service{
-		repository:  repository,
-		idGenerator: idGenerator,
-		clock:       clock,
+		repository:    repository,
+		idGenerator:   idGenerator,
+		clock:         clock,
+		auditRecorder: auditRecorder,
 	}
 }
 
@@ -135,6 +139,30 @@ func (service *Service) CreateRoute(
 	if err := service.repository.CreateRoute(ctx, route); err != nil {
 		return PaidRoute{}, err
 	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionRoutePublished,
+		TargetType: audit.TargetTypePaidRoute,
+		TargetID:   route.RouteID.String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"method",
+			"pathPattern",
+			"description",
+			"mimeType",
+			"amount",
+			"asset",
+			"network",
+			"payTo",
+			"approvalThresholdAmount",
+			"upstreamTimeoutSeconds",
+			"enabled",
+		},
+	}); err != nil {
+		return PaidRoute{}, err
+	}
 	return route, nil
 }
 
@@ -164,6 +192,20 @@ func (service *Service) UpdateRoutePrice(
 		return PaidRoute{}, err
 	}
 	if err := service.repository.UpdateRoute(ctx, route, request.ExpectedVersion); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionRoutePriceChanged,
+		TargetType: audit.TargetTypePaidRoute,
+		TargetID:   routeID.String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"amount",
+		},
+	}); err != nil {
 		return PaidRoute{}, err
 	}
 	return route, nil

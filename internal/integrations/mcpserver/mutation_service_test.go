@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
@@ -26,6 +27,7 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 		memory.NewIdempotencyStore(),
 		clock,
 		&testSandboxValidator{valid: true},
+		audit.NoopRecorder{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -86,6 +88,7 @@ func TestMutationServiceRequiresScopeAndFreshConfirmation(t *testing.T) {
 		memory.NewIdempotencyStore(),
 		clock,
 		&testSandboxValidator{valid: true},
+		audit.NoopRecorder{},
 	)
 	input := ConfigureRouteInput{
 		IdempotencyKey: "route-create-002",
@@ -129,6 +132,7 @@ func TestMutationServiceRequiresPassingSandboxBeforePublication(t *testing.T) {
 		memory.NewIdempotencyStore(),
 		clock,
 		validator,
+		audit.NoopRecorder{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -183,6 +187,7 @@ func TestMutationServiceRejectsSandboxResultForAnotherRouteVersion(t *testing.T)
 		memory.NewIdempotencyStore(),
 		clock,
 		&testSandboxValidator{valid: true, routeVersion: 2},
+		audit.NoopRecorder{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),

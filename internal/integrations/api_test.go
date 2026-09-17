@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -151,6 +152,7 @@ func newIntegrationHandler(t *testing.T) (*integrations.Service, http.Handler) {
 		&integrationIDGenerator{},
 		&integrationTokenGenerator{},
 		clock,
+		audit.NoopRecorder{},
 	)
 	controller := integrations.NewHTTPController(
 		service,

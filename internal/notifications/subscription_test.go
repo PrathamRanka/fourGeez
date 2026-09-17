@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
@@ -26,6 +27,7 @@ func TestServiceCreatesSellerWebhookSubscription(t *testing.T) {
 		fixedWebhookSecretGenerator{secret: strings.Repeat("s", 43)},
 		secretStore,
 		clock,
+		audit.NoopRecorder{},
 	)
 
 	created, err := service.Create(

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
@@ -206,6 +207,7 @@ func newSettlementHandler(t *testing.T, sellerID domain.ID) http.Handler {
 		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
 		testOwnershipVerifier{valid: true},
 		clock,
+		audit.NoopRecorder{},
 	)
 	controller := NewHTTPController(service, newTestIdempotencyStore())
 	mux := http.NewServeMux()

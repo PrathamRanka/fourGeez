@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
@@ -43,6 +44,7 @@ type Service struct {
 	secretGenerator SecretGenerator
 	secretStore     SecretStore
 	clock           domain.Clock
+	auditRecorder   audit.Recorder
 }
 
 // NewService creates the webhook subscription service.
@@ -53,6 +55,7 @@ func NewService(
 	secretGenerator SecretGenerator,
 	secretStore SecretStore,
 	clock domain.Clock,
+	auditRecorder audit.Recorder,
 ) *Service {
 	return &Service{
 		repository:      repository,
@@ -61,6 +64,7 @@ func NewService(
 		secretGenerator: secretGenerator,
 		secretStore:     secretStore,
 		clock:           clock,
+		auditRecorder:   auditRecorder,
 	}
 }
 
@@ -102,6 +106,22 @@ func (service *Service) Create(
 		return SubscriptionCreated{}, err
 	}
 	if err := service.repository.Create(ctx, subscription); err != nil {
+		return SubscriptionCreated{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionWebhookSubscriptionCreated,
+		TargetType: audit.TargetTypeWebhookSubscription,
+		TargetID:   subscription.SubscriptionID().String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"endpointUrl",
+			"eventTypes",
+			"status",
+		},
+	}); err != nil {
 		return SubscriptionCreated{}, err
 	}
 	return SubscriptionCreated{

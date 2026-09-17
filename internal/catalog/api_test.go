@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -181,7 +182,12 @@ func newCatalogHandler(t *testing.T) http.Handler {
 	clock := domain.FixedClock{
 		Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
 	}
-	service := catalog.NewService(repository, domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("a", 256))), clock)
+	service := catalog.NewService(
+		repository,
+		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("a", 256))),
+		clock,
+		audit.NoopRecorder{},
+	)
 	controller := catalog.NewHTTPController(service, idempotencyStore)
 	mux := http.NewServeMux()
 	controller.RegisterRoutes(mux)

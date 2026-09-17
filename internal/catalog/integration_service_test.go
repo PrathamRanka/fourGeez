@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -21,6 +22,7 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 		repository,
 		&integrationCatalogIDGenerator{},
 		clock,
+		audit.NoopRecorder{},
 	)
 	seller, err := service.CreateSeller(
 		t.Context(),

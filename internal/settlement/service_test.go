@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
@@ -31,6 +32,7 @@ func TestServiceCreatesListsAndReadsSellerDestination(t *testing.T) {
 		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
 		testOwnershipVerifier{valid: true},
 		clock,
+		audit.NoopRecorder{},
 	)
 
 	created, err := service.Create(
@@ -81,6 +83,7 @@ func TestServiceHidesDestinationsFromOtherSellers(t *testing.T) {
 		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
 		testOwnershipVerifier{valid: true},
 		clock,
+		audit.NoopRecorder{},
 	)
 
 	_, err := service.List(context.Background(), "different-user", sellerID)

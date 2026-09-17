@@ -4,7 +4,7 @@ Status: **Locked for the implemented backend; planned M6/M7 additions are explic
 
 ## Conventions
 
-- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, `key_`, `dst_`, and `whk_`. Planned M7 entities add `whd_` webhook deliveries, `aud_` audit events, and `mtr_` usage-meter events.
+- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, `key_`, `dst_`, `whk_`, `whd_`, `aud_`, and `mtr_`.
 - Timestamps are RFC 3339 UTC strings.
 - Payment amounts are canonical strings in atomic units; floating-point numbers and leading zeros are forbidden at persistence boundaries, except that zero is `"0"`.
 - `asset` is a chain-specific contract or asset identifier.
@@ -354,13 +354,43 @@ It contains no buyer funds, price, tax, currency, payment destination, or
 collection instruction. A future billing adapter may price and collect the
 export without changing x402 settlement.
 
-### AuditEvent (planned M7)
+### AuditEvent
 
-Audit events append seller-scoped changes to credentials, payment destinations,
-routes, prices, publication state, webhook subscriptions, quotas, and
-administrative status. Each event records actor, action, target, outcome,
-request ID, timestamp, and allowlisted changed-field names without secrets or
-repository contents.
+Audit events are immutable seller-scoped records of committed control-plane
+changes. Each event stores `auditEventId`, `sellerId`, `actorType`, `actorId`,
+`action`, `targetType`, `targetId`, `outcome`, `requestId`, `changedFields`, and
+`occurredAt`. `changedFields` contains sorted, unique field names only. Audit
+events never contain old or new values, credential material, wallet challenges
+or proofs, webhook secrets, payment proofs, request bodies, or repository
+contents.
+
+Actor vocabulary is `seller_user`, `integration_credential`, `administrator`,
+and `system`. Target vocabulary is `integration_credential`,
+`payment_destination`, `paid_route`, `webhook_subscription`, and `seller`.
+Outcome vocabulary is `succeeded`, `failed`, and `denied`.
+
+Action vocabulary is fixed to:
+
+- `credential.created` and `credential.revoked`;
+- `payment_destination.created`, `payment_destination.verified`,
+  `payment_destination.disabled`, and `payment_destination.rotated`;
+- `route.draft_created`, `route.price_changed`, `route.published`,
+  `route.paused`, `route.archived`, and `route.emergency_disabled`;
+- `webhook_subscription.created`, `webhook_subscription.updated`, and
+  `webhook_subscription.disabled`; and
+- `seller.suspended`.
+
+Each action has an allowlist of changed fields owned by that domain. Unknown
+actions, mismatched target types, duplicate field names, and fields outside the
+action allowlist are rejected before persistence. V1 appends audit events for
+successful committed mutations. Failed and denied attempts remain in security
+and operational logs until a durable attempt-audit transaction is introduced.
+
+Seller history is queried newest-first from `PK=SELLER#<sellerId>` and
+`SK=AUDIT#<occurredAt>#<auditEventId>`. Pages default to 50 events and are
+bounded to 100. Cursors are opaque, seller-bound, and identify the last event
+from the previous page. Audit records are append-only and have no update or
+delete operation.
 
 ### ApprovalConnection
 

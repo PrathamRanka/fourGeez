@@ -23,6 +23,8 @@ Run without AWS or network access.
 - Asset/network-separated aggregate updates and duplicate-event rejection.
 - Webhook signature, retry, dead-letter, redelivery, and SSRF behavior.
 - Plan quota boundaries and immutable usage-meter events.
+- Audit action vocabulary, changed-field allowlists, append-only persistence,
+  tenant-bound cursors, and seller authorization.
 - SEO/AEO validation for canonical URLs, structured data, visible-content
   consistency, sitemap, robots directives, `llms.txt`, and manifest output.
 

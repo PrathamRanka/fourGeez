@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
@@ -23,6 +24,7 @@ type Service struct {
 	nonceGenerator    OwnershipNonceGenerator
 	ownershipVerifier OwnershipVerifier
 	clock             domain.Clock
+	auditRecorder     audit.Recorder
 }
 
 // NewService creates the payment-destination application service.
@@ -33,6 +35,7 @@ func NewService(
 	nonceGenerator OwnershipNonceGenerator,
 	ownershipVerifier OwnershipVerifier,
 	clock domain.Clock,
+	auditRecorder audit.Recorder,
 ) *Service {
 	return &Service{
 		repository:        repository,
@@ -41,6 +44,7 @@ func NewService(
 		nonceGenerator:    nonceGenerator,
 		ownershipVerifier: ownershipVerifier,
 		clock:             clock,
+		auditRecorder:     auditRecorder,
 	}
 }
 
@@ -129,6 +133,23 @@ func (service *Service) Create(
 		return PaymentDestination{}, err
 	}
 	if err := service.repository.Create(ctx, destination); err != nil {
+		return PaymentDestination{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionPaymentDestinationCreated,
+		TargetType: audit.TargetTypePaymentDestination,
+		TargetID:   destination.DestinationID.String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"asset",
+			"network",
+			"address",
+			"status",
+		},
+	}); err != nil {
 		return PaymentDestination{}, err
 	}
 	return destination, nil
@@ -280,6 +301,37 @@ func (service *Service) VerifyOwnership(
 	}
 	if err := service.repository.Activate(ctx, activation); err != nil {
 		return PaymentDestination{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   sellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     audit.ActionPaymentDestinationVerified,
+		TargetType: audit.TargetTypePaymentDestination,
+		TargetID:   destination.DestinationID.String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"status",
+			"verifiedAt",
+		},
+	}); err != nil {
+		return PaymentDestination{}, err
+	}
+	if activeDestination != nil {
+		if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+			SellerID:   sellerID,
+			ActorType:  audit.ActorTypeSellerUser,
+			ActorID:    ownerSubject,
+			Action:     audit.ActionPaymentDestinationRotated,
+			TargetType: audit.TargetTypePaymentDestination,
+			TargetID:   activeDestination.DestinationID.String(),
+			Outcome:    audit.OutcomeSucceeded,
+			ChangedFields: []string{
+				"status",
+			},
+		}); err != nil {
+			return PaymentDestination{}, err
+		}
 	}
 	return destination, nil
 }
