@@ -1,0 +1,54 @@
+asyncapi: 3.0.0
+info:
+  title: AgentPay approval events
+  version: 0.1.0
+  description: WebSocket updates for a single approval session. REST remains the source of truth.
+servers:
+  local:
+    host: localhost:8081
+    protocol: ws
+    pathname: /ws
+channels:
+  approvalSession:
+    address: /approval-sessions/{sessionId}
+    parameters:
+      sessionId:
+        description: Approval session identifier
+    messages:
+      sessionSnapshot: { $ref: '#/components/messages/SessionSnapshot' }
+      approverJoined: { $ref: '#/components/messages/ApproverJoined' }
+      decisionRecorded: { $ref: '#/components/messages/DecisionRecorded' }
+      sessionResolved: { $ref: '#/components/messages/SessionResolved' }
+operations:
+  receiveApprovalEvents:
+    action: receive
+    channel: { $ref: '#/channels/approvalSession' }
+    summary: Receive approval session updates after authenticating with an invitation token.
+components:
+  messages:
+    SessionSnapshot:
+      name: session.snapshot
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    ApproverJoined:
+      name: approver.joined
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    DecisionRecorded:
+      name: approval.decided
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    SessionResolved:
+      name: session.resolved
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+  schemas:
+    EventEnvelope:
+      type: object
+      additionalProperties: false
+      required: [eventId, type, sessionId, occurredAt, data]
+      properties:
+        eventId: { type: string }
+        type: { type: string, enum: [session.snapshot, approver.joined, approval.decided, session.resolved] }
+        sessionId: { type: string }
+        occurredAt: { type: string, format: date-time }
+        data:
+          type: object
+          description: Current redacted session snapshot; invitation tokens and approval tokens are never broadcast.
+

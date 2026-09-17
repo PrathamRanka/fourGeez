@@ -1,0 +1,602 @@
+openapi: 3.1.0
+info:
+  title: AgentPay API
+  version: 0.1.0
+  description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: https://{apiHost}
+    description: Environment-specific API Gateway origin
+    variables:
+      apiHost:
+        default: api.agentpay.invalid
+        description: Replace with the deployed API Gateway custom domain.
+tags:
+  - name: Sellers
+    description: Seller onboarding, route configuration, and transaction views.
+  - name: Storefront
+    description: Public machine-readable discovery documents.
+  - name: Intents
+    description: Immutable purchase proposals evaluated before payment.
+  - name: Approvals
+    description: Threshold-triggered multi-party authorization.
+  - name: Transactions
+    description: Payment, delivery, and evidence status.
+  - name: Disputes
+    description: Deterministic dispute classification and review.
+  - name: Proxy
+    description: x402-protected forwarding to configured seller APIs.
+paths:
+  /health:
+    get:
+      summary: Check service health
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
+        '503':
+          description: A required dependency is unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          description: Health endpoint rate limit exceeded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/sellers:
+    post:
+      summary: Create a seller storefront
+      tags: [Sellers]
+      operationId: createSeller
+      security: [{ sellerBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSellerRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/SellerCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/routes:
+    post:
+      summary: Add a paid route to a seller
+      tags: [Sellers]
+      operationId: createPaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRouteRequest' }
+      responses:
+        '201':
+          description: Route created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/transactions:
+    get:
+      summary: List transactions for a seller
+      tags: [Sellers, Transactions]
+      operationId: listSellerTransactions
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: Seller transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+                  nextCursor: { type: [string, 'null'] }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/intents:
+    post:
+      summary: Create an immutable purchase intent
+      tags: [Intents]
+      operationId: createPurchaseIntent
+      security: [{ agentApiKey: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateIntentRequest' }
+      responses:
+        '201':
+          description: Immutable purchase intent created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseIntent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/intents/{intentId}:
+    get:
+      summary: Get a purchase intent
+      tags: [Intents]
+      operationId: getPurchaseIntent
+      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/IntentId' }]
+      responses:
+        '200':
+          description: Purchase intent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseIntent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/intents/{intentId}/approval-sessions:
+    post:
+      summary: Start a two-person approval session
+      tags: [Approvals]
+      operationId: createApprovalSession
+      security: [{ agentApiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IntentId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approvers]
+              properties:
+                approvers:
+                  type: array
+                  minItems: 2
+                  maxItems: 2
+                  items:
+                    type: object
+                    required: [label]
+                    properties:
+                      label: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '201':
+          description: Approval session and one-time invitation URLs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalSessionCreated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /v1/approval-sessions/{sessionId}:
+    get:
+      summary: Get the current approval snapshot
+      tags: [Approvals]
+      operationId: getApprovalSession
+      security: [{ agentApiKey: [] }, { approvalInvite: [] }]
+      parameters: [{ $ref: '#/components/parameters/SessionId' }]
+      responses:
+        '200':
+          description: Current approval snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalSession' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/approval-sessions/{sessionId}/decisions:
+    post:
+      summary: Approve or veto a purchase
+      tags: [Approvals]
+      operationId: decideApproval
+      security: [{ approvalInvite: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SessionId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, veto] }
+      responses:
+        '200':
+          description: Updated approval snapshot; approvalToken is returned only when the session first resolves approved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/ApprovalSession' }
+                  - type: object
+                    properties:
+                      approvalToken: { type: string }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+  /v1/transactions/{transactionId}:
+    get:
+      summary: Get a transaction and its evidence chain
+      tags: [Transactions]
+      operationId: getTransaction
+      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/TransactionId' }]
+      responses:
+        '200':
+          description: Transaction and evidence verification summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transaction, evidence]
+                properties:
+                  transaction: { $ref: '#/components/schemas/Transaction' }
+                  evidence:
+                    type: object
+                    required: [valid, events]
+                    properties:
+                      valid: { type: boolean }
+                      events:
+                        type: array
+                        items: { $ref: '#/components/schemas/EvidenceEvent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/disputes:
+    post:
+      summary: Open and classify a dispute
+      tags: [Disputes]
+      operationId: createDispute
+      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDisputeRequest' }
+      responses:
+        '201':
+          description: Dispute classified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dispute' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/disputes/{disputeId}:
+    get:
+      summary: Get a dispute
+      tags: [Disputes]
+      operationId: getDispute
+      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      parameters:
+        - name: disputeId
+          in: path
+          required: true
+          schema: { type: string, pattern: '^dsp_[A-Za-z0-9]+$' }
+      responses:
+        '200':
+          description: Dispute
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dispute' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /store/{slug}/manifest.json:
+    get:
+      summary: Get a storefront manifest
+      tags: [Storefront]
+      operationId: getStorefrontManifest
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9-]+$' }
+      responses:
+        '200':
+          description: Machine-readable paid route manifest
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StorefrontManifest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /store/{slug}/llms.txt:
+    get:
+      summary: Get the storefront agent-discovery document
+      tags: [Storefront]
+      operationId: getStorefrontLlmsText
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9-]+$' }
+      responses:
+        '200':
+          description: Plain-text agent discovery document
+          content:
+            text/plain:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /pay/{slug}/{proxyPath}:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema: { type: string }
+      - name: proxyPath
+        in: path
+        required: true
+        description: Greedy path parameter in API Gateway deployment
+        schema: { type: string }
+      - name: X-AgentPay-Intent-Id
+        in: header
+        required: true
+        schema: { type: string }
+      - name: X-AgentPay-Approval
+        in: header
+        required: false
+        schema: { type: string }
+      - name: PAYMENT-SIGNATURE
+        in: header
+        required: false
+        schema: { type: string }
+    get:
+      summary: Purchase a configured GET resource
+      tags: [Proxy]
+      operationId: getPaidResource
+      security: [{ agentApiKey: [] }]
+      responses: { '200': { $ref: '#/components/responses/ProxiedResponse' }, '402': { $ref: '#/components/responses/PaymentRequired' }, '428': { $ref: '#/components/responses/ApprovalRequired' } }
+    post:
+      summary: Purchase a configured POST resource
+      tags: [Proxy]
+      operationId: postPaidResource
+      security: [{ agentApiKey: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {}
+      responses: { '200': { $ref: '#/components/responses/ProxiedResponse' }, '402': { $ref: '#/components/responses/PaymentRequired' }, '428': { $ref: '#/components/responses/ApprovalRequired' } }
+components:
+  securitySchemes:
+    sellerBearer: { type: http, scheme: bearer, bearerFormat: JWT }
+    agentApiKey: { type: apiKey, in: header, name: X-AgentPay-Agent-Key }
+    approvalInvite: { type: apiKey, in: query, name: token }
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }
+    SellerId: { name: sellerId, in: path, required: true, schema: { type: string, pattern: '^sel_[A-Za-z0-9]+$' } }
+    IntentId: { name: intentId, in: path, required: true, schema: { type: string, pattern: '^int_[A-Za-z0-9]+$' } }
+    SessionId: { name: sessionId, in: path, required: true, schema: { type: string, pattern: '^aps_[A-Za-z0-9]+$' } }
+    TransactionId: { name: transactionId, in: path, required: true, schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' } }
+  schemas:
+    CreateSellerRequest:
+      type: object
+      additionalProperties: false
+      required: [name, slug, upstreamBaseUrl]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        slug: { type: string, pattern: '^[a-z0-9-]{3,48}$' }
+        upstreamBaseUrl: { type: string, format: uri }
+    Seller:
+      type: object
+      required: [sellerId, name, slug, upstreamBaseUrl, status, createdAt]
+      properties:
+        sellerId: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        upstreamBaseUrl: { type: string, format: uri }
+        status: { type: string, enum: [draft, active, suspended] }
+        createdAt: { type: string, format: date-time }
+    CreateRouteRequest:
+      type: object
+      additionalProperties: false
+      required: [method, pathPattern, description, mimeType, amount, asset, network, payTo]
+      properties:
+        method: { type: string, enum: [GET, POST] }
+        pathPattern: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
+        description: { type: string, minLength: 1, maxLength: 500 }
+        mimeType: { type: string, maxLength: 120 }
+        amount: { $ref: '#/components/schemas/AtomicAmount' }
+        asset: { type: string, minLength: 1, maxLength: 160 }
+        network: { type: string, minLength: 1, maxLength: 80 }
+        payTo: { type: string, minLength: 1, maxLength: 160 }
+        approvalThresholdAmount: { oneOf: [{ $ref: '#/components/schemas/AtomicAmount' }, { type: 'null' }] }
+        upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 30, default: 20 }
+    PaidRoute:
+      allOf:
+        - { $ref: '#/components/schemas/CreateRouteRequest' }
+        - type: object
+          required: [routeId, sellerId, enabled, createdAt]
+          properties:
+            routeId: { type: string }
+            sellerId: { type: string }
+            enabled: { type: boolean }
+            createdAt: { type: string, format: date-time }
+    CreateIntentRequest:
+      type: object
+      additionalProperties: false
+      required: [routeId, requestBodyHash, maximumAmount]
+      properties:
+        routeId: { type: string }
+        requestBodyHash: { $ref: '#/components/schemas/Sha256' }
+        maximumAmount: { $ref: '#/components/schemas/AtomicAmount' }
+    PurchaseIntent:
+      type: object
+      required: [intentId, routeId, sellerId, buyerId, amount, asset, network, requestBodyHash, intentHash, maximumAmount, requiresApproval, status, expiresAt, createdAt]
+      properties:
+        intentId: { type: string }
+        routeId: { type: string }
+        sellerId: { type: string }
+        buyerId: { type: string }
+        amount: { $ref: '#/components/schemas/AtomicAmount' }
+        asset: { type: string }
+        network: { type: string }
+        requestBodyHash: { $ref: '#/components/schemas/Sha256' }
+        intentHash: { $ref: '#/components/schemas/Sha256' }
+        maximumAmount: { $ref: '#/components/schemas/AtomicAmount' }
+        requiresApproval: { type: boolean }
+        status: { type: string, enum: [ready, approval_pending, approved, expired, executed] }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    ApprovalSessionCreated:
+      allOf:
+        - { $ref: '#/components/schemas/ApprovalSession' }
+        - type: object
+          required: [invitations]
+          properties:
+            invitations:
+              type: array
+              items:
+                type: object
+                required: [label, url]
+                properties:
+                  label: { type: string }
+                  url: { type: string, format: uri }
+    ApprovalSession:
+      type: object
+      required: [sessionId, intentId, intentHash, requiredApprovals, decisions, status, expiresAt, createdAt]
+      properties:
+        sessionId: { type: string }
+        intentId: { type: string }
+        intentHash: { $ref: '#/components/schemas/Sha256' }
+        requiredApprovals: { type: integer, const: 2 }
+        decisions:
+          type: array
+          items:
+            type: object
+            required: [label, decision, decidedAt]
+            properties:
+              label: { type: string }
+              decision: { type: string, enum: [approve, veto] }
+              decidedAt: { type: string, format: date-time }
+        status: { type: string, enum: [pending, approved, vetoed, expired] }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    Transaction:
+      type: object
+      required: [transactionId, intentId, sellerId, routeId, buyerId, status, amount, asset, network, createdAt, updatedAt]
+      properties:
+        transactionId: { type: string }
+        intentId: { type: string }
+        sellerId: { type: string }
+        routeId: { type: string }
+        buyerId: { type: string }
+        status: { type: string, enum: [PROPOSED, APPROVAL_PENDING, APPROVED, PAYMENT_REQUIRED, PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] }
+        amount: { $ref: '#/components/schemas/AtomicAmount' }
+        asset: { type: string }
+        network: { type: string }
+        upstreamStatus: { type: [integer, 'null'] }
+        responseHash: { oneOf: [{ $ref: '#/components/schemas/Sha256' }, { type: 'null' }] }
+        failureCode: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EvidenceEvent:
+      type: object
+      required: [eventId, transactionId, sequence, eventType, actorType, payload, eventHash, kmsKeyId, kmsSignature, createdAt]
+      properties:
+        eventId: { type: string }
+        transactionId: { type: string }
+        sequence: { type: integer, minimum: 1 }
+        eventType: { type: string }
+        actorType: { type: string, enum: [system, seller, buyer, approver] }
+        actorId: { type: [string, 'null'] }
+        payload: { type: object }
+        previousEventHash: { oneOf: [{ $ref: '#/components/schemas/Sha256' }, { type: 'null' }] }
+        eventHash: { $ref: '#/components/schemas/Sha256' }
+        kmsKeyId: { type: string }
+        kmsSignature: { type: string }
+        createdAt: { type: string, format: date-time }
+    CreateDisputeRequest:
+      type: object
+      additionalProperties: false
+      required: [transactionId, reason]
+      properties:
+        transactionId: { type: string }
+        reason: { type: string, enum: [unauthorized, duplicate, wrong_amount, not_delivered, quality_or_output] }
+        statement: { type: string, maxLength: 2000 }
+    Dispute:
+      type: object
+      required: [disputeId, transactionId, reason, status, classificationCode, explanation, createdAt]
+      properties:
+        disputeId: { type: string }
+        transactionId: { type: string }
+        reason: { type: string, enum: [unauthorized, duplicate, wrong_amount, not_delivered, quality_or_output] }
+        status: { type: string, enum: [open, refund_recommended, seller_review, denied, resolved] }
+        classificationCode: { type: string }
+        explanation: { type: string }
+        createdAt: { type: string, format: date-time }
+    StorefrontManifest:
+      type: object
+      required: [seller, routes]
+      properties:
+        seller:
+          type: object
+          required: [name, slug]
+          properties:
+            name: { type: string }
+            slug: { type: string }
+        routes:
+          type: array
+          items: { $ref: '#/components/schemas/PaidRoute' }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }
+            details: { type: object }
+    AtomicAmount: { type: string, pattern: '^[0-9]+$', example: '10000' }
+    Sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+  responses:
+    SellerCreated:
+      description: Seller created
+      content: { application/json: { schema: { $ref: '#/components/schemas/Seller' } } }
+    ProxiedResponse:
+      description: Successful seller response
+      headers:
+        X-AgentPay-Transaction-Id: { schema: { type: string } }
+        PAYMENT-RESPONSE: { schema: { type: string }, description: x402 v2 settlement response when supplied by the payment adapter }
+      content: { application/json: { schema: {} } }
+    PaymentRequired:
+      description: x402 v2 payment challenge
+      headers:
+        PAYMENT-REQUIRED: { required: true, schema: { type: string }, description: Base64-encoded x402 PaymentRequired payload }
+        Cache-Control: { schema: { type: string, const: no-store } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ApprovalRequired:
+      description: Purchase requires approval before a payment challenge can be issued
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/Error' }
+              - type: object
+                properties:
+                  approvalSessionId: { type: string }
+    BadRequest: { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Resource not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Idempotency or state conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Gone: { description: Invitation or session expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unprocessable: { description: Request is valid JSON but violates a business rule, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

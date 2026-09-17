@@ -1,0 +1,37 @@
+@startuml AgentPay Purchase Sequence
+!theme plain
+title Purchase with threshold approval and x402 v2
+
+actor Buyer
+actor "Approver A" as A
+actor "Approver B" as B
+participant "Go API" as API
+participant "Evidence" as Evidence
+participant "x402 facilitator" as Facilitator
+participant "Seller API" as Seller
+
+Buyer -> API : POST /v1/intents
+API -> API : Resolve route, freeze quote, evaluate policy
+API --> Buyer : 201 intent (requiresApproval=true)
+Buyer -> API : POST /intents/{id}/approval-sessions
+API -> Evidence : append approval.requested
+API --> Buyer : session + two invitation URLs
+A -> API : approve with invitation token
+API -> Evidence : append approval.decided
+B -> API : approve with invitation token
+API -> Evidence : append approval.decided + approval.resolved
+API --> B : approved + one-time approval token
+Buyer -> API : paid-route request + intent + approval token
+API -> API : validate complete intent hash
+API --> Buyer : 402 + PAYMENT-REQUIRED
+Buyer -> API : retry + PAYMENT-SIGNATURE
+API -> Facilitator : verify and settle testnet payment
+Facilitator --> API : settlement response
+API -> Evidence : append payment.verified
+API -> API : conditional claim for forwarding
+API -> Seller : signed allowlisted request
+Seller --> API : response
+API -> Evidence : append delivery.succeeded/failed
+API --> Buyer : seller response + transaction ID + PAYMENT-RESPONSE
+@enduml
+

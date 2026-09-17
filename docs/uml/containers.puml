@@ -1,0 +1,35 @@
+@startuml AgentPay Containers
+!theme plain
+title AgentPay — Runtime Containers
+
+actor Seller
+actor Buyer
+actor Approver
+
+rectangle "Next.js web\nAmplify Hosting" as Web
+rectangle "API Gateway\nHTTP + WebSocket" as Gateway
+rectangle "Go modular monolith\nAWS Lambda" as API
+database "DynamoDB\noperational state" as DDB
+storage "S3 Object Lock\nevidence events" as S3
+rectangle "AWS KMS\nevidence signing" as KMS
+rectangle "Cognito\nseller identity" as Cognito
+rectangle "Secrets Manager\nwallet + seller secrets" as Secrets
+cloud "Bedrock" as Bedrock
+cloud "x402 facilitator" as Facilitator
+rectangle "Seller API" as SellerAPI
+
+Seller --> Web
+Approver --> Web
+Buyer --> Gateway
+Web --> Gateway
+Gateway --> API
+API --> DDB
+API --> S3
+API --> KMS
+API --> Cognito
+API --> Secrets
+API --> Bedrock
+API --> Facilitator
+API --> SellerAPI : HTTPS + HMAC signature
+@enduml
+

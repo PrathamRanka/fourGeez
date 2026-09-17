@@ -1,0 +1,21 @@
+@startuml AgentPay System Context
+!theme plain
+title AgentPay — System Context
+
+actor "API seller" as Seller
+actor "Approver" as Approver
+actor "Agent / buyer" as Buyer
+rectangle "AgentPay\nSeller-side agent commerce gateway" as AgentPay
+rectangle "Seller API" as SellerAPI
+cloud "x402 facilitator\n(testnet)" as Facilitator
+cloud "AWS Bedrock" as Bedrock
+
+Seller --> AgentPay : Configures paid routes\nreviews transactions/disputes
+Buyer --> AgentPay : Discovers offers\ncreates intent\npays for request
+Approver --> AgentPay : Reviews and approves/vetoes
+AgentPay --> SellerAPI : Forwards one signed request
+AgentPay --> Facilitator : Verifies/settles testnet payment
+AgentPay --> Bedrock : Requests structured proposal/explanation
+Bedrock --> AgentPay : Tool calls only\n(no wallet access)
+@enduml
+

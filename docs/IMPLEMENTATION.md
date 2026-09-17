@@ -9,10 +9,10 @@ Tasks must be completed in ID order unless their listed dependencies are already
 - [x] **DOC-001** Create the documentation index and authority rules.
 - [x] **DOC-002** Lock product and architecture decisions.
 - [x] **DOC-003** Define runtime architecture and trust boundaries.
-- [ ] **DOC-004** Define persisted entities and state machines.
-- [ ] **DOC-005** Publish OpenAPI 3.1 REST contract.
-- [ ] **DOC-006** Publish AsyncAPI WebSocket contract.
-- [ ] **DOC-007** Publish PlantUML system and sequence diagrams.
+- [x] **DOC-004** Define persisted entities and state machines.
+- [x] **DOC-005** Publish OpenAPI 3.1 REST contract.
+- [x] **DOC-006** Publish AsyncAPI WebSocket contract.
+- [x] **DOC-007** Publish PlantUML system and sequence diagrams.
 - [ ] **DOC-008** Publish AWS setup and teardown runbook.
 - [ ] **DOC-009** Publish security requirements and threat model.
 - [ ] **DOC-010** Publish test and release gates.

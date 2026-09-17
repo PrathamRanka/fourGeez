@@ -1,0 +1,30 @@
+@startuml AgentPay Dispute Sequence
+!theme plain
+title Deterministic dispute classification
+
+actor Claimant
+participant "Go API" as API
+participant "Dispute rules" as Rules
+database "DynamoDB" as DDB
+participant "Evidence verifier" as Evidence
+
+Claimant -> API : POST /v1/disputes
+API -> DDB : load transaction and existing dispute
+API -> Evidence : load chain and verify hashes/signatures
+Evidence --> API : valid/invalid + events
+API -> Rules : reason + transaction + evidence facts
+
+alt unauthorized with matching approval/payment
+  Rules --> API : denied
+else duplicate, wrong amount, or failed delivery
+  Rules --> API : refund_recommended
+else quality/output claim
+  Rules --> API : seller_review
+else invalid evidence chain
+  Rules --> API : seller_review + integrity alert
+end
+
+API -> DDB : persist result idempotently
+API --> Claimant : 201 dispute with explanation
+@enduml
+
