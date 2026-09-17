@@ -101,7 +101,7 @@ M6 acceptance: a seller can connect a supported coding agent, review generated c
 This track may begin after M1 and must not block or modify the payment-critical milestones.
 
 - [x] **RL-000** Scaffold the isolated Python workspace with file-level contracts and TODOs.
-- [ ] **RL-001** Implement strict versioned recommendation and outcome contracts.
+- [x] **RL-001** Implement strict versioned recommendation and outcome contracts.
 - [ ] **RL-002** Implement candidate validation and deterministic feature construction.
 - [ ] **RL-003** Implement and test the deterministic ranking baseline.
 - [ ] **RL-004** Implement reproducible synthetic data generation.

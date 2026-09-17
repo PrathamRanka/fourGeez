@@ -28,6 +28,9 @@ The recommender returns:
 }
 ```
 
+The exact versioned JSON fields and validation rules are defined in
+[`CONTRACTS.md`](CONTRACTS.md).
+
 The Go backend independently verifies that every returned offer exists, remains available, is within the approved maximum, and satisfies policy.
 
 ## Outcome events
@@ -97,4 +100,3 @@ mypy src
 python -m agentpay_rl.cli simulate
 python -m agentpay_rl.cli evaluate
 ```
-
