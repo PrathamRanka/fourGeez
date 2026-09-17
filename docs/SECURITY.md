@@ -67,6 +67,12 @@ challenges are returned with `Cache-Control: no-store`; raw signatures are never
 persisted or logged. Contract-wallet ownership proofs require a separately
 documented verifier and are not accepted by the initial EOA verifier.
 
+Webhook signing uses a per-subscription 256-bit secret returned once at
+creation. Domain records contain only an opaque secret reference. Versioned
+canonical JSON is signed with HMAC-SHA256 over the event ID, delivery timestamp,
+and body digest; verification uses constant-time comparison. Subscription URLs
+must be public HTTPS endpoints, and delivery-time DNS checks remain mandatory.
+
 Canonicalization must be versioned. Version 1 uses:
 
 1. UTF-8 JSON.

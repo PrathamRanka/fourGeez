@@ -17,6 +17,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations/mcpserver"
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
@@ -45,6 +46,8 @@ func main() {
 	disputeRepository := memory.NewDisputeRepository()
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
+	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
+	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
@@ -90,6 +93,17 @@ func main() {
 	)
 	integrations.NewHTTPController(
 		integrationService,
+		idempotencyStore,
+	).RegisterRoutes(mux)
+	notifications.NewHTTPController(
+		notifications.NewService(
+			webhookSubscriptionRepository,
+			catalogService,
+			idGenerator,
+			notifications.NewSecureSecretGenerator(nil),
+			webhookSecretStore,
+			clock,
+		),
 		idempotencyStore,
 	).RegisterRoutes(mux)
 	mcpserver.NewHTTPController(

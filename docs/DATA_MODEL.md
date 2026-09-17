@@ -4,7 +4,7 @@ Status: **Locked for the implemented backend; planned M6/M7 additions are explic
 
 ## Conventions
 
-- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, and `key_`. Planned M7 entities add `dst_` payment destinations, `whk_` webhook subscriptions, `whd_` webhook deliveries, `aud_` audit events, and `mtr_` usage-meter events.
+- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, `key_`, `dst_`, and `whk_`. Planned M7 entities add `whd_` webhook deliveries, `aud_` audit events, and `mtr_` usage-meter events.
 - Timestamps are RFC 3339 UTC strings.
 - Payment amounts are canonical strings in atomic units; floating-point numbers and leading zeros are forbidden at persistence boundaries, except that zero is `"0"`.
 - `asset` is a chain-specific contract or asset identifier.
@@ -245,13 +245,20 @@ read model never combines different assets or networks.
 | `amount` | string | Atomic-unit total for this exact asset/network/stage bucket |
 | `lastTransactionAt` | timestamp | Newest transaction update included in this bucket |
 
-### WebhookSubscription and WebhookDelivery (planned M7)
+### WebhookSubscription and WebhookDelivery
 
 `WebhookSubscription` stores a seller-scoped HTTPS destination, allowlisted
 event types, secret reference, enabled status, and version. `WebhookDelivery`
 stores the event ID, subscription ID, attempt number, status, response metadata,
 next retry time, and payload hash. It never stores the signing secret or an
 unrestricted response body.
+
+Webhook subscription IDs use `whk_`. Creation returns a 256-bit signing secret
+once and stores it through the configured secret-store boundary; the
+subscription record stores only its opaque reference. Event bodies use schema
+version `1` and one of `payment.verified`, `fulfillment.succeeded`,
+`fulfillment.failed`, or `dispute.changed`. Canonical JSON is signed with
+HMAC-SHA256 over the event ID, delivery timestamp, and body hash.
 
 ### UsageMeterEvent (planned M7)
 

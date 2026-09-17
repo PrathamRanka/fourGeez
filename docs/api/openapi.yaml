@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.3.3
+  version: 0.3.4
   description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
   license:
     name: Proprietary
@@ -207,6 +207,53 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '410': { $ref: '#/components/responses/Gone' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /v1/sellers/{sellerId}/webhook-subscriptions:
+    get:
+      summary: List seller webhook subscriptions
+      tags: [Sellers]
+      operationId: listWebhookSubscriptions
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+      responses:
+        '200':
+          description: Redacted webhook subscriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WebhookSubscription' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Create a seller webhook subscription
+      tags: [Sellers]
+      operationId: createWebhookSubscription
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWebhookSubscriptionRequest' }
+      responses:
+        '201':
+          description: Subscription metadata and the signing secret returned once
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookSubscriptionCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/sellers/{sellerId}/integration-credentials:
     get:
       summary: List redacted seller integration credentials
@@ -712,6 +759,42 @@ components:
         challenge: { type: string, minLength: 1, maxLength: 2048 }
         signature: { type: string, minLength: 1, maxLength: 4096 }
         confirmRotation: { type: boolean }
+    WebhookEventType:
+      type: string
+      enum: [payment.verified, fulfillment.succeeded, fulfillment.failed, dispute.changed]
+    CreateWebhookSubscriptionRequest:
+      type: object
+      additionalProperties: false
+      required: [endpointUrl, eventTypes]
+      properties:
+        endpointUrl: { type: string, format: uri, pattern: '^https://' }
+        eventTypes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/WebhookEventType' }
+    WebhookSubscription:
+      type: object
+      additionalProperties: false
+      required: [subscriptionId, sellerId, endpointUrl, eventTypes, status, createdAt, updatedAt, version]
+      properties:
+        subscriptionId: { type: string, pattern: '^whk_[A-Za-z0-9]+$' }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        endpointUrl: { type: string, format: uri, pattern: '^https://' }
+        eventTypes:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookEventType' }
+        status: { type: string, enum: [active, disabled] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    WebhookSubscriptionCreated:
+      allOf:
+        - { $ref: '#/components/schemas/WebhookSubscription' }
+        - type: object
+          required: [signingSecret]
+          properties:
+            signingSecret: { type: string, minLength: 32 }
     CreateIntegrationCredentialRequest:
       type: object
       additionalProperties: false

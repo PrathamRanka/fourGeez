@@ -18,6 +18,7 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 | [api/openapi.yaml](api/openapi.yaml) | REST/HTTP API contract |
 | [api/asyncapi.yaml](api/asyncapi.yaml) | WebSocket event contract |
 | [api/mcp.md](api/mcp.md) | Remote MCP transport, authentication, and resource contract |
+| [api/webhooks.md](api/webhooks.md) | Seller webhook event envelope and signature contract |
 | [SELLER_VERIFICATION.md](SELLER_VERIFICATION.md) | Versioned seller-request verification package contract |
 | [SETUP_BUNDLES.md](SETUP_BUNDLES.md) | Versioned coding-agent setup resources and prompt contract |
 | [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md) | Pre-publication seller integration validation contract |
