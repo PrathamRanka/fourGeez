@@ -25,6 +25,8 @@ Status: **Locked for hackathon implementation**.
 | `upstreamBaseUrl` | string | HTTPS only outside local development |
 | `signingSecretRef` | string | Secrets Manager ARN/reference, never secret material |
 | `status` | enum | `draft`, `active`, `suspended` |
+| `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
+| `version` | integer | Starts at 1 and increments on mutation |
 
 ### PaidRoute
 
@@ -43,6 +45,10 @@ Status: **Locked for hackathon implementation**.
 | `approvalThresholdAmount` | string/null | Approval required when amount is greater than or equal to threshold |
 | `upstreamTimeoutSeconds` | integer | Range 1–30 |
 | `enabled` | boolean | Disabled routes cannot issue challenges |
+| `createdAt`, `updatedAt` | timestamp | UTC creation and latest configuration change |
+| `version` | integer | Starts at 1 and increments on mutation |
+
+Price updates apply only to purchase intents created after the update. Existing intents retain their frozen amount until they expire or execute.
 
 ### PurchaseIntent
 

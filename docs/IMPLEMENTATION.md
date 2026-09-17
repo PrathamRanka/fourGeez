@@ -33,7 +33,7 @@ M1 acceptance: a clean checkout can install dependencies and run all empty-proje
 ## Milestone M2 — Go domain and persistence
 
 - [x] **BE-001** Implement shared IDs, money type, UTC timestamps, validation errors, and idempotency interface.
-- [ ] **BE-002** Implement seller and paid-route domain models.
+- [x] **BE-002** Implement seller and paid-route domain models.
 - [ ] **BE-003** Implement immutable purchase intents and canonical request hashing.
 - [ ] **BE-004** Implement deterministic policy evaluation for approval thresholds.
 - [ ] **BE-005** Implement approval sessions, invitations, decisions, expiration, veto, and approval-token validation.

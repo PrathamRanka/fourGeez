@@ -93,6 +93,30 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/routes/{routeId}:
+    patch:
+      summary: Update the price used by future purchase intents
+      tags: [Sellers]
+      operationId: updatePaidRoutePrice
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRoutePriceRequest' }
+      responses:
+        '200':
+          description: Route price updated; existing unexpired purchase intents keep their frozen quote
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/sellers/{sellerId}/transactions:
     get:
       summary: List transactions for a seller
@@ -382,6 +406,7 @@ components:
   parameters:
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
     SellerId: { name: sellerId, in: path, required: true, schema: { type: string, pattern: '^sel_[A-Za-z0-9]+$' } }
+    RouteId: { name: routeId, in: path, required: true, schema: { type: string, pattern: '^rte_[A-Za-z0-9]+$' } }
     IntentId: { name: intentId, in: path, required: true, schema: { type: string, pattern: '^int_[A-Za-z0-9]+$' } }
     SessionId: { name: sessionId, in: path, required: true, schema: { type: string, pattern: '^aps_[A-Za-z0-9]+$' } }
     TransactionId: { name: transactionId, in: path, required: true, schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' } }
@@ -396,7 +421,7 @@ components:
         upstreamBaseUrl: { type: string, format: uri }
     Seller:
       type: object
-      required: [sellerId, name, slug, upstreamBaseUrl, status, createdAt]
+      required: [sellerId, name, slug, upstreamBaseUrl, status, createdAt, updatedAt, version]
       properties:
         sellerId: { type: string }
         name: { type: string }
@@ -404,6 +429,8 @@ components:
         upstreamBaseUrl: { type: string, format: uri }
         status: { type: string, enum: [draft, active, suspended] }
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
     CreateRouteRequest:
       type: object
       additionalProperties: false
@@ -413,7 +440,7 @@ components:
         pathPattern: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
         description: { type: string, minLength: 1, maxLength: 500 }
         mimeType: { type: string, maxLength: 120 }
-        amount: { $ref: '#/components/schemas/AtomicAmount' }
+        amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
         asset: { type: string, minLength: 1, maxLength: 160 }
         network: { type: string, minLength: 1, maxLength: 80 }
         payTo: { type: string, minLength: 1, maxLength: 160 }
@@ -423,12 +450,21 @@ components:
       allOf:
         - { $ref: '#/components/schemas/CreateRouteRequest' }
         - type: object
-          required: [routeId, sellerId, enabled, createdAt]
+          required: [routeId, sellerId, enabled, createdAt, updatedAt, version]
           properties:
             routeId: { type: string }
             sellerId: { type: string }
             enabled: { type: boolean }
             createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            version: { type: integer, minimum: 1 }
+    UpdateRoutePriceRequest:
+      type: object
+      additionalProperties: false
+      required: [amount, expectedVersion]
+      properties:
+        amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
+        expectedVersion: { type: integer, minimum: 1 }
     CreateIntentRequest:
       type: object
       additionalProperties: false
@@ -568,6 +604,7 @@ components:
             requestId: { type: string }
             details: { type: object }
     AtomicAmount: { type: string, pattern: '^[0-9]+$', example: '10000' }
+    PositiveAtomicAmount: { type: string, pattern: '^[1-9][0-9]*$', example: '35000000' }
     Sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
   responses:
     SellerCreated:
