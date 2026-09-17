@@ -2,12 +2,57 @@ package payments
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	x402types "github.com/x402-foundation/x402/go/types"
 )
+
+// TestX402AdapterCreatesV2TestnetChallenge verifies the official SDK payload.
+func TestX402AdapterCreatesV2TestnetChallenge(t *testing.T) {
+	t.Parallel()
+
+	requirements := validRequirements()
+	challenge, err := NewX402Adapter().CreateChallenge(
+		t.Context(),
+		requirements,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := base64.StdEncoding.DecodeString(challenge.Header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paymentRequired, err := x402types.ToPaymentRequired(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paymentRequired.X402Version != 2 {
+		t.Fatalf("x402Version = %d", paymentRequired.X402Version)
+	}
+	if paymentRequired.Resource == nil ||
+		paymentRequired.Resource.URL != requirements.ResourceURL ||
+		paymentRequired.Resource.Description != requirements.Description ||
+		paymentRequired.Resource.MimeType != requirements.MIMEType {
+		t.Fatalf("resource = %#v", paymentRequired.Resource)
+	}
+	if len(paymentRequired.Accepts) != 1 {
+		t.Fatalf("accepts length = %d", len(paymentRequired.Accepts))
+	}
+	accepted := paymentRequired.Accepts[0]
+	if accepted.Scheme != requirements.Scheme ||
+		accepted.Network != requirements.Network ||
+		accepted.Asset != requirements.Asset ||
+		accepted.Amount != requirements.Amount.String() ||
+		accepted.PayTo != requirements.PayTo ||
+		accepted.MaxTimeoutSeconds != requirements.MaxTimeoutSeconds {
+		t.Fatalf("accepted = %#v", accepted)
+	}
+}
 
 // TestMockAdapterCreatesDeterministicExactChallenge verifies mock challenge data.
 func TestMockAdapterCreatesDeterministicExactChallenge(t *testing.T) {
@@ -134,8 +179,8 @@ func TestMockAdapterRejectsInvalidRequirements(t *testing.T) {
 func validRequirements() Requirements {
 	return Requirements{
 		Scheme:            ExactScheme,
-		Network:           "eip155:84532",
-		Asset:             "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+		Network:           BaseSepoliaNetwork,
+		Asset:             BaseSepoliaUSDCAsset,
 		Amount:            domain.MustParseAmount("10000"),
 		PayTo:             "0x1111111111111111111111111111111111111111",
 		ResourceURL:       "https://api.example/pay/demo/weather",

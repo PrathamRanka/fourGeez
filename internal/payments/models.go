@@ -10,6 +10,10 @@ import (
 const (
 	// ExactScheme identifies x402 exact-price payments.
 	ExactScheme = "exact"
+	// BaseSepoliaNetwork identifies the supported x402 test network.
+	BaseSepoliaNetwork = "eip155:84532"
+	// BaseSepoliaUSDCAsset identifies USDC on Base Sepolia.
+	BaseSepoliaUSDCAsset = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 
 	// MockApprovedProof deterministically represents an accepted payment.
 	MockApprovedProof = "mock-approved-proof"

@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	x402 "github.com/x402-foundation/x402/go"
+	x402types "github.com/x402-foundation/x402/go/types"
 )
 
 const mockPaymentIdentifierPrefix = "mock_"
@@ -15,9 +17,60 @@ const mockPaymentIdentifierPrefix = "mock_"
 // MockAdapter provides deterministic payment behavior for tests and local use.
 type MockAdapter struct{}
 
+// X402Adapter creates protocol-compliant x402 v2 challenges.
+type X402Adapter struct{}
+
 // NewMockAdapter creates a deterministic payment adapter.
 func NewMockAdapter() *MockAdapter {
 	return &MockAdapter{}
+}
+
+// NewX402Adapter creates the official x402-backed payment adapter.
+func NewX402Adapter() *X402Adapter {
+	return &X402Adapter{}
+}
+
+// CreateChallenge creates a base64-encoded x402 v2 payment requirement.
+func (adapter *X402Adapter) CreateChallenge(
+	ctx context.Context,
+	requirements Requirements,
+) (Challenge, error) {
+	if err := ctx.Err(); err != nil {
+		return Challenge{}, err
+	}
+	if err := validateRequirements(requirements); err != nil {
+		return Challenge{}, err
+	}
+
+	resourceServer := x402.Newx402ResourceServer()
+	paymentRequired := resourceServer.CreatePaymentRequiredResponse(
+		[]x402types.PaymentRequirements{
+			{
+				Scheme:            requirements.Scheme,
+				Network:           requirements.Network,
+				Asset:             requirements.Asset,
+				Amount:            requirements.Amount.String(),
+				PayTo:             requirements.PayTo,
+				MaxTimeoutSeconds: requirements.MaxTimeoutSeconds,
+			},
+		},
+		&x402types.ResourceInfo{
+			URL:         requirements.ResourceURL,
+			Description: requirements.Description,
+			MimeType:    requirements.MIMEType,
+		},
+		"",
+		nil,
+	)
+	encoded, err := json.Marshal(paymentRequired)
+	if err != nil {
+		return Challenge{}, err
+	}
+
+	return Challenge{
+		Requirements: requirements,
+		Header:       base64.StdEncoding.EncodeToString(encoded),
+	}, nil
 }
 
 // CreateChallenge validates and encodes exact-payment requirements.

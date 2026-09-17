@@ -63,7 +63,7 @@ M3 acceptance: generated requests from the OpenAPI examples pass against the loc
 
 - [x] **PAY-001** Verify the selected official x402 Go SDK version and record it in `SOURCES.md` before adding the dependency.
 - [x] **PAY-002** Implement a payment adapter interface and deterministic mock adapter.
-- [ ] **PAY-003** Implement x402 testnet challenge creation using the verified SDK.
+- [x] **PAY-003** Implement x402 testnet challenge creation using the verified SDK.
 - [ ] **PAY-004** Implement facilitator verification with timeout, retry classification, and proof replay protection.
 - [ ] **PAY-005** Implement paid-route resolution and approval precondition handling.
 - [ ] **PAY-006** Implement SSRF-safe upstream forwarding with method/path allowlisting and response-size limits.

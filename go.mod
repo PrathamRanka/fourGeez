@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.69.0
 	github.com/gowebpki/jcs v1.0.1
 	github.com/oklog/ulid/v2 v2.1.2
+	github.com/x402-foundation/x402/go v0.0.0-20260413171033-1059e866484f
 )
 
 require (
