@@ -18,6 +18,7 @@ Last reviewed: 2026-09-17.
 | ADR-010 | The platform recommends refunds but does not unilaterally move production funds. | Keeps the initial product outside custody and settlement ownership. |
 | ADR-011 | Use deterministic dispute rules; no RL in the first milestone. | There is no reliable training dataset yet. |
 | ADR-012 | `AgentPay` is a working name only. | Naming and trademark review are required before launch. |
+| ADR-013 | Default development/demo region is `us-east-1`, overridable by deployment configuration. | Provides one documented default while requiring Bedrock model availability verification. |
 
 ## Hackathon assumptions
 

@@ -1,4 +1,4 @@
-asyncapi: 3.0.0
+asyncapi: 3.1.0
 info:
   title: AgentPay approval events
   version: 0.1.0
@@ -51,4 +51,3 @@ components:
         data:
           type: object
           description: Current redacted session snapshot; invitation tokens and approval tokens are never broadcast.
-

@@ -13,10 +13,10 @@ Tasks must be completed in ID order unless their listed dependencies are already
 - [x] **DOC-005** Publish OpenAPI 3.1 REST contract.
 - [x] **DOC-006** Publish AsyncAPI WebSocket contract.
 - [x] **DOC-007** Publish PlantUML system and sequence diagrams.
-- [ ] **DOC-008** Publish AWS setup and teardown runbook.
-- [ ] **DOC-009** Publish security requirements and threat model.
-- [ ] **DOC-010** Publish test and release gates.
-- [ ] **DOC-011** Record verified external sources and open protocol questions.
+- [x] **DOC-008** Publish AWS setup and teardown runbook.
+- [x] **DOC-009** Publish security requirements and threat model.
+- [x] **DOC-010** Publish test and release gates.
+- [x] **DOC-011** Record verified external sources and open protocol questions.
 
 M0 acceptance: all documents exist, cross-reference each other, and contain no unresolved implementation choices for the hackathon scope.
 
