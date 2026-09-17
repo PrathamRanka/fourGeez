@@ -47,7 +47,7 @@ M2 acceptance: domain tests cover valid transitions, invalid transitions, replay
 
 ## Milestone M3 — HTTP and WebSocket API
 
-- [ ] **API-001** Add request IDs, structured errors, panic recovery, CORS, logging, and authentication middleware.
+- [x] **API-001** Add request IDs, structured errors, panic recovery, CORS, logging, and authentication middleware.
 - [ ] **API-002** Implement seller onboarding and route configuration endpoints.
 - [ ] **API-003** Implement manifest and `llms.txt` generation.
 - [ ] **API-004** Implement purchase-intent endpoints.

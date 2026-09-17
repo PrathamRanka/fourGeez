@@ -1,12 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
+
+	"github.com/fourgeez/agentpay/internal/api"
 )
 
+// main starts the local AgentPay HTTP API.
 func main() {
 	addr := os.Getenv("AGENTPAY_HTTP_ADDR")
 	if addr == "" {
@@ -15,12 +17,18 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	handler := api.Middleware(api.Config{
+		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
+		Authenticator: api.NewStaticAuthenticator(
+			os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
+			os.Getenv("AGENTPAY_LOCAL_AGENT_KEY"),
+		),
+	}, mux)
 
 	slog.Info("starting AgentPay API", "address", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		slog.Error("AgentPay API stopped", "error", err)
 		os.Exit(1)
 	}
