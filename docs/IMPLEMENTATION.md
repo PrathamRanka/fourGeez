@@ -67,7 +67,7 @@ M3 acceptance: generated requests from the OpenAPI examples pass against the loc
 - [x] **PAY-004** Implement facilitator verification with timeout, retry classification, and proof replay protection.
 - [x] **PAY-005** Implement paid-route resolution and approval precondition handling.
 - [x] **PAY-006** Implement SSRF-safe upstream forwarding with method/path allowlisting and response-size limits.
-- [ ] **PAY-007** Implement per-seller HMAC request signatures.
+- [x] **PAY-007** Implement per-seller HMAC request signatures.
 - [ ] **PAY-008** Enforce exactly-once forwarding through conditional transaction claims.
 - [ ] **PAY-009** Record challenge, verification, forwarding, and delivery evidence without raw credentials.
 

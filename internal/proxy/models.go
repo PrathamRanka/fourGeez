@@ -7,9 +7,19 @@ import (
 	"net/http"
 
 	"github.com/fourgeez/agentpay/internal/catalog"
+	"github.com/fourgeez/agentpay/internal/domain"
 )
 
 const defaultMaximumResponseBytes int64 = 1024 * 1024
+
+const (
+	// SellerSignatureHeader carries the base64 HMAC for a forwarded request.
+	SellerSignatureHeader = "X-AgentPay-Signature"
+	// SellerTimestampHeader carries the signed RFC 3339 timestamp.
+	SellerTimestampHeader = "X-AgentPay-Timestamp"
+	// SellerTransactionHeader carries the signed AgentPay transaction ID.
+	SellerTransactionHeader = "X-AgentPay-Transaction-Id"
+)
 
 var (
 	// ErrRouteNotAllowed reports a request outside the configured literal route.
@@ -28,6 +38,8 @@ var (
 	ErrUpstreamTimeout = errors.New("seller request timed out")
 	// ErrUpstreamUnavailable reports a seller transport failure.
 	ErrUpstreamUnavailable = errors.New("seller is unavailable")
+	// ErrSigningUnavailable reports missing or invalid seller signing material.
+	ErrSigningUnavailable = errors.New("seller request signing is unavailable")
 )
 
 // ForwardRequest contains one already-authorized seller invocation.
@@ -38,6 +50,7 @@ type ForwardRequest struct {
 	Path        string
 	Body        []byte
 	ContentType string
+	Signature   SignatureHeaders
 }
 
 // ForwardResponse contains bounded seller response bytes and metadata.
@@ -45,6 +58,26 @@ type ForwardResponse struct {
 	StatusCode  int
 	Body        []byte
 	ContentType string
+}
+
+// SigningInput contains the request values covered by the seller HMAC.
+type SigningInput struct {
+	TransactionID domain.ID
+	Method        catalog.RouteMethod
+	Path          string
+	Body          []byte
+}
+
+// SignatureHeaders contains safe request authentication metadata.
+type SignatureHeaders struct {
+	Signature   string
+	Timestamp   string
+	Transaction string
+}
+
+// SecretProvider resolves seller secrets without exposing storage details.
+type SecretProvider interface {
+	GetSecret(context.Context, string) ([]byte, error)
 }
 
 // Resolver resolves a hostname at validation and connection time.

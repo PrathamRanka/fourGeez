@@ -52,6 +52,26 @@ Canonicalization must be versioned. Version 1 uses:
 
 Use different domain separators for intent and evidence hashes, such as `agentpay.intent.v1` and `agentpay.evidence.v1`. Never hash an ambiguous string concatenation.
 
+## Seller request signatures
+
+AgentPay authenticates each forwarded seller request with `X-AgentPay-Signature`,
+`X-AgentPay-Timestamp`, and `X-AgentPay-Transaction-Id`. Version 1 signs the
+following newline-delimited UTF-8 fields with HMAC-SHA256 and base64-encodes the
+result:
+
+```text
+agentpay.seller-request.v1
+<RFC3339 UTC timestamp>
+<HTTP method>
+<literal route path>
+<lowercase SHA-256 body hash>
+<transactionId>
+```
+
+The secret is resolved server-side from the seller's `signingSecretRef`, must
+contain at least 32 bytes, and is never added to request models, logs, evidence,
+or responses. Seller verification uses constant-time signature comparison.
+
 ## Evidence payload policy
 
 Allowed:
@@ -102,4 +122,3 @@ The system must not process real funds until all are complete:
 - [ ] Browser build contains no server-only configuration.
 - [ ] Logs are tested for credential redaction.
 - [ ] IAM policies pass least-privilege review before demo deployment.
-

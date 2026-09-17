@@ -33,6 +33,11 @@ func TestForwarderForwardsOnlyConfiguredRoute(t *testing.T) {
 		1024,
 	)
 	request := validForwardRequest(t)
+	request.Signature = SignatureHeaders{
+		Signature:   "signed-request",
+		Timestamp:   "2026-09-17T10:00:00Z",
+		Transaction: "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+	}
 	response, err := forwarder.Forward(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +50,12 @@ func TestForwarderForwardsOnlyConfiguredRoute(t *testing.T) {
 		client.request.URL.String() != "https://seller.example/weather" ||
 		client.request.Method != http.MethodGet {
 		t.Fatalf("request = %#v", client.request)
+	}
+	if client.request.Header.Get(SellerSignatureHeader) != "signed-request" ||
+		client.request.Header.Get(SellerTimestampHeader) != "2026-09-17T10:00:00Z" ||
+		client.request.Header.Get(SellerTransactionHeader) !=
+			"txn_01K5D09YJ0C0M7RJM4FWQ0K9H7" {
+		t.Fatalf("signature headers = %#v", client.request.Header)
 	}
 
 	request.Path = "/admin"
