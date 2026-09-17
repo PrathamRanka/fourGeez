@@ -11,8 +11,14 @@ Only official documentation and repositories should determine protocol wire beha
 | Seller quickstart and current HTTP flow | https://docs.x402.org/getting-started/quickstart-for-sellers | Verified 2026-09-17 |
 | Protocol repository | https://github.com/coinbase/x402 | Verified as official repository entry point 2026-09-17 |
 | v2 HTTP headers | Official x402 documentation/repository: `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, `PAYMENT-RESPONSE` | Verified 2026-09-17 |
-| Go SDK module path and pinned version | Must be confirmed from the official repository immediately before PAY-001 | **Unverified; do not add a guessed dependency** |
-| Testnet facilitator URL, network identifier, asset identifier, and funding procedure | Must be copied from the selected official quickstart during PAY-001 | **Unverified configuration** |
+| Go SDK module path and pinned version | Official `x402-foundation/x402` Go module and `go/v2.9.0` release tag | Verified 2026-09-17: module `github.com/x402-foundation/x402/go`; pin `v0.0.0-20260413171033-1059e866484f` because the module omits a `/v2` suffix |
+| Standard-library HTTP adapter | Official `go/http/nethttp` package added in Go SDK `v2.8.0` | Verified 2026-09-17; compatible with AgentPay's `net/http` transport |
+| Testnet facilitator URL | Official seller quickstart | Verified 2026-09-17: `https://x402.org/facilitator` |
+| Testnet network identifier | Official seller quickstart and Go SDK network constants | Verified 2026-09-17: Base Sepolia `eip155:84532` |
+| Testnet asset identifier | Official Go SDK Base Sepolia asset configuration | Verified 2026-09-17: USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
+| Protocol headers | Official Go HTTP package and tests | Verified 2026-09-17: `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and `PAYMENT-RESPONSE` |
+| License and compatibility | Official repository `LICENSE` and Go module | Verified 2026-09-17: Apache-2.0; SDK requires Go 1.24 and AgentPay uses Go 1.26 |
+| Security review notes | Official Go changelog and module dependencies | Reviewed 2026-09-17: `v2.6.0` closed fail-open verification paths; `v2.8.0` pins the indirect QUIC security fix. AgentPay will use only the core and HTTP client types required at its payment boundary. |
 
 Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but the official x402 SDK defines payment payload serialization and verification. If they conflict, update the AgentPay contract before implementing.
 
@@ -40,6 +46,7 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 |---|---|---|
 | RFC 8785 JSON canonicalization for request and intent hashing | https://github.com/gowebpki/jcs | `v1.0.1` |
 | Sortable ULID generation | https://github.com/oklog/ulid | `v2.1.2` |
+| x402 v2 Go SDK | https://github.com/x402-foundation/x402/tree/go/v2.9.0/go | `v0.0.0-20260413171033-1059e866484f` (`go/v2.9.0`) |
 
 ## Open questions that block production, not the hackathon
 
