@@ -103,7 +103,7 @@ This track may begin after M1 and must not block or modify the payment-critical 
 - [x] **RL-000** Scaffold the isolated Python workspace with file-level contracts and TODOs.
 - [x] **RL-001** Implement strict versioned recommendation and outcome contracts.
 - [x] **RL-002** Implement candidate validation and deterministic feature construction.
-- [ ] **RL-003** Implement and test the deterministic ranking baseline.
+- [x] **RL-003** Implement and test the deterministic ranking baseline.
 - [ ] **RL-004** Implement reproducible synthetic data generation.
 - [ ] **RL-005** Define configurable, auditable reward components.
 - [ ] **RL-006** Implement an offline contextual bandit behind the common ranking interface.

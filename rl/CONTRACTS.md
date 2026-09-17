@@ -89,3 +89,18 @@ clamped to `[0, 1]`.
 Unavailable, ineligible, and over-budget candidates are rejected before feature
 construction with explicit reason codes. Accepted and rejected candidates are
 ordered by `offerId`, so input ordering cannot change the feature batch.
+
+## Deterministic baseline v1
+
+`deterministic-baseline` version `baseline-v1` computes three interpretable
+components for each accepted candidate:
+
+- price fit: `price_weight * price_score`;
+- quality fit: `quality_weight * mean(delivery_rate, dispute_free_rate)`; and
+- latency fit: `latency_weight * latency_score`.
+
+The total score is the sum of those components. Results sort by descending
+score and then ascending `offerId`, making ties and candidate-order changes
+deterministic. The recommendation identifier is derived from the request ID,
+feature version, ranked IDs, and scores. The baseline returns no result when no
+candidate survives validation.
