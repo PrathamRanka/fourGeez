@@ -19,6 +19,7 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 | [api/asyncapi.yaml](api/asyncapi.yaml) | WebSocket event contract |
 | [api/mcp.md](api/mcp.md) | Remote MCP transport, authentication, and resource contract |
 | [SELLER_VERIFICATION.md](SELLER_VERIFICATION.md) | Versioned seller-request verification package contract |
+| [SETUP_BUNDLES.md](SETUP_BUNDLES.md) | Versioned coding-agent setup resources and prompt contract |
 | [uml/system-context.puml](uml/system-context.puml) | System context diagram |
 | [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
 | [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Purchase and approval sequence |

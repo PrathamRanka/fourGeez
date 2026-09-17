@@ -15,6 +15,10 @@ const (
 	RoutesResourceURI                   = "agentpay://routes"
 	TransactionSummaryResourceURI       = "agentpay://transactions/summary"
 	IntegrationDocumentationResourceURI = "agentpay://integration/documentation"
+	ClaudeCodeSetupResourceURI          = "agentpay://integration/setup/v1/claude-code"
+	CodexSetupResourceURI               = "agentpay://integration/setup/v1/codex"
+	GenericMCPSetupResourceURI          = "agentpay://integration/setup/v1/generic-mcp"
+	SetupPromptName                     = "prepare_agentpay_integration"
 	JSONMIMEType                        = "application/json"
 	MarkdownMIMEType                    = "text/markdown"
 	maximumSummaryTransactions          = 100

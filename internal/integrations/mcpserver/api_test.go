@@ -51,8 +51,8 @@ func TestHTTPControllerServesAuthenticatedResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Resources) != 5 {
-		t.Fatalf("resource count = %d, want 5", len(listed.Resources))
+	if len(listed.Resources) != 8 {
+		t.Fatalf("resource count = %d, want 8", len(listed.Resources))
 	}
 	read, err := session.ReadResource(
 		t.Context(),
@@ -63,6 +63,77 @@ func TestHTTPControllerServesAuthenticatedResources(t *testing.T) {
 	}
 	if len(read.Contents) != 1 || read.Contents[0].URI != SellerResourceURI {
 		t.Fatalf("seller resource = %#v", read.Contents)
+	}
+}
+
+// TestHTTPControllerPublishesSetupPrompt verifies the coding-agent workflow.
+func TestHTTPControllerPublishesSetupPrompt(t *testing.T) {
+	t.Parallel()
+
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		nil,
+		nil,
+	)
+	server := httptest.NewServer(controller)
+	t.Cleanup(server.Close)
+
+	client := protocol.NewClient(
+		&protocol.Implementation{Name: "agentpay-prompt-test", Version: "1.0.0"},
+		nil,
+	)
+	session, err := client.Connect(
+		t.Context(),
+		&protocol.StreamableClientTransport{
+			Endpoint:             server.URL,
+			HTTPClient:           authenticatedHTTPClient("valid-token"),
+			DisableStandaloneSSE: true,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = session.Close()
+	})
+
+	prompts, err := session.ListPrompts(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prompts.Prompts) != 1 || prompts.Prompts[0].Name != SetupPromptName {
+		t.Fatalf("prompts = %#v", prompts.Prompts)
+	}
+	result, err := session.GetPrompt(
+		t.Context(),
+		&protocol.GetPromptParams{
+			Name: SetupPromptName,
+			Arguments: map[string]string{
+				"host":      "claude-code",
+				"framework": "node",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Messages) != 1 {
+		t.Fatalf("message count = %d, want 1", len(result.Messages))
+	}
+	content, ok := result.Messages[0].Content.(*protocol.TextContent)
+	if !ok {
+		t.Fatalf("prompt content = %T, want *mcp.TextContent", result.Messages[0].Content)
+	}
+	for _, fragment := range []string{
+		"@agentpay/verify-node",
+		"npm test",
+		"explicit seller confirmation",
+	} {
+		if !strings.Contains(content.Text, fragment) {
+			t.Fatalf("prompt omitted %q: %s", fragment, content.Text)
+		}
 	}
 }
 

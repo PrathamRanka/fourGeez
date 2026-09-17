@@ -1,6 +1,6 @@
 # AgentPay MCP contract
 
-Status: **Locked through AUT-004**.
+Status: **Locked through AUT-007**.
 
 AgentPay exposes the official Model Context Protocol `2026-07-28` over
 stateless Streamable HTTP at `POST /mcp`. Requests and responses use the
@@ -28,12 +28,24 @@ URIs never accept a caller-supplied seller identifier.
 | `agentpay://routes` | `application/json` | All configured routes for the authenticated seller, including disabled routes |
 | `agentpay://transactions/summary` | `application/json` | Status counts and redacted metadata for the 100 newest transactions; `hasMore` reports truncation |
 | `agentpay://integration/documentation` | `text/markdown` | Versioned setup and safety guidance for coding agents |
+| `agentpay://integration/setup/v1/claude-code` | `application/json` | Claude Code project configuration and AgentPay integration workflow |
+| `agentpay://integration/setup/v1/codex` | `application/json` | Codex project configuration and AgentPay integration workflow |
+| `agentpay://integration/setup/v1/generic-mcp` | `application/json` | Host-neutral Streamable HTTP configuration and AgentPay integration workflow |
 
 The transaction summary excludes buyer identity, payment identifiers, payment
 proof hashes, response bodies, evidence payloads, and seller secrets.
 
 The server exposes no subscriptions, arbitrary files, shell commands, or
 unrestricted HTTP requests.
+
+## Setup prompt
+
+The read-scoped `prepare_agentpay_integration` prompt requires `host` and
+`framework` arguments. Host is one of `claude-code`, `codex`, or `generic-mcp`.
+Framework is one of `go`, `node`, or `python`. The prompt selects the matching
+versioned setup bundle and verification package, directs the coding agent to
+produce tests and a reviewable diff, and preserves the publication and
+deployment confirmation boundaries in `SETUP_BUNDLES.md`.
 
 ## Mutation tools
 

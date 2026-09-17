@@ -145,6 +145,7 @@ func (controller *HTTPController) serverForRequest(
 			},
 		)
 	}
+	controller.registerSetupPrompt(server, principal)
 	if controller.mutationService != nil {
 		controller.registerTools(server, principal)
 	}
@@ -152,6 +153,56 @@ func (controller *HTTPController) serverForRequest(
 		controller.registerAnalyzerTool(server, principal)
 	}
 	return server
+}
+
+// registerSetupPrompt publishes the read-scoped coding-agent workflow.
+func (controller *HTTPController) registerSetupPrompt(
+	server *protocol.Server,
+	principal integrations.Principal,
+) {
+	server.AddPrompt(
+		&protocol.Prompt{
+			Name:        SetupPromptName,
+			Title:       "Prepare AgentPay integration",
+			Description: "Prepare a tested, reviewable AgentPay seller integration",
+			Arguments: []*protocol.PromptArgument{
+				{
+					Name:        "host",
+					Description: "claude-code, codex, or generic-mcp",
+					Required:    true,
+				},
+				{
+					Name:        "framework",
+					Description: "go, node, or python",
+					Required:    true,
+				},
+			},
+		},
+		func(
+			_ context.Context,
+			request *protocol.GetPromptRequest,
+		) (*protocol.GetPromptResult, error) {
+			if !principal.HasScope(integrations.ScopeRead) {
+				return nil, integrations.ErrScopeDenied
+			}
+			prompt, err := controller.resourceService.SetupPrompt(
+				request.Params.Arguments["host"],
+				request.Params.Arguments["framework"],
+			)
+			if err != nil {
+				return nil, err
+			}
+			return &protocol.GetPromptResult{
+				Description: "AgentPay seller integration workflow",
+				Messages: []*protocol.PromptMessage{
+					{
+						Role:    protocol.Role("user"),
+						Content: &protocol.TextContent{Text: prompt},
+					},
+				},
+			}, nil
+		},
+	)
 }
 
 // registerAnalyzerTool adds deterministic non-publishing repository analysis.

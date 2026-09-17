@@ -75,6 +75,27 @@ func TestServiceReadsSellerScopedResources(t *testing.T) {
 			mimeType: MarkdownMIMEType,
 			contains: []string{"AgentPay", "idempotent", "operation-specific scopes"},
 		},
+		{
+			name:     "Claude Code setup bundle",
+			uri:      ClaudeCodeSetupResourceURI,
+			mimeType: JSONMIMEType,
+			contains: []string{"agentpay.setup.v1", ".mcp.json", "AGENTPAY_INTEGRATION_TOKEN"},
+			excludes: []string{"integration_test_token"},
+		},
+		{
+			name:     "Codex setup bundle",
+			uri:      CodexSetupResourceURI,
+			mimeType: JSONMIMEType,
+			contains: []string{"agentpay.setup.v1", ".codex/config.toml", "bearer_token_env_var"},
+			excludes: []string{"integration_test_token"},
+		},
+		{
+			name:     "generic MCP setup bundle",
+			uri:      GenericMCPSetupResourceURI,
+			mimeType: JSONMIMEType,
+			contains: []string{"agentpay.setup.v1", "streamable-http", "tokenEnvironmentVariable"},
+			excludes: []string{"integration_test_token"},
+		},
 	}
 
 	for _, testCase := range testCases {

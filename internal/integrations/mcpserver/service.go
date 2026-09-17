@@ -7,6 +7,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/setupbundles"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -29,6 +30,7 @@ confirmation and operation-specific scopes.
 type Service struct {
 	catalogReader     CatalogReader
 	transactionReader TransactionReader
+	setupBundles      *setupbundles.Service
 }
 
 // NewService creates the read-only MCP resource service.
@@ -39,6 +41,7 @@ func NewService(
 	return &Service{
 		catalogReader:     catalogReader,
 		transactionReader: transactionReader,
+		setupBundles:      setupbundles.NewService(),
 	}
 }
 
@@ -75,6 +78,24 @@ func (service *Service) Resources() []ResourceDescriptor {
 			Description: "AgentPay setup and credential-safety guidance",
 			MIMEType:    MarkdownMIMEType,
 		},
+		{
+			URI:         ClaudeCodeSetupResourceURI,
+			Name:        "claude-code-setup-v1",
+			Description: "Versioned Claude Code project setup bundle",
+			MIMEType:    JSONMIMEType,
+		},
+		{
+			URI:         CodexSetupResourceURI,
+			Name:        "codex-setup-v1",
+			Description: "Versioned Codex project setup bundle",
+			MIMEType:    JSONMIMEType,
+		},
+		{
+			URI:         GenericMCPSetupResourceURI,
+			Name:        "generic-mcp-setup-v1",
+			Description: "Versioned generic Streamable HTTP setup bundle",
+			MIMEType:    JSONMIMEType,
+		},
 	}
 }
 
@@ -99,9 +120,35 @@ func (service *Service) Read(
 			MIMEType: MarkdownMIMEType,
 			Text:     integrationDocumentation,
 		}, nil
+	case ClaudeCodeSetupResourceURI:
+		return service.readSetupBundle(uri, setupbundles.HostClaudeCode)
+	case CodexSetupResourceURI:
+		return service.readSetupBundle(uri, setupbundles.HostCodex)
+	case GenericMCPSetupResourceURI:
+		return service.readSetupBundle(uri, setupbundles.HostGenericMCP)
 	default:
 		return ResourceDocument{}, ErrResourceNotFound
 	}
+}
+
+// SetupPrompt returns a framework-specific integration workflow.
+func (service *Service) SetupPrompt(host string, framework string) (string, error) {
+	return service.setupBundles.Prompt(
+		setupbundles.Host(host),
+		setupbundles.Framework(framework),
+	)
+}
+
+// readSetupBundle serializes one fixed host bundle as an MCP resource.
+func (service *Service) readSetupBundle(
+	uri string,
+	host setupbundles.Host,
+) (ResourceDocument, error) {
+	bundle, err := service.setupBundles.Bundle(host)
+	if err != nil {
+		return ResourceDocument{}, err
+	}
+	return jsonResource(uri, bundle)
 }
 
 // readSeller removes ownership and signing-secret fields from the seller view.
