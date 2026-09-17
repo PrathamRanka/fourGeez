@@ -4,9 +4,9 @@ Status: **Locked for hackathon implementation**.
 
 ## Conventions
 
-- IDs use sortable, opaque strings with prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`.
+- IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`.
 - Timestamps are RFC 3339 UTC strings.
-- Payment amounts are strings in atomic units; floating-point numbers are forbidden.
+- Payment amounts are canonical strings in atomic units; floating-point numbers and leading zeros are forbidden at persistence boundaries, except that zero is `"0"`.
 - `asset` is a chain-specific contract or asset identifier.
 - `network` uses the identifier supplied by the verified x402 SDK.
 - Request and response hashes use lowercase SHA-256 hex.
@@ -165,4 +165,3 @@ Required secondary indexes:
 - Hackathon operational data may be removed during environment teardown.
 - Evidence bucket deletion is blocked by default and must be explicitly approved.
 - Production retention and deletion periods are deferred pending legal and customer requirements.
-

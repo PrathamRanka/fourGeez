@@ -380,7 +380,7 @@ components:
     agentApiKey: { type: apiKey, in: header, name: X-AgentPay-Agent-Key }
     approvalInvite: { type: apiKey, in: query, name: token }
   parameters:
-    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
     SellerId: { name: sellerId, in: path, required: true, schema: { type: string, pattern: '^sel_[A-Za-z0-9]+$' } }
     IntentId: { name: intentId, in: path, required: true, schema: { type: string, pattern: '^int_[A-Za-z0-9]+$' } }
     SessionId: { name: sessionId, in: path, required: true, schema: { type: string, pattern: '^aps_[A-Za-z0-9]+$' } }
