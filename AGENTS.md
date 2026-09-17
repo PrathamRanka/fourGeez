@@ -9,13 +9,13 @@ This file applies to the entire repository. Every human or coding agent must rea
 Before editing anything:
 
 1. Read this file completely.
-2. Read `docs/README.md` and the relevant sections of `docs/IMPLEMENTATION.md`.
+2. Read `docs/README.md`, `docs/PRODUCT.md`, and the relevant sections of `docs/IMPLEMENTATION.md`.
 3. Read the controlling contract: `docs/api/openapi.yaml`, `docs/api/asyncapi.yaml`, `docs/DATA_MODEL.md`, or the relevant runbook.
 4. Inspect the existing implementation and tests. Never guess that a file, field, endpoint, table, or component exists.
 5. Check `git status --short` and preserve unrelated work.
 6. Work on one numbered task from `docs/IMPLEMENTATION.md` at a time.
 
-If documents conflict, stop implementation and resolve the documentation first. OpenAPI/AsyncAPI control wire contracts, `DATA_MODEL.md` controls persisted data and state transitions, and `IMPLEMENTATION.md` controls scope and order.
+If documents conflict, stop implementation and resolve the documentation first. OpenAPI/AsyncAPI control wire contracts, `DATA_MODEL.md` controls persisted data and state transitions, `PRODUCT.md` controls MVP scope and user journeys, and `IMPLEMENTATION.md` controls work order.
 
 ## 2. Universal implementation rules
 

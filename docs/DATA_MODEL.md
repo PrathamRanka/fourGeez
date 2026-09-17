@@ -1,10 +1,10 @@
 # Data model and state machines
 
-Status: **Locked for hackathon implementation**.
+Status: **Locked for the implemented backend; planned M6/M7 additions are explicitly labeled**.
 
 ## Conventions
 
-- IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`.
+- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`. M6 adds the `key_` integration-credential prefix before credential records are written.
 - Timestamps are RFC 3339 UTC strings.
 - Payment amounts are canonical strings in atomic units; floating-point numbers and leading zeros are forbidden at persistence boundaries, except that zero is `"0"`.
 - `asset` is a chain-specific contract or asset identifier.
@@ -13,6 +13,12 @@ Status: **Locked for hackathon implementation**.
 - JSON request bodies are canonicalized with RFC 8785 JCS before hashing; non-JSON bodies are hashed byte-for-byte.
 - Intent hashes use the `agentpay.intent.v1` domain separator and include every execution-relevant field.
 - Persisted records include `createdAt`; mutable records also include `updatedAt` and integer `version`.
+
+## Commerce terminology and compatibility
+
+A published `PaidRoute` is the V1 product offered in both the human storefront and machine-readable catalog. A separate product entity is not introduced until a real fulfillment type cannot be represented by an HTTPS route.
+
+The dual-channel milestone adds `purchaseChannel` and `paymentRail` to new purchase intents and transactions. Records created before that migration omit those fields and are interpreted as `purchaseChannel=agent` and `paymentRail=x402`. Writers must not emit the new fields until the corresponding compatibility migration and repository tests are complete.
 
 ## Entities
 
@@ -29,6 +35,29 @@ Status: **Locked for hackathon implementation**.
 | `status` | enum | `draft`, `active`, `suspended` |
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
+
+### IntegrationCredential (planned M6)
+
+An integration credential authorizes one coding-agent or MCP connection to a
+single seller. Raw credential values are displayed only at creation and are
+never persisted.
+
+| Field | Type | Notes |
+|---|---|---|
+| `credentialId` | string | `key_` prefixed ULID |
+| `sellerId` | string | The only seller this credential may access |
+| `tokenHash` | string | SHA-256 or stronger one-way token digest |
+| `label` | string | Seller-visible installation name |
+| `scopes` | string array | Explicit read, configure, publish, validate, or rotate permissions |
+| `expiresAt` | timestamp/null | Required for temporary setup credentials |
+| `lastUsedAt` | timestamp/null | Non-sensitive audit metadata |
+| `revokedAt` | timestamp/null | Revocation makes the credential unusable immediately |
+| `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
+| `version` | integer | Used for guarded rotation and revocation |
+
+Credential scope never implies permission to deploy a seller repository or
+access seller infrastructure. Deployment authorization remains local to the
+seller's coding-agent environment.
 
 ### PaidRoute
 
@@ -63,6 +92,7 @@ An intent becomes immutable after creation.
 | `intentId` | string | Primary identifier |
 | `sellerId`, `routeId` | string | Resolved offer |
 | `buyerId` | string | Demo agent/API-key identity |
+| `purchaseChannel` | enum | Planned M7 field: `agent` or `human` |
 | `requestMethod`, `requestPath` | string | Canonical target |
 | `requestBodyHash` | string | Hash of canonical request bytes |
 | `amount`, `asset`, `network` | string | Frozen quote |
@@ -98,6 +128,8 @@ Raw invitation tokens are returned only when the session is created. When the se
 | `transactionId` | string | Primary identifier |
 | `intentId` | string | Unique; an intent executes once |
 | `sellerId`, `routeId`, `buyerId` | string | Query dimensions |
+| `purchaseChannel` | enum | Planned M7 field: `agent` or `human` |
+| `paymentRail` | enum | Planned M7 field: `x402` or the selected human checkout rail |
 | `status` | enum | State machine below |
 | `paymentIdentifier` | string/null | Unique replay-protection value supplied by payment adapter |
 | `paymentProofHash` | string/null | Never store raw proof |
@@ -191,6 +223,7 @@ Examples:
 ```text
 PK=SELLER#sel_123       SK=PROFILE
 PK=SELLER#sel_123       SK=ROUTE#rte_123
+PK=SELLER#sel_123       SK=CREDENTIAL#key_123
 PK=INTENT#int_123       SK=PROFILE
 PK=APPROVAL#aps_123     SK=PROFILE
 PK=APPROVAL#aps_123     SK=INVITE#<tokenHash>

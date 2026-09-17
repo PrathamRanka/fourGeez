@@ -1,6 +1,6 @@
 # Test and release plan
 
-Status: **Locked for the hackathon release**.
+Status: **Locked for the current backend and planned MVP release**.
 
 ## Test layers
 
@@ -38,6 +38,10 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - WebSocket reconnect receives a complete session snapshot.
 - Facilitator timeout and rejection never call the seller.
 - Seller timeout records delivery failure.
+- MCP credentials cannot cross seller boundaries or exceed their scopes.
+- MCP mutation retries return the original result and do not duplicate products.
+- Generated seller middleware accepts valid AgentPay signatures and rejects modified bodies, stale timestamps, and replayed transaction identifiers.
+- Authenticated human-checkout callbacks and x402 verification create the same normalized transaction outcome.
 
 ### End-to-end tests
 
@@ -49,6 +53,8 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 6. Raise `not_delivered` dispute after a seller timeout and receive `refund_recommended`.
 7. Raise `quality_or_output` dispute and receive `seller_review`.
 8. Disable Bedrock and complete the purchase through deterministic fallback.
+9. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
+10. Buy the same published product through the human storefront and agent/x402 flow and verify both sales appear in the seller dashboard.
 
 ## Web quality checks
 
@@ -58,6 +64,8 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - Reduced-motion mode removes nonessential transitions.
 - Layout checks at 360, 768, 1280, and 1440 pixel widths.
 - No horizontal page overflow.
+- Human storefront product and checkout pages remain usable without agent tooling.
+- Seller automation screens clearly distinguish proposed, validated, published, and failed integration states.
 - Lighthouse targets on the deployed demo: accessibility at least 95; best practices at least 90.
 
 ## Performance and resilience targets
@@ -88,7 +96,8 @@ Every pull request and implementation commit must pass relevant checks:
 Go formatting, vet, unit tests, race tests
 Web lint, typecheck, unit tests, production build
 OpenAPI and AsyncAPI validation
-CDK synth
+CDK synth until AWS-000 removes the placeholder
+Terraform formatting, validation, and reviewed plan after AWS-000
 Secret scanning
 Dependency audit
 ```
@@ -105,5 +114,6 @@ End-to-end testnet payment is a demo-release gate, not a per-commit gate.
 - [ ] Duplicate forwarding test shows one seller invocation.
 - [ ] Simulated refund is visibly labeled as simulated.
 - [ ] Bedrock fallback is tested immediately before presentation.
+- [ ] Coding-agent setup produces a reviewable diff and cannot publish without confirmation.
+- [ ] Human and agent purchases appear in one seller transaction history.
 - [ ] Three consecutive three-minute rehearsals succeed without data repair.
-

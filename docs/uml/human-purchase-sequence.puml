@@ -1,0 +1,25 @@
+@startuml AgentPay Human Purchase Sequence
+!theme plain
+title AgentPay — Human Purchase Through Shared Commerce
+
+actor Buyer
+participant "Hosted storefront" as Web
+participant "AgentPay API" as API
+participant "Human checkout provider" as Checkout
+participant "Transaction service" as Transactions
+participant "Seller API" as Seller
+participant "Evidence service" as Evidence
+
+Buyer -> Web : Select published product
+Web -> API : Create immutable purchase intent\nchannel=human
+API --> Web : Frozen seller quote and approval requirement
+Web -> Checkout : Start hosted checkout
+Buyer -> Checkout : Complete payment
+Checkout -> API : Authenticated idempotent callback
+API -> Transactions : Verify payment and claim fulfillment once
+Transactions -> Evidence : Append payment verification
+Transactions -> Seller : Forward signed request
+Seller --> Transactions : Return digital result
+Transactions -> Evidence : Append delivery outcome
+API --> Web : Return fulfillment and transaction status
+@enduml

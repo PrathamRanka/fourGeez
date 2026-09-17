@@ -11,6 +11,8 @@ Status: **Required for every implementation task**.
 - Seller configuration cannot turn the proxy into an SSRF service.
 - Secrets and payment proofs never appear in browser bundles, API responses, evidence payloads, or logs.
 - A dispute result is reproducible from recorded facts and rule version.
+- A coding agent cannot publish products, rotate credentials, or deploy production changes without explicit seller authorization.
+- Human and agent checkout channels cannot bypass the same pricing, approval, and fulfillment rules.
 
 ## Protected assets
 
@@ -21,6 +23,8 @@ Status: **Required for every implementation task**.
 - Payment proof and facilitator response.
 - Seller request/response content.
 - Evidence chain, signatures, and dispute decisions.
+- Seller project credentials and MCP authorization grants.
+- Seller repository contents, deployment credentials, and generated configuration.
 
 ## Primary threats and controls
 
@@ -38,6 +42,11 @@ Status: **Required for every implementation task**.
 | Duplicate mutation | Required idempotency key bound to caller, operation, and request hash |
 | WebSocket impersonation | Validate invitation token on connect, bind connection to session, authorize every callback, expire connections |
 | Denial of service | API throttles, body limits, route limits, Lambda concurrency, upstream timeout, Bedrock call budget |
+| Repository prompt injection | Treat repository text as untrusted, expose only allowlisted MCP tools, and require confirmation for commercial or deployment mutations |
+| Over-scoped integration credential | Bind each credential to one seller, use explicit scopes and expiration, hash it at rest, and support immediate revocation |
+| Generated secret exposure | Write secrets only to ignored server-side configuration, scan generated changes, and never serialize secrets into browser code or model prompts |
+| Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |
+| Human checkout forgery or replay | Authenticate provider callbacks, bind them to immutable intents, process them idempotently, and reuse transaction replay protection |
 
 ## Canonical hashing
 
@@ -98,6 +107,24 @@ Forbidden:
 - `Cache-Control: no-store` on approval, transaction, dispute, and 402 responses.
 - Security headers on the web app, including CSP and `frame-ancestors 'none'` for approval pages unless embedding is intentionally added.
 - Constant-time comparison for token and HMAC verification.
+
+## MCP and coding-agent requirements
+
+- The AgentPay MCP server exposes bounded commerce operations, documentation resources, and setup prompts; it does not expose an arbitrary shell or unrestricted HTTP proxy.
+- Read-only tools are separated from mutating tools by scope.
+- Product creation, price updates, publication, credential rotation, and production deployment require explicit confirmation.
+- Every mutation requires idempotency and records the seller, credential, operation, target, and outcome without recording secrets or repository contents.
+- Project credentials are seller-scoped, hashed at rest, revocable, and never committed to the seller repository.
+- Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.
+- Repository analysis must not upload unrelated source files, `.env` contents, credentials, wallet material, customer information, or proprietary data to AgentPay.
+
+## Human checkout requirements
+
+- The human checkout provider must be selected and its official integration guidance recorded before adding a dependency.
+- A provider success redirect is not proof of payment; only an authenticated server callback may advance payment state.
+- Provider events require replay protection and idempotent processing.
+- Human checkout uses the same frozen seller quote, approval policy, fulfillment claim, evidence chain, and dispute rules as x402.
+- Merchant-of-record, platform-fee, refund, tax, chargeback, and seller-payout responsibility must be documented before production activation.
 
 ## Production blockers
 

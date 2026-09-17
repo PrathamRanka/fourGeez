@@ -1,18 +1,26 @@
 # System architecture
 
-Status: **Locked for hackathon implementation**.
+Status: **Locked for the implemented backend and approved MVP direction**.
 
 ## Purpose
 
-AgentPay sits in front of a seller's API. It publishes machine-readable offers, enforces purchase policies, coordinates approval when required, verifies x402 testnet payment, forwards the request, and records evidence for later dispute handling.
+AgentPay turns a seller's existing API or digital service into one commerce surface for people and software agents. It automates repository integration through MCP-enabled coding agents, publishes human and machine-readable storefronts, enforces purchase policies, verifies payment, forwards fulfillment requests, and records evidence for later dispute handling.
 
 ## Runtime components
 
 ### Web application
 
-The Next.js application provides seller onboarding, route configuration, the buyer demonstration, live approval, transaction evidence, and dispute views.
+The Next.js application provides seller onboarding, product and route configuration, a seller sales dashboard, hosted human storefronts, the agent buyer demonstration, live approval, transaction evidence, and dispute views.
 
 Server Components render read-heavy pages. Client Components are limited to buyer interaction, approval decisions, WebSocket status, and small optimistic controls.
+
+### Seller automation
+
+The seller automation surface consists of a remote MCP server, coding-agent setup instructions, maintained verification middleware, and sandbox validation commands. Claude Code, Codex, and other compatible coding agents use this surface to inspect a seller repository and propose integration changes.
+
+The MCP server exposes bounded AgentPay operations; it is not a general remote shell. Read operations may run without confirmation. Creating or changing products, rotating credentials, publishing a storefront, or initiating deployment requires explicit seller confirmation and an appropriately scoped credential.
+
+Generated integration code must use maintained AgentPay request-verification packages when available. Coding agents must not generate independent cryptographic protocols or place project credentials in browser code.
 
 ### Go API
 
@@ -29,6 +37,11 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `agents`: Bedrock tool orchestration and deterministic fallback.
 
 Packages may call each other through explicit interfaces. They must not write another package's DynamoDB records directly.
+
+M6 and M7 add two package boundaries after their contracts are finalized:
+
+- `integrations`: project credentials, MCP operations, integration validation, and framework setup metadata.
+- `billing`: seller subscription and metered platform billing; it does not control buyer funds or seller settlement.
 
 ### Feature package layout
 
@@ -52,6 +65,7 @@ Shared primitives and storage adapters remain organized by their concrete respon
 - Cognito authenticates sellers; hackathon approval links use scoped invitation tokens.
 - Secrets Manager stores seller HMAC secrets and the isolated test-wallet secret.
 - Bedrock produces structured purchase proposals and explanations.
+- A remote MCP endpoint exposes seller-scoped integration tools and documentation.
 - CloudWatch receives logs, metrics, alarms, and traces.
 - Amplify Hosting deploys the Next.js application.
 
@@ -62,6 +76,30 @@ Shared primitives and storage adapters remain organized by their concrete respon
 3. **Payment boundary:** only the payments package can access the test wallet or facilitator credentials.
 4. **Seller boundary:** forwarded requests are allowlisted by configured method and route, protected against SSRF, and signed for the seller.
 5. **Evidence boundary:** evidence writers may append but cannot update or delete objects; verification uses a separate read role.
+6. **Coding-agent boundary:** repository files, prompts, generated code, and MCP arguments are untrusted; write operations are scoped, validated, audited, and confirmed by the seller.
+7. **Human-checkout boundary:** provider callbacks are authenticated and idempotent, and successful payment still passes through the same intent and transaction rules as x402.
+
+## Seller launch lifecycle
+
+1. The seller creates a storefront and receives a project-scoped integration credential.
+2. The seller connects the AgentPay MCP server to a supported coding agent.
+3. The coding agent inspects the local API contract and proposes products backed by concrete HTTPS routes.
+4. The agent adds maintained signature-verification middleware, server-only configuration, storefront code, and tests.
+5. The seller reviews prices, payout configuration, route publication, and deployment changes.
+6. Confirmed products are registered through idempotent control-plane operations.
+7. A sandbox purchase verifies discovery, payment gating, signed forwarding, and exactly-once fulfillment.
+8. The seller explicitly publishes the storefront and deploys the prepared application.
+
+The coding agent prepares and validates changes. It never receives production payout secrets and never publishes or deploys without seller confirmation.
+
+## Buyer channels
+
+Both buyer channels consume the same published paid routes:
+
+- **Agent channel:** manifest or `llms.txt` discovery, immutable intent, optional approval, x402 payment, and signed fulfillment.
+- **Human channel:** seller-branded product page, immutable intent, optional approval, hosted checkout, and the same signed fulfillment.
+
+The channel is presentation and payment-rail metadata. It does not create separate pricing, authorization, evidence, transaction, or dispute semantics.
 
 ## Purchase lifecycle
 
@@ -100,4 +138,4 @@ Shared primitives and storage adapters remain organized by their concrete respon
 
 ## Deliberate exclusions
 
-The first implementation does not provide production custody, production settlement, generalized refunds, cross-seller reputation, autonomous negotiation, arbitrary seller code execution, or automatic quality judgments.
+The first implementation does not provide physical goods, shipping, inventory, tax calculation, production custody, generalized refunds, cross-seller reputation, autonomous negotiation, arbitrary remote code execution, or automatic quality judgments.

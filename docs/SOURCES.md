@@ -26,7 +26,7 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 
 | Topic | Official source | Key implementation consequence |
 |---|---|---|
-| CDK v2 bootstrapping | https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html | Bootstrap each target account/region before deployment. |
+| Terraform language and workflow | https://developer.hashicorp.com/terraform/language | Pin providers and modules, use remote state, and review plans before apply. |
 | Bedrock model access | https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html | Model/provider access and regional availability must be checked before demo deployment. |
 | Bedrock regional model support | https://docs.aws.amazon.com/bedrock/latest/userguide/models-region-compatibility.html | Model ID remains deployment configuration, not a hardcoded architecture decision. |
 | S3 Object Lock | https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html | Object Lock prevents overwrite/deletion according to retention mode. |
@@ -39,6 +39,16 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 | Topic | Source | Usage |
 |---|---|---|
 | ZeroClick public architecture and capabilities | https://docs.zeroclick.ai/llms.txt | Behavioral reference only; do not copy source code, branding, text, private APIs, or undocumented behavior. |
+
+## Seller automation
+
+| Topic | Official source | Key implementation consequence |
+|---|---|---|
+| MCP protocol | https://modelcontextprotocol.io/specification/2026-07-28 | Pin the protocol version and expose only declared resources, prompts, and tools. |
+| MCP authorization | https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization | Remote seller integrations use standards-based authorization, seller scope, and least privilege. |
+| Codex workflows | https://developers.openai.com/codex/use-cases | Publish a reviewable Codex workflow and verify current setup instructions before release. |
+
+Claude Code and other host-specific installation instructions remain unverified until **AUT-007** checks their current official documentation and records exact supported configuration.
 
 ## Implementation libraries
 

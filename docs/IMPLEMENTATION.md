@@ -83,18 +83,18 @@ M4 acceptance: one real testnet payment invokes the demo seller once; invalid, e
 
 M5 acceptance: Bedrock cannot execute an unknown route, change an approved intent, exceed the configured maximum, or access wallet secrets; fallback mode completes the same transaction.
 
-## Milestone M6 — Web application
+## Milestone M6 — Automated seller launch
 
-- [ ] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.
-- [ ] **WEB-002** Implement seller onboarding and paid-route form.
-- [ ] **WEB-003** Implement transaction dashboard and status filters.
-- [ ] **WEB-004** Implement the evidence chain-of-custody rail and verification state.
-- [ ] **WEB-005** Implement buyer chat/tool activity view with deterministic fallback indicator.
-- [ ] **WEB-006** Implement live approval page, decision controls, REST fallback, and expiration state.
-- [ ] **WEB-007** Implement dispute creation and resolution explanation.
-- [ ] **WEB-008** Add loading, empty, retryable error, terminal error, and permission-denied states.
+- [x] **AUT-001** Define the automated seller-launch product contract, security boundaries, buyer channels, and implementation order.
+- [ ] **AUT-002** Define and implement seller-scoped integration credentials with read, configure, publish, validate, and rotate scopes.
+- [ ] **AUT-003** Publish a remote MCP server with authenticated read-only seller, storefront, route, transaction-summary, and integration-document resources.
+- [ ] **AUT-004** Add idempotent MCP mutation tools for storefront creation, route configuration, price changes, validation, and publication with explicit confirmation metadata.
+- [ ] **AUT-005** Implement deterministic OpenAPI and repository-manifest analysis that proposes supported paid routes without publishing them automatically.
+- [ ] **AUT-006** Implement maintained seller-request verification packages for the initial supported Go, Node.js, and Python server frameworks.
+- [ ] **AUT-007** Publish versioned Claude Code, Codex, and generic MCP setup bundles that install verification, generate storefront integration code, and run tests.
+- [ ] **AUT-008** Implement a sandbox validator that verifies discovery, signature handling, payment gating, and exactly-once fulfillment before publication.
 
-M6 acceptance: all five primary screens work at 360 px and desktop widths, pass keyboard navigation, and expose no secrets in browser bundles or logs.
+M6 acceptance: a seller can connect a supported coding agent, review generated changes, approve route publication, and pass a sandbox purchase without manually implementing AgentPay protocols or exposing credentials.
 
 ## Parallel track R1 — Recommendation research
 
@@ -114,22 +114,43 @@ This track may begin after M1 and must not block or modify the payment-critical 
 
 R1 acceptance: the model ranks only eligible offers, beats or matches the deterministic baseline on predefined synthetic scenarios, reproduces results from fixed seeds, and has no access to authorization or payment capabilities.
 
-## Milestone M7 — AWS infrastructure and operations
+## Milestone M7 — Human storefront and unified commerce
 
-- [ ] **AWS-001** Bootstrap development AWS account and CDK environment.
+- [ ] **HUM-001** Verify the selected human-checkout provider, lock merchant and settlement responsibilities, and update OpenAPI and data-model compatibility notes.
+- [ ] **HUM-002** Implement hosted human checkout creation against the same immutable purchase-intent rules used by agents.
+- [ ] **HUM-003** Implement authenticated, idempotent payment callbacks with replay protection and no success-redirect trust.
+- [ ] **HUM-004** Persist purchase channel and payment rail so human and agent sales share transaction, fulfillment, evidence, and dispute behavior.
+- [ ] **BIL-001** Implement seller subscription plans without taking custody of buyer-to-seller x402 funds.
+- [ ] **BIL-002** Implement auditable metered billing from successful transaction records.
+- [ ] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.
+- [ ] **WEB-002** Implement seller onboarding, project credentials, product-route configuration, validation, and publication controls.
+- [ ] **WEB-003** Implement seller-branded storefront and product-detail pages generated from published paid routes.
+- [ ] **WEB-004** Implement human checkout, success, cancellation, fulfillment, and purchase-history experiences.
+- [ ] **WEB-005** Implement the unified seller dashboard for human and agent transactions, revenue, payment status, and filters.
+- [ ] **WEB-006** Implement buyer chat/tool activity view with deterministic fallback indicator.
+- [ ] **WEB-007** Implement live approval page, decision controls, REST fallback, and expiration state.
+- [ ] **WEB-008** Implement evidence verification and dispute creation/resolution views.
+- [ ] **WEB-009** Add loading, empty, retryable error, terminal error, disabled, and permission-denied states.
+
+M7 acceptance: the same published product can be purchased through the hosted human storefront and the agent/x402 path, both produce one normalized transaction history, and all primary screens pass responsive, accessibility, and secret-exposure checks.
+
+## Milestone M8 — AWS infrastructure and operations
+
+- [ ] **AWS-000** Replace the existing CDK placeholder with Terraform modules, remote state, environment configuration, and CI validation.
+- [ ] **AWS-001** Bootstrap the development AWS account and Terraform state backend.
 - [ ] **AWS-002** Create DynamoDB tables and required secondary indexes.
 - [ ] **AWS-003** Create versioned Object Lock evidence bucket and KMS signing key.
 - [ ] **AWS-004** Create Secrets Manager entries and least-privilege IAM roles.
-- [ ] **AWS-005** Deploy Lambda, HTTP API, WebSocket API, stages, throttles, and access logs.
+- [ ] **AWS-005** Deploy Lambda, HTTP API, WebSocket API, MCP endpoint, stages, throttles, and access logs.
 - [ ] **AWS-006** Configure Cognito seller authentication.
 - [ ] **AWS-007** Configure Bedrock model access and runtime permissions.
 - [ ] **AWS-008** Deploy Next.js and configure environment-specific API origins.
-- [ ] **AWS-009** Add CloudWatch dashboards and alarms for errors, latency, facilitator failures, evidence failures, and seller timeouts.
+- [ ] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, and seller failures.
 - [ ] **AWS-010** Verify teardown behavior while retaining protected evidence resources.
 
-M7 acceptance: a new development environment can be deployed from documented commands without console-only changes.
+M8 acceptance: a new development environment can be deployed from committed Terraform without console-only changes or dual ownership with CDK.
 
-## Milestone M8 — Demo and release gate
+## Milestone M9 — Demo and release gate
 
 - [ ] **REL-001** Seed the demo seller and two routes: below-threshold and approval-required.
 - [ ] **REL-002** Run unit, integration, contract, web accessibility, and end-to-end suites.
@@ -137,16 +158,19 @@ M7 acceptance: a new development environment can be deployed from documented com
 - [ ] **REL-004** Demonstrate two-person approval on separate clients.
 - [ ] **REL-005** Demonstrate duplicate, non-delivery, and quality dispute outcomes.
 - [ ] **REL-006** Rehearse deterministic fallback and AWS dependency failures.
-- [ ] **REL-007** Run the three-minute demo three consecutive times without manual data repair.
+- [ ] **REL-007** Connect a coding agent, generate a seller integration, approve publication, and pass the sandbox validator.
+- [ ] **REL-008** Complete one human checkout and one agent/x402 purchase for the same storefront and show both in the seller dashboard.
+- [ ] **REL-009** Run the complete demo three consecutive times without manual data repair.
 
-M8 acceptance: all release gates in `TEST_PLAN.md` pass and mocked behavior is visibly labeled.
+M9 acceptance: all release gates in `TEST_PLAN.md` pass, generated changes are reviewable, both buyer channels work, and mocked behavior is visibly labeled.
 
 ## Post-hackathon backlog
 
-- Design-partner tenant isolation and usage billing.
+- Full seller SDKs beyond the maintained verification packages.
 - Seller-controlled reimbursement adapter.
 - Enterprise authentication and configurable N-of-M approval.
 - Protocol adapter interface for additional rails.
+- Physical-product inventory, shipping, taxation, and returns.
 - Data export, retention controls, and incident runbooks.
 - External security review and regulatory counsel before real funds.
 

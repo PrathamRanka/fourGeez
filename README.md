@@ -1,12 +1,13 @@
 # fourGeez
 
-fourGeez is the repository for **meow** , a seller-side commerce gateway for AI agents. It exposes paid API routes through x402-compatible challenges and adds purchase policy, multi-party approval, evidence capture, and dispute workflows.
+fourGeez is the repository for **AgentPay**, an automated commerce gateway for sellers of APIs and digitally fulfilled products. It prepares seller integrations through MCP-enabled coding agents and serves the same products to human storefront buyers and autonomous agents.
 
 The repository is documentation-first. Implementation must follow the numbered tasks and accepted contracts instead of inventing behavior while coding.
 
 ## Start here
 
 - [Documentation index](docs/README.md)
+- [Product contract](docs/PRODUCT.md)
 - [Task-by-task implementation plan](docs/IMPLEMENTATION.md)
 - [System architecture](docs/ARCHITECTURE.md)
 - [API contract](docs/api/openapi.yaml)
@@ -15,9 +16,9 @@ The repository is documentation-first. Implementation must follow the numbered t
 
 ## Current status
 
-- Product and technical planning: complete for the hackathon milestone
-- Repository foundations (M1): complete
-- API implementation: not started
+- Product and technical planning: updated for the dual-channel MVP
+- Repository foundations through the buyer backend (M1-M5): complete
+- Seller automation, web application, human checkout, and deployment: planned
 - Web application: not started
 - AWS deployment: not started
 - Real-money processing: explicitly out of scope for the first milestone

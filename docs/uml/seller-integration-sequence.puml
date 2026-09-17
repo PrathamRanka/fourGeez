@@ -1,0 +1,27 @@
+@startuml AgentPay Seller Integration Sequence
+!theme plain
+title AgentPay — Automated Seller Integration
+
+actor Seller
+participant "Coding agent\nClaude Code / Codex / MCP host" as CodingAgent
+participant "AgentPay MCP" as MCP
+participant "AgentPay API" as API
+participant "Seller repository" as Repository
+participant "Seller API" as SellerAPI
+
+Seller -> CodingAgent : Request AgentPay integration
+CodingAgent -> Repository : Inspect API contract and supported routes
+CodingAgent -> MCP : Read integration resources and seller configuration
+MCP -> API : Authorize seller-scoped read operations
+API --> MCP : Current storefront and route state
+MCP --> CodingAgent : Bounded configuration and templates
+CodingAgent -> Repository : Prepare middleware, storefront, configuration, and tests
+CodingAgent --> Seller : Present diff, proposed products, prices, and deployment plan
+Seller -> CodingAgent : Explicitly approve publication
+CodingAgent -> MCP : Create or update confirmed products
+MCP -> API : Idempotent scoped mutations
+API --> MCP : Published route identifiers
+CodingAgent -> SellerAPI : Run sandbox verification
+SellerAPI --> CodingAgent : Valid signed fulfillment response
+CodingAgent --> Seller : Integration ready for explicit deployment approval
+@enduml

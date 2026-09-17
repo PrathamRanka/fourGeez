@@ -17,7 +17,7 @@ The default development region is `us-east-1`. Before deployment, confirm that t
 - Node.js 24 or the repository-pinned version once added.
 - Go 1.26 or the repository-pinned version once added.
 - AWS CLI v2 authenticated through IAM Identity Center or another short-lived credential flow.
-- AWS CDK v2, installed as a project dependency and invoked with `npx cdk`.
+- Terraform, installed at the version pinned by the future `infra/terraform` configuration.
 - Docker only if Lambda bundling requires it.
 - A dedicated testnet wallet containing no production assets.
 
@@ -37,13 +37,14 @@ Local and CI configuration names:
 ```text
 AGENTPAY_ENV=dev
 AWS_REGION=us-east-1
-AGENTPAY_TABLE_NAME=<CDK output>
-AGENTPAY_EVIDENCE_BUCKET=<CDK output>
-AGENTPAY_EVIDENCE_KMS_KEY_ID=<CDK output>
-AGENTPAY_SELLER_USER_POOL_ID=<CDK output>
-AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<CDK output>
-AGENTPAY_HTTP_API_URL=<CDK output>
-AGENTPAY_WEBSOCKET_URL=<CDK output>
+AGENTPAY_TABLE_NAME=<Terraform output>
+AGENTPAY_EVIDENCE_BUCKET=<Terraform output>
+AGENTPAY_EVIDENCE_KMS_KEY_ID=<Terraform output>
+AGENTPAY_SELLER_USER_POOL_ID=<Terraform output>
+AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<Terraform output>
+AGENTPAY_HTTP_API_URL=<Terraform output>
+AGENTPAY_WEBSOCKET_URL=<Terraform output>
+AGENTPAY_MCP_URL=<Terraform output>
 AGENTPAY_BEDROCK_MODEL_ID=<selected model ID>
 AGENTPAY_BUYER_BUDGET_ATOMIC=<positive atomic-unit amount>
 AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
@@ -58,9 +59,9 @@ AGENTPAY_APPROVAL_TOKEN_SECRET_ARN=<Secrets Manager ARN>
 
 Only names, local mock values, and non-sensitive URLs belong in `.env.example`. Actual values are environment configuration; secrets belong in Secrets Manager.
 
-## CDK stack layout
+## Terraform module layout
 
-### FoundationStack
+### Foundation module
 
 - One DynamoDB table using `PK` and `SK` strings, on-demand billing, point-in-time recovery, AWS-owned encryption for the hackathon, and deletion protection in demo/prod.
 - GSIs exactly as defined in `DATA_MODEL.md`.
@@ -68,9 +69,9 @@ Only names, local mock values, and non-sensitive URLs belong in `.env.example`. 
 - One asymmetric KMS signing key for evidence signatures. The application requires `kms:Sign`; verification paths require `kms:GetPublicKey` and `kms:Verify` where supported.
 - One separate CloudWatch log bucket or log groups. Do not use the Object Lock evidence bucket as an S3 server-access-log destination.
 
-Object Lock cannot be treated as a later toggle. CDK must create the evidence bucket with Object Lock enabled, and teardown must retain it by default.
+Object Lock cannot be treated as a later toggle. Terraform must create the evidence bucket with Object Lock enabled, and lifecycle rules must prevent routine destruction.
 
-### IdentityStack
+### Identity module
 
 - Cognito user pool for seller accounts.
 - Email sign-in for the hackathon.
@@ -80,17 +81,18 @@ Object Lock cannot be treated as a later toggle. CDK must create the evidence bu
 
 Approval participants do not require Cognito in the hackathon. They authenticate with random invitation tokens whose hashes are stored in DynamoDB. Tokens are scoped to one session and approver, expire after ten minutes, and are removed from browser history after page initialization.
 
-### ApplicationStack
+### Application module
 
 - Go Lambda using ARM64 when all dependencies support it.
 - Reserved concurrency set to a small non-zero demo value and adjusted through load testing.
 - API Gateway HTTP API with JWT-protected seller routes and Lambda authorization/validation for agent and invitation credentials.
 - API Gateway WebSocket API with `$connect`, `$disconnect`, and `$default` routes. The route-selection expression is `$request.body.action` if client messages are introduced.
+- A remote HTTPS MCP endpoint using seller-scoped credentials and the same application-domain services as the seller control API.
 - DynamoDB table and WebSocket management permissions scoped to exact resources.
 - Lambda environment variables contain references and identifiers, not secret values.
 - CloudWatch structured JSON logs with request IDs and redaction.
 
-### BedrockStack or application permissions
+### Bedrock application permissions
 
 - Do not create a model resource.
 - Configure `AGENTPAY_BEDROCK_MODEL_ID` after checking regional availability and account access.
@@ -98,7 +100,7 @@ Approval participants do not require Cognito in the hackathon. They authenticate
 - Complete any provider-specific first-time-use or Marketplace access process required by AWS before the demo.
 - Do not grant Bedrock-related code access to Secrets Manager wallet secrets, payment records, or seller signing secrets.
 
-### WebStack
+### Web module
 
 - Amplify Hosting connected to the intended branch or deployed through a documented artifact flow.
 - Server-side environment variables contain API origins and Cognito identifiers.
@@ -112,14 +114,14 @@ Approval participants do not require Cognito in the hackathon. They authenticate
 | API Lambda | DynamoDB item operations, append evidence objects, KMS signing, selected secrets, Bedrock invocation, logs, WebSocket callbacks | Bucket deletion, KMS administration, IAM changes |
 | Evidence verifier | Read evidence objects, KMS public-key/verification operations | S3 writes/deletes, KMS signing |
 | Web frontend | Public API access and Cognito browser flows | DynamoDB, S3 evidence bucket, KMS, Secrets Manager |
-| CI deploy | CloudFormation/CDK deployment permissions scoped to project stacks | Organization/account administration |
+| CI deploy | Terraform deployment permissions scoped to project resources and remote state | Organization/account administration |
 | Human developer | Assume deployment/read-only roles through short-lived credentials | Long-lived access keys in repository or CI variables |
 
 Before production, split the API Lambda role into payment/proxy, evidence writer, verifier, and asynchronous worker roles.
 
 ## Secrets setup
 
-Create secrets outside source control after CDK creates placeholders:
+Create secrets outside source control after Terraform creates placeholders:
 
 ```powershell
 aws secretsmanager put-secret-value --secret-id <test-wallet-secret-id> --secret-string <value-supplied-securely>
@@ -135,14 +137,14 @@ Required controls:
 
 ## Deployment order
 
-Once `infra` is implemented:
+After **AWS-000** creates `infra/terraform`:
 
 ```powershell
-npm ci
-npx cdk bootstrap aws://<account-id>/<region>
-npx cdk synth
-npx cdk diff
-npx cdk deploy AgentPayFoundation-dev AgentPayIdentity-dev AgentPayApplication-dev --require-approval broadening
+terraform -chdir=infra/terraform init -backend-config=environments/dev.backend.hcl
+terraform -chdir=infra/terraform fmt -check -recursive
+terraform -chdir=infra/terraform validate
+terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars -out=dev.tfplan
+terraform -chdir=infra/terraform apply dev.tfplan
 ```
 
 Deploy the web application only after recording the HTTP API, WebSocket, and Cognito outputs.
@@ -190,12 +192,8 @@ Create alarms for any evidence-write failure, repeated payment replay, 5xx spike
 - Limit CloudWatch log retention in development.
 - Set Bedrock maximum output tokens and per-request tool-call limits.
 - Disable unused NAT gateways; the planned serverless deployment does not require a VPC for the hackathon.
-- Tag every resource with `Project=AgentPay`, `Environment`, `Owner`, and `ManagedBy=CDK`.
+- Tag every resource with `Project=AgentPay`, `Environment`, `Owner`, and `ManagedBy=Terraform`.
 
 ## Teardown
 
-```powershell
-npx cdk destroy AgentPayApplication-dev AgentPayIdentity-dev
-```
-
-The foundation stack and evidence bucket use retain policies. Removing them requires a separate, explicit evidence-destruction procedure and must never be part of ordinary `cdk destroy`.
+Terraform application and identity resources may be destroyed only from their environment-specific state after reviewing the destroy plan. Evidence storage uses deletion protection and `prevent_destroy`; removing it requires a separate, explicitly approved evidence-destruction procedure and must never be part of routine teardown.

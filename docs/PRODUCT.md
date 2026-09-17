@@ -1,0 +1,123 @@
+# Product contract
+
+Status: **Locked for the AgentPay MVP direction**.
+
+## Product promise
+
+AgentPay turns an existing API or digital service into a storefront that can
+sell to both people and software agents. A seller connects AgentPay to a
+supported coding agent, approves the proposed repository changes, and publishes
+products without manually implementing payment, approval, evidence, or agent
+discovery protocols.
+
+AgentPay is the commerce gateway and control plane. The seller continues to own
+and operate the upstream service that fulfills each product.
+
+## Initial product scope
+
+The first commercial scope is API-backed and digitally fulfilled products:
+
+- paid API calls;
+- generated reports and research;
+- datasets and digital downloads;
+- bounded SaaS actions; and
+- other responses that can be delivered synchronously by an HTTPS endpoint.
+
+A published `paidRoute` is the V1 product record. Physical goods, shipping,
+inventory, tax calculation, and physical returns are outside the initial scope.
+
+## Seller experience
+
+The intended onboarding flow is:
+
+1. The seller creates an AgentPay seller account and storefront.
+2. AgentPay issues a project-scoped integration credential.
+3. The seller connects the AgentPay MCP server to a supported coding agent such
+   as Claude Code or Codex.
+4. The coding agent inspects the seller repository and proposes sellable routes,
+   storefront pages, verification middleware, configuration, and tests.
+5. The seller reviews the proposed prices, routes, generated code, and deployment
+   changes.
+6. Only after explicit confirmation may the integration publish products or
+   change AgentPay configuration.
+7. Buyers use the hosted storefront or machine-readable AgentPay endpoints.
+8. Every successful sale appears in one seller dashboard regardless of channel.
+
+A representative prompt is:
+
+```text
+Connect this project to AgentPay. Identify sellable API routes, propose products
+and prices, install AgentPay request verification, generate the storefront,
+run the integration tests, and prepare the deployment for my approval.
+```
+
+The coding agent may prepare code and configuration automatically. It must not
+invent prices, publish products, rotate credentials, or deploy production
+changes without explicit seller confirmation.
+
+## Seller integration surface
+
+V1 does not require a large seller SDK. AgentPay provides:
+
+- a seller control API and minimal dashboard;
+- a remote MCP server with scoped tools, resources, and setup prompts;
+- coding-agent setup instructions for Claude Code, Codex, and generic MCP hosts;
+- maintained request-verification middleware or small packages for supported
+  server frameworks;
+- framework templates and copyable examples;
+- a sandbox validation command; and
+- generated public storefront, manifest, `llms.txt`, and paid URLs.
+
+The seller exposes an HTTPS fulfillment endpoint. AgentPay verifies payment and
+approval, claims the transaction exactly once, and forwards a signed request to
+that endpoint. Seller code verifies the AgentPay signature and returns the
+digital result.
+
+## Buyer channels
+
+### Agent channel
+
+Agents discover products through the storefront manifest or `llms.txt`, create
+an immutable purchase intent, satisfy approval when required, pay through the
+x402 adapter, and call the AgentPay paid URL.
+
+### Human channel
+
+People browse a seller-branded storefront, choose the same published products,
+complete a hosted human checkout, and receive the same digital fulfillment.
+The human checkout provider is selected and verified before implementation; it
+must enter the same intent, transaction, evidence, and dispute pipeline rather
+than creating a parallel order system.
+
+## Unified commerce rule
+
+Human and agent purchases share the authoritative seller quote and the same
+purchase-intent, approval, transaction, fulfillment, evidence, and dispute
+rules. Channel and payment-rail metadata may differ, but neither channel may
+bypass domain validation.
+
+## Revenue model
+
+The initial revenue model is seller-funded software and usage billing:
+
+- a monthly seller subscription;
+- optional metered fees based on successful transactions; and
+- higher tiers for approvals, evidence retention, limits, analytics, and support.
+
+Buyer funds continue directly to the seller under the x402 flow. AgentPay does
+not custody or redistribute seller funds in V1. Human-checkout settlement,
+platform fees, refunds, tax responsibility, and merchant-of-record status must
+be explicitly decided before enabling production card payments.
+
+## Definition of a launch-ready seller
+
+A seller is ready to publish only when:
+
+- authentication and project scope are valid;
+- every product maps to an enabled, validated paid route;
+- the upstream target passes SSRF and reachability checks;
+- request-signature verification passes the sandbox test;
+- prices and payout configuration were explicitly approved by the seller;
+- no secret is present in committed files or browser bundles;
+- human and agent storefront representations agree; and
+- a sandbox purchase reaches the intended fulfillment endpoint exactly once.

@@ -4,18 +4,24 @@ title AgentPay — System Context
 
 actor "API seller" as Seller
 actor "Approver" as Approver
-actor "Agent / buyer" as Buyer
-rectangle "AgentPay\nSeller-side agent commerce gateway" as AgentPay
+actor "Human buyer" as HumanBuyer
+actor "Agent buyer" as AgentBuyer
+rectangle "Seller coding agent\nClaude Code / Codex / MCP host" as CodingAgent
+rectangle "AgentPay\nAutomated commerce gateway" as AgentPay
 rectangle "Seller API" as SellerAPI
 cloud "x402 facilitator\n(testnet)" as Facilitator
+cloud "Human checkout provider\n(planned)" as HumanCheckout
 cloud "AWS Bedrock" as Bedrock
 
-Seller --> AgentPay : Configures paid routes\nreviews transactions/disputes
-Buyer --> AgentPay : Discovers offers\ncreates intent\npays for request
+Seller --> CodingAgent : Requests integration\nreviews changes and confirms publish
+CodingAgent --> AgentPay : Scoped MCP resources and tools
+Seller --> AgentPay : Configures products\nreviews unified sales/disputes
+HumanBuyer --> AgentPay : Browses storefront\nchecks out and receives fulfillment
+AgentBuyer --> AgentPay : Discovers offers\ncreates intent\npays through x402
 Approver --> AgentPay : Reviews and approves/vetoes
 AgentPay --> SellerAPI : Forwards one signed request
 AgentPay --> Facilitator : Verifies/settles testnet payment
+AgentPay --> HumanCheckout : Creates checkout\nverifies server callback
 AgentPay --> Bedrock : Requests structured proposal/explanation
 Bedrock --> AgentPay : Tool calls only\n(no wallet access)
 @enduml
-

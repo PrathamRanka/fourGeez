@@ -3,11 +3,13 @@
 title AgentPay — Runtime Containers
 
 actor Seller
-actor Buyer
+actor HumanBuyer
+actor AgentBuyer
 actor Approver
+rectangle "Seller coding agent\nClaude Code / Codex / MCP host" as CodingAgent
 
 rectangle "Next.js web\nAmplify Hosting" as Web
-rectangle "API Gateway\nHTTP + WebSocket" as Gateway
+rectangle "API Gateway\nHTTP + WebSocket + MCP" as Gateway
 rectangle "Go modular monolith\nAWS Lambda" as API
 database "DynamoDB\noperational state" as DDB
 storage "S3 Object Lock\nevidence events" as S3
@@ -16,11 +18,15 @@ rectangle "Cognito\nseller identity" as Cognito
 rectangle "Secrets Manager\nwallet + seller secrets" as Secrets
 cloud "Bedrock" as Bedrock
 cloud "x402 facilitator" as Facilitator
+cloud "Human checkout provider\nplanned" as HumanCheckout
 rectangle "Seller API" as SellerAPI
 
 Seller --> Web
+Seller --> CodingAgent
+CodingAgent --> Gateway : Scoped MCP operations
 Approver --> Web
-Buyer --> Gateway
+HumanBuyer --> Web
+AgentBuyer --> Gateway : Manifest + x402
 Web --> Gateway
 Gateway --> API
 API --> DDB
@@ -30,6 +36,6 @@ API --> Cognito
 API --> Secrets
 API --> Bedrock
 API --> Facilitator
+API --> HumanCheckout
 API --> SellerAPI : HTTPS + HMAC signature
 @enduml
-
