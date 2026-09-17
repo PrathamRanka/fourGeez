@@ -28,12 +28,14 @@ type BedrockAPI interface {
 type BedrockInvoker struct {
 	client  BedrockAPI
 	modelID string
+	limits  Limits
 }
 
 // NewBedrockInvoker creates an invoker without selecting a model implicitly.
 func NewBedrockInvoker(
 	client BedrockAPI,
 	modelID string,
+	limits Limits,
 ) (*BedrockInvoker, error) {
 	if client == nil {
 		return nil, errors.New("Bedrock client is required")
@@ -45,6 +47,7 @@ func NewBedrockInvoker(
 	return &BedrockInvoker{
 		client:  client,
 		modelID: modelID,
+		limits:  limits,
 	}, nil
 }
 
@@ -53,13 +56,19 @@ func (invoker *BedrockInvoker) Invoke(
 	ctx context.Context,
 	request ModelRequest,
 ) (ModelResponse, error) {
+	invocationContext, cancel := context.WithTimeout(
+		ctx,
+		invoker.limits.invocationTimeout,
+	)
+	defer cancel()
+
 	toolConfiguration, err := bedrockToolConfiguration()
 	if err != nil {
 		return ModelResponse{}, err
 	}
 
 	output, err := invoker.client.Converse(
-		ctx,
+		invocationContext,
 		&bedrockruntime.ConverseInput{
 			ModelId: aws.String(invoker.modelID),
 			Messages: []bedrocktypes.Message{
@@ -79,7 +88,12 @@ func (invoker *BedrockInvoker) Invoke(
 		return ModelResponse{}, fmt.Errorf("invoke Bedrock model: %w", err)
 	}
 
-	return parseBedrockResponse(output), nil
+	response := parseBedrockResponse(output)
+	if len(response.ToolCalls) > invoker.limits.maximumToolCalls {
+		return ModelResponse{}, ErrToolCallLimitExceeded
+	}
+
+	return response, nil
 }
 
 // bedrockToolConfiguration converts the closed AgentPay schemas for the SDK.

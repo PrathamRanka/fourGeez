@@ -36,7 +36,11 @@ func TestBedrockInvokerUsesConfiguredModelAndTools(t *testing.T) {
 			},
 		},
 	}
-	invoker, err := NewBedrockInvoker(client, "configured-model-id")
+	invoker, err := NewBedrockInvoker(
+		client,
+		"configured-model-id",
+		testAgentLimits(t),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,23 +69,31 @@ func TestBedrockInvokerUsesConfiguredModelAndTools(t *testing.T) {
 func TestBedrockInvokerRequiresConfiguredModel(t *testing.T) {
 	t.Parallel()
 
-	if _, err := NewBedrockInvoker(&fakeBedrockClient{}, ""); err == nil {
+	if _, err := NewBedrockInvoker(
+		&fakeBedrockClient{},
+		"",
+		testAgentLimits(t),
+	); err == nil {
 		t.Fatal("NewBedrockInvoker() accepted an empty model ID")
 	}
 }
 
 type fakeBedrockClient struct {
-	input  *bedrockruntime.ConverseInput
-	output *bedrockruntime.ConverseOutput
-	err    error
+	input    *bedrockruntime.ConverseInput
+	output   *bedrockruntime.ConverseOutput
+	err      error
+	converse func(context.Context) (*bedrockruntime.ConverseOutput, error)
 }
 
 // Converse records the SDK request and returns the configured output.
 func (client *fakeBedrockClient) Converse(
-	_ context.Context,
+	ctx context.Context,
 	input *bedrockruntime.ConverseInput,
 	_ ...func(*bedrockruntime.Options),
 ) (*bedrockruntime.ConverseOutput, error) {
 	client.input = input
+	if client.converse != nil {
+		return client.converse(ctx)
+	}
 	return client.output, client.err
 }

@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
@@ -156,4 +157,12 @@ type DeterministicPurchaseResult struct {
 	AwaitingApproval bool
 	AwaitingPayment  bool
 	Checkout         payments.CheckoutResult
+}
+
+// Limits contains validated buyer policy and model execution ceilings.
+type Limits struct {
+	budget            domain.Amount
+	maximumPrice      domain.Amount
+	invocationTimeout time.Duration
+	maximumToolCalls  int
 }

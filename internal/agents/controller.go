@@ -21,6 +21,7 @@ type Controller struct {
 	catalogService  CatalogService
 	intentService   IntentService
 	approvalService ApprovalService
+	limits          Limits
 }
 
 // NewController wires the model boundary to the HTTP-owned domain use cases.
@@ -28,11 +29,13 @@ func NewController(
 	catalogService CatalogService,
 	intentService IntentService,
 	approvalService ApprovalService,
+	limits Limits,
 ) *Controller {
 	return &Controller{
 		catalogService:  catalogService,
 		intentService:   intentService,
 		approvalService: approvalService,
+		limits:          limits,
 	}
 }
 
@@ -115,6 +118,9 @@ func (controller *Controller) createPurchaseIntent(
 	if err != nil {
 		return nil, err
 	}
+	if err := controller.limits.validateAmount(maximumAmount); err != nil {
+		return nil, err
+	}
 
 	purchaseIntent, err := controller.intentService.Create(
 		ctx,
@@ -126,6 +132,9 @@ func (controller *Controller) createPurchaseIntent(
 		},
 	)
 	if err != nil {
+		return nil, err
+	}
+	if err := controller.limits.validateAmount(purchaseIntent.Amount()); err != nil {
 		return nil, err
 	}
 
@@ -150,6 +159,9 @@ func (controller *Controller) getPurchaseIntent(
 	}
 	purchaseIntent, err := controller.intentService.Get(ctx, intentID)
 	if err != nil {
+		return nil, err
+	}
+	if err := controller.limits.validateAmount(purchaseIntent.Amount()); err != nil {
 		return nil, err
 	}
 

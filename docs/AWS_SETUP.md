@@ -45,6 +45,10 @@ AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<CDK output>
 AGENTPAY_HTTP_API_URL=<CDK output>
 AGENTPAY_WEBSOCKET_URL=<CDK output>
 AGENTPAY_BEDROCK_MODEL_ID=<selected model ID>
+AGENTPAY_BUYER_BUDGET_ATOMIC=<positive atomic-unit amount>
+AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
+AGENTPAY_BEDROCK_TIMEOUT_MS=<positive timeout in milliseconds>
+AGENTPAY_BEDROCK_MAX_TOOL_CALLS=<positive integer>
 AGENTPAY_FACILITATOR_URL=<verified testnet facilitator URL>
 AGENTPAY_X402_NETWORK=<verified SDK network identifier>
 AGENTPAY_X402_ASSET=<verified testnet asset identifier>
@@ -195,4 +199,3 @@ npx cdk destroy AgentPayApplication-dev AgentPayIdentity-dev
 ```
 
 The foundation stack and evidence bucket use retain policies. Removing them requires a separate, explicit evidence-destruction procedure and must never be part of ordinary `cdk destroy`.
-

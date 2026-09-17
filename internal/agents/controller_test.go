@@ -29,6 +29,7 @@ func TestControllerValidatesCreateIntentInput(t *testing.T) {
 		&agentCatalogService{},
 		intentService,
 		&agentApprovalService{},
+		testAgentLimits(t),
 	)
 
 	_, err := controller.Execute(
@@ -121,6 +122,7 @@ func TestControllerDispatchesEveryDeclaredTool(t *testing.T) {
 				&agentCatalogService{},
 				&agentIntentService{},
 				&agentApprovalService{},
+				testAgentLimits(t),
 			)
 			if _, err := controller.Execute(
 				t.Context(),
@@ -148,6 +150,7 @@ func TestControllerRedactsApprovalSecrets(t *testing.T) {
 				ApprovalToken: "approval-secret",
 			},
 		},
+		testAgentLimits(t),
 	)
 	result, err := controller.Execute(
 		t.Context(),
@@ -227,6 +230,7 @@ func TestControllerRejectsUntrustedToolCalls(t *testing.T) {
 				&agentCatalogService{},
 				&agentIntentService{createError: testCase.intentError},
 				&agentApprovalService{},
+				testAgentLimits(t),
 			)
 			_, err := controller.Execute(
 				t.Context(),
