@@ -114,3 +114,12 @@ recommendation, a segment label, and outcome events generated only after the
 recommendation. Supported segments are `cost-sensitive`, `quality-sensitive`,
 and `latency-sensitive`. Generation uses local seeded randomness and is bounded
 to 1-10,000 scenarios.
+
+## Reward configuration v1
+
+`reward-v1` assigns explicit configurable components to acceptance, override,
+fulfillment, failure, dispute, and resolution events. Reward calculation emits
+every component with its source event and rejects mixed identities, incomplete
+lifecycles, invalid ordering, incompatible versions, and events after an
+evaluation cutoff. Rewards are offline measurements only and cannot change
+authorization, payment, fulfillment, or dispute decisions.
