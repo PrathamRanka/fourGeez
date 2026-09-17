@@ -7,79 +7,8 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
-const (
-	RuleVersion            = "dispute-rules-v1"
-	maximumStatementLength = 2000
-)
-
-type Reason string
-
-const (
-	ReasonUnauthorized    Reason = "unauthorized"
-	ReasonDuplicate       Reason = "duplicate"
-	ReasonWrongAmount     Reason = "wrong_amount"
-	ReasonNotDelivered    Reason = "not_delivered"
-	ReasonQualityOrOutput Reason = "quality_or_output"
-)
-
-type Status string
-
-const (
-	StatusOpen              Status = "open"
-	StatusRefundRecommended Status = "refund_recommended"
-	StatusSellerReview      Status = "seller_review"
-	StatusDenied            Status = "denied"
-	StatusResolved          Status = "resolved"
-)
-
-const (
-	CodeAuthorizationNotValid     = "authorization_not_valid"
-	CodeAuthorizationValid        = "authorization_valid"
-	CodeDuplicatePaymentConfirmed = "duplicate_payment_confirmed"
-	CodeDuplicatePaymentNotFound  = "duplicate_payment_not_found"
-	CodeWrongAmountConfirmed      = "wrong_amount_confirmed"
-	CodeAmountMatchesIntent       = "amount_matches_intent"
-	CodeDeliveryNotConfirmed      = "delivery_not_confirmed"
-	CodeDeliveryConfirmed         = "delivery_confirmed"
-	CodeQualityReviewRequired     = "quality_review_required"
-	CodeInsufficientEvidence      = "insufficient_evidence"
-)
-
-type Params struct {
-	DisputeID     domain.ID
-	TransactionID domain.ID
-	Reason        Reason
-	Statement     string
-	CreatedAt     domain.Timestamp
-}
-
-// Facts contains recorded values used by the rule corresponding to Reason.
-// Pointer booleans distinguish a recorded false value from missing evidence.
-type Facts struct {
-	AuthorizationValid *bool
-	DuplicatePayment   *bool
-	ExpectedAmount     *domain.Amount
-	PaidAmount         *domain.Amount
-	DeliverySucceeded  *bool
-}
-
-type Dispute struct {
-	DisputeID          domain.ID        `json:"disputeId"`
-	TransactionID      domain.ID        `json:"transactionId"`
-	Reason             Reason           `json:"reason"`
-	Statement          string           `json:"statement,omitempty"`
-	Status             Status           `json:"status"`
-	RuleVersion        string           `json:"ruleVersion"`
-	ClassificationCode string           `json:"classificationCode"`
-	Explanation        string           `json:"explanation"`
-	CreatedAt          domain.Timestamp `json:"createdAt"`
-}
-
-func Classify(params Params, facts Facts) (Dispute, error) {
-	if err := validateParams(params); err != nil {
-		return Dispute{}, err
-	}
-	status, code, explanation := classify(params.Reason, facts)
+// newDispute constructs the classified dispute model.
+func newDispute(params Params, status Status, code, explanation string) Dispute {
 	return Dispute{
 		DisputeID:          params.DisputeID,
 		TransactionID:      params.TransactionID,
@@ -90,9 +19,10 @@ func Classify(params Params, facts Facts) (Dispute, error) {
 		ClassificationCode: code,
 		Explanation:        explanation,
 		CreatedAt:          params.CreatedAt,
-	}, nil
+	}
 }
 
+// classify applies the rule associated with a dispute reason.
 func classify(reason Reason, facts Facts) (Status, string, string) {
 	switch reason {
 	case ReasonUnauthorized:
@@ -134,10 +64,12 @@ func classify(reason Reason, facts Facts) (Status, string, string) {
 	}
 }
 
+// insufficientEvidence returns the manual-review fallback classification.
 func insufficientEvidence() (Status, string, string) {
 	return StatusSellerReview, CodeInsufficientEvidence, "Recorded evidence is insufficient for an automatic recommendation; seller review is required."
 }
 
+// validateParams validates a dispute creation request.
 func validateParams(params Params) error {
 	var validationErrors domain.ValidationErrors
 	if _, err := domain.ParseID(params.DisputeID.String(), domain.DisputeIDPrefix); err != nil {
@@ -161,6 +93,7 @@ func validateParams(params Params) error {
 	return nil
 }
 
+// validReason reports whether a reason belongs to the public dispute vocabulary.
 func validReason(reason Reason) bool {
 	switch reason {
 	case ReasonUnauthorized, ReasonDuplicate, ReasonWrongAmount, ReasonNotDelivered, ReasonQualityOrOutput:

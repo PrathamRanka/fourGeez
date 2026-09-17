@@ -35,32 +35,3 @@ type ApprovalDecision struct {
 func (decision ApprovalDecision) RequiresApproval() bool {
 	return decision.Requirement == ApprovalRequired
 }
-
-// EvaluateApprovalThreshold applies an inclusive approval threshold. A nil
-// threshold means that this policy imposes no approval requirement.
-func EvaluateApprovalThreshold(amount domain.Amount, threshold *domain.Amount) (ApprovalDecision, error) {
-	if amount.IsZero() {
-		return ApprovalDecision{}, domain.NewValidationError("amount", "positive", "must be greater than zero")
-	}
-
-	decision := ApprovalDecision{
-		Requirement:   ApprovalNotRequired,
-		Reason:        ApprovalReasonNoThreshold,
-		PolicyVersion: ApprovalThresholdPolicyVersion,
-		Amount:        amount,
-	}
-	if threshold == nil {
-		return decision, nil
-	}
-
-	thresholdCopy := *threshold
-	decision.Threshold = &thresholdCopy
-	if amount.Compare(thresholdCopy) >= 0 {
-		decision.Requirement = ApprovalRequired
-		decision.Reason = ApprovalReasonThresholdReached
-		return decision, nil
-	}
-
-	decision.Reason = ApprovalReasonBelowThreshold
-	return decision, nil
-}

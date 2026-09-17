@@ -30,6 +30,17 @@ One deployable Go binary owns all authoritative business rules through isolated 
 
 Packages may call each other through explicit interfaces. They must not write another package's DynamoDB records directly.
 
+### Feature package layout
+
+Backend feature packages separate responsibilities by file without adding wrapper layers:
+
+- `models.go` owns domain types, states, immutable values, and read accessors.
+- `service.go` owns validation, construction, deterministic rules, and internal calculations.
+- `controller.go` owns public feature operations and guarded state-changing commands.
+- `persistence.go` owns explicit serialization snapshots when private domain state must be stored.
+
+Shared primitives and storage adapters remain organized by their concrete responsibility rather than being forced into controller/service files.
+
 ### AWS managed services
 
 - API Gateway HTTP API routes browser, agent, and proxy traffic.
