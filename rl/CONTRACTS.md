@@ -131,3 +131,12 @@ offline examples. Its JSON artifact records the feature version, algorithm,
 hyperparameters, seed, training count, and a checksum of the complete learned
 state. Live `rank` calls are read-only and the Go backend must still revalidate
 every suggested offer before use.
+
+## Evaluation report v1
+
+`agentpay.evaluation-report.v1` compares paired observed outcomes for the
+deterministic baseline and a candidate ranker. It reports acceptance, atomic
+cost, fulfillment, dispute rate, and aggregate reward with paired 95 percent
+confidence intervals and segment breakdowns. Mixed provenance, outcome leakage,
+and unobserved candidate outcomes are rejected. Explicit reward and dispute
+thresholds determine the report pass/fail result.
