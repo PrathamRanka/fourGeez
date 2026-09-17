@@ -8,6 +8,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 const defaultMaximumResponseBytes int64 = 1024 * 1024
@@ -40,6 +41,8 @@ var (
 	ErrUpstreamUnavailable = errors.New("seller is unavailable")
 	// ErrSigningUnavailable reports missing or invalid seller signing material.
 	ErrSigningUnavailable = errors.New("seller request signing is unavailable")
+	// ErrAlreadyForwarded reports a lost conditional forwarding claim.
+	ErrAlreadyForwarded = errors.New("transaction was already forwarded")
 )
 
 // ForwardRequest contains one already-authorized seller invocation.
@@ -75,9 +78,40 @@ type SignatureHeaders struct {
 	Transaction string
 }
 
+// ExecutionRequest contains a verified transaction and its seller request.
+type ExecutionRequest struct {
+	Transaction transactions.Transaction
+	Seller      catalog.Seller
+	Route       catalog.PaidRoute
+	Method      catalog.RouteMethod
+	Path        string
+	Body        []byte
+	ContentType string
+}
+
 // SecretProvider resolves seller secrets without exposing storage details.
 type SecretProvider interface {
 	GetSecret(context.Context, string) ([]byte, error)
+}
+
+// ForwardingRepository atomically claims one verified transaction.
+type ForwardingRepository interface {
+	ClaimForwarding(
+		context.Context,
+		domain.ID,
+		uint64,
+		domain.Timestamp,
+	) (transactions.Transaction, bool, error)
+}
+
+// RequestSigner signs one claimed seller request.
+type RequestSigner interface {
+	Sign(context.Context, string, SigningInput) (SignatureHeaders, error)
+}
+
+// SellerForwarder sends one request to an already validated seller route.
+type SellerForwarder interface {
+	Forward(context.Context, ForwardRequest) (ForwardResponse, error)
 }
 
 // Resolver resolves a hostname at validation and connection time.

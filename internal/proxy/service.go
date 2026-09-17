@@ -41,6 +41,14 @@ type HMACSigner struct {
 	clock          domain.Clock
 }
 
+// ExecutionService claims a transaction before any seller-side effect.
+type ExecutionService struct {
+	repository ForwardingRepository
+	signer     RequestSigner
+	forwarder  SellerForwarder
+	clock      domain.Clock
+}
+
 // NewHMACSigner creates a per-seller request signer.
 func NewHMACSigner(
 	secretProvider SecretProvider,
@@ -50,6 +58,71 @@ func NewHMACSigner(
 		secretProvider: secretProvider,
 		clock:          clock,
 	}
+}
+
+// NewExecutionService creates the exactly-once forwarding service.
+func NewExecutionService(
+	repository ForwardingRepository,
+	signer RequestSigner,
+	forwarder SellerForwarder,
+	clock domain.Clock,
+) *ExecutionService {
+	return &ExecutionService{
+		repository: repository,
+		signer:     signer,
+		forwarder:  forwarder,
+		clock:      clock,
+	}
+}
+
+// Execute conditionally claims and invokes the seller at most once.
+func (service *ExecutionService) Execute(
+	ctx context.Context,
+	request ExecutionRequest,
+) (ForwardResponse, error) {
+	if request.Transaction.SellerID() != request.Seller.SellerID ||
+		request.Transaction.RouteID() != request.Route.RouteID ||
+		request.Route.SellerID != request.Seller.SellerID {
+		return ForwardResponse{}, ErrRouteNotAllowed
+	}
+	claimed, won, err := service.repository.ClaimForwarding(
+		ctx,
+		request.Transaction.TransactionID(),
+		request.Transaction.Version(),
+		domain.NewTimestamp(service.clock.Now()),
+	)
+	if err != nil {
+		return ForwardResponse{}, err
+	}
+	if !won {
+		return ForwardResponse{}, ErrAlreadyForwarded
+	}
+
+	signature, err := service.signer.Sign(
+		ctx,
+		request.Seller.SigningSecretRef,
+		SigningInput{
+			TransactionID: claimed.TransactionID(),
+			Method:        request.Method,
+			Path:          request.Path,
+			Body:          request.Body,
+		},
+	)
+	if err != nil {
+		return ForwardResponse{}, err
+	}
+	return service.forwarder.Forward(
+		ctx,
+		ForwardRequest{
+			Seller:      request.Seller,
+			Route:       request.Route,
+			Method:      request.Method,
+			Path:        request.Path,
+			Body:        request.Body,
+			ContentType: request.ContentType,
+			Signature:   signature,
+		},
+	)
 }
 
 // Sign creates the canonical timestamped seller authentication headers.
