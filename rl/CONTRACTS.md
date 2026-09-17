@@ -68,3 +68,24 @@ Contract parsing recursively rejects fields whose normalized names represent
 authorization headers, cookies, payment signatures or proofs, approval tokens,
 wallet keys, signing secrets, integration credentials, prompts, raw request
 bodies, or raw response bodies.
+
+## Feature vector v1
+
+`agentpay.features.v1` contains seven columns in this fixed order:
+
+1. `price_weight`
+2. `quality_weight`
+3. `latency_weight`
+4. `price_score`
+5. `delivery_rate`
+6. `dispute_free_rate`
+7. `latency_score`
+
+Preference weights and historical rates divide basis points by `10000`.
+`price_score` is `1 - amount / maximumAmount`, clamped to `[0, 1]` after the
+atomic-unit comparison. `latency_score` is `1 - p95LatencyMs / 300000`, also
+clamped to `[0, 1]`.
+
+Unavailable, ineligible, and over-budget candidates are rejected before feature
+construction with explicit reason codes. Accepted and rejected candidates are
+ordered by `offerId`, so input ordering cannot change the feature batch.
