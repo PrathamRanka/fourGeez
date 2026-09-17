@@ -132,6 +132,12 @@ hyperparameters, seed, training count, and a checksum of the complete learned
 state. Live `rank` calls are read-only and the Go backend must still revalidate
 every suggested offer before use.
 
+The JSON adapter accepts only a strict `DecisionContext`, enforces request and
+response byte limits plus a ranking time budget, and revalidates that every
+ranked identifier exactly matches the candidates accepted by feature
+validation. Health and metadata operations expose no training records or model
+weights.
+
 ## Evaluation report v1
 
 `agentpay.evaluation-report.v1` compares paired observed outcomes for the

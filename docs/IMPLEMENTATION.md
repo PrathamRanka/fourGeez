@@ -108,7 +108,7 @@ This track may begin after M1 and must not block or modify the payment-critical 
 - [x] **RL-005** Define configurable, auditable reward components.
 - [x] **RL-006** Implement an offline contextual bandit behind the common ranking interface.
 - [x] **RL-007** Implement baseline comparison, confidence intervals, and regression thresholds.
-- [ ] **RL-008** Implement the bounded JSON service adapter after offline evaluation passes.
+- [x] **RL-008** Implement the bounded JSON service adapter after offline evaluation passes.
 - [ ] **RL-009** Add reproducible simulation, training, evaluation, and serving commands.
 - [ ] **RL-010** Publish an evaluation report that clearly labels synthetic versus real data.
 
