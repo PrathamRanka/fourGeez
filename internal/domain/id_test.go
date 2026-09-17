@@ -24,6 +24,7 @@ func TestParseID(t *testing.T) {
 		{name: "credential ID", raw: "key_" + validULID, prefix: CredentialIDPrefix, want: ID("key_" + validULID)},
 		{name: "payment destination ID", raw: "dst_" + validULID, prefix: PaymentDestinationIDPrefix, want: ID("dst_" + validULID)},
 		{name: "webhook subscription ID", raw: "whk_" + validULID, prefix: WebhookSubscriptionIDPrefix, want: ID("whk_" + validULID)},
+		{name: "webhook delivery ID", raw: "whd_" + validULID, prefix: WebhookDeliveryIDPrefix, want: ID("whd_" + validULID)},
 		{name: "wrong prefix", raw: "txn_" + validULID, prefix: SellerIDPrefix, wantErr: true, wantField: "id", wantRule: "prefix"},
 		{name: "malformed ULID", raw: "sel_not-a-ulid", prefix: SellerIDPrefix, wantErr: true, wantField: "id", wantRule: "format"},
 		{name: "empty", raw: "", prefix: SellerIDPrefix, wantErr: true, wantField: "id", wantRule: "required"},

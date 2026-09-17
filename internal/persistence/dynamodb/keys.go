@@ -28,6 +28,16 @@ func webhookSubscriptionSortKey(subscriptionID string) string {
 	return "WEBHOOK#" + subscriptionID
 }
 
+// webhookDeliverySortKey returns the seller webhook delivery key.
+func webhookDeliverySortKey(deliveryID string) string {
+	return "WEBHOOK_DELIVERY#" + deliveryID
+}
+
+// webhookEventClaimSortKey returns the unique subscription-event delivery key.
+func webhookEventClaimSortKey(subscriptionID string, eventID string) string {
+	return "WEBHOOK_EVENT#" + subscriptionID + "#" + eventID
+}
+
 // paymentDestinationSortKey returns the seller payment-destination sort key.
 func paymentDestinationSortKey(destinationID string) string {
 	return "DESTINATION#" + destinationID

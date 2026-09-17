@@ -254,6 +254,51 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/webhook-deliveries:
+    get:
+      summary: List seller webhook delivery history
+      tags: [Sellers]
+      operationId: listWebhookDeliveries
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/DeliveryLimit' }
+        - { $ref: '#/components/parameters/DeliveryCursor' }
+      responses:
+        '200':
+          description: Bounded newest-first webhook delivery history
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WebhookDelivery' }
+                  nextCursor: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/sellers/{sellerId}/webhook-deliveries/{deliveryId}/redeliver:
+    post:
+      summary: Redeliver one dead-letter webhook with its original event identity
+      tags: [Sellers]
+      operationId: redeliverWebhookDelivery
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/DeliveryId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Delivery scheduled for immediate retry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookDelivery' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/sellers/{sellerId}/integration-credentials:
     get:
       summary: List redacted seller integration credentials
@@ -678,6 +723,9 @@ components:
     TransactionId: { name: transactionId, in: path, required: true, schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' } }
     CredentialId: { name: credentialId, in: path, required: true, schema: { type: string, pattern: '^key_[A-Za-z0-9]+$' } }
     DestinationId: { name: destinationId, in: path, required: true, schema: { type: string, pattern: '^dst_[A-Za-z0-9]+$' } }
+    DeliveryId: { name: deliveryId, in: path, required: true, schema: { type: string, pattern: '^whd_[A-Za-z0-9]+$' } }
+    DeliveryLimit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    DeliveryCursor: { name: cursor, in: query, required: false, schema: { type: string, pattern: '^whd_[A-Za-z0-9]+$' } }
     TransactionFrom: { name: from, in: query, required: false, schema: { type: string, format: date-time } }
     TransactionTo: { name: to, in: query, required: false, schema: { type: string, format: date-time } }
     TransactionRouteId: { name: routeId, in: query, required: false, schema: { type: string, pattern: '^rte_[A-Za-z0-9]+$' } }
@@ -795,6 +843,33 @@ components:
           required: [signingSecret]
           properties:
             signingSecret: { type: string, minLength: 32 }
+    WebhookDelivery:
+      type: object
+      additionalProperties: false
+      required: [deliveryId, sellerId, subscriptionId, eventId, eventType, payloadHash, status, attemptCount, createdAt, updatedAt, version]
+      properties:
+        deliveryId: { type: string, pattern: '^whd_[A-Za-z0-9]+$' }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        subscriptionId: { type: string, pattern: '^whk_[A-Za-z0-9]+$' }
+        eventId: { type: string, pattern: '^evt_[A-Za-z0-9]+$' }
+        eventType: { $ref: '#/components/schemas/WebhookEventType' }
+        payloadHash: { $ref: '#/components/schemas/Sha256' }
+        status: { type: string, enum: [pending, retry_scheduled, delivered, dead_letter] }
+        attemptCount: { type: integer, minimum: 0 }
+        nextAttemptAt: { type: [string, 'null'], format: date-time }
+        lastAttemptAt: { type: [string, 'null'], format: date-time }
+        deliveredAt: { type: [string, 'null'], format: date-time }
+        responseStatusCode: { type: [integer, 'null'], minimum: 100, maximum: 599 }
+        responseBodyHash:
+          oneOf:
+            - { $ref: '#/components/schemas/Sha256' }
+            - { type: 'null' }
+        errorCode:
+          type: [string, 'null']
+          enum: [forbidden_target, timeout, unavailable, response_too_large, retryable_response, permanent_response, null]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
     CreateIntegrationCredentialRequest:
       type: object
       additionalProperties: false

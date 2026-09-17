@@ -47,6 +47,7 @@ func main() {
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
+	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
@@ -102,6 +103,18 @@ func main() {
 			idGenerator,
 			notifications.NewSecureSecretGenerator(nil),
 			webhookSecretStore,
+			clock,
+		),
+		idempotencyStore,
+	).RegisterRoutes(mux)
+	notifications.NewDeliveryHTTPController(
+		notifications.NewDeliveryService(
+			webhookDeliveryRepository,
+			webhookSubscriptionRepository,
+			catalogService,
+			idGenerator,
+			notifications.NewHMACEventSigner(webhookSecretStore, clock),
+			notifications.NewWebhookSender(nil),
 			clock,
 		),
 		idempotencyStore,

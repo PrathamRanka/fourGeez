@@ -249,9 +249,42 @@ read model never combines different assets or networks.
 
 `WebhookSubscription` stores a seller-scoped HTTPS destination, allowlisted
 event types, secret reference, enabled status, and version. `WebhookDelivery`
-stores the event ID, subscription ID, attempt number, status, response metadata,
-next retry time, and payload hash. It never stores the signing secret or an
-unrestricted response body.
+uses ID prefix `whd_` and stores one stable event for one subscription. The
+unique identity is `(subscriptionId, eventId)` so duplicate enqueue requests
+return the existing record instead of creating another delivery.
+
+| Field | Type | Rule |
+|---|---|---|
+| `deliveryId` | ID | Stable `whd_` identifier |
+| `sellerId` | ID | Owning seller |
+| `subscriptionId` | ID | Target webhook subscription |
+| `event` | object | Allowlisted versioned webhook event used for retry |
+| `payloadHash` | string | Lowercase SHA-256 of the canonical event body |
+| `status` | enum | `pending`, `retry_scheduled`, `delivered`, or `dead_letter` |
+| `attemptCount` | integer | Completed HTTP attempts; automatic delivery stops at five and explicit redelivery preserves and may increase this count |
+| `nextAttemptAt` | timestamp or null | Due time for pending or retry work |
+| `lastAttemptAt` | timestamp or null | Most recent completed HTTP attempt |
+| `deliveredAt` | timestamp or null | First successful `2xx` response |
+| `responseStatusCode` | integer or null | Most recent bounded HTTP status metadata |
+| `responseBodyHash` | string or null | SHA-256 of the bounded response body; the body is not retained |
+| `errorCode` | string or null | Stable allowlisted delivery failure code |
+| `createdAt` | timestamp | Creation time |
+| `updatedAt` | timestamp | Latest transition time |
+| `version` | integer | Optimistic concurrency version |
+
+The first attempt is due immediately. Retryable transport failures, timeouts,
+`408`, `425`, `429`, and `5xx` responses use delays of 1 minute, 5 minutes,
+30 minutes, and 2 hours. The fifth failed attempt enters `dead_letter` and has
+no automatic retry. Other `4xx` responses enter `dead_letter` immediately.
+Seller-triggered redelivery is allowed only from `dead_letter`, preserves the
+same delivery ID and event ID, clears prior response metadata, and schedules an
+immediate attempt. It does not reset `attemptCount`, so delivery history remains
+truthful; each redelivery may perform one additional bounded attempt.
+
+Webhook responses are limited to 64 KiB for hashing and are never stored. Every
+attempt repeats public-address DNS validation, pins the validated address at
+connection time, rejects redirects, uses TLS 1.2 or newer, and times out after
+10 seconds.
 
 Webhook subscription IDs use `whk_`. Creation returns a 256-bit signing secret
 once and stores it through the configured secret-store boundary; the
@@ -348,6 +381,7 @@ PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>
 PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL
 PK=SELLER#sel_123       SK=WEBHOOK#whk_123
 PK=SELLER#sel_123       SK=WEBHOOK_DELIVERY#whd_123
+PK=SELLER#sel_123       SK=WEBHOOK_EVENT#whk_123#evt_123
 PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123
 PK=SELLER#sel_123       SK=METER#<createdAt>#mtr_123
 PK=INTENT#int_123       SK=PROFILE

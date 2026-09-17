@@ -38,27 +38,11 @@ func (signer *HMACEventSigner) Sign(
 	secretRef string,
 	event WebhookEvent,
 ) (SignedEvent, error) {
-	if event.SchemaVersion != "1" ||
-		event.EventID.Prefix() != domain.EvidenceIDPrefix ||
-		event.SellerID.Prefix() != domain.SellerIDPrefix ||
-		!validEventType(event.EventType) ||
-		event.OccurredAt.Time().IsZero() ||
-		event.Payload == nil {
-		return SignedEvent{}, domain.NewValidationError(
-			"event",
-			"contract",
-			"must satisfy the webhook event contract",
-		)
-	}
 	secret, err := signer.secretProvider.GetSecret(ctx, secretRef)
 	if err != nil || len(secret) < minimumWebhookSecretLength {
 		return SignedEvent{}, ErrSigningUnavailable
 	}
-	encoded, err := json.Marshal(event)
-	if err != nil {
-		return SignedEvent{}, err
-	}
-	canonicalBody, err := jcs.Transform(encoded)
+	canonicalBody, err := CanonicalEventBody(event)
 	if err != nil {
 		return SignedEvent{}, err
 	}
@@ -69,6 +53,27 @@ func (signer *HMACEventSigner) Sign(
 		Signature: calculateWebhookHMAC(secret, canonicalBody, event.EventID.String(), timestamp),
 	}
 	return SignedEvent{Body: canonicalBody, Headers: headers}, nil
+}
+
+// CanonicalEventBody validates and canonicalizes one public webhook event.
+func CanonicalEventBody(event WebhookEvent) ([]byte, error) {
+	if event.SchemaVersion != "1" ||
+		event.EventID.Prefix() != domain.EvidenceIDPrefix ||
+		event.SellerID.Prefix() != domain.SellerIDPrefix ||
+		!validEventType(event.EventType) ||
+		event.OccurredAt.Time().IsZero() ||
+		event.Payload == nil {
+		return nil, domain.NewValidationError(
+			"event",
+			"contract",
+			"must satisfy the webhook event contract",
+		)
+	}
+	encoded, err := json.Marshal(event)
+	if err != nil {
+		return nil, err
+	}
+	return jcs.Transform(encoded)
 }
 
 // VerifyWebhookSignature verifies canonical webhook bytes in constant time.

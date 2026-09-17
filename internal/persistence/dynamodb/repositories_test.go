@@ -14,6 +14,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
@@ -29,6 +30,8 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "seller", got: sellerPartitionKey("sel_123"), want: "SELLER#sel_123"},
 		{name: "route", got: routeSortKey("rte_123"), want: "ROUTE#rte_123"},
 		{name: "credential", got: credentialSortKey("key_123"), want: "CREDENTIAL#key_123"},
+		{name: "webhook delivery", got: webhookDeliverySortKey("whd_123"), want: "WEBHOOK_DELIVERY#whd_123"},
+		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
 		{name: "payment destination", got: paymentDestinationSortKey("dst_123"), want: "DESTINATION#dst_123"},
 		{name: "intent", got: intentPartitionKey("int_123"), want: "INTENT#int_123"},
 		{name: "approval", got: approvalPartitionKey("aps_123"), want: "APPROVAL#aps_123"},
@@ -45,6 +48,34 @@ func TestDocumentedKeys(t *testing.T) {
 				t.Fatalf("key = %q, want %q", test.got, test.want)
 			}
 		})
+	}
+}
+
+// TestWebhookDeliveryRepositoryClaimsSubscriptionEventIdentity verifies idempotent fan-out.
+func TestWebhookDeliveryRepositoryClaimsSubscriptionEventIdentity(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	repository := NewWebhookDeliveryRepository(client, "agentpay-dev")
+	delivery := testDynamoWebhookDelivery(t)
+	stored, inserted, err := repository.CreateIfAbsent(t.Context(), delivery)
+	if err != nil || !inserted || stored.DeliveryID() != delivery.DeliveryID() {
+		t.Fatalf("CreateIfAbsent() = (%#v, %v, %v)", stored, inserted, err)
+	}
+	input := client.transactWriteInput
+	if input == nil || len(input.TransactItems) != 2 {
+		t.Fatalf("TransactItems = %#v", input)
+	}
+	claim := input.TransactItems[0].Put
+	if readStringAttribute(claim.Item["SK"]) != webhookEventClaimSortKey(
+		delivery.SubscriptionID().String(),
+		delivery.Event().EventID.String(),
+	) {
+		t.Fatalf("event claim = %#v", claim.Item)
+	}
+	record := input.TransactItems[1].Put
+	if readStringAttribute(record.Item["SK"]) != webhookDeliverySortKey(delivery.DeliveryID().String()) {
+		t.Fatalf("delivery record = %#v", record.Item)
 	}
 }
 
@@ -344,6 +375,31 @@ func testDynamoTransaction(t *testing.T) transactions.Transaction {
 		t.Fatal(err)
 	}
 	return transaction
+}
+
+// testDynamoWebhookDelivery creates one valid delivery fixture.
+func testDynamoWebhookDelivery(t *testing.T) notifications.Delivery {
+	t.Helper()
+	createdAt := testDynamoTime()
+	delivery, err := notifications.NewDelivery(notifications.DeliveryParams{
+		DeliveryID:     mustDynamoID(t, "whd_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.WebhookDeliveryIDPrefix),
+		SellerID:       mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		SubscriptionID: mustDynamoID(t, "whk_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.WebhookSubscriptionIDPrefix),
+		Event: notifications.WebhookEvent{
+			SchemaVersion: "1",
+			EventID:       mustDynamoID(t, "evt_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.EvidenceIDPrefix),
+			SellerID:      mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+			EventType:     notifications.EventPaymentVerified,
+			OccurredAt:    createdAt,
+			Payload:       map[string]any{"transactionId": "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7"},
+		},
+		PayloadHash: strings.Repeat("f", 64),
+		CreatedAt:   createdAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return delivery
 }
 
 // testDynamoEvidenceChain creates a valid two-event evidence chain.
