@@ -8,6 +8,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
+	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
@@ -33,6 +34,7 @@ func main() {
 	approvalRepository := memory.NewApprovalRepository()
 	transactionRepository := memory.NewTransactionRepository()
 	evidenceRepository := memory.NewEvidenceRepository()
+	disputeRepository := memory.NewDisputeRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
@@ -103,6 +105,18 @@ func main() {
 	)
 	transactionController := transactions.NewHTTPController(transactionService)
 	transactionController.RegisterRoutes(mux)
+	disputeService := disputes.NewService(
+		disputeRepository,
+		transactionRepository,
+		catalogRepository,
+		idGenerator,
+		clock,
+	)
+	disputeController := disputes.NewHTTPController(
+		disputeService,
+		idempotencyStore,
+	)
+	disputeController.RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
 		Authenticator: api.NewStaticAuthenticator(

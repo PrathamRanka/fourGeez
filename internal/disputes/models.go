@@ -1,6 +1,12 @@
 package disputes
 
-import "github.com/fourgeez/agentpay/internal/domain"
+import (
+	"context"
+
+	"github.com/fourgeez/agentpay/internal/catalog"
+	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/transactions"
+)
 
 const (
 	// RuleVersion identifies the deterministic dispute classifier.
@@ -73,4 +79,35 @@ type Dispute struct {
 	ClassificationCode string           `json:"classificationCode"`
 	Explanation        string           `json:"explanation"`
 	CreatedAt          domain.Timestamp `json:"createdAt"`
+}
+
+// CreateRequest is the public dispute creation request.
+type CreateRequest struct {
+	TransactionID domain.ID `json:"transactionId"`
+	Reason        Reason    `json:"reason"`
+	Statement     string    `json:"statement,omitempty"`
+}
+
+// Repository persists deterministic dispute classifications.
+type Repository interface {
+	Create(ctx context.Context, dispute Dispute) error
+	Get(ctx context.Context, disputeID domain.ID) (Dispute, error)
+}
+
+// TransactionRepository loads and updates disputed transactions.
+type TransactionRepository interface {
+	Get(
+		ctx context.Context,
+		transactionID domain.ID,
+	) (transactions.Transaction, error)
+	Update(
+		ctx context.Context,
+		transaction transactions.Transaction,
+		expectedVersion uint64,
+	) error
+}
+
+// SellerRepository loads seller ownership for dispute authorization.
+type SellerRepository interface {
+	GetSeller(ctx context.Context, sellerID domain.ID) (catalog.Seller, error)
 }

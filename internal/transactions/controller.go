@@ -116,10 +116,11 @@ func writeTransactionError(
 	err error,
 ) {
 	var validationErrors domain.ValidationErrors
+	var validationError domain.ValidationError
 	status := http.StatusInternalServerError
 	code := api.ErrorCodeInternal
 	switch {
-	case errors.As(err, &validationErrors):
+	case errors.As(err, &validationErrors), errors.As(err, &validationError):
 		status = http.StatusBadRequest
 		code = api.ErrorCodeBadRequest
 	case errors.Is(err, persistence.ErrNotFound),

@@ -1,11 +1,200 @@
 package disputes
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
+
+// ErrDisputeAccess prevents cross-seller dispute disclosure.
+var ErrDisputeAccess = errors.New("dispute was not found")
+
+// Service coordinates dispute classification with transaction state.
+type Service struct {
+	repository            Repository
+	transactionRepository TransactionRepository
+	sellerRepository      SellerRepository
+	idGenerator           domain.IDGenerator
+	clock                 domain.Clock
+}
+
+// NewService creates the dispute application service.
+func NewService(
+	repository Repository,
+	transactionRepository TransactionRepository,
+	sellerRepository SellerRepository,
+	idGenerator domain.IDGenerator,
+	clock domain.Clock,
+) *Service {
+	return &Service{
+		repository:            repository,
+		transactionRepository: transactionRepository,
+		sellerRepository:      sellerRepository,
+		idGenerator:           idGenerator,
+		clock:                 clock,
+	}
+}
+
+// Create opens, classifies, and persists a dispute from recorded facts.
+func (service *Service) Create(
+	ctx context.Context,
+	request CreateRequest,
+	sellerSubject string,
+) (Dispute, error) {
+	transaction, err := service.transactionRepository.Get(
+		ctx,
+		request.TransactionID,
+	)
+	if err != nil {
+		return Dispute{}, err
+	}
+	if err := service.authorizeSeller(
+		ctx,
+		transaction,
+		sellerSubject,
+	); err != nil {
+		return Dispute{}, err
+	}
+	now := domain.NewTimestamp(service.clock.Now())
+	disputeID, err := service.idGenerator.New(domain.DisputeIDPrefix)
+	if err != nil {
+		return Dispute{}, err
+	}
+	dispute, err := Classify(
+		Params{
+			DisputeID:     disputeID,
+			TransactionID: transaction.TransactionID(),
+			Reason:        request.Reason,
+			Statement:     request.Statement,
+			CreatedAt:     now,
+		},
+		factsFromTransaction(transaction),
+	)
+	if err != nil {
+		return Dispute{}, err
+	}
+	expectedVersion := transaction.Version()
+	if err := transaction.OpenDispute(now); err != nil {
+		return Dispute{}, err
+	}
+	if err := service.transactionRepository.Update(
+		ctx,
+		transaction,
+		expectedVersion,
+	); err != nil {
+		return Dispute{}, err
+	}
+
+	if err := service.repository.Create(ctx, dispute); err != nil {
+		return Dispute{}, err
+	}
+	if dispute.Status == StatusRefundRecommended {
+		refundedVersion := transaction.Version()
+		if err := transaction.RecommendRefund(now); err != nil {
+			return Dispute{}, err
+		}
+		if err := service.transactionRepository.Update(
+			ctx,
+			transaction,
+			refundedVersion,
+		); err != nil {
+			return Dispute{}, err
+		}
+	}
+	return dispute, nil
+}
+
+// Get returns a persisted dispute to an agent caller.
+func (service *Service) Get(
+	ctx context.Context,
+	disputeID domain.ID,
+) (Dispute, error) {
+	return service.repository.Get(ctx, disputeID)
+}
+
+// GetForSeller returns a dispute only to its transaction's owning seller.
+func (service *Service) GetForSeller(
+	ctx context.Context,
+	disputeID domain.ID,
+	sellerSubject string,
+) (Dispute, error) {
+	dispute, err := service.repository.Get(ctx, disputeID)
+	if err != nil {
+		return Dispute{}, err
+	}
+	transaction, err := service.transactionRepository.Get(
+		ctx,
+		dispute.TransactionID,
+	)
+	if err != nil {
+		return Dispute{}, err
+	}
+	if err := service.authorizeSeller(
+		ctx,
+		transaction,
+		sellerSubject,
+	); err != nil {
+		return Dispute{}, err
+	}
+	return dispute, nil
+}
+
+// authorizeSeller enforces seller ownership when a seller subject is present.
+func (service *Service) authorizeSeller(
+	ctx context.Context,
+	transaction transactions.Transaction,
+	sellerSubject string,
+) error {
+	if sellerSubject == "" {
+		return nil
+	}
+	seller, err := service.sellerRepository.GetSeller(
+		ctx,
+		transaction.SellerID(),
+	)
+	if err != nil || seller.OwnerSubject != sellerSubject {
+		return ErrDisputeAccess
+	}
+	return nil
+}
+
+// factsFromTransaction derives only facts already recorded on the transaction.
+func factsFromTransaction(transaction transactions.Transaction) Facts {
+	var facts Facts
+	if transaction.PaymentIdentifier() != "" &&
+		transaction.PaymentProofHash().String() != "" {
+		authorizationValid := true
+		duplicatePayment := false
+		expectedAmount := transaction.Amount()
+		paidAmount := transaction.Amount()
+		facts.AuthorizationValid = &authorizationValid
+		facts.DuplicatePayment = &duplicatePayment
+		facts.ExpectedAmount = &expectedAmount
+		facts.PaidAmount = &paidAmount
+	}
+	switch transaction.Status() {
+	case transactions.StatusFulfilled:
+		deliverySucceeded := true
+		facts.DeliverySucceeded = &deliverySucceeded
+	case transactions.StatusFailed:
+		deliverySucceeded := false
+		facts.DeliverySucceeded = &deliverySucceeded
+	}
+	return facts
+}
+
+// Classify validates a dispute request and applies the deterministic rules.
+func Classify(params Params, facts Facts) (Dispute, error) {
+	if err := validateParams(params); err != nil {
+		return Dispute{}, err
+	}
+	status, code, explanation := classify(params.Reason, facts)
+	return newDispute(params, status, code, explanation), nil
+}
 
 // newDispute constructs the classified dispute model.
 func newDispute(params Params, status Status, code, explanation string) Dispute {
