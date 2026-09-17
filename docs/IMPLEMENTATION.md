@@ -22,11 +22,11 @@ M0 acceptance: all documents exist, cross-reference each other, and contain no u
 
 ## Milestone M1 — Repository foundations
 
-- [ ] **REP-001** Create `apps/web`, `cmd/api`, `internal`, `infra`, and `examples` workspaces. Depends on DOC-005–DOC-010.
-- [ ] **REP-002** Add root commands for build, test, lint, local development, and contract validation.
-- [ ] **REP-003** Add `.env.example` files containing names but no secrets.
-- [ ] **REP-004** Add CI jobs for Go tests, web lint/typecheck/build, OpenAPI validation, and PlantUML syntax.
-- [ ] **REP-005** Add local development configuration with a mock facilitator and mock seller.
+- [x] **REP-001** Create `apps/web`, `cmd/api`, `internal`, `infra`, and `examples` workspaces. Depends on DOC-005–DOC-010.
+- [x] **REP-002** Add root commands for build, test, lint, local development, and contract validation.
+- [x] **REP-003** Add `.env.example` files containing names but no secrets.
+- [x] **REP-004** Add CI jobs for Go tests, web lint/typecheck/build, OpenAPI validation, and CDK synthesis.
+- [x] **REP-005** Add local development configuration with a mock payment mode and demo seller.
 
 M1 acceptance: a clean checkout can install dependencies and run all empty-project checks using documented commands.
 

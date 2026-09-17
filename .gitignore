@@ -1,0 +1,30 @@
+# Node
+node_modules/
+.next/
+out/
+coverage/
+npm-debug.log*
+
+# Go
+bin/
+*.test
+coverage.out
+
+# AWS CDK
+cdk.out/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local runtime data
+.agentpay/
+.cache/

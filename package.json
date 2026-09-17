@@ -1,0 +1,36 @@
+{
+  "name": "fourgeez-agentpay",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "infra"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @agentpay/web",
+    "dev:api": "go run ./cmd/api",
+    "dev:seller": "go run ./examples/demo-seller",
+    "dev:facilitator": "go run ./examples/mock-facilitator",
+    "build": "npm run build:web && npm run build:api && npm run build:infra",
+    "build:web": "npm run build --workspace @agentpay/web",
+    "build:api": "node scripts/go-tool.mjs build ./cmd/... ./internal/... ./examples/...",
+    "build:infra": "npm run build --workspace @agentpay/infra",
+    "lint": "npm run lint:web && npm run lint:contracts && npm run lint:go",
+    "lint:web": "npm run lint --workspace @agentpay/web",
+    "lint:go": "node scripts/go-tool.mjs vet ./cmd/... ./internal/... ./examples/...",
+    "lint:contracts": "redocly lint docs/api/openapi.yaml && node scripts/validate-asyncapi.mjs",
+    "test": "npm run test:web && npm run test:go",
+    "test:web": "npm run test --workspace @agentpay/web",
+    "test:go": "node scripts/go-tool.mjs test ./cmd/... ./internal/... ./examples/...",
+    "typecheck": "npm run typecheck --workspace @agentpay/web && npm run typecheck --workspace @agentpay/infra",
+    "cdk:synth": "npm run synth --workspace @agentpay/infra"
+  },
+  "devDependencies": {
+    "@asyncapi/parser": "3.6.3",
+    "@redocly/cli": "2.53.3"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  }
+}

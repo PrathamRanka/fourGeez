@@ -14,7 +14,8 @@ The repository is documentation-first. Implementation must follow the numbered t
 
 ## Current status
 
-- Product and technical planning: in progress
+- Product and technical planning: complete for the hackathon milestone
+- Repository foundations (M1): complete
 - API implementation: not started
 - Web application: not started
 - AWS deployment: not started
