@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.2.0
+  version: 0.3.0
   description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
   license:
     name: Proprietary
@@ -18,6 +18,8 @@ tags:
     description: Seller onboarding, route configuration, and transaction views.
   - name: Integrations
     description: Seller-scoped credentials used by MCP and coding-agent integrations.
+  - name: Settlement
+    description: Seller payment destinations and reconciliation configuration.
   - name: Storefront
     description: Public machine-readable discovery documents.
   - name: Intents
@@ -95,6 +97,68 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/payment-destinations:
+    get:
+      summary: List seller payment destinations
+      tags: [Sellers, Settlement]
+      operationId: listPaymentDestinations
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+      responses:
+        '200':
+          description: Seller payment destinations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentDestination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Create a pending seller payment destination
+      tags: [Sellers, Settlement]
+      operationId: createPaymentDestination
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentDestinationRequest' }
+      responses:
+        '201':
+          description: Pending payment destination created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentDestination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/payment-destinations/{destinationId}:
+    get:
+      summary: Get one seller payment destination
+      tags: [Sellers, Settlement]
+      operationId: getPaymentDestination
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/DestinationId' }
+      responses:
+        '200':
+          description: Seller payment destination
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentDestination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/sellers/{sellerId}/integration-credentials:
     get:
       summary: List redacted seller integration credentials
@@ -488,6 +552,7 @@ components:
     SessionId: { name: sessionId, in: path, required: true, schema: { type: string, pattern: '^aps_[A-Za-z0-9]+$' } }
     TransactionId: { name: transactionId, in: path, required: true, schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' } }
     CredentialId: { name: credentialId, in: path, required: true, schema: { type: string, pattern: '^key_[A-Za-z0-9]+$' } }
+    DestinationId: { name: destinationId, in: path, required: true, schema: { type: string, pattern: '^dst_[A-Za-z0-9]+$' } }
   schemas:
     CreateSellerRequest:
       type: object
@@ -524,6 +589,30 @@ components:
         payTo: { type: string, minLength: 1, maxLength: 160 }
         approvalThresholdAmount: { oneOf: [{ $ref: '#/components/schemas/AtomicAmount' }, { type: 'null' }] }
         upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 30, default: 20 }
+    CreatePaymentDestinationRequest:
+      type: object
+      additionalProperties: false
+      required: [asset, network, address]
+      properties:
+        asset: { type: string, minLength: 1, maxLength: 160 }
+        network: { type: string, minLength: 1, maxLength: 80 }
+        address: { type: string, minLength: 1, maxLength: 256 }
+    PaymentDestination:
+      type: object
+      additionalProperties: false
+      required: [destinationId, sellerId, asset, network, address, status, createdAt, updatedAt, version]
+      properties:
+        destinationId: { type: string, pattern: '^dst_[A-Za-z0-9]+$' }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        asset: { type: string }
+        network: { type: string }
+        address: { type: string }
+        status: { type: string, enum: [pending_verification, active, disabled, rotated] }
+        challengeExpiresAt: { type: [string, 'null'], format: date-time }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
     CreateIntegrationCredentialRequest:
       type: object
       additionalProperties: false

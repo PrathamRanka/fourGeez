@@ -13,19 +13,21 @@ import (
 type IDPrefix string
 
 const (
-	SellerIDPrefix      IDPrefix = "sel_"
-	CredentialIDPrefix  IDPrefix = "key_"
-	RouteIDPrefix       IDPrefix = "rte_"
-	IntentIDPrefix      IDPrefix = "int_"
-	ApprovalIDPrefix    IDPrefix = "aps_"
-	TransactionIDPrefix IDPrefix = "txn_"
-	EvidenceIDPrefix    IDPrefix = "evt_"
-	DisputeIDPrefix     IDPrefix = "dsp_"
+	SellerIDPrefix             IDPrefix = "sel_"
+	CredentialIDPrefix         IDPrefix = "key_"
+	PaymentDestinationIDPrefix IDPrefix = "dst_"
+	RouteIDPrefix              IDPrefix = "rte_"
+	IntentIDPrefix             IDPrefix = "int_"
+	ApprovalIDPrefix           IDPrefix = "aps_"
+	TransactionIDPrefix        IDPrefix = "txn_"
+	EvidenceIDPrefix           IDPrefix = "evt_"
+	DisputeIDPrefix            IDPrefix = "dsp_"
 )
 
 var supportedIDPrefixes = []IDPrefix{
 	SellerIDPrefix,
 	CredentialIDPrefix,
+	PaymentDestinationIDPrefix,
 	RouteIDPrefix,
 	IntentIDPrefix,
 	ApprovalIDPrefix,

@@ -19,6 +19,11 @@ func credentialSortKey(credentialID string) string {
 	return "CREDENTIAL#" + credentialID
 }
 
+// paymentDestinationSortKey returns the seller payment-destination sort key.
+func paymentDestinationSortKey(destinationID string) string {
+	return "DESTINATION#" + destinationID
+}
+
 // intentPartitionKey returns the documented purchase-intent partition key.
 func intentPartitionKey(intentID string) string {
 	return "INTENT#" + intentID

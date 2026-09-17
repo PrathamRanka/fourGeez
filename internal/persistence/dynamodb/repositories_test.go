@@ -29,6 +29,7 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "seller", got: sellerPartitionKey("sel_123"), want: "SELLER#sel_123"},
 		{name: "route", got: routeSortKey("rte_123"), want: "ROUTE#rte_123"},
 		{name: "credential", got: credentialSortKey("key_123"), want: "CREDENTIAL#key_123"},
+		{name: "payment destination", got: paymentDestinationSortKey("dst_123"), want: "DESTINATION#dst_123"},
 		{name: "intent", got: intentPartitionKey("int_123"), want: "INTENT#int_123"},
 		{name: "approval", got: approvalPartitionKey("aps_123"), want: "APPROVAL#aps_123"},
 		{name: "transaction", got: transactionPartitionKey("txn_123"), want: "TXN#txn_123"},
