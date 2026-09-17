@@ -149,8 +149,21 @@ Event vocabulary: `intent.created`, `approval.requested`, `approval.decided`, `a
 | `reason` | enum | `unauthorized`, `duplicate`, `wrong_amount`, `not_delivered`, `quality_or_output` |
 | `statement` | string | User-provided explanation, maximum 2,000 characters |
 | `status` | enum | `open`, `refund_recommended`, `seller_review`, `denied`, `resolved` |
+| `ruleVersion` | string | Deterministic classifier version used for replay |
 | `classificationCode` | string | Deterministic rule result |
 | `explanation` | string | Human-readable rule explanation |
+
+Dispute classification uses rule version `dispute-rules-v1` and only recorded transaction facts. Each reason evaluates its corresponding fact:
+
+| Reason | Recorded fact | Classification when claim is confirmed | Classification when claim is disproved |
+|---|---|---|---|
+| `unauthorized` | payment authorization was valid | `refund_recommended` / `authorization_not_valid` | `denied` / `authorization_valid` |
+| `duplicate` | the payment identifier was charged more than once | `refund_recommended` / `duplicate_payment_confirmed` | `denied` / `duplicate_payment_not_found` |
+| `wrong_amount` | paid amount differs from the frozen intent amount | `refund_recommended` / `wrong_amount_confirmed` | `denied` / `amount_matches_intent` |
+| `not_delivered` | successful seller delivery was recorded | `refund_recommended` / `delivery_not_confirmed` | `denied` / `delivery_confirmed` |
+| `quality_or_output` | no automatic quality judgment is permitted | `seller_review` / `quality_review_required` | Not applicable |
+
+For `unauthorized`, `duplicate`, `wrong_amount`, and `not_delivered`, a missing fact produces `seller_review` / `insufficient_evidence`. Classification never executes a refund; it records a reproducible recommendation only.
 
 ## DynamoDB layout
 

@@ -573,12 +573,13 @@ components:
         statement: { type: string, maxLength: 2000 }
     Dispute:
       type: object
-      required: [disputeId, transactionId, reason, status, classificationCode, explanation, createdAt]
+      required: [disputeId, transactionId, reason, status, ruleVersion, classificationCode, explanation, createdAt]
       properties:
         disputeId: { type: string }
         transactionId: { type: string }
         reason: { type: string, enum: [unauthorized, duplicate, wrong_amount, not_delivered, quality_or_output] }
         status: { type: string, enum: [open, refund_recommended, seller_review, denied, resolved] }
+        ruleVersion: { type: string, const: dispute-rules-v1 }
         classificationCode: { type: string }
         explanation: { type: string }
         createdAt: { type: string, format: date-time }
