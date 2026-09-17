@@ -48,7 +48,7 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `evidence`: append-only evidence events and chain verification.
 - `disputes`: deterministic classification and recommendations.
 - `agents`: Bedrock tool orchestration and deterministic fallback.
-- `analytics`: seller-scoped, asset-separated sales aggregates and dashboard queries.
+- `analytics`: deterministic seller-scoped, asset-separated sales read models over bounded transaction queries.
 - `notifications`: signed seller webhook subscriptions and delivery attempts.
 - `billing`: seller plans, quotas, usage meters, and invoice exports; it never
   controls buyer funds or seller settlement.

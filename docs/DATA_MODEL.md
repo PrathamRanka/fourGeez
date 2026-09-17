@@ -225,11 +225,14 @@ The API derives one reconciliation bucket without mutating persisted state:
 Every bucket carries one atomic-unit amount and its exact asset/network pair, so
 unlike currencies are never combined.
 
-### SellerSalesAggregate (planned M7)
+### SellerSalesAggregate (derived M7 read model)
 
-Sales aggregates are idempotent projections of authoritative transaction
-events. They never replace transaction or evidence records and never combine
-different assets or networks.
+Sales aggregates are deterministic read models computed from a bounded,
+seller-scoped transaction query. They are not persisted as an independent
+source of truth in M7, so retries cannot double count a transaction. Duplicate
+transaction snapshots are reduced to the highest version before aggregation;
+equal-version snapshots with different reconciliation facts fail closed. The
+read model never combines different assets or networks.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -237,10 +240,10 @@ different assets or networks.
 | `bucketDate` | string | UTC date in `YYYY-MM-DD` form |
 | `asset`, `network` | string | Required grouping dimensions |
 | `routeId` | string/null | Null for seller-wide bucket; set for route bucket |
-| `verifiedPaymentCount`, `fulfilledCount`, `failedCount`, `disputedCount` | integer | Non-negative counters |
-| `verifiedAmount`, `fulfilledAmount` | string | Atomic-unit totals for this asset/network only |
-| `lastTransactionAt` | timestamp/null | Newest included transaction |
-| `version` | integer | Conditional-update version |
+| `stage` | enum | `challenged`, `verified`, `finalized`, `fulfilled`, `failed`, or `disputed` |
+| `transactionCount` | integer | Number of unique transactions in this exact bucket |
+| `amount` | string | Atomic-unit total for this exact asset/network/stage bucket |
+| `lastTransactionAt` | timestamp | Newest transaction update included in this bucket |
 
 ### WebhookSubscription and WebhookDelivery (planned M7)
 
