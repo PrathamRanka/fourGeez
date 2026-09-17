@@ -1,8 +1,10 @@
 package intents
 
 import (
+	"context"
 	"encoding/json"
 
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
@@ -90,6 +92,24 @@ type PurchaseIntent struct {
 	status           PurchaseIntentStatus
 	createdAt        domain.Timestamp
 	expiresAt        domain.Timestamp
+}
+
+// CreateIntentRequest is the purchase-intent HTTP request.
+type CreateIntentRequest struct {
+	RouteID         domain.ID     `json:"routeId"`
+	RequestBodyHash SHA256Digest  `json:"requestBodyHash"`
+	MaximumAmount   domain.Amount `json:"maximumAmount"`
+}
+
+// Repository is the persistence boundary consumed by intent use cases.
+type Repository interface {
+	Create(ctx context.Context, purchaseIntent PurchaseIntent) error
+	Get(ctx context.Context, intentID domain.ID) (PurchaseIntent, error)
+}
+
+// RouteRepository resolves the authoritative seller quote for an intent.
+type RouteRepository interface {
+	GetRoute(ctx context.Context, routeID domain.ID) (catalog.PaidRoute, error)
 }
 
 // IntentID returns the immutable intent identifier.

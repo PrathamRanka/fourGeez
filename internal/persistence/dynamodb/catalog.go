@@ -192,6 +192,8 @@ func (repository *CatalogRepository) CreateRoute(ctx context.Context, route cata
 	}
 
 	routeRecord.Version = route.Version
+	routeRecord.GSI4PK = routeSortKey(route.RouteID.String())
+	routeRecord.GSI4SK = sellerPartitionKey(route.SellerID.String())
 	routeItem, err := marshalStoredRecord(routeRecord)
 	if err != nil {
 		return err
@@ -212,23 +214,28 @@ func (repository *CatalogRepository) CreateRoute(ctx context.Context, route cata
 // GetRoute loads a paid route from its owning seller partition.
 func (repository *CatalogRepository) GetRoute(
 	ctx context.Context,
-	sellerID domain.ID,
 	routeID domain.ID,
 ) (catalog.PaidRoute, error) {
-	output, err := repository.client.GetItem(ctx, &awssdk.GetItemInput{
-		TableName: &repository.tableName,
-		Key: primaryKey(
-			sellerPartitionKey(sellerID.String()),
-			routeSortKey(routeID.String()),
-		),
-		ConsistentRead: boolPointer(true),
+	indexName := "GSI4"
+	keyCondition := "GSI4PK = :partitionKey"
+	output, err := repository.client.Query(ctx, &awssdk.QueryInput{
+		TableName:              &repository.tableName,
+		IndexName:              &indexName,
+		KeyConditionExpression: &keyCondition,
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":partitionKey": stringAttributeValue(routeSortKey(routeID.String())),
+		},
+		Limit: int32Pointer(1),
 	})
 	if err != nil {
 		return catalog.PaidRoute{}, err
 	}
+	if len(output.Items) == 0 {
+		return catalog.PaidRoute{}, persistence.ErrNotFound
+	}
 
 	var route catalog.PaidRoute
-	if err := unmarshalPayload(output.Item, &route); err != nil {
+	if err := unmarshalPayload(output.Items[0], &route); err != nil {
 		return catalog.PaidRoute{}, err
 	}
 
@@ -241,7 +248,7 @@ func (repository *CatalogRepository) UpdateRoute(
 	route catalog.PaidRoute,
 	expectedVersion uint64,
 ) error {
-	storedRoute, err := repository.GetRoute(ctx, route.SellerID, route.RouteID)
+	storedRoute, err := repository.GetRoute(ctx, route.RouteID)
 	if err != nil {
 		return err
 	}
@@ -260,6 +267,8 @@ func (repository *CatalogRepository) UpdateRoute(
 	}
 
 	routeRecord.Version = route.Version
+	routeRecord.GSI4PK = routeSortKey(route.RouteID.String())
+	routeRecord.GSI4SK = sellerPartitionKey(route.SellerID.String())
 	routeItem, err := marshalStoredRecord(routeRecord)
 	if err != nil {
 		return err

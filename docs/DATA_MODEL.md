@@ -192,6 +192,7 @@ Required secondary indexes:
 - `GSI1PK=SELLER#<id>`, `GSI1SK=TXN#<createdAt>#<id>` for seller transactions.
 - `GSI2PK=PAYMENT#<paymentIdentifier>`, `GSI2SK=TXN#<id>` for replay prevention.
 - `GSI3PK=SLUG#<slug>`, `GSI3SK=SELLER#<id>` for storefront resolution.
+- `GSI4PK=ROUTE#<routeId>`, `GSI4SK=SELLER#<sellerId>` for purchase-intent route resolution.
 
 ## Retention
 

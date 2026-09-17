@@ -25,6 +25,8 @@ type storedRecord struct {
 	GSI2SK       string `dynamodbav:"GSI2SK,omitempty"`
 	GSI3PK       string `dynamodbav:"GSI3PK,omitempty"`
 	GSI3SK       string `dynamodbav:"GSI3SK,omitempty"`
+	GSI4PK       string `dynamodbav:"GSI4PK,omitempty"`
+	GSI4SK       string `dynamodbav:"GSI4SK,omitempty"`
 }
 
 // newStoredRecord serializes a domain snapshot into the shared envelope.

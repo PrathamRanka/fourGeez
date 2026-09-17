@@ -8,6 +8,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 )
 
@@ -24,14 +25,25 @@ func main() {
 	})
 
 	catalogRepository := memory.NewCatalogRepository()
+	intentRepository := memory.NewPurchaseIntentRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
+	idGenerator := domain.NewULIDGenerator(nil, nil)
+	clock := domain.SystemClock{}
 	catalogService := catalog.NewService(
 		catalogRepository,
-		domain.NewULIDGenerator(nil, nil),
-		domain.SystemClock{},
+		idGenerator,
+		clock,
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
 	catalogController.RegisterRoutes(mux)
+	intentService := intents.NewService(
+		intentRepository,
+		catalogRepository,
+		idGenerator,
+		clock,
+	)
+	intentController := intents.NewHTTPController(intentService, idempotencyStore)
+	intentController.RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
 		Authenticator: api.NewStaticAuthenticator(

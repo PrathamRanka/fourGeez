@@ -137,6 +137,33 @@ func RequireAgent(next http.Handler) http.Handler {
 	})
 }
 
+// RequireAgentOrSeller accepts either documented authenticated caller type.
+func RequireAgentOrSeller(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		authenticator := authenticatorFromContext(request.Context())
+		principal, valid := authenticateAgent(
+			request.Context(),
+			authenticator,
+			request.Header.Get(AgentKeyHeader),
+		)
+		if !valid {
+			token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
+			principal, valid = authenticateSeller(request.Context(), authenticator, token)
+		}
+		if !valid {
+			WriteError(response, request, http.StatusUnauthorized, ErrorCodeUnauthorized, "authentication is required", nil)
+			return
+		}
+
+		request = request.WithContext(context.WithValue(
+			request.Context(),
+			principalContextKey{},
+			principal,
+		))
+		next.ServeHTTP(response, request)
+	})
+}
+
 // RequestIDFromContext returns the middleware request identifier.
 func RequestIDFromContext(ctx context.Context) (string, bool) {
 	requestID, ok := ctx.Value(requestIDContextKey{}).(string)

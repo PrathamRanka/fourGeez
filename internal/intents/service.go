@@ -1,14 +1,17 @@
 package intents
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"mime"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/policy"
 	"github.com/gowebpki/jcs"
 )
 
@@ -20,10 +23,90 @@ const (
 	maximumNetworkLength = 80
 )
 
+const defaultIntentLifetime = 10 * time.Minute
+
 var (
 	requestPathPattern = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
 	sha256Pattern      = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
+
+// Service coordinates intent rules with catalog and persistence boundaries.
+type Service struct {
+	repository      Repository
+	routeRepository RouteRepository
+	idGenerator     domain.IDGenerator
+	clock           domain.Clock
+}
+
+// NewService creates the purchase-intent application service.
+func NewService(
+	repository Repository,
+	routeRepository RouteRepository,
+	idGenerator domain.IDGenerator,
+	clock domain.Clock,
+) *Service {
+	return &Service{
+		repository:      repository,
+		routeRepository: routeRepository,
+		idGenerator:     idGenerator,
+		clock:           clock,
+	}
+}
+
+// Create resolves the seller quote and persists an immutable purchase intent.
+func (service *Service) Create(
+	ctx context.Context,
+	buyerID string,
+	request CreateIntentRequest,
+) (PurchaseIntent, error) {
+	route, err := service.routeRepository.GetRoute(ctx, request.RouteID)
+	if err != nil {
+		return PurchaseIntent{}, err
+	}
+	decision, err := policy.EvaluateApprovalThreshold(
+		route.Amount,
+		route.ApprovalThresholdAmount,
+	)
+	if err != nil {
+		return PurchaseIntent{}, err
+	}
+	intentID, err := service.idGenerator.New(domain.IntentIDPrefix)
+	if err != nil {
+		return PurchaseIntent{}, err
+	}
+	createdAt := domain.NewTimestamp(service.clock.Now())
+	purchaseIntent, err := NewPurchaseIntent(PurchaseIntentParams{
+		IntentID:         intentID,
+		SellerID:         route.SellerID,
+		RouteID:          route.RouteID,
+		BuyerID:          buyerID,
+		RequestMethod:    RequestMethod(route.Method),
+		RequestPath:      route.PathPattern,
+		RequestBodyHash:  request.RequestBodyHash,
+		Amount:           route.Amount,
+		Asset:            route.Asset,
+		Network:          route.Network,
+		MaximumAmount:    request.MaximumAmount,
+		RequiresApproval: decision.RequiresApproval(),
+		CreatedAt:        createdAt,
+		ExpiresAt:        createdAt.Add(defaultIntentLifetime),
+	})
+	if err != nil {
+		return PurchaseIntent{}, err
+	}
+	if err := service.repository.Create(ctx, purchaseIntent); err != nil {
+		return PurchaseIntent{}, err
+	}
+	return purchaseIntent, nil
+}
+
+// Get returns a persisted immutable purchase intent.
+func (service *Service) Get(
+	ctx context.Context,
+	intentID domain.ID,
+) (PurchaseIntent, error) {
+	return service.repository.Get(ctx, intentID)
+}
 
 // createPurchaseIntent constructs an immutable validated purchase proposal.
 func createPurchaseIntent(params PurchaseIntentParams) (PurchaseIntent, error) {
