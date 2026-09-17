@@ -6,19 +6,33 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"strings"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/gowebpki/jcs"
 	x402 "github.com/x402-foundation/x402/go"
+	x402http "github.com/x402-foundation/x402/go/http"
 	x402types "github.com/x402-foundation/x402/go/types"
 )
 
-const mockPaymentIdentifierPrefix = "mock_"
+const (
+	mockPaymentIdentifierPrefix = "mock_"
+	x402PaymentIdentifierPrefix = "x402_"
+	defaultFacilitatorTimeout   = 8 * time.Second
+)
 
 // MockAdapter provides deterministic payment behavior for tests and local use.
 type MockAdapter struct{}
 
-// X402Adapter creates protocol-compliant x402 v2 challenges.
-type X402Adapter struct{}
+// X402Adapter creates and verifies protocol-compliant x402 v2 payments.
+type X402Adapter struct {
+	facilitator x402.FacilitatorClient
+	timeout     time.Duration
+}
+
+var _ Adapter = (*X402Adapter)(nil)
 
 // NewMockAdapter creates a deterministic payment adapter.
 func NewMockAdapter() *MockAdapter {
@@ -27,7 +41,29 @@ func NewMockAdapter() *MockAdapter {
 
 // NewX402Adapter creates the official x402-backed payment adapter.
 func NewX402Adapter() *X402Adapter {
-	return &X402Adapter{}
+	return NewX402AdapterWithFacilitator(
+		x402http.NewHTTPFacilitatorClient(
+			&x402http.FacilitatorConfig{
+				URL:     x402http.DefaultFacilitatorURL,
+				Timeout: defaultFacilitatorTimeout,
+			},
+		),
+		defaultFacilitatorTimeout,
+	)
+}
+
+// NewX402AdapterWithFacilitator creates an adapter with an explicit boundary.
+func NewX402AdapterWithFacilitator(
+	facilitator x402.FacilitatorClient,
+	timeout time.Duration,
+) *X402Adapter {
+	if timeout <= 0 {
+		timeout = defaultFacilitatorTimeout
+	}
+	return &X402Adapter{
+		facilitator: facilitator,
+		timeout:     timeout,
+	}
 }
 
 // CreateChallenge creates a base64-encoded x402 v2 payment requirement.
@@ -71,6 +107,105 @@ func (adapter *X402Adapter) CreateChallenge(
 		Requirements: requirements,
 		Header:       base64.StdEncoding.EncodeToString(encoded),
 	}, nil
+}
+
+// Verify validates proof binding before calling the remote facilitator.
+func (adapter *X402Adapter) Verify(
+	ctx context.Context,
+	proof string,
+	requirements Requirements,
+) (VerificationResult, error) {
+	if err := validateRequirements(requirements); err != nil {
+		return VerificationResult{}, err
+	}
+	payloadBytes, paymentIdentifier, err := parsePaymentProof(
+		proof,
+		requirements,
+	)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	if adapter.facilitator == nil {
+		return VerificationResult{}, ErrPaymentUnavailable
+	}
+	requirementsBytes, err := marshalX402Requirements(requirements)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+
+	verificationContext, cancel := context.WithTimeout(ctx, adapter.timeout)
+	defer cancel()
+	response, err := adapter.facilitator.Verify(
+		verificationContext,
+		payloadBytes,
+		requirementsBytes,
+	)
+	if err != nil {
+		return VerificationResult{}, classifyFacilitatorError(ctx, err)
+	}
+	if response == nil || !response.IsValid {
+		return VerificationResult{}, ErrPaymentRejected
+	}
+
+	return VerificationResult{
+		Valid:             true,
+		PaymentIdentifier: paymentIdentifier,
+	}, nil
+}
+
+// Settle submits an exact verified proof and encodes the x402 response header.
+func (adapter *X402Adapter) Settle(
+	ctx context.Context,
+	proof string,
+	requirements Requirements,
+) (SettlementResult, error) {
+	if err := validateRequirements(requirements); err != nil {
+		return SettlementResult{}, err
+	}
+	payloadBytes, paymentIdentifier, err := parsePaymentProof(
+		proof,
+		requirements,
+	)
+	if err != nil {
+		return SettlementResult{}, err
+	}
+	if adapter.facilitator == nil {
+		return SettlementResult{}, ErrPaymentUnavailable
+	}
+	requirementsBytes, err := marshalX402Requirements(requirements)
+	if err != nil {
+		return SettlementResult{}, err
+	}
+
+	settlementContext, cancel := context.WithTimeout(ctx, adapter.timeout)
+	defer cancel()
+	response, err := adapter.facilitator.Settle(
+		settlementContext,
+		payloadBytes,
+		requirementsBytes,
+	)
+	if err != nil {
+		return SettlementResult{}, classifyFacilitatorError(ctx, err)
+	}
+	if response == nil || !response.Success || response.Transaction == "" {
+		return SettlementResult{}, ErrPaymentRejected
+	}
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		return SettlementResult{}, err
+	}
+
+	return SettlementResult{
+		Settled:           true,
+		PaymentIdentifier: paymentIdentifier,
+		ResponseHeader:    base64.StdEncoding.EncodeToString(encoded),
+	}, nil
+}
+
+// IsRetryable reports whether a payment failure can be safely retried.
+func IsRetryable(err error) bool {
+	return errors.Is(err, ErrPaymentTimeout) ||
+		errors.Is(err, ErrPaymentUnavailable)
 }
 
 // CreateChallenge validates and encodes exact-payment requirements.
@@ -207,6 +342,80 @@ func validateRequirements(requirements Requirements) error {
 		)
 	}
 	return nil
+}
+
+// parsePaymentProof decodes and binds a v2 proof to the frozen exact quote.
+func parsePaymentProof(
+	proof string,
+	requirements Requirements,
+) ([]byte, string, error) {
+	if strings.TrimSpace(proof) == "" {
+		return nil, "", ErrPaymentRejected
+	}
+	payloadBytes, err := base64.StdEncoding.DecodeString(proof)
+	if err != nil {
+		return nil, "", ErrPaymentRejected
+	}
+	payload, err := x402types.ToPaymentPayload(payloadBytes)
+	if err != nil || payload.X402Version != 2 {
+		return nil, "", ErrPaymentRejected
+	}
+	if !matchesRequirements(payload.Accepted, requirements) {
+		return nil, "", ErrPaymentRejected
+	}
+	canonicalPayload, err := jcs.Transform(payloadBytes)
+	if err != nil {
+		return nil, "", ErrPaymentRejected
+	}
+
+	digest := sha256.Sum256(canonicalPayload)
+	paymentIdentifier := x402PaymentIdentifierPrefix +
+		hex.EncodeToString(digest[:])
+	return payloadBytes, paymentIdentifier, nil
+}
+
+// matchesRequirements enforces exact amount and immutable payment terms.
+func matchesRequirements(
+	accepted x402types.PaymentRequirements,
+	requirements Requirements,
+) bool {
+	return accepted.Scheme == requirements.Scheme &&
+		accepted.Network == requirements.Network &&
+		accepted.Asset == requirements.Asset &&
+		accepted.Amount == requirements.Amount.String() &&
+		accepted.PayTo == requirements.PayTo &&
+		accepted.MaxTimeoutSeconds == requirements.MaxTimeoutSeconds
+}
+
+// marshalX402Requirements serializes the frozen quote for the facilitator.
+func marshalX402Requirements(requirements Requirements) ([]byte, error) {
+	return json.Marshal(x402types.PaymentRequirements{
+		Scheme:            requirements.Scheme,
+		Network:           requirements.Network,
+		Asset:             requirements.Asset,
+		Amount:            requirements.Amount.String(),
+		PayTo:             requirements.PayTo,
+		MaxTimeoutSeconds: requirements.MaxTimeoutSeconds,
+	})
+}
+
+// classifyFacilitatorError separates retryable transport failures from rejection.
+func classifyFacilitatorError(parent context.Context, err error) error {
+	if errors.Is(parent.Err(), context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrPaymentTimeout
+	}
+	var verifyError *x402.VerifyError
+	if errors.As(err, &verifyError) {
+		return ErrPaymentRejected
+	}
+	var settleError *x402.SettleError
+	if errors.As(err, &settleError) {
+		return ErrPaymentRejected
+	}
+	return ErrPaymentUnavailable
 }
 
 // mockProofError maps deterministic fixtures to payment failure classes.
