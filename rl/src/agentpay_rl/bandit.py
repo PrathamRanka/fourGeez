@@ -1,424 +1,463 @@
-"""Implement an offline contextual-bandit ranker behind the common Ranker protocol.
-
-TODO(RL-006):
-- Begin with an interpretable algorithm such as LinUCB or epsilon-greedy linear scoring.
-- Train only from version-compatible, validated offline events.
-- Use deterministic seeds and serialize complete model metadata.
-- Refuse to load incompatible feature/model versions.
-- Never perform online weight updates in the payment request path.
-
-Design notes
--------------
-This module is intentionally decoupled from `contracts.py` / `features.py`
-(not yet built): it operates on raw `(n_candidates, feature_dim)` matrices and
-candidate ids rather than on `UserPrefs` / `Option` directly. Whatever builds
-those feature vectors (the future `features.py`) is responsible for keeping
-`feature_version` in sync with what's stamped into `ModelMetadata` here.
-
-Hard boundary: `rank()` is called from the live decision/payment-request path
-and MUST be read-only. All learning happens in `fit_offline()`, which is only
-ever invoked by an offline batch job over validated historical events. There
-is no code path from `rank()` to `A_inv`/`b`/`theta` mutation.
-"""
+"""Dependency-free offline LinUCB ranking behind the common Ranker boundary."""
 
 from __future__ import annotations
 
 import hashlib
-import pickle
-import time
-from dataclasses import dataclass, field
-from typing import List, NamedTuple, Protocol, Sequence
+import json
+import math
+from dataclasses import asdict, dataclass
+from typing import Any
 
-import numpy as np
+from .contracts import (
+    FEATURE_VERSION_V1,
+    RECOMMENDATION_SCHEMA_VERSION,
+    DecisionContext,
+    Recommendation,
+)
+from .features import FEATURE_DIM, FEATURE_NAMES, FeatureBatch
 
-# --------------------------------------------------------------------------- #
-# Versioning
-# --------------------------------------------------------------------------- #
-
-# Bump MODEL_VERSION on any change to the algorithm/serialization format.
-# Bump FEATURE_VERSION (owned by features.py once it exists) on any change
-# to what a feature vector's columns mean. A model trained against one
-# feature version must never score vectors built under a different one.
-MODEL_VERSION = "1.0.0"
-DEFAULT_FEATURE_VERSION = "1.0.0"
-
-
-class IncompatibleModelVersion(Exception):
-    """Raised when a loaded artifact's feature/model version doesn't match."""
+BANDIT_MODEL_VERSION = "linucb-v1"
+BANDIT_STRATEGY_NAME = "offline-linucb"
+MODEL_ARTIFACT_VERSION = "agentpay.bandit-artifact.v1"
 
 
-class InvalidTrainingEvent(Exception):
-    """Raised when an offline event fails validation before training."""
+class BanditError(ValueError):
+    """Reports invalid training, ranking, or artifact input."""
 
 
-# --------------------------------------------------------------------------- #
-# Shared contract types (mirrors what contracts.py will eventually own)
-# --------------------------------------------------------------------------- #
-
-class RankedCandidate(NamedTuple):
-    candidate_id: str
-    score: float
+class InvalidTrainingExample(BanditError):
+    """Reports an offline example that cannot safely train the model."""
 
 
-class Ranker(Protocol):
-    """Minimal read-only interface every ranking model in this package implements."""
-
-    def rank(
-        self, feature_matrix: np.ndarray, candidate_ids: Sequence[str]
-    ) -> List[RankedCandidate]:
-        """Score candidates for one request. MUST NOT mutate model weights."""
-        ...
+class IncompatibleModelVersion(BanditError):
+    """Reports an artifact that does not match the supported model contract."""
 
 
 @dataclass(frozen=True)
-class OfflineEvent:
-    """
-    One validated, version-tagged offline training example.
+class OfflineTrainingExample:
+    """Contains one validated feature vector and its offline reward."""
 
-    `features` is the full context+candidate feature vector for the option
-    that was actually chosen (i.e. what `features.py` would produce for it),
-    and `reward` is the scalar produced by `rewards.reward_from_outcomes`.
-    """
-    features: np.ndarray
+    event_id: str
+    feature_version: str
+    features: tuple[float, ...]
     reward: float
-    feature_version: str = DEFAULT_FEATURE_VERSION
-    event_id: str = ""
 
 
 @dataclass(frozen=True)
-class ModelMetadata:
+class BanditMetadata:
+    """Describes the exact deterministic model state and training inputs."""
+
     algorithm: str
     model_version: str
     feature_version: str
-    feature_dim: int
+    feature_dimension: int
     seed: int
-    hyperparams: dict
-    n_training_events: int
-    trained_at: float
-    weights_checksum: str
+    ridge: float
+    exploration_alpha: float
+    training_example_count: int
+    state_checksum: str
 
 
-# --------------------------------------------------------------------------- #
-# Validation
-# --------------------------------------------------------------------------- #
+class LinUCBBandit:
+    """Learns linear rewards offline and performs read-only UCB ranking."""
 
-def validate_events(
-    events: Sequence[OfflineEvent],
-    expected_feature_dim: int,
-    expected_feature_version: str,
-) -> None:
-    """
-    Reject the whole batch on the first bad event rather than training on
-    partially-corrupt data. Called by `fit_offline` before any weight update.
-    """
-    if not events:
-        raise InvalidTrainingEvent("empty event batch")
+    strategy = BANDIT_STRATEGY_NAME
+    model_version = BANDIT_MODEL_VERSION
 
-    for e in events:
-        if e.feature_version != expected_feature_version:
-            raise InvalidTrainingEvent(
-                f"event {e.event_id!r} has feature_version={e.feature_version!r}, "
-                f"expected {expected_feature_version!r}"
-            )
-        if e.features.shape != (expected_feature_dim,):
-            raise InvalidTrainingEvent(
-                f"event {e.event_id!r} has feature shape {e.features.shape}, "
-                f"expected ({expected_feature_dim},)"
-            )
-        if not np.all(np.isfinite(e.features)):
-            raise InvalidTrainingEvent(f"event {e.event_id!r} has non-finite features")
-        if not np.isfinite(e.reward):
-            raise InvalidTrainingEvent(f"event {e.event_id!r} has non-finite reward")
-
-
-def _checksum(A_inv: np.ndarray, b: np.ndarray) -> str:
-    h = hashlib.sha256()
-    h.update(A_inv.tobytes())
-    h.update(b.tobytes())
-    return h.hexdigest()[:16]
-
-
-# --------------------------------------------------------------------------- #
-# Shared ridge-regression base
-# --------------------------------------------------------------------------- #
-
-class _LinearRidgeBase:
-    """
-    Common state/serialization for linear contextual bandits: a ridge design
-    matrix inverse (`A_inv`) and reward-weighted feature sum (`b`), updated
-    incrementally via Sherman-Morrison (O(d^2) per event, no O(d^3) inversion).
-
-    Weights (`A_inv`, `b`, and the derived `theta`) are only ever written by
-    `fit_offline`. `rank()` implementations in subclasses only read `theta`.
-    """
-
-    algorithm_name = "linear_ridge_base"
-
+    # __init__ creates an untrained regularized model with deterministic metadata.
     def __init__(
         self,
-        feature_dim: int,
+        seed: int,
         ridge: float = 1.0,
-        seed: int = 0,
-        feature_version: str = DEFAULT_FEATURE_VERSION,
-        hyperparams: dict | None = None,
-    ):
-        self.feature_dim = feature_dim
-        self.feature_version = feature_version
+        exploration_alpha: float = 0.1,
+        feature_version: str = FEATURE_VERSION_V1,
+    ) -> None:
+        if ridge <= 0 or not math.isfinite(ridge):
+            raise BanditError("ridge must be finite and greater than zero")
+        if exploration_alpha < 0 or not math.isfinite(exploration_alpha):
+            raise BanditError("exploration_alpha must be finite and non-negative")
+        if feature_version != FEATURE_VERSION_V1:
+            raise IncompatibleModelVersion("unsupported feature version")
+
         self.seed = seed
-        self._hyperparams = dict(hyperparams or {})
-        self._hyperparams.setdefault("ridge", ridge)
+        self.ridge = ridge
+        self.exploration_alpha = exploration_alpha
+        self.feature_version = feature_version
+        self._design_matrix = _identity_matrix(FEATURE_DIM, ridge)
+        self._reward_vector = [0.0 for _ in range(FEATURE_DIM)]
+        self._weights = [0.0 for _ in range(FEATURE_DIM)]
+        self._training_example_count = 0
 
-        self.A_inv = np.eye(feature_dim) / ridge
-        self.b = np.zeros(feature_dim)
-        self.theta = np.zeros(feature_dim)  # precomputed, read-only at request time
+    # fit_offline validates the full batch before changing model state.
+    def fit_offline(
+        self,
+        examples: tuple[OfflineTrainingExample, ...],
+    ) -> BanditMetadata:
+        _validate_training_examples(examples, self.feature_version)
 
-        self._rng = np.random.default_rng(seed)
-        self.n_training_events = 0
-        self.trained_at = 0.0
-
-    def _assert_request_time_read_only(self) -> None:
-        """Tripwire: fails loudly if a future edit lets rank() reach a mutator."""
-        import inspect
-        for frame_info in inspect.stack():
-            if frame_info.function in ("fit_offline", "_apply_update"):
-                raise RuntimeError(
-                    "Boundary violation: weight-mutating call reached from rank()"
+        next_design_matrix = [row.copy() for row in self._design_matrix]
+        next_reward_vector = self._reward_vector.copy()
+        for example in examples:
+            for row_index in range(FEATURE_DIM):
+                next_reward_vector[row_index] += (
+                    example.reward * example.features[row_index]
                 )
+                for column_index in range(FEATURE_DIM):
+                    next_design_matrix[row_index][column_index] += (
+                        example.features[row_index]
+                        * example.features[column_index]
+                    )
 
-    def fit_offline(self, events: Sequence[OfflineEvent]) -> ModelMetadata:
-        """
-        The ONLY path that changes model weights. Validates the batch, applies
-        sequential Sherman-Morrison updates, recomputes theta once, and returns
-        fresh metadata. Never call this from a live ranking/request path.
-        """
-        validate_events(events, self.feature_dim, self.feature_version)
-
-        for e in events:
-            self._apply_update(e.features, float(e.reward))
-
-        self.theta = self.A_inv @ self.b
-        self.n_training_events += len(events)
-        self.trained_at = time.time()
+        inverse = _invert_matrix(next_design_matrix)
+        next_weights = _matrix_vector_product(inverse, next_reward_vector)
+        self._design_matrix = next_design_matrix
+        self._reward_vector = next_reward_vector
+        self._weights = next_weights
+        self._training_example_count += len(examples)
         return self.metadata()
 
-    def _apply_update(self, x: np.ndarray, reward: float) -> None:
-        Ax = self.A_inv @ x
-        denom = 1.0 + x @ Ax
-        self.A_inv -= np.outer(Ax, Ax) / denom
-        self.b += reward * x
+    # rank scores one validated feature batch without updating learned state.
+    def rank(
+        self,
+        context: DecisionContext,
+        batch: FeatureBatch,
+    ) -> Recommendation:
+        _validate_ranking_batch(context, batch)
+        if not batch.candidate_ids:
+            raise BanditError("no candidate survived feature validation")
 
-    def metadata(self) -> ModelMetadata:
-        return ModelMetadata(
-            algorithm=self.algorithm_name,
-            model_version=MODEL_VERSION,
+        inverse = _invert_matrix(self._design_matrix)
+        score_by_offer: dict[str, float] = {}
+        for offer_id, feature_row in zip(batch.candidate_ids, batch.rows, strict=True):
+            expected_reward = _dot(feature_row, self._weights)
+            uncertainty_vector = _matrix_vector_product(inverse, list(feature_row))
+            uncertainty = math.sqrt(max(0.0, _dot(feature_row, uncertainty_vector)))
+            score_by_offer[offer_id] = round(
+                expected_reward + self.exploration_alpha * uncertainty,
+                12,
+            )
+
+        ranked_offer_ids = tuple(
+            sorted(
+                score_by_offer,
+                key=lambda offer_id: (-score_by_offer[offer_id], offer_id),
+            )
+        )
+        return Recommendation(
+            schema_version=RECOMMENDATION_SCHEMA_VERSION,
+            recommendation_id=_recommendation_id(
+                context,
+                ranked_offer_ids,
+                score_by_offer,
+                self.metadata().state_checksum,
+            ),
+            request_id=context.request_id,
+            ranked_offer_ids=ranked_offer_ids,
+            scores={offer_id: score_by_offer[offer_id] for offer_id in ranked_offer_ids},
+            reasons=(
+                f"{ranked_offer_ids[0]} has the highest offline LinUCB score",
+            ),
+            strategy=self.strategy,
+            model_version=self.model_version,
             feature_version=self.feature_version,
-            feature_dim=self.feature_dim,
+        )
+
+    # metadata returns immutable version and model-state identification.
+    def metadata(self) -> BanditMetadata:
+        return BanditMetadata(
+            algorithm="LinUCB",
+            model_version=self.model_version,
+            feature_version=self.feature_version,
+            feature_dimension=FEATURE_DIM,
             seed=self.seed,
-            hyperparams=dict(self._hyperparams),
-            n_training_events=self.n_training_events,
-            trained_at=self.trained_at,
-            weights_checksum=_checksum(self.A_inv, self.b),
+            ridge=self.ridge,
+            exploration_alpha=self.exploration_alpha,
+            training_example_count=self._training_example_count,
+            state_checksum=_state_checksum(
+                self._design_matrix,
+                self._reward_vector,
+                self._weights,
+            ),
         )
 
-    def save(self, path: str) -> ModelMetadata:
-        meta = self.metadata()
-        payload = {
-            "metadata": meta,
-            "A_inv": self.A_inv,
-            "b": self.b,
-            "theta": self.theta,
+    # to_json serializes a portable, inspectable artifact without pickle.
+    def to_json(self) -> str:
+        artifact = {
+            "schemaVersion": MODEL_ARTIFACT_VERSION,
+            "metadata": _metadata_to_dict(self.metadata()),
+            "designMatrix": self._design_matrix,
+            "rewardVector": self._reward_vector,
+            "weights": self._weights,
         }
-        with open(path, "wb") as f:
-            pickle.dump(payload, f)
-        return meta
+        return json.dumps(artifact, sort_keys=True, separators=(",", ":"))
 
+    # from_json validates versions, dimensions, and checksum before loading state.
     @classmethod
-    def load(
-        cls,
-        path: str,
-        expected_feature_version: str = DEFAULT_FEATURE_VERSION,
-        expected_model_version: str = MODEL_VERSION,
-    ) -> "_LinearRidgeBase":
-        with open(path, "rb") as f:
-            payload = pickle.load(f)
-        meta: ModelMetadata = payload["metadata"]
+    def from_json(cls, serialized_artifact: str) -> LinUCBBandit:
+        try:
+            artifact = json.loads(serialized_artifact)
+        except json.JSONDecodeError:
+            raise IncompatibleModelVersion("model artifact is not valid JSON") from None
+        if not isinstance(artifact, dict):
+            raise IncompatibleModelVersion("model artifact must be a JSON object")
+        if artifact.get("schemaVersion") != MODEL_ARTIFACT_VERSION:
+            raise IncompatibleModelVersion("unsupported model artifact version")
 
-        if meta.feature_version != expected_feature_version:
-            raise IncompatibleModelVersion(
-                f"artifact feature_version={meta.feature_version!r} != "
-                f"expected {expected_feature_version!r}"
-            )
-        if meta.model_version != expected_model_version:
-            raise IncompatibleModelVersion(
-                f"artifact model_version={meta.model_version!r} != "
-                f"expected {expected_model_version!r}"
-            )
+        metadata = _metadata_from_dict(artifact.get("metadata"))
+        design_matrix = _float_matrix(artifact.get("designMatrix"))
+        reward_vector = _float_vector(artifact.get("rewardVector"))
+        weights = _float_vector(artifact.get("weights"))
+        _validate_artifact_state(metadata, design_matrix, reward_vector, weights)
 
-        actual_checksum = _checksum(payload["A_inv"], payload["b"])
-        if actual_checksum != meta.weights_checksum:
-            raise IncompatibleModelVersion(
-                f"weights checksum mismatch: artifact may be corrupt "
-                f"(expected {meta.weights_checksum}, got {actual_checksum})"
-            )
-
-        # Hyperparam keys (e.g. "alpha" for LinUCB, "epsilon" for epsilon-greedy)
-        # are named to match each subclass's __init__ kwargs exactly, so they
-        # can be splatted straight through without subclass-specific branching.
-        extra_kwargs = {k: v for k, v in meta.hyperparams.items() if k != "ridge"}
         model = cls(
-            feature_dim=meta.feature_dim,
-            ridge=meta.hyperparams.get("ridge", 1.0),
-            seed=meta.seed,
-            feature_version=meta.feature_version,
-            **extra_kwargs,
+            seed=metadata.seed,
+            ridge=metadata.ridge,
+            exploration_alpha=metadata.exploration_alpha,
+            feature_version=metadata.feature_version,
         )
-        model.A_inv = payload["A_inv"]
-        model.b = payload["b"]
-        model.theta = payload["theta"]
-        model.n_training_events = meta.n_training_events
-        model.trained_at = meta.trained_at
+        model._design_matrix = design_matrix
+        model._reward_vector = reward_vector
+        model._weights = weights
+        model._training_example_count = metadata.training_example_count
         return model
 
 
-# --------------------------------------------------------------------------- #
-# LinUCB
-# --------------------------------------------------------------------------- #
+# _validate_training_examples checks every example before any model mutation.
+def _validate_training_examples(
+    examples: tuple[OfflineTrainingExample, ...],
+    feature_version: str,
+) -> None:
+    if not examples:
+        raise InvalidTrainingExample("training examples must not be empty")
+    event_ids: set[str] = set()
+    for example in examples:
+        if not example.event_id or example.event_id in event_ids:
+            raise InvalidTrainingExample("training event IDs must be non-empty and unique")
+        event_ids.add(example.event_id)
+        if example.feature_version != feature_version:
+            raise InvalidTrainingExample("training feature version is incompatible")
+        if len(example.features) != FEATURE_DIM:
+            raise InvalidTrainingExample("training feature dimension is incompatible")
+        if not all(math.isfinite(value) for value in example.features):
+            raise InvalidTrainingExample("training features must be finite")
+        if not math.isfinite(example.reward):
+            raise InvalidTrainingExample("training reward must be finite")
 
-class LinUCBBandit(_LinearRidgeBase):
-    """
-    theta = A_inv @ b gives the point estimate of reward for a feature vector;
-    the UCB bonus `alpha * sqrt(x^T A_inv x)` rewards exploring candidates the
-    model is still uncertain about. Fully vectorized across candidates.
-    """
 
-    algorithm_name = "linucb"
+# _validate_ranking_batch checks the context and fixed feature contract.
+def _validate_ranking_batch(context: DecisionContext, batch: FeatureBatch) -> None:
+    if batch.request_id != context.request_id:
+        raise BanditError("feature batch request does not match context")
+    if batch.feature_version != context.feature_version:
+        raise IncompatibleModelVersion("ranking feature version is incompatible")
+    if batch.feature_version != FEATURE_VERSION_V1:
+        raise IncompatibleModelVersion("ranking feature version is unsupported")
+    if batch.feature_names != FEATURE_NAMES:
+        raise BanditError("ranking feature columns are incompatible")
+    if len(batch.candidate_ids) != len(batch.rows):
+        raise BanditError("ranking candidate and row counts differ")
+    for feature_row in batch.rows:
+        if len(feature_row) != FEATURE_DIM:
+            raise BanditError("ranking feature dimension is incompatible")
+        if not all(math.isfinite(value) for value in feature_row):
+            raise BanditError("ranking features must be finite")
 
-    def __init__(
-        self,
-        feature_dim: int,
-        alpha: float = 1.0,
-        ridge: float = 1.0,
-        seed: int = 0,
-        feature_version: str = DEFAULT_FEATURE_VERSION,
-    ):
-        super().__init__(
-            feature_dim, ridge=ridge, seed=seed, feature_version=feature_version,
-            hyperparams={"alpha": alpha, "ridge": ridge},
+
+# _identity_matrix creates the regularized design-matrix starting point.
+def _identity_matrix(dimension: int, diagonal: float) -> list[list[float]]:
+    return [
+        [diagonal if row_index == column_index else 0.0 for column_index in range(dimension)]
+        for row_index in range(dimension)
+    ]
+
+
+# _invert_matrix computes a small dense inverse with pivoted Gauss-Jordan elimination.
+def _invert_matrix(matrix: list[list[float]]) -> list[list[float]]:
+    dimension = len(matrix)
+    augmented = [
+        row.copy() + identity_row
+        for row, identity_row in zip(
+            matrix,
+            _identity_matrix(dimension, 1.0),
+            strict=True,
         )
-        self.alpha = alpha
-
-    def rank(
-        self, feature_matrix: np.ndarray, candidate_ids: Sequence[str]
-    ) -> List[RankedCandidate]:
-        if feature_matrix.shape[0] != len(candidate_ids):
-            raise ValueError("feature_matrix rows must match len(candidate_ids)")
-        if feature_matrix.shape[1] != self.feature_dim:
-            raise ValueError(
-                f"feature dim {feature_matrix.shape[1]} != model dim {self.feature_dim}"
-            )
-
-        mean = feature_matrix @ self.theta
-        var = np.einsum("ij,jk,ik->i", feature_matrix, self.A_inv, feature_matrix)
-        var = np.clip(var, 0.0, None)
-        scores = mean + self.alpha * np.sqrt(var)
-
-        order = np.argsort(-scores)
-        return [RankedCandidate(candidate_ids[i], float(scores[i])) for i in order]
-
-
-# --------------------------------------------------------------------------- #
-# Epsilon-greedy (simpler fallback)
-# --------------------------------------------------------------------------- #
-
-class EpsilonGreedyBandit(_LinearRidgeBase):
-    """
-    Exploits the ridge-regression point estimate (1 - epsilon) of the time;
-    with probability epsilon it shuffles the ranking to explore. Exploration
-    randomness is drawn from a seeded RNG for reproducibility across a fresh
-    `load()` of the same artifact, not across a single long-lived process.
-    """
-
-    algorithm_name = "epsilon_greedy_linear"
-
-    def __init__(
-        self,
-        feature_dim: int,
-        epsilon: float = 0.1,
-        ridge: float = 1.0,
-        seed: int = 0,
-        feature_version: str = DEFAULT_FEATURE_VERSION,
-    ):
-        super().__init__(
-            feature_dim, ridge=ridge, seed=seed, feature_version=feature_version,
-            hyperparams={"epsilon": epsilon, "ridge": ridge},
+    ]
+    for pivot_index in range(dimension):
+        pivot_row_index = max(
+            range(pivot_index, dimension),
+            key=lambda row_index: abs(augmented[row_index][pivot_index]),
         )
-        self.epsilon = epsilon
+        if abs(augmented[pivot_row_index][pivot_index]) < 1e-12:
+            raise BanditError("model design matrix is singular")
+        augmented[pivot_index], augmented[pivot_row_index] = (
+            augmented[pivot_row_index],
+            augmented[pivot_index],
+        )
+        pivot_value = augmented[pivot_index][pivot_index]
+        augmented[pivot_index] = [
+            value / pivot_value for value in augmented[pivot_index]
+        ]
+        for row_index in range(dimension):
+            if row_index == pivot_index:
+                continue
+            scale = augmented[row_index][pivot_index]
+            augmented[row_index] = [
+                value - scale * pivot_value
+                for value, pivot_value in zip(
+                    augmented[row_index],
+                    augmented[pivot_index],
+                    strict=True,
+                )
+            ]
+    return [row[dimension:] for row in augmented]
 
-    def rank(
-        self, feature_matrix: np.ndarray, candidate_ids: Sequence[str]
-    ) -> List[RankedCandidate]:
-        if feature_matrix.shape[0] != len(candidate_ids):
-            raise ValueError("feature_matrix rows must match len(candidate_ids)")
-        if feature_matrix.shape[1] != self.feature_dim:
-            raise ValueError(
-                f"feature dim {feature_matrix.shape[1]} != model dim {self.feature_dim}"
-            )
 
-        scores = feature_matrix @ self.theta
-        if self._rng.random() < self.epsilon:
-            scores = scores.copy()
-            self._rng.shuffle(scores)
-
-        order = np.argsort(-scores)
-        return [RankedCandidate(candidate_ids[i], float(scores[i])) for i in order]
+# _matrix_vector_product multiplies one dense matrix by one vector.
+def _matrix_vector_product(matrix: list[list[float]], vector: list[float]) -> list[float]:
+    return [_dot(row, vector) for row in matrix]
 
 
-# --------------------------------------------------------------------------- #
-# Demo / smoke test
-# --------------------------------------------------------------------------- #
+# _dot calculates a stable scalar product for equal-width vectors.
+def _dot(left: tuple[float, ...] | list[float], right: list[float]) -> float:
+    return math.fsum(
+        left_value * right_value
+        for left_value, right_value in zip(left, right, strict=True)
+    )
 
-if __name__ == "__main__":
-    rng = np.random.default_rng(42)
-    dim = 8
 
-    def synth_events(n: int) -> list[OfflineEvent]:
-        out = []
-        for i in range(n):
-            x = rng.normal(size=dim)
-            true_theta = np.array([1.0, -0.5, 0.3, 0.0, 0.2, -0.1, 0.4, 0.0])
-            reward = float(x @ true_theta + rng.normal(scale=0.1))
-            out.append(OfflineEvent(features=x, reward=reward, event_id=f"evt_{i}"))
-        return out
+# _state_checksum fingerprints the complete learned numeric state.
+def _state_checksum(
+    design_matrix: list[list[float]],
+    reward_vector: list[float],
+    weights: list[float],
+) -> str:
+    serialized_state = json.dumps(
+        {
+            "designMatrix": design_matrix,
+            "rewardVector": reward_vector,
+            "weights": weights,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized_state.encode("utf-8")).hexdigest()
 
-    model = LinUCBBandit(feature_dim=dim, alpha=0.5, seed=7)
-    print("Before training, metadata:", model.metadata())
 
-    meta = model.fit_offline(synth_events(200))
-    print("\nAfter training, metadata:", meta)
+# _metadata_to_dict maps Python field names to the versioned artifact shape.
+def _metadata_to_dict(metadata: BanditMetadata) -> dict[str, Any]:
+    metadata_values = asdict(metadata)
+    return {
+        "algorithm": metadata_values["algorithm"],
+        "modelVersion": metadata_values["model_version"],
+        "featureVersion": metadata_values["feature_version"],
+        "featureDimension": metadata_values["feature_dimension"],
+        "seed": metadata_values["seed"],
+        "ridge": metadata_values["ridge"],
+        "explorationAlpha": metadata_values["exploration_alpha"],
+        "trainingExampleCount": metadata_values["training_example_count"],
+        "stateChecksum": metadata_values["state_checksum"],
+    }
 
-    candidates = rng.normal(size=(4, dim))
-    candidate_ids = ["a", "b", "c", "d"]
-    print("\nRanking:", model.rank(candidates, candidate_ids))
 
-    path = "/tmp/linucb_artifact.pkl"
-    model.save(path)
-    reloaded = LinUCBBandit.load(path)
-    print("Reloaded ranking (should match):", reloaded.rank(candidates, candidate_ids))
-
-    # Confirm version enforcement actually refuses a mismatch.
+# _metadata_from_dict validates the exact metadata fields and primitive types.
+def _metadata_from_dict(raw_metadata: object) -> BanditMetadata:
+    if not isinstance(raw_metadata, dict):
+        raise IncompatibleModelVersion("model metadata must be a JSON object")
+    required_fields = {
+        "algorithm",
+        "modelVersion",
+        "featureVersion",
+        "featureDimension",
+        "seed",
+        "ridge",
+        "explorationAlpha",
+        "trainingExampleCount",
+        "stateChecksum",
+    }
+    if set(raw_metadata) != required_fields:
+        raise IncompatibleModelVersion("model metadata fields are incompatible")
     try:
-        LinUCBBandit.load(path, expected_feature_version="9.9.9")
-        print("ERROR: should have raised IncompatibleModelVersion")
-    except IncompatibleModelVersion as exc:
-        print(f"\nCorrectly refused incompatible version: {exc}")
+        return BanditMetadata(
+            algorithm=str(raw_metadata["algorithm"]),
+            model_version=str(raw_metadata["modelVersion"]),
+            feature_version=str(raw_metadata["featureVersion"]),
+            feature_dimension=int(raw_metadata["featureDimension"]),
+            seed=int(raw_metadata["seed"]),
+            ridge=float(raw_metadata["ridge"]),
+            exploration_alpha=float(raw_metadata["explorationAlpha"]),
+            training_example_count=int(raw_metadata["trainingExampleCount"]),
+            state_checksum=str(raw_metadata["stateChecksum"]),
+        )
+    except (TypeError, ValueError):
+        raise IncompatibleModelVersion("model metadata contains invalid values") from None
 
-    # Confirm bad events are rejected before any weight mutation.
-    bad_event = OfflineEvent(features=np.array([np.nan] * dim), reward=1.0)
-    before_checksum = model.metadata().weights_checksum
+
+# _float_vector converts a JSON array into a finite numeric vector.
+def _float_vector(raw_vector: object) -> list[float]:
+    if not isinstance(raw_vector, list):
+        raise IncompatibleModelVersion("model vector must be a JSON array")
     try:
-        model.fit_offline([bad_event])
-        print("ERROR: should have raised InvalidTrainingEvent")
-    except InvalidTrainingEvent as exc:
-        after_checksum = model.metadata().weights_checksum
-        assert before_checksum == after_checksum, "weights mutated despite validation failure!"
-        print(f"Correctly rejected invalid event without mutating weights: {exc}")
+        vector = [float(value) for value in raw_vector]
+    except (TypeError, ValueError):
+        raise IncompatibleModelVersion("model vector must contain numbers") from None
+    if not all(math.isfinite(value) for value in vector):
+        raise IncompatibleModelVersion("model vector must contain finite numbers")
+    return vector
+
+
+# _float_matrix converts a JSON array into a finite square numeric matrix.
+def _float_matrix(raw_matrix: object) -> list[list[float]]:
+    if not isinstance(raw_matrix, list):
+        raise IncompatibleModelVersion("design matrix must be a JSON array")
+    return [_float_vector(raw_row) for raw_row in raw_matrix]
+
+
+# _validate_artifact_state enforces versions, dimensions, and integrity.
+def _validate_artifact_state(
+    metadata: BanditMetadata,
+    design_matrix: list[list[float]],
+    reward_vector: list[float],
+    weights: list[float],
+) -> None:
+    if metadata.algorithm != "LinUCB":
+        raise IncompatibleModelVersion("unsupported model algorithm")
+    if metadata.model_version != BANDIT_MODEL_VERSION:
+        raise IncompatibleModelVersion("unsupported model version")
+    if metadata.feature_version != FEATURE_VERSION_V1:
+        raise IncompatibleModelVersion("unsupported feature version")
+    if metadata.feature_dimension != FEATURE_DIM:
+        raise IncompatibleModelVersion("model feature dimension is incompatible")
+    if len(design_matrix) != FEATURE_DIM:
+        raise IncompatibleModelVersion("design matrix dimension is incompatible")
+    if any(len(row) != FEATURE_DIM for row in design_matrix):
+        raise IncompatibleModelVersion("design matrix row dimension is incompatible")
+    if len(reward_vector) != FEATURE_DIM or len(weights) != FEATURE_DIM:
+        raise IncompatibleModelVersion("model vector dimension is incompatible")
+    checksum = _state_checksum(design_matrix, reward_vector, weights)
+    if checksum != metadata.state_checksum:
+        raise IncompatibleModelVersion("model state checksum does not match")
+
+
+# _recommendation_id derives a stable identifier from model state and scores.
+def _recommendation_id(
+    context: DecisionContext,
+    ranked_offer_ids: tuple[str, ...],
+    score_by_offer: dict[str, float],
+    state_checksum: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "modelVersion": BANDIT_MODEL_VERSION,
+            "requestId": context.request_id,
+            "rankedOfferIds": ranked_offer_ids,
+            "scores": {
+                offer_id: format(score_by_offer[offer_id], ".12f")
+                for offer_id in ranked_offer_ids
+            },
+            "stateChecksum": state_checksum,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return "rec_" + digest[:26]

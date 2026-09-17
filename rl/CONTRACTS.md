@@ -123,3 +123,11 @@ every component with its source event and rejects mixed identities, incomplete
 lifecycles, invalid ordering, incompatible versions, and events after an
 evaluation cutoff. Rewards are offline measurements only and cannot change
 authorization, payment, fulfillment, or dispute decisions.
+
+## Offline LinUCB v1
+
+`offline-linucb` version `linucb-v1` trains only from validated, version-matched
+offline examples. Its JSON artifact records the feature version, algorithm,
+hyperparameters, seed, training count, and a checksum of the complete learned
+state. Live `rank` calls are read-only and the Go backend must still revalidate
+every suggested offer before use.
