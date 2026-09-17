@@ -96,6 +96,24 @@ M5 acceptance: Bedrock cannot execute an unknown route, change an approved inten
 
 M6 acceptance: all five primary screens work at 360 px and desktop widths, pass keyboard navigation, and expose no secrets in browser bundles or logs.
 
+## Parallel track R1 — Recommendation research
+
+This track may begin after M1 and must not block or modify the payment-critical milestones.
+
+- [x] **RL-000** Scaffold the isolated Python workspace with file-level contracts and TODOs.
+- [ ] **RL-001** Implement strict versioned recommendation and outcome contracts.
+- [ ] **RL-002** Implement candidate validation and deterministic feature construction.
+- [ ] **RL-003** Implement and test the deterministic ranking baseline.
+- [ ] **RL-004** Implement reproducible synthetic data generation.
+- [ ] **RL-005** Define configurable, auditable reward components.
+- [ ] **RL-006** Implement an offline contextual bandit behind the common ranking interface.
+- [ ] **RL-007** Implement baseline comparison, confidence intervals, and regression thresholds.
+- [ ] **RL-008** Implement the bounded JSON service adapter after offline evaluation passes.
+- [ ] **RL-009** Add reproducible simulation, training, evaluation, and serving commands.
+- [ ] **RL-010** Publish an evaluation report that clearly labels synthetic versus real data.
+
+R1 acceptance: the model ranks only eligible offers, beats or matches the deterministic baseline on predefined synthetic scenarios, reproduces results from fixed seeds, and has no access to authorization or payment capabilities.
+
 ## Milestone M7 — AWS infrastructure and operations
 
 - [ ] **AWS-001** Bootstrap development AWS account and CDK environment.

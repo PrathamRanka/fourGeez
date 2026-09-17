@@ -1,0 +1,40 @@
+# Python package metadata for the isolated recommendation research workspace.
+# Add runtime dependencies only when a source module requires them; pin versions in the same commit.
+# The initial skeleton intentionally has no ML framework dependency.
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentpay-rl"
+version = "0.1.0"
+description = "Offline recommendation and contextual-bandit research for AgentPay"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.18,<2",
+  "pytest>=8.4,<9",
+  "ruff>=0.13,<1"
+]
+
+[project.scripts]
+agentpay-rl = "agentpay_rl.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentpay_rl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["agentpay_rl"]
+mypy_path = "src"

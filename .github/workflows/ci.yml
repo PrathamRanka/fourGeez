@@ -32,6 +32,15 @@ jobs:
       - run: go test -race ./cmd/... ./internal/... ./examples/...
       - run: go build ./cmd/... ./internal/... ./examples/...
 
+  rl-scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q rl/src rl/tests
+
   web-and-infra:
     runs-on: ubuntu-latest
     steps:

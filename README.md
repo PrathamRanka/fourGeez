@@ -11,6 +11,7 @@ The repository is documentation-first. Implementation must follow the numbered t
 - [System architecture](docs/ARCHITECTURE.md)
 - [API contract](docs/api/openapi.yaml)
 - [AWS setup runbook](docs/AWS_SETUP.md)
+- [Recommendation/RL teammate workspace](rl/README.md)
 
 ## Current status
 
