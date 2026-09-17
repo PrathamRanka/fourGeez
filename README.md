@@ -1,6 +1,6 @@
 # fourGeez
 
-fourGeez is the repository for **AgentPay** (working name), a seller-side commerce gateway for AI agents. It exposes paid API routes through x402-compatible challenges and adds purchase policy, multi-party approval, evidence capture, and dispute workflows.
+fourGeez is the repository for **meow** , a seller-side commerce gateway for AI agents. It exposes paid API routes through x402-compatible challenges and adds purchase policy, multi-party approval, evidence capture, and dispute workflows.
 
 The repository is documentation-first. Implementation must follow the numbered tasks and accepted contracts instead of inventing behavior while coding.
 
