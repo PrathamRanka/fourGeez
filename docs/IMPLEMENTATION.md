@@ -55,7 +55,7 @@ M2 acceptance: domain tests cover valid transitions, invalid transitions, replay
 - [x] **API-006** Implement WebSocket connection registration and approval event publication.
 - [x] **API-007** Implement transaction and evidence-read endpoints.
 - [x] **API-008** Implement dispute creation and retrieval.
-- [ ] **API-009** Add OpenAPI conformance tests for every endpoint and error response.
+- [x] **API-009** Add OpenAPI conformance tests for every M3 endpoint and its documented error responses. The `/pay` proxy operations remain deferred to PAY-003 through PAY-009 and receive conformance coverage with those tasks.
 
 M3 acceptance: generated requests from the OpenAPI examples pass against the local API, and WebSocket clients can reconnect and recover session state.
 
