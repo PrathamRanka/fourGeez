@@ -17,6 +17,7 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 | [SOURCES.md](SOURCES.md) | External protocol and platform sources that must be verified before implementation |
 | [api/openapi.yaml](api/openapi.yaml) | REST/HTTP API contract |
 | [api/asyncapi.yaml](api/asyncapi.yaml) | WebSocket event contract |
+| [api/mcp.md](api/mcp.md) | Remote MCP transport, authentication, and resource contract |
 | [uml/system-context.puml](uml/system-context.puml) | System context diagram |
 | [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
 | [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Purchase and approval sequence |

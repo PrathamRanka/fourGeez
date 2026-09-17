@@ -57,6 +57,7 @@ Claude Code and other host-specific installation instructions remain unverified 
 | RFC 8785 JSON canonicalization for request and intent hashing | https://github.com/gowebpki/jcs | `v1.0.1` |
 | Sortable ULID generation | https://github.com/oklog/ulid | `v2.1.2` |
 | x402 v2 Go SDK | https://github.com/x402-foundation/x402/tree/go/v2.9.0/go | `v0.0.0-20260413171033-1059e866484f` (`go/v2.9.0`) |
+| Official MCP Go SDK | https://github.com/modelcontextprotocol/go-sdk | `v1.8.0`; supports the pinned `2026-07-28` protocol and stateless Streamable HTTP |
 
 ## Open questions that block production, not the hackathon
 

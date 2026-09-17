@@ -12,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/mcpserver"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -59,6 +60,13 @@ func main() {
 	integrations.NewHTTPController(
 		integrationService,
 		idempotencyStore,
+	).RegisterRoutes(mux)
+	mcpserver.NewHTTPController(
+		integrationService,
+		mcpserver.NewService(
+			catalogRepository,
+			transactionRepository,
+		),
 	).RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,
