@@ -120,6 +120,19 @@ REFUND_RECOMMENDED -> RESOLVED
 
 Terminal states are `RESOLVED` and an undisputed `FULFILLED`. Invalid transitions return `409 state_conflict`.
 
+### ApprovalConnection
+
+Approval WebSocket connections are ephemeral registrations used only for event delivery. REST approval snapshots remain authoritative.
+
+| Field | Type | Notes |
+|---|---|---|
+| `connectionId` | string | API Gateway or local WebSocket connection identifier |
+| `sessionId` | string | Approval session authorized by the invitation token at connect time |
+| `expiresAt` | timestamp | Must not exceed the approval-session expiration |
+| `connectedAt` | timestamp | UTC registration time |
+
+Raw invitation tokens are never persisted with a connection. Expired or delivery-gone connections are deleted, and reconnecting creates a new registration and immediately receives a complete redacted `session.snapshot` event.
+
 ### EvidenceEvent
 
 Evidence is append-only and ordered per transaction.
@@ -177,6 +190,7 @@ PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=INTENT#int_123       SK=PROFILE
 PK=APPROVAL#aps_123     SK=PROFILE
 PK=APPROVAL#aps_123     SK=INVITE#<tokenHash>
+PK=APPROVAL#aps_123     SK=CONNECTION#<connectionId>
 PK=TXN#txn_123          SK=PROFILE
 PK=TXN#txn_123          SK=EVENT#000001
 PK=DISPUTE#dsp_123      SK=PROFILE

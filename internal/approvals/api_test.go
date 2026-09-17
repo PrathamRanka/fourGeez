@@ -21,7 +21,7 @@ import (
 func TestApprovalRoutesCompleteTwoPersonApproval(t *testing.T) {
 	t.Parallel()
 
-	handler, purchaseIntent, _ := newApprovalHandler(t)
+	handler, purchaseIntent, _, _ := newApprovalHandler(t)
 	createBody := `{"approvers":[{"label":"Finance"},{"label":"Security"}]}`
 	createResponse := performApprovalRequest(
 		t,
@@ -196,7 +196,7 @@ func TestApprovalRoutesRejectInvalidRequests(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler, purchaseIntent, clock := newApprovalHandler(t)
+			handler, purchaseIntent, clock, _ := newApprovalHandler(t)
 			response := test.request(t, handler, purchaseIntent, clock)
 			if response.Code != test.wantStatus {
 				t.Fatalf("status = %d, want %d, body = %s", response.Code, test.wantStatus, response.Body.String())
@@ -206,7 +206,14 @@ func TestApprovalRoutesRejectInvalidRequests(t *testing.T) {
 }
 
 // newApprovalHandler creates a seeded API-005 test server.
-func newApprovalHandler(t *testing.T) (http.Handler, intents.PurchaseIntent, *approvalAPITestClock) {
+func newApprovalHandler(
+	t *testing.T,
+) (
+	http.Handler,
+	intents.PurchaseIntent,
+	*approvalAPITestClock,
+	*approvalAPITestPublisher,
+) {
 	t.Helper()
 
 	clock := &approvalAPITestClock{
@@ -251,6 +258,8 @@ func newApprovalHandler(t *testing.T) (http.Handler, intents.PurchaseIntent, *ap
 		clock,
 		"http://localhost:3000",
 	)
+	publisher := &approvalAPITestPublisher{}
+	service.SetEventPublisher(publisher)
 	controller := NewHTTPController(
 		service,
 		&approvalAPITestIdempotencyStore{
@@ -264,7 +273,46 @@ func newApprovalHandler(t *testing.T) (http.Handler, intents.PurchaseIntent, *ap
 			Authenticator: api.NewStaticAuthenticator("seller-secret", "agent-secret"),
 		},
 		mux,
-	), purchaseIntent, clock
+	), purchaseIntent, clock, publisher
+}
+
+// TestApprovalServicePublishesDecisionAndResolutionEvents verifies API-006 integration.
+func TestApprovalServicePublishesDecisionAndResolutionEvents(t *testing.T) {
+	t.Parallel()
+
+	handler, purchaseIntent, _, publisher := newApprovalHandler(t)
+	created := createApprovalSession(t, handler, purchaseIntent, "approval-create-events")
+	for index, invitation := range created.Invitations {
+		response := performApprovalRequest(
+			t,
+			handler,
+			http.MethodPost,
+			"/v1/approval-sessions/"+created.SessionID.String()+
+				"/decisions?token="+url.QueryEscape(invitationToken(t, invitation.URL)),
+			`{"decision":"approve"}`,
+			map[string]string{
+				"Content-Type":    "application/json",
+				"Idempotency-Key": "approval-event-decision-" + string(rune('1'+index)),
+			},
+		)
+		if response.Code != http.StatusOK {
+			t.Fatalf("decision %d status = %d, body = %s", index+1, response.Code, response.Body.String())
+		}
+	}
+
+	want := []EventType{
+		EventTypeApprovalDecided,
+		EventTypeApprovalDecided,
+		EventTypeSessionResolved,
+	}
+	if len(publisher.events) != len(want) {
+		t.Fatalf("event count = %d, want %d", len(publisher.events), len(want))
+	}
+	for index, eventType := range want {
+		if publisher.events[index] != eventType {
+			t.Fatalf("event %d = %q, want %q", index, publisher.events[index], eventType)
+		}
+	}
 }
 
 // createApprovalSession creates one session and returns its decoded response.
@@ -339,6 +387,20 @@ func mustApprovalDigest(t *testing.T, raw string) intents.SHA256Digest {
 // approvalAPITestClock allows an HTTP test to advance the current time.
 type approvalAPITestClock struct {
 	value time.Time
+}
+
+// approvalAPITestPublisher records approval event types.
+type approvalAPITestPublisher struct {
+	events []EventType
+}
+
+// PublishApprovalEvent records one event emitted by the approval service.
+func (publisher *approvalAPITestPublisher) PublishApprovalEvent(
+	_ context.Context,
+	eventType EventType,
+	_ SessionResponse,
+) {
+	publisher.events = append(publisher.events, eventType)
 }
 
 // Now returns the current test-controlled instant.

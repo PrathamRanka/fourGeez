@@ -24,6 +24,12 @@ type Service struct {
 	tokenSigner      *ApprovalTokenSigner
 	clock            domain.Clock
 	publicBaseURL    string
+	eventPublisher   EventPublisher
+}
+
+// SetEventPublisher attaches the optional realtime approval event boundary.
+func (service *Service) SetEventPublisher(publisher EventPublisher) {
+	service.eventPublisher = publisher
 }
 
 // NewService creates the approval application service.
@@ -97,6 +103,9 @@ func (service *Service) Get(ctx context.Context, sessionID domain.ID) (SessionRe
 		if err := service.repository.Update(ctx, session, expectedVersion); err != nil {
 			return SessionResponse{}, err
 		}
+		response := service.response(session, nil, "")
+		service.publishEvent(ctx, EventTypeSessionResolved, response)
+		return response, nil
 	}
 	return service.response(session, nil, ""), nil
 }
@@ -125,7 +134,24 @@ func (service *Service) Decide(
 	if err := service.repository.Update(ctx, session, expectedVersion); err != nil {
 		return SessionResponse{}, err
 	}
-	return service.response(session, nil, result.ApprovalToken), nil
+	response := service.response(session, nil, result.ApprovalToken)
+	service.publishEvent(ctx, EventTypeApprovalDecided, response)
+	if response.Status != SessionStatusPending {
+		service.publishEvent(ctx, EventTypeSessionResolved, response)
+	}
+	return response, nil
+}
+
+// publishEvent sends best-effort updates because REST snapshots remain authoritative.
+func (service *Service) publishEvent(
+	ctx context.Context,
+	eventType EventType,
+	response SessionResponse,
+) {
+	if service.eventPublisher == nil {
+		return
+	}
+	service.eventPublisher.PublishApprovalEvent(ctx, eventType, response)
 }
 
 // AuthorizeInvitation verifies that a token belongs to the requested session.

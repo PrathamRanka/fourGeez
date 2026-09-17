@@ -11,6 +11,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
+	"github.com/fourgeez/agentpay/internal/realtime"
 )
 
 // main starts the local AgentPay HTTP API.
@@ -62,11 +63,26 @@ func main() {
 		clock,
 		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
 	)
+	realtimeHub := realtime.NewLocalHub()
+	realtimeService := realtime.NewService(
+		realtimeHub,
+		approvalService,
+		realtimeHub,
+		idGenerator,
+		clock,
+	)
+	approvalService.SetEventPublisher(realtimeService)
 	approvalController := approvals.NewHTTPController(
 		approvalService,
 		idempotencyStore,
 	)
 	approvalController.RegisterRoutes(mux)
+	realtimeController := realtime.NewHTTPController(
+		realtime.NewController(realtimeService),
+		realtimeHub,
+		os.Getenv("AGENTPAY_WEB_ORIGIN"),
+	)
+	realtimeController.RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
 		Authenticator: api.NewStaticAuthenticator(

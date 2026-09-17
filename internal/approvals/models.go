@@ -110,6 +110,25 @@ type SessionResponse struct {
 	ApprovalToken     string               `json:"approvalToken,omitempty"`
 }
 
+// EventType identifies an approval event published to connected clients.
+type EventType string
+
+const (
+	EventTypeSessionSnapshot EventType = "session.snapshot"
+	EventTypeApproverJoined  EventType = "approver.joined"
+	EventTypeApprovalDecided EventType = "approval.decided"
+	EventTypeSessionResolved EventType = "session.resolved"
+)
+
+// EventPublisher distributes redacted approval-session changes.
+type EventPublisher interface {
+	PublishApprovalEvent(
+		ctx context.Context,
+		eventType EventType,
+		session SessionResponse,
+	)
+}
+
 // Repository is the persistence boundary consumed by approval use cases.
 type Repository interface {
 	Create(ctx context.Context, session Session) error

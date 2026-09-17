@@ -5,7 +5,7 @@ info:
   description: WebSocket updates for a single approval session. REST remains the source of truth.
 servers:
   local:
-    host: localhost:8081
+    host: localhost:8080
     protocol: ws
     pathname: /ws
 channels:
