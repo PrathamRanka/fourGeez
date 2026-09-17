@@ -9,6 +9,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 )
 
@@ -24,6 +25,7 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 		catalogMutator,
 		memory.NewIdempotencyStore(),
 		clock,
+		&testSandboxValidator{valid: true},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -83,6 +85,7 @@ func TestMutationServiceRequiresScopeAndFreshConfirmation(t *testing.T) {
 		&testCatalogMutator{},
 		memory.NewIdempotencyStore(),
 		clock,
+		&testSandboxValidator{valid: true},
 	)
 	input := ConfigureRouteInput{
 		IdempotencyKey: "route-create-002",
@@ -112,6 +115,95 @@ func TestMutationServiceRequiresScopeAndFreshConfirmation(t *testing.T) {
 	}
 }
 
+// TestMutationServiceRequiresPassingSandboxBeforePublication verifies the gate.
+func TestMutationServiceRequiresPassingSandboxBeforePublication(t *testing.T) {
+	t.Parallel()
+
+	clock := domain.FixedClock{
+		Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC),
+	}
+	validator := &testSandboxValidator{valid: false}
+	mutator := &testCatalogMutator{}
+	service := NewMutationService(
+		mutator,
+		memory.NewIdempotencyStore(),
+		clock,
+		validator,
+	)
+	principal := integrations.Principal{
+		SellerID:     domain.ID(testSellerID),
+		CredentialID: domain.ID(testCredentialID),
+		Scopes:       []integrations.Scope{integrations.ScopePublish},
+	}
+	input := PublishRouteInput{
+		IdempotencyKey:  "route-publish-sandbox-001",
+		Confirmation:    validConfirmation(clock.Now()),
+		RouteID:         testRouteID,
+		ExpectedVersion: 1,
+	}
+
+	if _, err := service.PublishRoute(
+		t.Context(),
+		principal,
+		input,
+	); !errors.Is(err, ErrSandboxValidationFailed) {
+		t.Fatalf("PublishRoute() error = %v, want ErrSandboxValidationFailed", err)
+	}
+	if mutator.publishCalls != 0 {
+		t.Fatalf("publish calls = %d, want 0", mutator.publishCalls)
+	}
+
+	validator.valid = true
+	input.IdempotencyKey = "route-publish-sandbox-002"
+	result, err := service.PublishRoute(t.Context(), principal, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Route == nil || !result.Route.Enabled {
+		t.Fatalf("publish result = %#v", result)
+	}
+	if mutator.publishCalls != 1 || validator.calls != 2 {
+		t.Fatalf(
+			"publish/validation calls = %d/%d, want 1/2",
+			mutator.publishCalls,
+			validator.calls,
+		)
+	}
+}
+
+// TestMutationServiceRejectsSandboxResultForAnotherRouteVersion prevents races.
+func TestMutationServiceRejectsSandboxResultForAnotherRouteVersion(t *testing.T) {
+	t.Parallel()
+
+	clock := domain.FixedClock{
+		Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC),
+	}
+	service := NewMutationService(
+		&testCatalogMutator{},
+		memory.NewIdempotencyStore(),
+		clock,
+		&testSandboxValidator{valid: true, routeVersion: 2},
+	)
+	principal := integrations.Principal{
+		SellerID:     domain.ID(testSellerID),
+		CredentialID: domain.ID(testCredentialID),
+		Scopes:       []integrations.Scope{integrations.ScopePublish},
+	}
+	_, err := service.PublishRoute(
+		t.Context(),
+		principal,
+		PublishRouteInput{
+			IdempotencyKey:  "route-publish-sandbox-version",
+			Confirmation:    validConfirmation(clock.Now()),
+			RouteID:         testRouteID,
+			ExpectedVersion: 1,
+		},
+	)
+	if !errors.Is(err, ErrSandboxValidationStale) {
+		t.Fatalf("PublishRoute() error = %v, want ErrSandboxValidationStale", err)
+	}
+}
+
 // validConfirmation creates seller-approved metadata within the allowed window.
 func validConfirmation(now time.Time) Confirmation {
 	return Confirmation{
@@ -122,7 +214,8 @@ func validConfirmation(now time.Time) Confirmation {
 }
 
 type testCatalogMutator struct {
-	createCalls int
+	createCalls  int
+	publishCalls int
 }
 
 // ConfigureStorefrontForIntegration returns the configured seller fixture.
@@ -184,17 +277,43 @@ func (*testCatalogMutator) ValidateRouteForIntegration(
 	}, nil
 }
 
-// PublishRouteForIntegration returns an enabled route fixture.
-func (*testCatalogMutator) PublishRouteForIntegration(
+// PublishRouteForIntegration records publication after sandbox success.
+func (mutator *testCatalogMutator) PublishRouteForIntegration(
 	_ context.Context,
 	sellerID domain.ID,
 	routeID domain.ID,
 	expectedVersion uint64,
 ) (catalog.PaidRoute, error) {
+	mutator.publishCalls++
 	return catalog.PaidRoute{
 		RouteID:  routeID,
 		SellerID: sellerID,
 		Enabled:  true,
 		Version:  expectedVersion + 1,
+	}, nil
+}
+
+type testSandboxValidator struct {
+	valid        bool
+	routeVersion uint64
+	calls        int
+}
+
+// Validate returns one deterministic sandbox result.
+func (validator *testSandboxValidator) Validate(
+	_ context.Context,
+	sellerID domain.ID,
+	routeID domain.ID,
+) (sandbox.Result, error) {
+	validator.calls++
+	routeVersion := validator.routeVersion
+	if routeVersion == 0 {
+		routeVersion = 1
+	}
+	return sandbox.Result{
+		SellerID:     sellerID,
+		RouteID:      routeID,
+		RouteVersion: routeVersion,
+		Valid:        validator.valid,
 	}, nil
 }

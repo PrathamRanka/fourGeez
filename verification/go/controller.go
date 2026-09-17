@@ -17,7 +17,7 @@ func (verifier *Verifier) Middleware(next http.Handler) http.Handler {
 		)
 		body, err := io.ReadAll(request.Body)
 		if err != nil {
-			http.Error(response, "AgentPay verification failed", http.StatusUnauthorized)
+			writeVerificationError(response, http.StatusUnauthorized)
 			return
 		}
 		request.Body = io.NopCloser(bytes.NewReader(body))
@@ -31,7 +31,7 @@ func (verifier *Verifier) Middleware(next http.Handler) http.Handler {
 			request.Header.Get(TransactionIDHeader),
 		)
 		if errors.Is(err, ErrReplay) {
-			http.Error(response, "AgentPay transaction replay", http.StatusConflict)
+			writeVerificationError(response, http.StatusConflict)
 			return
 		}
 		if err != nil {
@@ -39,9 +39,16 @@ func (verifier *Verifier) Middleware(next http.Handler) http.Handler {
 			if !errors.Is(err, ErrInvalidSignature) && !errors.Is(err, ErrStaleRequest) {
 				status = http.StatusServiceUnavailable
 			}
-			http.Error(response, "AgentPay verification failed", status)
+			writeVerificationError(response, status)
 			return
 		}
 		next.ServeHTTP(response, request)
 	})
+}
+
+// writeVerificationError returns the same redacted JSON shape across adapters.
+func writeVerificationError(response http.ResponseWriter, status int) {
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(status)
+	_, _ = response.Write([]byte(`{"error":"AgentPay verification failed"}`))
 }

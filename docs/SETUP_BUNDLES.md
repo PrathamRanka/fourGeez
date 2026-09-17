@@ -56,9 +56,11 @@ The prompt instructs the coding agent to:
 2. read the authenticated seller, route, and setup-bundle resources;
 3. analyze only the allowlisted repository manifest and OpenAPI contract;
 4. install the maintained AgentPay verification package;
-5. add raw-body signature verification before fulfillment;
+5. add raw-body signature verification before fulfillment and the dedicated
+   side-effect-free `POST /.well-known/agentpay/sandbox` endpoint;
 6. generate storefront discovery and integration code from published routes;
-7. add focused signature, stale-request, replay, and payment-gating tests;
+7. add focused signature, stale-request, replay, payment-gating, and sandbox
+   endpoint tests;
 8. run the repository's existing checks and the bundle's focused test; and
 9. present the diff, validation result, route proposals, and commands for
    seller review.

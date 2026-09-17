@@ -148,11 +148,53 @@ func (controller *HTTPController) serverForRequest(
 	controller.registerSetupPrompt(server, principal)
 	if controller.mutationService != nil {
 		controller.registerTools(server, principal)
+		controller.registerSandboxTool(server, principal)
 	}
 	if controller.analyzerService != nil {
 		controller.registerAnalyzerTool(server, principal)
 	}
 	return server
+}
+
+// registerSandboxTool adds the read-only pre-publication validation flow.
+func (controller *HTTPController) registerSandboxTool(
+	server *protocol.Server,
+	principal integrations.Principal,
+) {
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "sandbox_validate_route",
+			Description: "Probe discovery, signature gating, and replay before publication",
+			Annotations: &protocol.ToolAnnotations{
+				IdempotentHint: true,
+				ReadOnlyHint:   true,
+			},
+		},
+		func(
+			ctx context.Context,
+			_ *protocol.CallToolRequest,
+			input SandboxValidateRouteInput,
+		) (*protocol.CallToolResult, map[string]any, error) {
+			result, err := controller.mutationService.SandboxValidateRoute(
+				ctx,
+				principal,
+				input,
+			)
+			if err != nil {
+				return nil, nil, safeMutationError(err)
+			}
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				return nil, nil, err
+			}
+			var structuredResult map[string]any
+			if err := json.Unmarshal(encoded, &structuredResult); err != nil {
+				return nil, nil, err
+			}
+			return nil, structuredResult, nil
+		},
+	)
 }
 
 // registerSetupPrompt publishes the read-scoped coding-agent workflow.
@@ -361,6 +403,9 @@ func safeMutationError(err error) error {
 		errors.Is(err, api.ErrIdempotencyConflict) ||
 		errors.Is(err, catalog.ErrRouteValidation) ||
 		errors.Is(err, catalog.ErrRoutePublished) ||
+		errors.Is(err, ErrSandboxValidationFailed) ||
+		errors.Is(err, ErrSandboxValidationStale) ||
+		errors.Is(err, ErrSandboxValidationUnavailable) ||
 		errors.Is(err, persistence.ErrNotFound) ||
 		errors.Is(err, persistence.ErrAlreadyExists) ||
 		errors.Is(err, persistence.ErrConditionFailed) {

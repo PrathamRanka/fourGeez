@@ -54,6 +54,13 @@ func TestMiddlewareVerifiesSignatureFreshnessAndReplay(t *testing.T) {
 			if response.Code != testCase.wantStatus {
 				t.Fatalf("status = %d, want %d", response.Code, testCase.wantStatus)
 			}
+			if response.Code != http.StatusNoContent &&
+				response.Header().Get("Content-Type") != "application/json" {
+				t.Fatalf(
+					"content type = %q, want application/json",
+					response.Header().Get("Content-Type"),
+				)
+			}
 		})
 	}
 
@@ -62,6 +69,12 @@ func TestMiddlewareVerifiesSignatureFreshnessAndReplay(t *testing.T) {
 	handler.ServeHTTP(replayResponse, replay)
 	if replayResponse.Code != http.StatusConflict {
 		t.Fatalf("replay status = %d, want %d", replayResponse.Code, http.StatusConflict)
+	}
+	if replayResponse.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf(
+			"replay content type = %q, want application/json",
+			replayResponse.Header().Get("Content-Type"),
+		)
 	}
 }
 

@@ -16,7 +16,7 @@ const setupPromptTemplate = `Connect this repository to AgentPay using the %s se
 2. Read agentpay://seller, agentpay://routes, and the selected versioned setup resource.
 3. Analyze only the allowlisted repository manifest and OpenAPI document with analyze_repository.
 4. Install the pinned verification package with: %s
-5. Add AgentPay raw-body signature verification before fulfillment. Preserve exact method, literal route path, body bytes, timestamp, and transaction identifier.
+5. Add AgentPay raw-body signature verification before fulfillment. Add a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware. Preserve exact method, literal route path, body bytes, timestamp, and transaction identifier.
 6. Generate storefront discovery and integration code from confirmed published routes without exposing server credentials to browser code.
 7. Add focused tests for valid signatures, modified-body rejection, stale requests, replay rejection, and payment gating.
 8. Run the repository's existing checks and this focused command: %s
@@ -158,7 +158,7 @@ func workflowSteps() []string {
 		"Read authenticated AgentPay seller, route, and setup resources.",
 		"Analyze only the allowlisted repository manifest and OpenAPI document.",
 		"Install the maintained verification package for the detected framework.",
-		"Add raw-body verification before fulfillment and keep secrets server-side.",
+		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint behind the same middleware.",
 		"Generate storefront discovery and integration code from confirmed routes.",
 		"Add signature, freshness, replay, and payment-gating tests.",
 		"Run focused tests and the repository's existing quality checks.",

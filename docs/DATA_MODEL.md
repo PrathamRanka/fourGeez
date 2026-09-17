@@ -89,8 +89,10 @@ explicit seller-authorized operation and creates an enabled route for backward
 compatibility. MCP route configuration creates `enabled=false` drafts. The MCP
 publish operation revalidates seller ownership, active seller status, signing
 configuration, route configuration, confirmation metadata, expected version,
-and idempotency before changing the draft to `enabled=true` with a conditional
-write. Validation results are computed responses and are not persisted.
+idempotency, and the seller sandbox endpoint before changing the draft to
+`enabled=true` with a conditional write. Deterministic and sandbox validation
+results are computed responses and are not persisted; publication performs a
+fresh sandbox run so a stale result cannot authorize a changed route.
 
 Approval threshold evaluation is inclusive: an amount equal to or greater than the applicable threshold requires approval. A missing threshold means no approval requirement from that policy. The recorded policy version is `approval-threshold-v1`.
 

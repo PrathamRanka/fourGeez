@@ -148,6 +148,7 @@ func TestServiceSelectsFrameworkPrompt(t *testing.T) {
 				testCase.wantTest,
 				"modified-body",
 				"replay",
+				"/.well-known/agentpay/sandbox",
 				"Do not publish",
 			} {
 				if !strings.Contains(prompt, fragment) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 )
 
 // Confirmation records the seller action authorizing one exact MCP change.
@@ -63,6 +64,11 @@ type ValidateRouteInput struct {
 	RouteID        string       `json:"routeId"`
 }
 
+// SandboxValidateRouteInput runs the pre-publication seller probes.
+type SandboxValidateRouteInput struct {
+	RouteID string `json:"routeId"`
+}
+
 // PublishRouteInput conditionally publishes one validated route draft.
 type PublishRouteInput struct {
 	IdempotencyKey  string       `json:"idempotencyKey"`
@@ -77,6 +83,12 @@ type MutationResult struct {
 	Seller     *catalog.SellerResponse        `json:"seller,omitempty"`
 	Route      *catalog.PaidRoute             `json:"route,omitempty"`
 	Validation *catalog.RouteValidationResult `json:"validation,omitempty"`
+	Sandbox    *sandbox.Result                `json:"sandbox,omitempty"`
+}
+
+// SandboxValidator runs the complete non-persistent seller validation flow.
+type SandboxValidator interface {
+	Validate(context.Context, domain.ID, domain.ID) (sandbox.Result, error)
 }
 
 // CatalogMutator is the bounded catalog boundary used by MCP tools.

@@ -14,6 +14,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/integrations/mcpserver"
+	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -44,6 +45,20 @@ func main() {
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
+	sellerSigner := proxy.NewHMACSigner(
+		proxy.NewLocalSecretProvider(
+			[]byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
+		),
+		clock,
+	)
+	sellerForwarder := proxy.NewForwarder(nil)
+	sandboxService := sandbox.NewService(
+		catalogRepository,
+		idGenerator,
+		sellerSigner,
+		sellerForwarder,
+		clock,
+	)
 	catalogService := catalog.NewService(
 		catalogRepository,
 		idGenerator,
@@ -72,6 +87,7 @@ func main() {
 			catalogService,
 			idempotencyStore,
 			clock,
+			sandboxService,
 		),
 		analyzer.NewService(),
 	).RegisterRoutes(mux)
@@ -145,16 +161,10 @@ func main() {
 	if os.Getenv("AGENTPAY_USE_MOCK_PAYMENT") == "true" {
 		paymentAdapter = payments.NewMockAdapter()
 	}
-	sellerSigner := proxy.NewHMACSigner(
-		proxy.NewLocalSecretProvider(
-			[]byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
-		),
-		clock,
-	)
 	executionService := proxy.NewExecutionService(
 		transactionRepository,
 		sellerSigner,
-		proxy.NewForwarder(nil),
+		sellerForwarder,
 		evidenceRecorder,
 		clock,
 	)

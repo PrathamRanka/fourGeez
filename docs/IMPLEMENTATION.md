@@ -92,7 +92,7 @@ M5 acceptance: Bedrock cannot execute an unknown route, change an approved inten
 - [x] **AUT-005** Implement deterministic OpenAPI and repository-manifest analysis that proposes supported paid routes without publishing them automatically.
 - [x] **AUT-006** Implement maintained seller-request verification packages for the initial supported Go, Node.js, and Python server frameworks.
 - [x] **AUT-007** Publish versioned Claude Code, Codex, and generic MCP setup bundles that install verification, generate storefront integration code, and run tests.
-- [ ] **AUT-008** Implement a sandbox validator that verifies discovery, signature handling, payment gating, and exactly-once fulfillment before publication.
+- [x] **AUT-008** Implement a sandbox validator that verifies discovery, signature handling, payment gating, and exactly-once fulfillment before publication.
 
 M6 acceptance: a seller can connect a supported coding agent, review generated changes, approve route publication, and pass a sandbox purchase without manually implementing AgentPay protocols or exposing credentials.
 

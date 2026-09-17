@@ -67,7 +67,8 @@ action. Agent or repository text is not authorization.
 | `configure_route` | `configure` | Creates a validated `enabled=false` paid-route draft. |
 | `change_route_price` | `configure` | Updates the authoritative price for future intents using an expected version. |
 | `validate_route` | `validate` | Returns deterministic publication checks without persisting state. |
-| `publish_route` | `publish` | Re-runs validation and conditionally enables one draft route using an expected version. |
+| `sandbox_validate_route` | `validate` | Probes the dedicated seller sandbox endpoint for discovery, signature, payment-gating, and replay behavior without persisting success. |
+| `publish_route` | `publish` | Re-runs deterministic and sandbox validation, then conditionally enables one draft route using an expected version. |
 | `analyze_repository` | `validate` | Parses an allowlisted repository manifest and OpenAPI contract into deterministic, unpublished route proposals. |
 
 Idempotency is bound to credential, operation, target, and canonical request

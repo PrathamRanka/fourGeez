@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 )
 
 const (
@@ -22,11 +24,18 @@ const (
 // ErrMutationConflict reports idempotency-key reuse with different arguments.
 var ErrMutationConflict = api.ErrIdempotencyConflict
 
+var (
+	ErrSandboxValidationUnavailable = errors.New("sandbox validation is unavailable")
+	ErrSandboxValidationFailed      = errors.New("sandbox validation failed")
+	ErrSandboxValidationStale       = errors.New("sandbox validation did not cover the expected route version")
+)
+
 // MutationService executes confirmed, scoped, and replay-safe MCP operations.
 type MutationService struct {
 	catalogMutator   CatalogMutator
 	idempotencyStore domain.IdempotencyStore
 	clock            domain.Clock
+	sandboxValidator SandboxValidator
 }
 
 // NewMutationService creates the MCP catalog mutation service.
@@ -34,12 +43,37 @@ func NewMutationService(
 	catalogMutator CatalogMutator,
 	idempotencyStore domain.IdempotencyStore,
 	clock domain.Clock,
+	sandboxValidator SandboxValidator,
 ) *MutationService {
 	return &MutationService{
 		catalogMutator:   catalogMutator,
 		idempotencyStore: idempotencyStore,
 		clock:            clock,
+		sandboxValidator: sandboxValidator,
 	}
+}
+
+// SandboxValidateRoute runs live seller checks without persisting success.
+func (service *MutationService) SandboxValidateRoute(
+	ctx context.Context,
+	principal integrations.Principal,
+	input SandboxValidateRouteInput,
+) (sandbox.Result, error) {
+	if !principal.HasScope(integrations.ScopeValidate) {
+		return sandbox.Result{}, integrations.ErrScopeDenied
+	}
+	if service.sandboxValidator == nil {
+		return sandbox.Result{}, ErrSandboxValidationUnavailable
+	}
+	routeID, err := domain.ParseID(input.RouteID, domain.RouteIDPrefix)
+	if err != nil {
+		return sandbox.Result{}, err
+	}
+	return service.sandboxValidator.Validate(
+		ctx,
+		principal.SellerID,
+		routeID,
+	)
 }
 
 // ConfigureStorefront updates safe storefront fields after confirmation.
@@ -226,6 +260,23 @@ func (service *MutationService) PublishRoute(
 		input.Confirmation,
 		input,
 		func() (MutationResult, error) {
+			if service.sandboxValidator == nil {
+				return MutationResult{}, ErrSandboxValidationUnavailable
+			}
+			sandboxResult, err := service.sandboxValidator.Validate(
+				ctx,
+				principal.SellerID,
+				routeID,
+			)
+			if err != nil {
+				return MutationResult{}, err
+			}
+			if !sandboxResult.Valid {
+				return MutationResult{}, ErrSandboxValidationFailed
+			}
+			if sandboxResult.RouteVersion != input.ExpectedVersion {
+				return MutationResult{}, ErrSandboxValidationStale
+			}
 			route, err := service.catalogMutator.PublishRouteForIntegration(
 				ctx,
 				principal.SellerID,

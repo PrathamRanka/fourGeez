@@ -200,6 +200,7 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 			&testCatalogMutator{},
 			memory.NewIdempotencyStore(),
 			clock,
+			&testSandboxValidator{valid: true},
 		),
 		nil,
 	)
@@ -235,8 +236,8 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 5 {
-		t.Fatalf("tool count = %d, want 5", len(tools.Tools))
+	if len(tools.Tools) != 6 {
+		t.Fatalf("tool count = %d, want 6", len(tools.Tools))
 	}
 	result, err := session.CallTool(
 		t.Context(),
@@ -354,6 +355,64 @@ func TestHTTPControllerAnalyzesRepositoryWithoutPublishing(t *testing.T) {
 	proposals, ok := structured["proposals"].([]any)
 	if !ok || len(proposals) != 1 {
 		t.Fatalf("proposals = %#v", structured["proposals"])
+	}
+}
+
+// TestHTTPControllerRunsSandboxValidation verifies the MCP transport result.
+func TestHTTPControllerRunsSandboxValidation(t *testing.T) {
+	t.Parallel()
+
+	clock := domain.FixedClock{
+		Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC),
+	}
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		NewMutationService(
+			&testCatalogMutator{},
+			memory.NewIdempotencyStore(),
+			clock,
+			&testSandboxValidator{valid: true},
+		),
+		nil,
+	)
+	server := httptest.NewServer(controller)
+	t.Cleanup(server.Close)
+	client := protocol.NewClient(
+		&protocol.Implementation{Name: "agentpay-sandbox-test", Version: "1.0.0"},
+		nil,
+	)
+	session, err := client.Connect(
+		t.Context(),
+		&protocol.StreamableClientTransport{
+			Endpoint:             server.URL,
+			HTTPClient:           authenticatedHTTPClient("validate-token"),
+			DisableStandaloneSSE: true,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = session.Close()
+	})
+
+	result, err := session.CallTool(
+		t.Context(),
+		&protocol.CallToolParams{
+			Name: "sandbox_validate_route",
+			Arguments: map[string]any{
+				"routeId": testRouteID,
+			},
+		},
+	)
+	if err != nil || result.IsError {
+		t.Fatalf("CallTool() = (%#v, %v)", result, err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok || structured["valid"] != true {
+		t.Fatalf("structured result = %#v", result.StructuredContent)
 	}
 }
 
