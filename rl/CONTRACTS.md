@@ -16,6 +16,7 @@ disputes.
 | Recommendation | `agentpay.recommendation.v1` |
 | Outcome event | `agentpay.recommendation-outcome.v1` |
 | Feature definition | `agentpay.features.v1` |
+| Synthetic dataset | `agentpay.synthetic-dataset.v1` |
 
 Every JSON object rejects unknown and missing fields. A version mismatch is an
 error rather than a compatibility fallback.
@@ -104,3 +105,12 @@ score and then ascending `offerId`, making ties and candidate-order changes
 deterministic. The recommendation identifier is derived from the request ID,
 feature version, ranked IDs, and scores. The baseline returns no result when no
 candidate survives validation.
+
+## Synthetic dataset v1
+
+Synthetic datasets are always marked with `synthetic: true` and record the
+exact random seed. Each scenario contains a pre-decision context, the baseline
+recommendation, a segment label, and outcome events generated only after the
+recommendation. Supported segments are `cost-sensitive`, `quality-sensitive`,
+and `latency-sensitive`. Generation uses local seeded randomness and is bounded
+to 1-10,000 scenarios.
