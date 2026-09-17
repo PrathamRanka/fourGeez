@@ -293,6 +293,22 @@ version `1` and one of `payment.verified`, `fulfillment.succeeded`,
 `fulfillment.failed`, or `dispute.changed`. Canonical JSON is signed with
 HMAC-SHA256 over the event ID, delivery timestamp, and body hash.
 
+### PurchaseReceipt read model
+
+`PurchaseReceipt` is generated on demand and is not a second persisted payment
+record. It is available only after the transaction has a `finalized` payment
+observation and the complete evidence chain verifies. Schema version `1`
+contains the public transaction fields, safe payment reference, fulfillment
+result, the complete signed evidence chain, event count, root event hash, and
+head event hash. It never contains a payment identifier, payment proof hash,
+raw payment proof, authorization value, approval token, wallet material, or
+seller secret.
+
+The receipt uses the transaction ID as its stable identity. Repeated downloads
+for unchanged transaction and evidence state produce the same JSON fields.
+Sellers may download receipts for their own transactions; authenticated agent
+buyers may download only receipts whose `buyerId` matches their subject.
+
 ### UsageMeterEvent (planned M7)
 
 Usage meter events are immutable and idempotently derived from successful

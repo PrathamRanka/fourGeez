@@ -595,6 +595,24 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/EvidenceEvent' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /v1/transactions/{transactionId}/receipt:
+    get:
+      summary: Download a verified machine-readable purchase receipt
+      tags: [Transactions]
+      operationId: downloadPurchaseReceipt
+      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/TransactionId' }]
+      responses:
+        '200':
+          description: Versioned receipt backed by a verified evidence chain
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            application/vnd.agentpay.receipt+json:
+              schema: { $ref: '#/components/schemas/PurchaseReceipt' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/disputes:
     post:
       summary: Open and classify a dispute
@@ -1014,6 +1032,47 @@ components:
         failureCode: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    PurchaseReceipt:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, transaction, evidence]
+      properties:
+        schemaVersion: { type: string, const: '1' }
+        transaction:
+          type: object
+          additionalProperties: false
+          required: [transactionId, intentId, sellerId, routeId, buyerId, status, amount, asset, network, paymentFinality, paymentReference, createdAt, updatedAt]
+          properties:
+            transactionId: { type: string, pattern: '^txn_[A-Za-z0-9]+$' }
+            intentId: { type: string, pattern: '^int_[A-Za-z0-9]+$' }
+            sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+            routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+            buyerId: { type: string }
+            status: { type: string, enum: [PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] }
+            amount: { $ref: '#/components/schemas/AtomicAmount' }
+            asset: { type: string }
+            network: { type: string }
+            paymentFinality: { type: string, const: finalized }
+            paymentReference: { type: string, minLength: 1, maxLength: 512 }
+            reconciledAt: { type: [string, 'null'], format: date-time }
+            upstreamStatus: { type: [integer, 'null'] }
+            responseHash: { oneOf: [{ $ref: '#/components/schemas/Sha256' }, { type: 'null' }] }
+            failureCode: { type: [string, 'null'] }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+        evidence:
+          type: object
+          additionalProperties: false
+          required: [verified, eventCount, rootEventHash, headEventHash, events]
+          properties:
+            verified: { type: boolean, const: true }
+            eventCount: { type: integer, minimum: 1 }
+            rootEventHash: { $ref: '#/components/schemas/Sha256' }
+            headEventHash: { $ref: '#/components/schemas/Sha256' }
+            events:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/EvidenceEvent' }
     PaymentReconciliation:
       type: object
       additionalProperties: false

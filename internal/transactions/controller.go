@@ -26,6 +26,10 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 		api.RequireAgentOrSeller(http.HandlerFunc(controller.get)),
 	)
 	mux.Handle(
+		"GET /v1/transactions/{transactionId}/receipt",
+		api.RequireAgentOrSeller(http.HandlerFunc(controller.receipt)),
+	)
+	mux.Handle(
 		"GET /v1/sellers/{sellerId}/transactions",
 		api.RequireSeller(http.HandlerFunc(controller.listSeller)),
 	)
@@ -110,9 +114,14 @@ func writeTransactionError(
 		status = http.StatusBadRequest
 		code = api.ErrorCodeBadRequest
 	case errors.Is(err, persistence.ErrNotFound),
-		errors.Is(err, ErrSellerAccess):
+		errors.Is(err, ErrSellerAccess),
+		errors.Is(err, ErrReceiptAccess):
 		status = http.StatusNotFound
 		code = api.ErrorCodeNotFound
+	case errors.Is(err, ErrReceiptUnavailable),
+		errors.Is(err, ErrReceiptEvidenceInvalid):
+		status = http.StatusConflict
+		code = api.ErrorCodeConflict
 	}
 	api.WriteError(response, request, status, code, err.Error(), nil)
 }

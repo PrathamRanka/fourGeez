@@ -81,6 +81,118 @@ func TestTransactionRoutesReturnVerifiedRedactedEvidence(t *testing.T) {
 	}
 }
 
+// TestPurchaseReceiptDownloadsVerifiedMachineReadableEvidence verifies RCP-001.
+func TestPurchaseReceiptDownloadsVerifiedMachineReadableEvidence(t *testing.T) {
+	t.Parallel()
+
+	handler, _, transaction := newTransactionAPIHandler(t, 1)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/transactions/"+transaction.TransactionID().String()+"/receipt",
+		nil,
+	)
+	request.Header.Set(api.AgentKeyHeader, "agent-secret")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("receipt status/body = %d/%s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Content-Type") != "application/vnd.agentpay.receipt+json" {
+		t.Fatalf("receipt content type = %q", response.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(
+		response.Header().Get("Content-Disposition"),
+		transaction.TransactionID().String(),
+	) {
+		t.Fatalf("content disposition = %q", response.Header().Get("Content-Disposition"))
+	}
+	if strings.Contains(response.Body.String(), "paymentIdentifier") ||
+		strings.Contains(response.Body.String(), "paymentProofHash") {
+		t.Fatal("receipt exposed private payment verification fields")
+	}
+	var receipt transactions.PurchaseReceipt
+	if err := json.Unmarshal(response.Body.Bytes(), &receipt); err != nil {
+		t.Fatal(err)
+	}
+	if receipt.SchemaVersion != "1" ||
+		receipt.Transaction.TransactionID != transaction.TransactionID() ||
+		!receipt.Evidence.Verified ||
+		receipt.Evidence.EventCount != 2 ||
+		receipt.Evidence.HeadEventHash == "" {
+		t.Fatalf("receipt = %#v", receipt)
+	}
+}
+
+// TestPurchaseReceiptRejectsTamperedEvidence verifies receipts fail closed.
+func TestPurchaseReceiptRejectsTamperedEvidence(t *testing.T) {
+	t.Parallel()
+
+	_, _, _, _, transaction := newTransactionAPIFixture(t, 1)
+	events := transactionEvidence(t, transaction)
+	events[0].Payload["amount"] = "1"
+	service := transactions.NewService(
+		&transactionTestRepository{transaction: transaction},
+		&transactionTestEvidenceRepository{events: events},
+		transactionTestSigner{},
+		nil,
+	)
+	_, err := service.GetReceiptForBuyer(
+		t.Context(),
+		transaction.TransactionID(),
+		transaction.BuyerID(),
+	)
+	if !errors.Is(err, transactions.ErrReceiptEvidenceInvalid) {
+		t.Fatalf("GetReceiptForBuyer() error = %v", err)
+	}
+}
+
+// TestPurchaseReceiptRequiresFinalizedPayment verifies confirmed funds are insufficient.
+func TestPurchaseReceiptRequiresFinalizedPayment(t *testing.T) {
+	t.Parallel()
+
+	createdAt := domain.NewTimestamp(
+		time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
+	)
+	transaction, err := transactions.NewTransaction(transactions.TransactionParams{
+		TransactionID: mustTransactionAPIID(t, "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.TransactionIDPrefix),
+		IntentID:      mustTransactionAPIID(t, "int_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.IntentIDPrefix),
+		SellerID:      mustTransactionAPIID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		RouteID:       mustTransactionAPIID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
+		BuyerID:       "local-agent",
+		Amount:        domain.MustParseAmount("35000000"),
+		Asset:         "test-usdc",
+		Network:       "test-network",
+		CreatedAt:     createdAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment(
+		"payment-confirmed",
+		mustTransactionAPIDigest(t, strings.Repeat("a", 64)),
+		createdAt.Add(2*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	service := transactions.NewService(
+		&transactionTestRepository{transaction: transaction},
+		&transactionTestEvidenceRepository{},
+		transactionTestSigner{},
+		nil,
+	)
+	_, err = service.GetReceiptForBuyer(
+		t.Context(),
+		transaction.TransactionID(),
+		transaction.BuyerID(),
+	)
+	if !errors.Is(err, transactions.ErrReceiptUnavailable) {
+		t.Fatalf("GetReceiptForBuyer() error = %v", err)
+	}
+}
+
 // TestSellerTransactionRoutePaginatesAndEnforcesOwnership verifies list guards.
 func TestSellerTransactionRoutePaginatesAndEnforcesOwnership(t *testing.T) {
 	t.Parallel()
