@@ -146,3 +146,11 @@ cost, fulfillment, dispute rate, and aggregate reward with paired 95 percent
 confidence intervals and segment breakdowns. Mixed provenance, outcome leakage,
 and unobserved candidate outcomes are rejected. Explicit reward and dispute
 thresholds determine the report pass/fail result.
+
+## Published evaluation v1
+
+`agentpay.evaluation-publication.v1` wraps the machine-readable evaluation with
+the exact dataset version and seed, dataset fingerprint, feature and reward
+versions, baseline and candidate strategy versions, model artifact version,
+and model fingerprint. Synthetic publications must display `SYNTHETIC DATA -
+NOT CUSTOMER PERFORMANCE` before any metrics.

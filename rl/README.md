@@ -107,3 +107,11 @@ Every command requires explicit paths and contract versions and emits dataset,
 model, or report fingerprints. `evaluate` exits non-zero when configured
 regression thresholds fail. The local HTTP service exposes `POST /recommend`,
 `GET /health`, and `GET /metadata`; it does not expose training data.
+
+## Published R1 evaluation
+
+The reproducible fixed-seed result is committed as
+[`reports/r1-evaluation.md`](reports/r1-evaluation.md) with its canonical JSON
+counterpart. It is synthetic research evidence, not a claim about customer or
+production performance. The report uses seed `41`, 300 scenarios, a minimum
+aggregate-reward delta of `0`, and a maximum dispute-rate delta of `0.10`.

@@ -12,7 +12,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from .bandit import MODEL_ARTIFACT_VERSION, LinUCBBandit, OfflineTrainingExample
+from .bandit import (
+    BANDIT_MODEL_VERSION,
+    BANDIT_STRATEGY_NAME,
+    MODEL_ARTIFACT_VERSION,
+    LinUCBBandit,
+    OfflineTrainingExample,
+)
+from .baseline import MODEL_VERSION as BASELINE_MODEL_VERSION
+from .baseline import STRATEGY_NAME as BASELINE_STRATEGY_NAME
 from .contracts import FEATURE_VERSION_V1, DecisionContext
 from .evaluation import (
     EVALUATION_SCHEMA_VERSION,
@@ -22,6 +30,7 @@ from .evaluation import (
     evaluate_paired_samples,
 )
 from .features import build_feature_batch
+from .reporting import build_evaluation_publication
 from .rewards import REWARD_CONFIG_VERSION, RewardConfig, calculate_reward
 from .service import RecommendationService, ServiceError
 from .simulator import DATASET_SCHEMA_VERSION, SyntheticDataset, generate_synthetic_dataset
@@ -155,8 +164,23 @@ def _evaluate(arguments: Namespace) -> dict[str, Any]:
         maximum_dispute_rate_delta=arguments.maximum_dispute_rate_delta,
     )
     report = evaluate_paired_samples(samples, thresholds)
-    _write_text(arguments.report_json, report.to_json() + "\n")
-    _write_text(arguments.report_markdown, report.to_markdown())
+    model_fingerprint = _fingerprint(serialized_model.strip())
+    publication = build_evaluation_publication(
+        dataset_version=dataset.schema_version,
+        dataset_seed=dataset.seed,
+        dataset_fingerprint=dataset.fingerprint,
+        feature_version=FEATURE_VERSION_V1,
+        reward_config_version=REWARD_CONFIG_VERSION,
+        baseline_strategy=BASELINE_STRATEGY_NAME,
+        baseline_model_version=BASELINE_MODEL_VERSION,
+        candidate_strategy=BANDIT_STRATEGY_NAME,
+        candidate_model_version=BANDIT_MODEL_VERSION,
+        model_artifact_version=MODEL_ARTIFACT_VERSION,
+        model_fingerprint=model_fingerprint,
+        evaluation=report,
+    )
+    _write_text(arguments.report_json, publication.to_json() + "\n")
+    _write_text(arguments.report_markdown, publication.to_markdown())
     if not report.passes_thresholds:
         raise ValueError(
             "evaluation regression: " + ", ".join(report.regressions)
@@ -165,9 +189,9 @@ def _evaluate(arguments: Namespace) -> dict[str, Any]:
         "status": "ok",
         "command": "evaluate",
         "datasetFingerprint": dataset.fingerprint,
-        "modelFingerprint": _fingerprint(serialized_model.strip()),
+        "modelFingerprint": model_fingerprint,
         "evaluationVersion": report.schema_version,
-        "reportFingerprint": _fingerprint(report.to_json()),
+        "reportFingerprint": _fingerprint(publication.to_json()),
         "reportJson": str(arguments.report_json),
         "reportMarkdown": str(arguments.report_markdown),
     }
