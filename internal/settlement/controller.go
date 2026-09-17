@@ -29,7 +29,7 @@ func NewHTTPController(
 	}
 }
 
-// RegisterRoutes registers create, list, and read destination routes.
+// RegisterRoutes registers destination lifecycle and ownership-proof routes.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle(
 		"POST /v1/sellers/{sellerId}/payment-destinations",
@@ -42,6 +42,14 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle(
 		"GET /v1/sellers/{sellerId}/payment-destinations/{destinationId}",
 		api.RequireSeller(http.HandlerFunc(controller.get)),
+	)
+	mux.Handle(
+		"POST /v1/sellers/{sellerId}/payment-destinations/{destinationId}/ownership-challenges",
+		api.RequireSeller(http.HandlerFunc(controller.issueOwnershipChallenge)),
+	)
+	mux.Handle(
+		"POST /v1/sellers/{sellerId}/payment-destinations/{destinationId}/verify",
+		api.RequireSeller(http.HandlerFunc(controller.verifyOwnership)),
 	)
 }
 
@@ -205,9 +213,153 @@ func (controller *HTTPController) get(
 	_ = api.WriteJSON(response, http.StatusOK, destination)
 }
 
+// issueOwnershipChallenge returns one short-lived challenge with no cacheable secret copy.
+func (controller *HTTPController) issueOwnershipChallenge(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sellerID, destinationID, err := parseDestinationPath(request)
+	if err != nil {
+		writeSettlementError(response, request, err)
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	challenge, err := controller.service.IssueOwnershipChallenge(
+		request.Context(),
+		principal.Subject,
+		sellerID,
+		destinationID,
+	)
+	if err != nil {
+		writeSettlementError(response, request, err)
+		return
+	}
+	response.Header().Set("Cache-Control", "no-store")
+	_ = api.WriteJSON(response, http.StatusCreated, challenge)
+}
+
+// verifyOwnership validates one proof and returns the activated destination.
+func (controller *HTTPController) verifyOwnership(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sellerID, destinationID, err := parseDestinationPath(request)
+	if err != nil {
+		writeSettlementError(response, request, err)
+		return
+	}
+	request.Body = http.MaxBytesReader(response, request.Body, api.MaximumJSONBodyBytes)
+	requestBody, err := io.ReadAll(request.Body)
+	if err != nil {
+		api.WriteError(
+			response,
+			request,
+			http.StatusBadRequest,
+			api.ErrorCodeBadRequest,
+			"invalid request body",
+			nil,
+		)
+		return
+	}
+	var input VerifyOwnershipRequest
+	if err := api.DecodeJSONBytes(requestBody, &input); err != nil {
+		api.WriteError(
+			response,
+			request,
+			http.StatusBadRequest,
+			api.ErrorCodeBadRequest,
+			"invalid request body",
+			nil,
+		)
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	idempotencyScope := principal.Subject + ":verifyPaymentDestination:" +
+		destinationID.String()
+	decision, err := api.CheckIdempotency(
+		request.Context(),
+		controller.idempotencyStore,
+		idempotencyScope,
+		request.Header.Get("Idempotency-Key"),
+		requestBody,
+	)
+	if err != nil {
+		writeIdempotencyError(response, request, err)
+		return
+	}
+	if decision.Replay {
+		response.Header().Set("Content-Type", "application/json")
+		response.WriteHeader(decision.Status)
+		_, _ = response.Write(decision.Body)
+		return
+	}
+	destination, err := controller.service.VerifyOwnership(
+		request.Context(),
+		principal.Subject,
+		sellerID,
+		destinationID,
+		input,
+	)
+	if err != nil {
+		writeSettlementError(response, request, err)
+		return
+	}
+	responseBody, err := json.Marshal(destination)
+	if err != nil {
+		api.WriteError(
+			response,
+			request,
+			http.StatusInternalServerError,
+			api.ErrorCodeInternal,
+			"response encoding failed",
+			nil,
+		)
+		return
+	}
+	responseBody = append(responseBody, '\n')
+	if err := api.SaveIdempotency(
+		request.Context(),
+		controller.idempotencyStore,
+		idempotencyScope,
+		decision,
+		http.StatusOK,
+		responseBody,
+		time.Now().UTC(),
+	); err != nil {
+		api.WriteError(
+			response,
+			request,
+			http.StatusInternalServerError,
+			api.ErrorCodeInternal,
+			"idempotency persistence failed",
+			nil,
+		)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(http.StatusOK)
+	_, _ = response.Write(responseBody)
+}
+
 // parseSellerID validates the seller identifier path parameter.
 func parseSellerID(request *http.Request) (domain.ID, error) {
 	return domain.ParseID(request.PathValue("sellerId"), domain.SellerIDPrefix)
+}
+
+// parseDestinationPath validates the seller and destination path identifiers.
+func parseDestinationPath(request *http.Request) (domain.ID, domain.ID, error) {
+	sellerID, err := parseSellerID(request)
+	if err != nil {
+		return "", "", err
+	}
+	destinationID, err := domain.ParseID(
+		request.PathValue("destinationId"),
+		domain.PaymentDestinationIDPrefix,
+	)
+	if err != nil {
+		return "", "", err
+	}
+	return sellerID, destinationID, nil
 }
 
 // writeIdempotencyError maps replay-protection failures to stable responses.
@@ -235,6 +387,19 @@ func writeSettlementError(
 	if errors.As(err, &validationErrors) {
 		status = http.StatusBadRequest
 		code = api.ErrorCodeBadRequest
+	} else if errors.Is(err, ErrOwnershipChallengeExpired) {
+		status = http.StatusGone
+		code = api.ErrorCodeGone
+	} else if errors.Is(err, ErrOwnershipChallengeMismatch) ||
+		errors.Is(err, ErrOwnershipProofInvalid) ||
+		errors.Is(err, ErrOwnershipNetworkUnsupported) {
+		status = http.StatusUnprocessableEntity
+		code = api.ErrorCodeUnprocessable
+	} else if errors.Is(err, ErrOwnershipStateInvalid) ||
+		errors.Is(err, ErrRotationConfirmationRequired) ||
+		errors.Is(err, persistence.ErrConditionFailed) {
+		status = http.StatusConflict
+		code = api.ErrorCodeConflict
 	} else if errors.Is(err, persistence.ErrNotFound) {
 		status = http.StatusNotFound
 		code = api.ErrorCodeNotFound

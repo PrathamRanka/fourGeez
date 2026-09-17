@@ -1,6 +1,10 @@
 package dynamodb
 
-import "fmt"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+)
 
 const profileSortKey = "PROFILE"
 
@@ -22,6 +26,12 @@ func credentialSortKey(credentialID string) string {
 // paymentDestinationSortKey returns the seller payment-destination sort key.
 func paymentDestinationSortKey(destinationID string) string {
 	return "DESTINATION#" + destinationID
+}
+
+// activePaymentDestinationSortKey returns the uniqueness key for an asset and network pair.
+func activePaymentDestinationSortKey(asset string, network string) string {
+	digest := sha256.Sum256([]byte(asset + "\x00" + network))
+	return "DESTINATION_ACTIVE#" + hex.EncodeToString(digest[:])
 }
 
 // intentPartitionKey returns the documented purchase-intent partition key.

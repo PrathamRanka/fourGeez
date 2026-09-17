@@ -34,7 +34,7 @@ func (repository *PaymentDestinationRepository) Create(
 		sellerPartitionKey(destination.SellerID.String()),
 		paymentDestinationSortKey(destination.DestinationID.String()),
 		"paymentDestination",
-		destination,
+		destination.Snapshot(),
 	)
 	if err != nil {
 		return err
@@ -72,11 +72,11 @@ func (repository *PaymentDestinationRepository) Get(
 	if err != nil {
 		return settlement.PaymentDestination{}, err
 	}
-	var destination settlement.PaymentDestination
-	if err := unmarshalPayload(output.Item, &destination); err != nil {
+	var snapshot settlement.PaymentDestinationSnapshot
+	if err := unmarshalPayload(output.Item, &snapshot); err != nil {
 		return settlement.PaymentDestination{}, err
 	}
-	return destination, nil
+	return settlement.RestorePaymentDestination(snapshot)
 }
 
 // ListBySeller queries destination items without scanning the table.
@@ -100,11 +100,158 @@ func (repository *PaymentDestinationRepository) ListBySeller(
 	}
 	destinations := make([]settlement.PaymentDestination, 0, len(output.Items))
 	for _, item := range output.Items {
-		var destination settlement.PaymentDestination
-		if err := unmarshalPayload(item, &destination); err != nil {
+		var snapshot settlement.PaymentDestinationSnapshot
+		if err := unmarshalPayload(item, &snapshot); err != nil {
+			return nil, err
+		}
+		destination, err := settlement.RestorePaymentDestination(snapshot)
+		if err != nil {
 			return nil, err
 		}
 		destinations = append(destinations, destination)
 	}
 	return destinations, nil
+}
+
+// SaveChallenge replaces one destination when its stored version matches.
+func (repository *PaymentDestinationRepository) SaveChallenge(
+	ctx context.Context,
+	destination settlement.PaymentDestination,
+	expectedVersion uint64,
+) error {
+	item, err := repository.destinationItem(destination)
+	if err != nil {
+		return err
+	}
+	condition := "#version = :expectedVersion"
+	_, err = repository.client.PutItem(ctx, &awssdk.PutItemInput{
+		TableName:           &repository.tableName,
+		Item:                item,
+		ConditionExpression: &condition,
+		ExpressionAttributeNames: map[string]string{
+			"#version": "version",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":expectedVersion": numberAttributeValue(expectedVersion),
+		},
+	})
+	if isConditionalFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
+}
+
+// Activate atomically updates the active-pair claim and destination states.
+func (repository *PaymentDestinationRepository) Activate(
+	ctx context.Context,
+	activation settlement.PaymentDestinationActivation,
+) error {
+	destinationItem, err := repository.destinationItem(activation.Destination)
+	if err != nil {
+		return err
+	}
+	claimItem, err := repository.activeDestinationClaimItem(activation.Destination)
+	if err != nil {
+		return err
+	}
+	claimCondition := "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+	claimValues := map[string]types.AttributeValue{}
+	if activation.RotatedDestination != nil {
+		claimCondition = "destinationId = :expectedDestinationId"
+		claimValues[":expectedDestinationId"] = stringAttributeValue(
+			activation.RotatedDestination.DestinationID.String(),
+		)
+	}
+	transactionItems := []types.TransactWriteItem{
+		{
+			Put: &types.Put{
+				TableName:                 &repository.tableName,
+				Item:                      claimItem,
+				ConditionExpression:       &claimCondition,
+				ExpressionAttributeValues: claimValues,
+			},
+		},
+		{
+			Put: repository.versionedDestinationPut(
+				destinationItem,
+				activation.ExpectedVersion,
+			),
+		},
+	}
+	if activation.RotatedDestination != nil {
+		rotatedItem, marshalErr := repository.destinationItem(*activation.RotatedDestination)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		transactionItems = append(
+			transactionItems,
+			types.TransactWriteItem{
+				Put: repository.versionedDestinationPut(
+					rotatedItem,
+					activation.RotatedExpectedVersion,
+				),
+			},
+		)
+	}
+	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
+		TransactItems: transactionItems,
+	})
+	if isTransactionFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
+}
+
+// destinationItem builds the seller-scoped destination record.
+func (repository *PaymentDestinationRepository) destinationItem(
+	destination settlement.PaymentDestination,
+) (map[string]types.AttributeValue, error) {
+	record, err := newStoredRecord(
+		sellerPartitionKey(destination.SellerID.String()),
+		paymentDestinationSortKey(destination.DestinationID.String()),
+		"paymentDestination",
+		destination.Snapshot(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	record.Version = destination.Version
+	record.Status = string(destination.Status)
+	return marshalStoredRecord(record)
+}
+
+// activeDestinationClaimItem builds the unique active-pair claim record.
+func (repository *PaymentDestinationRepository) activeDestinationClaimItem(
+	destination settlement.PaymentDestination,
+) (map[string]types.AttributeValue, error) {
+	record, err := newStoredRecord(
+		sellerPartitionKey(destination.SellerID.String()),
+		activePaymentDestinationSortKey(destination.Asset, destination.Network),
+		"activePaymentDestination",
+		destination.DestinationID.String(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	record.DestinationID = destination.DestinationID.String()
+	return marshalStoredRecord(record)
+}
+
+// versionedDestinationPut creates one optimistic destination write.
+func (repository *PaymentDestinationRepository) versionedDestinationPut(
+	item map[string]types.AttributeValue,
+	expectedVersion uint64,
+) *types.Put {
+	condition := "#version = :expectedVersion"
+	return &types.Put{
+		TableName:           &repository.tableName,
+		Item:                item,
+		ConditionExpression: &condition,
+		ExpressionAttributeNames: map[string]string{
+			"#version": "version",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":expectedVersion": numberAttributeValue(expectedVersion),
+		},
+	}
 }

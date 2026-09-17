@@ -41,7 +41,7 @@ are complete.
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
 
-### PaymentDestination (planned M7)
+### PaymentDestination
 
 A payment destination belongs to one seller and one exact asset/network pair.
 It contains public addressing and verification metadata only. Private keys,
@@ -64,6 +64,15 @@ accepted or persisted.
 Only one destination may be active for a seller, asset, and network. A route
 references an active destination. Rotation affects only purchase intents
 created after the rotation and requires explicit seller confirmation.
+
+For `eip155` networks, ownership verification uses a ten-minute EIP-191
+`personal_sign` challenge that binds the seller, destination, asset, network,
+address, nonce, and expiry. The raw challenge is returned to the seller once;
+only its lowercase SHA-256 hash and expiry are persisted. Raw signatures are
+validated and discarded. The first verified destination claims its exact
+asset/network pair. Replacing that claim atomically activates the new
+destination and marks the prior destination `rotated` only when the seller sent
+`confirmRotation=true`.
 
 ### IntegrationCredential
 
@@ -311,6 +320,7 @@ PK=SELLER#sel_123       SK=PROFILE
 PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123
 PK=SELLER#sel_123       SK=DESTINATION#dst_123
+PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>
 PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL
 PK=SELLER#sel_123       SK=WEBHOOK#whk_123
 PK=SELLER#sel_123       SK=WEBHOOK_DELIVERY#whd_123

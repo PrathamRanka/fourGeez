@@ -28,6 +28,8 @@ func TestServiceCreatesListsAndReadsSellerDestination(t *testing.T) {
 		repository,
 		testSellerAuthorizer{sellerID: sellerID, ownerSubject: "seller-user"},
 		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("a", 128))),
+		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
+		testOwnershipVerifier{valid: true},
 		clock,
 	)
 
@@ -76,6 +78,8 @@ func TestServiceHidesDestinationsFromOtherSellers(t *testing.T) {
 		newTestPaymentDestinationRepository(),
 		testSellerAuthorizer{sellerID: sellerID, ownerSubject: "seller-user"},
 		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("b", 128))),
+		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
+		testOwnershipVerifier{valid: true},
 		clock,
 	)
 

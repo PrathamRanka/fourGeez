@@ -115,6 +115,12 @@ Shared primitives and storage adapters remain organized by their concrete respon
 
 The coding agent prepares and validates changes. It never receives production payout secrets and never publishes or deploys without seller confirmation.
 
+Payment-destination activation is a settlement-domain operation. HTTP accepts a
+bounded proof, the service verifies challenge state and wallet ownership, and
+the repository atomically updates the active asset/network claim plus the new
+and rotated destination records. Transport code never performs signature
+recovery, and persistence never stores raw challenge or signature material.
+
 ## Buyer channels
 
 Both buyer channels consume the same published paid routes:

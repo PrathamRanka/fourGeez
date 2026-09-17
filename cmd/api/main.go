@@ -72,6 +72,8 @@ func main() {
 		paymentDestinationRepository,
 		catalogService,
 		idGenerator,
+		settlement.NewSecureOwnershipNonceGenerator(nil),
+		settlement.NewEVMPersonalSignOwnershipVerifier(),
 		clock,
 	)
 	settlement.NewHTTPController(

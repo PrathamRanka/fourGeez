@@ -101,6 +101,97 @@ func TestPaymentDestinationCreateRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+// TestPaymentDestinationOwnershipRoutesIssueAndVerifyChallenge verifies WAL-002 transport behavior.
+func TestPaymentDestinationOwnershipRoutesIssueAndVerifyChallenge(t *testing.T) {
+	t.Parallel()
+
+	sellerID := mustSettlementID(
+		t,
+		"sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+		domain.SellerIDPrefix,
+	)
+	handler := newSettlementHandler(t, sellerID)
+	createResponse := performSettlementRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+sellerID.String()+"/payment-destinations",
+		"destination-create-1",
+		`{"asset":"USDC","network":"eip155:84532","address":"0x1111111111111111111111111111111111111111"}`,
+	)
+	var created PaymentDestination
+	decodeSettlementResponse(t, createResponse, &created)
+
+	challengeResponse := performSettlementRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+sellerID.String()+"/payment-destinations/"+
+			created.DestinationID.String()+"/ownership-challenges",
+		"",
+		"",
+	)
+	if challengeResponse.Code != http.StatusCreated {
+		t.Fatalf(
+			"challenge status = %d, body = %s",
+			challengeResponse.Code,
+			challengeResponse.Body.String(),
+		)
+	}
+	var challenge OwnershipChallengeResponse
+	decodeSettlementResponse(t, challengeResponse, &challenge)
+
+	verifyResponse := performSettlementRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+sellerID.String()+"/payment-destinations/"+
+			created.DestinationID.String()+"/verify",
+		"destination-verify-1",
+		`{"challenge":`+mustSettlementJSON(t, challenge.Challenge)+`,"signature":"0xsigned-proof","confirmRotation":false}`,
+	)
+	if verifyResponse.Code != http.StatusOK {
+		t.Fatalf(
+			"verify status = %d, body = %s",
+			verifyResponse.Code,
+			verifyResponse.Body.String(),
+		)
+	}
+	var verified PaymentDestination
+	decodeSettlementResponse(t, verifyResponse, &verified)
+	if verified.Status != PaymentDestinationStatusActive || verified.VerifiedAt == nil {
+		t.Fatalf("verified destination = %#v", verified)
+	}
+	if strings.Contains(verifyResponse.Body.String(), "signed-proof") ||
+		strings.Contains(verifyResponse.Body.String(), "challengeHash") {
+		t.Fatalf("verify response exposed proof material: %s", verifyResponse.Body.String())
+	}
+}
+
+// TestPaymentDestinationVerifyRejectsUnknownFields verifies strict proof input.
+func TestPaymentDestinationVerifyRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	sellerID := mustSettlementID(
+		t,
+		"sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+		domain.SellerIDPrefix,
+	)
+	handler := newSettlementHandler(t, sellerID)
+	response := performSettlementRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+sellerID.String()+
+			"/payment-destinations/dst_01K5D09YJ0C0M7RJM4FWQ0K9H8/verify",
+		"destination-verify-1",
+		`{"challenge":"proof","signature":"0xsigned-proof","privateKey":"forbidden"}`,
+	)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+}
+
 // newSettlementHandler creates the WAL-001 API test server.
 func newSettlementHandler(t *testing.T, sellerID domain.ID) http.Handler {
 	t.Helper()
@@ -112,6 +203,8 @@ func newSettlementHandler(t *testing.T, sellerID domain.ID) http.Handler {
 		newTestPaymentDestinationRepository(),
 		testSellerAuthorizer{sellerID: sellerID, ownerSubject: "local-seller"},
 		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("c", 128))),
+		fixedOwnershipNonceGenerator{nonce: "stable-nonce"},
+		testOwnershipVerifier{valid: true},
 		clock,
 	)
 	controller := NewHTTPController(service, newTestIdempotencyStore())
@@ -160,6 +253,17 @@ func decodeSettlementResponse(
 	if err := json.Unmarshal(response.Body.Bytes(), destination); err != nil {
 		t.Fatalf("response JSON error = %v", err)
 	}
+}
+
+// mustSettlementJSON encodes one string for safe inclusion in a test request.
+func mustSettlementJSON(t *testing.T, value string) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(encoded)
 }
 
 type testIdempotencyStore struct {

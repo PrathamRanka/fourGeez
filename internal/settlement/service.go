@@ -17,10 +17,12 @@ const (
 
 // Service owns seller payment-destination creation and reads.
 type Service struct {
-	repository       Repository
-	sellerAuthorizer SellerAuthorizer
-	idGenerator      domain.IDGenerator
-	clock            domain.Clock
+	repository        Repository
+	sellerAuthorizer  SellerAuthorizer
+	idGenerator       domain.IDGenerator
+	nonceGenerator    OwnershipNonceGenerator
+	ownershipVerifier OwnershipVerifier
+	clock             domain.Clock
 }
 
 // NewService creates the payment-destination application service.
@@ -28,13 +30,17 @@ func NewService(
 	repository Repository,
 	sellerAuthorizer SellerAuthorizer,
 	idGenerator domain.IDGenerator,
+	nonceGenerator OwnershipNonceGenerator,
+	ownershipVerifier OwnershipVerifier,
 	clock domain.Clock,
 ) *Service {
 	return &Service{
-		repository:       repository,
-		sellerAuthorizer: sellerAuthorizer,
-		idGenerator:      idGenerator,
-		clock:            clock,
+		repository:        repository,
+		sellerAuthorizer:  sellerAuthorizer,
+		idGenerator:       idGenerator,
+		nonceGenerator:    nonceGenerator,
+		ownershipVerifier: ownershipVerifier,
+		clock:             clock,
 	}
 }
 
@@ -163,6 +169,140 @@ func (service *Service) List(
 		return left.CreatedAt.Time().After(right.CreatedAt.Time())
 	})
 	return destinations, nil
+}
+
+// IssueOwnershipChallenge replaces any prior challenge with one short-lived proof request.
+func (service *Service) IssueOwnershipChallenge(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	destinationID domain.ID,
+) (OwnershipChallengeResponse, error) {
+	if err := service.sellerAuthorizer.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return OwnershipChallengeResponse{}, err
+	}
+	destination, err := service.repository.Get(ctx, sellerID, destinationID)
+	if err != nil {
+		return OwnershipChallengeResponse{}, err
+	}
+	if destination.Status != PaymentDestinationStatusPendingVerification {
+		return OwnershipChallengeResponse{}, ErrOwnershipStateInvalid
+	}
+	nonce, err := service.nonceGenerator.NewNonce()
+	if err != nil {
+		return OwnershipChallengeResponse{}, err
+	}
+	now := domain.NewTimestamp(service.clock.Now())
+	expiresAt := domain.NewTimestamp(now.Time().Add(OwnershipChallengeLifetime))
+	challenge := buildOwnershipChallenge(destination, nonce, expiresAt)
+	expectedVersion := destination.Version
+	destination.ChallengeHash = ownershipChallengeHash(challenge)
+	destination.ChallengeExpiresAt = &expiresAt
+	destination.UpdatedAt = now
+	destination.Version++
+	if err := service.repository.SaveChallenge(ctx, destination, expectedVersion); err != nil {
+		return OwnershipChallengeResponse{}, err
+	}
+	return OwnershipChallengeResponse{
+		Challenge: challenge,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+// VerifyOwnership validates one signed challenge and atomically activates its destination.
+func (service *Service) VerifyOwnership(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	destinationID domain.ID,
+	request VerifyOwnershipRequest,
+) (PaymentDestination, error) {
+	if err := validateOwnershipProofInput(request); err != nil {
+		return PaymentDestination{}, err
+	}
+	if err := service.sellerAuthorizer.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return PaymentDestination{}, err
+	}
+	destination, err := service.repository.Get(ctx, sellerID, destinationID)
+	if err != nil {
+		return PaymentDestination{}, err
+	}
+	if destination.Status != PaymentDestinationStatusPendingVerification ||
+		destination.ChallengeHash == "" ||
+		destination.ChallengeExpiresAt == nil {
+		return PaymentDestination{}, ErrOwnershipStateInvalid
+	}
+	now := domain.NewTimestamp(service.clock.Now())
+	if !now.Time().Before(destination.ChallengeExpiresAt.Time()) {
+		return PaymentDestination{}, ErrOwnershipChallengeExpired
+	}
+	if !ownershipChallengeMatches(request.Challenge, destination.ChallengeHash) {
+		return PaymentDestination{}, ErrOwnershipChallengeMismatch
+	}
+	valid, err := service.ownershipVerifier.VerifyOwnership(
+		ctx,
+		destination,
+		request.Challenge,
+		request.Signature,
+	)
+	if err != nil {
+		return PaymentDestination{}, err
+	}
+	if !valid {
+		return PaymentDestination{}, ErrOwnershipProofInvalid
+	}
+
+	activeDestination, err := service.findActiveDestination(ctx, destination)
+	if err != nil {
+		return PaymentDestination{}, err
+	}
+	if activeDestination != nil && !request.ConfirmRotation {
+		return PaymentDestination{}, ErrRotationConfirmationRequired
+	}
+
+	expectedVersion := destination.Version
+	destination.Status = PaymentDestinationStatusActive
+	destination.ChallengeHash = ""
+	destination.ChallengeExpiresAt = nil
+	destination.VerifiedAt = &now
+	destination.UpdatedAt = now
+	destination.Version++
+	activation := PaymentDestinationActivation{
+		Destination:     destination,
+		ExpectedVersion: expectedVersion,
+	}
+	if activeDestination != nil {
+		activation.RotatedExpectedVersion = activeDestination.Version
+		activeDestination.Status = PaymentDestinationStatusRotated
+		activeDestination.UpdatedAt = now
+		activeDestination.Version++
+		activation.RotatedDestination = activeDestination
+	}
+	if err := service.repository.Activate(ctx, activation); err != nil {
+		return PaymentDestination{}, err
+	}
+	return destination, nil
+}
+
+// findActiveDestination locates the current active destination for an exact payment pair.
+func (service *Service) findActiveDestination(
+	ctx context.Context,
+	destination PaymentDestination,
+) (*PaymentDestination, error) {
+	destinations, err := service.repository.ListBySeller(ctx, destination.SellerID)
+	if err != nil {
+		return nil, err
+	}
+	for index := range destinations {
+		candidate := destinations[index]
+		if candidate.DestinationID != destination.DestinationID &&
+			candidate.Asset == destination.Asset &&
+			candidate.Network == destination.Network &&
+			candidate.Status == PaymentDestinationStatusActive {
+			return &candidate, nil
+		}
+	}
+	return nil, nil
 }
 
 // validatePublicValue rejects empty, overlong, and control-character values.

@@ -58,6 +58,15 @@ Status: **Required for every implementation task**.
 
 ## Canonical hashing
 
+Payment-destination ownership challenges use EIP-191 `personal_sign` for the
+initial `eip155` network support. The signed text includes a version, seller ID,
+destination ID, asset, network, public address, 256-bit nonce, and RFC 3339 UTC
+expiry. Challenges expire after ten minutes. AgentPay stores only the SHA-256
+challenge hash and compares it in constant time before signature recovery. Raw
+challenges are returned with `Cache-Control: no-store`; raw signatures are never
+persisted or logged. Contract-wallet ownership proofs require a separately
+documented verifier and are not accepted by the initial EOA verifier.
+
 Canonicalization must be versioned. Version 1 uses:
 
 1. UTF-8 JSON.

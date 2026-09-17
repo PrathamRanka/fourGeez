@@ -19,6 +19,7 @@ Only official documentation and repositories should determine protocol wire beha
 | Protocol headers | Official Go HTTP package and tests | Verified 2026-09-17: `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and `PAYMENT-RESPONSE` |
 | License and compatibility | Official repository `LICENSE` and Go module | Verified 2026-09-17: Apache-2.0; SDK requires Go 1.24 and AgentPay uses Go 1.26 |
 | Security review notes | Official Go changelog and module dependencies | Reviewed 2026-09-17: `v2.6.0` closed fail-open verification paths; `v2.8.0` pins the indirect QUIC security fix. AgentPay will use only the core and HTTP client types required at its payment boundary. |
+| EVM ownership proof envelope | https://eips.ethereum.org/EIPS/eip-191 | Verified 2026-09-17: initial `eip155` destination ownership uses the version `0x45` personal-sign envelope before EOA recovery. |
 
 Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but the official x402 SDK defines payment payload serialization and verification. If they conflict, update the AgentPay contract before implementing.
 

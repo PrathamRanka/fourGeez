@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +39,77 @@ func TestPaymentDestinationRepositoryScopesReadsToSeller(t *testing.T) {
 		destination.DestinationID,
 	); err != persistence.ErrNotFound {
 		t.Fatalf("cross-seller Get() error = %v", err)
+	}
+}
+
+// TestPaymentDestinationRepositoryActivatesAndRotatesAtomically verifies WAL-002 state writes.
+func TestPaymentDestinationRepositoryActivatesAndRotatesAtomically(t *testing.T) {
+	t.Parallel()
+
+	repository := NewPaymentDestinationRepository()
+	first := testMemoryPaymentDestination(t)
+	second := first
+	second.DestinationID = mustMemoryID(
+		t,
+		"dst_01K5D09YJ0C0M7RJM4FWQ0K9H9",
+		domain.PaymentDestinationIDPrefix,
+	)
+	second.Address = "0x2222222222222222222222222222222222222222"
+	if err := repository.Create(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Create(context.Background(), second); err != nil {
+		t.Fatal(err)
+	}
+	first.Status = settlement.PaymentDestinationStatusActive
+	first.Version++
+	if err := repository.Activate(
+		context.Background(),
+		settlement.PaymentDestinationActivation{
+			Destination:     first,
+			ExpectedVersion: 1,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	rotated := first
+	rotated.Status = settlement.PaymentDestinationStatusRotated
+	rotated.Version++
+	second.Status = settlement.PaymentDestinationStatusActive
+	second.Version++
+	if err := repository.Activate(
+		context.Background(),
+		settlement.PaymentDestinationActivation{
+			Destination:            second,
+			ExpectedVersion:        1,
+			RotatedDestination:     &rotated,
+			RotatedExpectedVersion: 2,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	loadedFirst, _ := repository.Get(context.Background(), first.SellerID, first.DestinationID)
+	loadedSecond, _ := repository.Get(context.Background(), second.SellerID, second.DestinationID)
+	if loadedFirst.Status != settlement.PaymentDestinationStatusRotated ||
+		loadedSecond.Status != settlement.PaymentDestinationStatusActive {
+		t.Fatalf("rotation states = %q and %q", loadedFirst.Status, loadedSecond.Status)
+	}
+}
+
+// TestPaymentDestinationRepositoryRejectsStaleChallengeWrite verifies optimistic concurrency.
+func TestPaymentDestinationRepositoryRejectsStaleChallengeWrite(t *testing.T) {
+	t.Parallel()
+
+	repository := NewPaymentDestinationRepository()
+	destination := testMemoryPaymentDestination(t)
+	if err := repository.Create(context.Background(), destination); err != nil {
+		t.Fatal(err)
+	}
+	destination.ChallengeHash = strings.Repeat("a", 64)
+	destination.Version++
+	err := repository.SaveChallenge(context.Background(), destination, 99)
+	if err != persistence.ErrConditionFailed {
+		t.Fatalf("SaveChallenge() error = %v, want condition failure", err)
 	}
 }
 

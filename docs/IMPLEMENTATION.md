@@ -117,7 +117,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 ## Milestone M7 — Seller operations, storefront, and growth
 
 - [x] **WAL-001** Define the seller payment-destination contract and add seller-scoped wallet create, list, and read operations for explicit asset and network pairs.
-- [ ] **WAL-002** Implement wallet-ownership challenges, verification, guarded activation, and confirmed rotation without storing private keys or signed challenge material.
+- [x] **WAL-002** Implement wallet-ownership challenges, verification, guarded activation, and confirmed rotation without storing private keys or signed challenge material.
 - [ ] **PAY-010** Add payment reconciliation that distinguishes challenged, verified, finalized, fulfilled, failed, and disputed amounts using safe facilitator or network references.
 - [ ] **ANL-001** Implement seller sales aggregates grouped by asset, network, route, UTC day, and transaction status without combining unlike currencies.
 - [ ] **API-010** Add bounded seller transaction filters, dashboard-summary endpoints, and cursor pagination for date, route, status, asset, and network.

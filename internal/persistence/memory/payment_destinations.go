@@ -70,6 +70,73 @@ func (repository *PaymentDestinationRepository) ListBySeller(
 	return destinations, nil
 }
 
+// SaveChallenge replaces one pending destination after an optimistic version check.
+func (repository *PaymentDestinationRepository) SaveChallenge(
+	_ context.Context,
+	destination settlement.PaymentDestination,
+	expectedVersion uint64,
+) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	stored, exists := repository.destinations[destination.DestinationID]
+	if !exists ||
+		stored.SellerID != destination.SellerID ||
+		stored.Version != expectedVersion {
+		return persistence.ErrConditionFailed
+	}
+	repository.destinations[destination.DestinationID] = clonePaymentDestination(destination)
+	return nil
+}
+
+// Activate atomically enforces one active destination for an asset and network pair.
+func (repository *PaymentDestinationRepository) Activate(
+	_ context.Context,
+	activation settlement.PaymentDestinationActivation,
+) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	destination := activation.Destination
+	stored, exists := repository.destinations[destination.DestinationID]
+	if !exists ||
+		stored.SellerID != destination.SellerID ||
+		stored.Version != activation.ExpectedVersion {
+		return persistence.ErrConditionFailed
+	}
+	activeDestination := repository.activeDestination(destination)
+	if activeDestination != nil && activation.RotatedDestination == nil {
+		return settlement.ErrRotationConfirmationRequired
+	}
+	if activation.RotatedDestination != nil {
+		if activeDestination == nil ||
+			activeDestination.DestinationID != activation.RotatedDestination.DestinationID ||
+			activeDestination.Version != activation.RotatedExpectedVersion {
+			return persistence.ErrConditionFailed
+		}
+		repository.destinations[activeDestination.DestinationID] = clonePaymentDestination(
+			*activation.RotatedDestination,
+		)
+	}
+	repository.destinations[destination.DestinationID] = clonePaymentDestination(destination)
+	return nil
+}
+
+// activeDestination finds the active destination while the repository lock is held.
+func (repository *PaymentDestinationRepository) activeDestination(
+	destination settlement.PaymentDestination,
+) *settlement.PaymentDestination {
+	for _, candidate := range repository.destinations {
+		if candidate.DestinationID != destination.DestinationID &&
+			candidate.SellerID == destination.SellerID &&
+			candidate.Asset == destination.Asset &&
+			candidate.Network == destination.Network &&
+			candidate.Status == settlement.PaymentDestinationStatusActive {
+			cloned := clonePaymentDestination(candidate)
+			return &cloned
+		}
+	}
+	return nil
+}
+
 // clonePaymentDestination protects optional timestamp pointers from aliasing.
 func clonePaymentDestination(
 	destination settlement.PaymentDestination,
