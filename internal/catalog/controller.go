@@ -35,6 +35,42 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sellers", api.RequireSeller(http.HandlerFunc(controller.createSeller)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.createRoute)))
 	mux.Handle("PATCH /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.updateRoutePrice)))
+	mux.HandleFunc("GET /store/{slug}/manifest.json", controller.getStorefrontManifest)
+	mux.HandleFunc("GET /store/{slug}/llms.txt", controller.getStorefrontLLMSText)
+}
+
+// getStorefrontManifest returns public machine-readable seller discovery.
+func (controller *HTTPController) getStorefrontManifest(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	manifest, err := controller.service.GetStorefrontManifest(
+		request.Context(),
+		request.PathValue("slug"),
+	)
+	if err != nil {
+		controller.writeServiceError(response, request, err)
+		return
+	}
+	_ = api.WriteJSON(response, http.StatusOK, manifest)
+}
+
+// getStorefrontLLMSText returns public plain-text agent discovery.
+func (controller *HTTPController) getStorefrontLLMSText(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	document, err := controller.service.GetStorefrontLLMSText(
+		request.Context(),
+		request.PathValue("slug"),
+	)
+	if err != nil {
+		controller.writeServiceError(response, request, err)
+		return
+	}
+	response.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	response.WriteHeader(http.StatusOK)
+	_, _ = response.Write([]byte(document))
 }
 
 // createSeller validates and executes seller onboarding.

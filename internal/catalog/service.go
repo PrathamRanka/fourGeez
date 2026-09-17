@@ -149,6 +149,69 @@ func (service *Service) UpdateRoutePrice(
 	return route, nil
 }
 
+// GetStorefrontManifest resolves a seller and its enabled public routes.
+func (service *Service) GetStorefrontManifest(
+	ctx context.Context,
+	slug string,
+) (StorefrontManifest, error) {
+	seller, err := service.repository.ResolveSellerBySlug(ctx, slug)
+	if err != nil {
+		return StorefrontManifest{}, err
+	}
+	routes, err := service.repository.ListRoutesBySeller(ctx, seller.SellerID)
+	if err != nil {
+		return StorefrontManifest{}, err
+	}
+
+	enabledRoutes := make([]PaidRoute, 0, len(routes))
+	for _, route := range routes {
+		if route.Enabled {
+			enabledRoutes = append(enabledRoutes, route)
+		}
+	}
+	return StorefrontManifest{
+		Seller: StorefrontSeller{
+			Name: seller.Name,
+			Slug: seller.Slug,
+		},
+		Routes: enabledRoutes,
+	}, nil
+}
+
+// GetStorefrontLLMSText renders deterministic plain-text agent discovery.
+func (service *Service) GetStorefrontLLMSText(
+	ctx context.Context,
+	slug string,
+) (string, error) {
+	manifest, err := service.GetStorefrontManifest(ctx, slug)
+	if err != nil {
+		return "", err
+	}
+
+	var document strings.Builder
+	document.WriteString("# ")
+	document.WriteString(manifest.Seller.Name)
+	document.WriteString("\\n\\nManifest: /store/")
+	document.WriteString(manifest.Seller.Slug)
+	document.WriteString("/manifest.json\\n\\nRoutes:\\n")
+	for _, route := range manifest.Routes {
+		document.WriteString("- ")
+		document.WriteString(string(route.Method))
+		document.WriteString(" ")
+		document.WriteString(route.PathPattern)
+		document.WriteString(" — ")
+		document.WriteString(route.Description)
+		document.WriteString(" (")
+		document.WriteString(route.Amount.String())
+		document.WriteString(" ")
+		document.WriteString(route.Asset)
+		document.WriteString(" on ")
+		document.WriteString(route.Network)
+		document.WriteString(")\\n")
+	}
+	return document.String(), nil
+}
+
 // sellerResponse removes private seller fields from public responses.
 func sellerResponse(seller Seller) SellerResponse {
 	return SellerResponse{

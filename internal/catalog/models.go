@@ -125,10 +125,23 @@ type UpdateRoutePriceRequest struct {
 	ExpectedVersion uint64        `json:"expectedVersion"`
 }
 
+// StorefrontSeller is the public seller identity in discovery documents.
+type StorefrontSeller struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+// StorefrontManifest publishes the seller's enabled paid routes.
+type StorefrontManifest struct {
+	Seller StorefrontSeller `json:"seller"`
+	Routes []PaidRoute      `json:"routes"`
+}
+
 // Repository is the persistence boundary consumed by catalog use cases.
 type Repository interface {
 	CreateSeller(ctx context.Context, seller Seller) error
 	GetSeller(ctx context.Context, sellerID domain.ID) (Seller, error)
+	ResolveSellerBySlug(ctx context.Context, slug string) (Seller, error)
 	CreateRoute(ctx context.Context, route PaidRoute) error
 	GetRoute(ctx context.Context, routeID domain.ID) (PaidRoute, error)
 	UpdateRoute(ctx context.Context, route PaidRoute, expectedVersion uint64) error

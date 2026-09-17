@@ -112,6 +112,66 @@ func TestSellerCreationRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+// TestStorefrontDiscoveryReturnsManifestAndLLMSText verifies API-003 routes.
+func TestStorefrontDiscoveryReturnsManifestAndLLMSText(t *testing.T) {
+	t.Parallel()
+
+	handler := newCatalogHandler(t)
+	sellerResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers",
+		"seller-create-1",
+		`{"name":"Demo","slug":"demo-shop","upstreamBaseUrl":"https://seller.example"}`,
+	)
+	var seller catalog.SellerResponse
+	decodeCatalogResponse(t, sellerResponse, &seller)
+	performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes",
+		"route-create-1",
+		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+	)
+
+	manifestRequest := httptest.NewRequest(http.MethodGet, "/store/demo-shop/manifest.json", nil)
+	manifestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(manifestResponse, manifestRequest)
+	if manifestResponse.Code != http.StatusOK {
+		t.Fatalf("manifest status = %d, body = %s", manifestResponse.Code, manifestResponse.Body.String())
+	}
+	var manifest catalog.StorefrontManifest
+	decodeCatalogResponse(t, manifestResponse, &manifest)
+	if manifest.Seller.Slug != "demo-shop" || len(manifest.Routes) != 1 {
+		t.Fatalf("manifest = %#v", manifest)
+	}
+
+	textRequest := httptest.NewRequest(http.MethodGet, "/store/demo-shop/llms.txt", nil)
+	textResponse := httptest.NewRecorder()
+	handler.ServeHTTP(textResponse, textRequest)
+	if textResponse.Code != http.StatusOK {
+		t.Fatalf("llms.txt status = %d", textResponse.Code)
+	}
+	if !strings.Contains(textResponse.Body.String(), "POST /research") {
+		t.Fatalf("llms.txt = %q", textResponse.Body.String())
+	}
+}
+
+// TestStorefrontDiscoveryReturnsNotFound verifies unknown storefront handling.
+func TestStorefrontDiscoveryReturnsNotFound(t *testing.T) {
+	t.Parallel()
+
+	handler := newCatalogHandler(t)
+	request := httptest.NewRequest(http.MethodGet, "/store/missing/manifest.json", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
+	}
+}
+
 // newCatalogHandler creates the API-002 test server.
 func newCatalogHandler(t *testing.T) http.Handler {
 	t.Helper()
