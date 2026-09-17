@@ -77,4 +77,3 @@ seller confirmation.
 
 Package publication is a release operation outside this repository task. The
 bundle pins the first package contract so setup behavior cannot drift silently.
-
