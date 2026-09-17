@@ -8,6 +8,8 @@ import (
 
 const profileSortKey = "PROFILE"
 
+const sellerPlanSortKey = "BILLING_PLAN"
+
 // sellerPartitionKey returns the documented seller partition key.
 func sellerPartitionKey(sellerID string) string {
 	return "SELLER#" + sellerID

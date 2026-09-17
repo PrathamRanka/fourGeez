@@ -8,6 +8,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -48,6 +49,7 @@ func main() {
 	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
+	sellerPlanRepository := memory.NewSellerPlanRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
@@ -73,6 +75,13 @@ func main() {
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
 	catalogController.RegisterRoutes(mux)
+	billing.NewHTTPController(
+		billing.NewService(
+			sellerPlanRepository,
+			catalogService,
+			clock,
+		),
+	).RegisterRoutes(mux)
 	settlementService := settlement.NewService(
 		paymentDestinationRepository,
 		catalogService,

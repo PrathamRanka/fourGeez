@@ -17,6 +17,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -38,6 +39,8 @@ func TestOpenAPIM3OperationAndResponseCoverage(t *testing.T) {
 	expected := map[string][]string{
 		"getHealth":                         {"200", "429", "503"},
 		"createSeller":                      {"201", "400", "409"},
+		"listSellerPlans":                   {"200", "429"},
+		"getSellerPlan":                     {"200", "400", "404"},
 		"createPaidRoute":                   {"201", "400", "404", "409"},
 		"updatePaidRoutePrice":              {"200", "400", "404", "409"},
 		"listPaymentDestinations":           {"200", "400", "404"},
@@ -86,6 +89,8 @@ func TestM3OpenAPIRoutesAreRegistered(t *testing.T) {
 	}{
 		{operationID: "getHealth", method: http.MethodGet, path: "/health", wantStatus: http.StatusOK},
 		{operationID: "createSeller", method: http.MethodPost, path: "/v1/sellers", wantStatus: http.StatusUnauthorized},
+		{operationID: "listSellerPlans", method: http.MethodGet, path: "/v1/plans", wantStatus: http.StatusOK},
+		{operationID: "getSellerPlan", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/plan", wantStatus: http.StatusUnauthorized},
 		{operationID: "createPaidRoute", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/routes", wantStatus: http.StatusUnauthorized},
 		{operationID: "updatePaidRoutePrice", method: http.MethodPatch, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/routes/rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
 		{operationID: "listPaymentDestinations", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/payment-destinations", wantStatus: http.StatusUnauthorized},
@@ -198,6 +203,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
+	sellerPlanRepository := memory.NewSellerPlanRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(
@@ -224,6 +230,13 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	})
 	catalogService := catalog.NewService(catalogRepository, idGenerator, clock)
 	catalog.NewHTTPController(catalogService, idempotencyStore).RegisterRoutes(mux)
+	billing.NewHTTPController(
+		billing.NewService(
+			sellerPlanRepository,
+			catalogService,
+			clock,
+		),
+	).RegisterRoutes(mux)
 	settlementService := settlement.NewService(
 		memory.NewPaymentDestinationRepository(),
 		catalogService,

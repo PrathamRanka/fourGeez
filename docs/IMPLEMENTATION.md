@@ -124,7 +124,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **EVT-001** Define seller webhook subscriptions and signed event contracts for payment verified, fulfillment succeeded, fulfillment failed, and dispute changes.
 - [x] **EVT-002** Implement idempotent webhook delivery, bounded retries, dead-letter state, replay-safe redelivery, and seller-visible delivery history.
 - [x] **RCP-001** Implement downloadable machine-readable purchase receipts backed by transaction and evidence-chain verification.
-- [ ] **BIL-001** Implement seller plans, quotas, and feature limits independently from buyer-to-seller payment settlement.
+- [x] **BIL-001** Implement seller plans, quotas, and feature limits independently from buyer-to-seller payment settlement.
 - [ ] **BIL-002** Implement immutable usage-meter events and invoice exports from successful AgentPay transactions; payment collection for AgentPay invoices remains a separate adapter.
 - [ ] **AUD-001** Implement seller-visible audit events for credentials, wallets, prices, route lifecycle, publication, webhook configuration, and administrative suspension.
 - [ ] **OPS-001** Enforce per-seller API, MCP, route, and webhook quotas with deterministic permission-denied and rate-limit responses.

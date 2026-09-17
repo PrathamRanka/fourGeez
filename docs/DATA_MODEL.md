@@ -309,6 +309,35 @@ for unchanged transaction and evidence state produce the same JSON fields.
 Sellers may download receipts for their own transactions; authenticated agent
 buyers may download only receipts whose `buyerId` matches their subject.
 
+### SellerPlan
+
+AgentPay billing is independent from buyer-to-seller settlement. The versioned
+V1 plan catalog contains `starter`, `growth`, and `scale`. Plan definitions have
+operational limits and feature flags only; they never contain buyer payment
+amounts, payment destinations, wallet material, or settlement instructions.
+
+| Limit | Starter | Growth | Scale |
+|---|---:|---:|---:|
+| API requests per UTC month | 10,000 | 100,000 | 1,000,000 |
+| MCP operations per UTC month | 1,000 | 10,000 | 100,000 |
+| Published routes | 5 | 50 | 500 |
+| Webhook subscriptions | 1 | 5 | 25 |
+| Webhook deliveries per UTC month | 1,000 | 25,000 | 250,000 |
+| Analytics window days | 7 | 90 | 365 |
+| Evidence retention days | 30 | 180 | 3,650 |
+
+Starter enables webhooks but not approval workflows or advanced analytics.
+Growth enables approvals, webhooks, and advanced analytics. Scale adds priority
+support. These flags describe entitlement only; enforcement belongs to
+`OPS-001`.
+
+Each seller has one `SellerPlan` record at `PK=SELLER#<sellerId>`,
+`SK=BILLING_PLAN`. It stores `sellerId`, `planId`, `planVersion`, `status`, UTC
+period start/end, assignment timestamps, and optimistic `version`. Status is
+`active` or `suspended`. A missing record is initialized to Starter version 1;
+changing plans requires an explicit trusted billing operation and never changes
+buyer settlement state.
+
 ### UsageMeterEvent (planned M7)
 
 Usage meter events are immutable and idempotently derived from successful
@@ -398,6 +427,7 @@ PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL
 PK=SELLER#sel_123       SK=WEBHOOK#whk_123
 PK=SELLER#sel_123       SK=WEBHOOK_DELIVERY#whd_123
 PK=SELLER#sel_123       SK=WEBHOOK_EVENT#whk_123#evt_123
+PK=SELLER#sel_123       SK=BILLING_PLAN
 PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123
 PK=SELLER#sel_123       SK=METER#<createdAt>#mtr_123
 PK=INTENT#int_123       SK=PROFILE

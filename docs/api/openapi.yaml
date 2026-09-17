@@ -28,6 +28,8 @@ tags:
     description: Threshold-triggered multi-party authorization.
   - name: Transactions
     description: Payment, delivery, and evidence status.
+  - name: Billing
+    description: Seller plans, entitlements, usage, and invoice exports.
   - name: Disputes
     description: Deterministic dispute classification and review.
   - name: Proxy
@@ -74,6 +76,46 @@ paths:
         '201': { $ref: '#/components/responses/SellerCreated' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /v1/plans:
+    get:
+      summary: List versioned seller plans and operational entitlements
+      tags: [Billing]
+      operationId: listSellerPlans
+      security: []
+      responses:
+        '200':
+          description: Immutable V1 seller plan catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PlanDefinition' }
+        '429':
+          description: Plan catalog rate limit exceeded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/sellers/{sellerId}/plan:
+    get:
+      summary: Get the authenticated seller plan assignment
+      tags: [Billing]
+      operationId: getSellerPlan
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+      responses:
+        '200':
+          description: Seller assignment and immutable plan definition
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SellerPlanResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/sellers/{sellerId}/routes:
     post:
       summary: Add a paid route to a seller
@@ -771,6 +813,58 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 1 }
+    PlanLimits:
+      type: object
+      additionalProperties: false
+      required: [apiRequestsPerMonth, mcpOperationsPerMonth, publishedRoutes, webhookSubscriptions, webhookDeliveriesPerMonth, analyticsWindowDays, evidenceRetentionDays]
+      properties:
+        apiRequestsPerMonth: { type: integer, minimum: 1 }
+        mcpOperationsPerMonth: { type: integer, minimum: 1 }
+        publishedRoutes: { type: integer, minimum: 1 }
+        webhookSubscriptions: { type: integer, minimum: 1 }
+        webhookDeliveriesPerMonth: { type: integer, minimum: 1 }
+        analyticsWindowDays: { type: integer, minimum: 1 }
+        evidenceRetentionDays: { type: integer, minimum: 1 }
+    PlanFeatures:
+      type: object
+      additionalProperties: false
+      required: [approvals, webhooks, advancedAnalytics, prioritySupport]
+      properties:
+        approvals: { type: boolean }
+        webhooks: { type: boolean }
+        advancedAnalytics: { type: boolean }
+        prioritySupport: { type: boolean }
+    PlanDefinition:
+      type: object
+      additionalProperties: false
+      required: [planId, planVersion, displayName, limits, features]
+      properties:
+        planId: { type: string, enum: [starter, growth, scale] }
+        planVersion: { type: integer, const: 1 }
+        displayName: { type: string }
+        limits: { $ref: '#/components/schemas/PlanLimits' }
+        features: { $ref: '#/components/schemas/PlanFeatures' }
+    SellerPlan:
+      type: object
+      additionalProperties: false
+      required: [sellerId, planId, planVersion, status, billingPeriodStart, billingPeriodEnd, assignedAt, updatedAt, version]
+      properties:
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        planId: { type: string, enum: [starter, growth, scale] }
+        planVersion: { type: integer, const: 1 }
+        status: { type: string, enum: [active, suspended] }
+        billingPeriodStart: { type: string, format: date-time }
+        billingPeriodEnd: { type: string, format: date-time }
+        assignedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    SellerPlanResponse:
+      type: object
+      additionalProperties: false
+      required: [assignment, plan]
+      properties:
+        assignment: { $ref: '#/components/schemas/SellerPlan' }
+        plan: { $ref: '#/components/schemas/PlanDefinition' }
     CreateRouteRequest:
       type: object
       additionalProperties: false

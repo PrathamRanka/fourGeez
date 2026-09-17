@@ -10,6 +10,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/integrations"
@@ -32,6 +33,7 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "credential", got: credentialSortKey("key_123"), want: "CREDENTIAL#key_123"},
 		{name: "webhook delivery", got: webhookDeliverySortKey("whd_123"), want: "WEBHOOK_DELIVERY#whd_123"},
 		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
+		{name: "seller plan", got: sellerPlanSortKey, want: "BILLING_PLAN"},
 		{name: "payment destination", got: paymentDestinationSortKey("dst_123"), want: "DESTINATION#dst_123"},
 		{name: "intent", got: intentPartitionKey("int_123"), want: "INTENT#int_123"},
 		{name: "approval", got: approvalPartitionKey("aps_123"), want: "APPROVAL#aps_123"},
@@ -48,6 +50,24 @@ func TestDocumentedKeys(t *testing.T) {
 				t.Fatalf("key = %q, want %q", test.got, test.want)
 			}
 		})
+	}
+}
+
+// TestSellerPlanRepositoryUsesSellerScopedConditionalWrites verifies plan storage.
+func TestSellerPlanRepositoryUsesSellerScopedConditionalWrites(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	repository := NewSellerPlanRepository(client, "agentpay-dev")
+	assignment := testDynamoSellerPlan(t)
+	stored, created, err := repository.CreateIfAbsent(t.Context(), assignment)
+	if err != nil || !created || stored.SellerID() != assignment.SellerID() {
+		t.Fatalf("CreateIfAbsent() = (%#v, %v, %v)", stored, created, err)
+	}
+	if client.putInput == nil ||
+		readStringAttribute(client.putInput.Item["PK"]) != sellerPartitionKey(assignment.SellerID().String()) ||
+		readStringAttribute(client.putInput.Item["SK"]) != sellerPlanSortKey {
+		t.Fatalf("seller plan item = %#v", client.putInput)
 	}
 }
 
@@ -400,6 +420,25 @@ func testDynamoWebhookDelivery(t *testing.T) notifications.Delivery {
 		t.Fatal(err)
 	}
 	return delivery
+}
+
+// testDynamoSellerPlan creates one valid seller plan fixture.
+func testDynamoSellerPlan(t *testing.T) billing.SellerPlan {
+	t.Helper()
+	assignedAt := testDynamoTime()
+	assignment, err := billing.NewSellerPlan(billing.SellerPlanParams{
+		SellerID:           mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		PlanID:             billing.PlanStarter,
+		PlanVersion:        1,
+		Status:             billing.SellerPlanStatusActive,
+		BillingPeriodStart: domain.NewTimestamp(time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)),
+		BillingPeriodEnd:   domain.NewTimestamp(time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)),
+		AssignedAt:         assignedAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return assignment
 }
 
 // testDynamoEvidenceChain creates a valid two-event evidence chain.

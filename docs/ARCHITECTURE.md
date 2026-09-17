@@ -53,6 +53,11 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `billing`: seller plans, quotas, usage meters, and invoice exports; it never
   controls buyer funds or seller settlement.
 
+The billing package owns a versioned static plan catalog plus one seller plan
+assignment record. Other packages may read entitlements through a narrow
+billing interface, but billing cannot mutate purchase intents, transactions,
+payment destinations, facilitator state, or seller payout configuration.
+
 Packages may call each other through explicit interfaces. They must not write another package's DynamoDB records directly.
 
 M6 and M7 add package boundaries after their contracts are finalized:
