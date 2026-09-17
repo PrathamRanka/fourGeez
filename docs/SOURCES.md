@@ -34,6 +34,13 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 |---|---|---|
 | ZeroClick public architecture and capabilities | https://docs.zeroclick.ai/llms.txt | Behavioral reference only; do not copy source code, branding, text, private APIs, or undocumented behavior. |
 
+## Implementation libraries
+
+| Purpose | Source | Pinned version |
+|---|---|---|
+| RFC 8785 JSON canonicalization for request and intent hashing | https://github.com/gowebpki/jcs | `v1.0.1` |
+| Sortable ULID generation | https://github.com/oklog/ulid | `v2.1.2` |
+
 ## Open questions that block production, not the hackathon
 
 - Which production payment providers and reimbursement mechanisms will be supported?
@@ -41,4 +48,3 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 - What data retention and deletion commitments will design partners require?
 - Which party bears loss for authorization, duplication, non-delivery, and quality disputes?
 - Which agent/principal identity standard will be supported after the seller-only MVP?
-

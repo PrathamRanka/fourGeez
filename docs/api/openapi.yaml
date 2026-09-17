@@ -475,12 +475,14 @@ components:
         maximumAmount: { $ref: '#/components/schemas/AtomicAmount' }
     PurchaseIntent:
       type: object
-      required: [intentId, routeId, sellerId, buyerId, amount, asset, network, requestBodyHash, intentHash, maximumAmount, requiresApproval, status, expiresAt, createdAt]
+      required: [intentId, routeId, sellerId, buyerId, requestMethod, requestPath, amount, asset, network, requestBodyHash, intentHash, maximumAmount, requiresApproval, status, expiresAt, createdAt]
       properties:
         intentId: { type: string }
         routeId: { type: string }
         sellerId: { type: string }
         buyerId: { type: string }
+        requestMethod: { type: string, enum: [GET, POST] }
+        requestPath: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
         amount: { $ref: '#/components/schemas/AtomicAmount' }
         asset: { type: string }
         network: { type: string }

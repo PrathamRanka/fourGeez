@@ -10,6 +10,8 @@ Status: **Locked for hackathon implementation**.
 - `asset` is a chain-specific contract or asset identifier.
 - `network` uses the identifier supplied by the verified x402 SDK.
 - Request and response hashes use lowercase SHA-256 hex.
+- JSON request bodies are canonicalized with RFC 8785 JCS before hashing; non-JSON bodies are hashed byte-for-byte.
+- Intent hashes use the `agentpay.intent.v1` domain separator and include every execution-relevant field.
 - Persisted records include `createdAt`; mutable records also include `updatedAt` and integer `version`.
 
 ## Entities
@@ -67,6 +69,8 @@ An intent becomes immutable after creation.
 | `intentHash` | string | Canonical hash of all execution-relevant fields |
 | `expiresAt` | timestamp | Ten minutes after creation by default |
 | `status` | enum | `ready`, `approval_pending`, `approved`, `expired`, `executed` |
+
+The price and commercial fields of an intent never change after creation. Seller price updates affect only newly created intents.
 
 ### ApprovalSession
 
