@@ -51,6 +51,40 @@ class SyntheticScenario:
             "outcomeEvents": [event.to_dict() for event in self.outcome_events],
         }
 
+    # from_dict validates one serialized synthetic scenario.
+    @classmethod
+    def from_dict(cls, scenario_payload: object) -> SyntheticScenario:
+        if not isinstance(scenario_payload, dict):
+            raise TypeError("synthetic scenario must be a JSON object")
+        required_fields = {"segment", "context", "recommendation", "outcomeEvents"}
+        if set(scenario_payload) != required_fields:
+            raise ValueError("synthetic scenario fields are incompatible")
+        segment = scenario_payload["segment"]
+        if segment not in SYNTHETIC_SEGMENTS:
+            raise ValueError("synthetic scenario segment is unsupported")
+        context_payload = scenario_payload["context"]
+        recommendation_payload = scenario_payload["recommendation"]
+        outcome_payloads = scenario_payload["outcomeEvents"]
+        if not isinstance(context_payload, dict):
+            raise TypeError("synthetic context must be a JSON object")
+        if not isinstance(recommendation_payload, dict):
+            raise TypeError("synthetic recommendation must be a JSON object")
+        if not isinstance(outcome_payloads, list):
+            raise TypeError("synthetic outcomeEvents must be a JSON array")
+        context = DecisionContext.from_dict(context_payload)
+        recommendation = Recommendation.from_dict(recommendation_payload)
+        outcome_events = tuple(
+            OutcomeEvent.from_dict(outcome_payload)
+            for outcome_payload in outcome_payloads
+        )
+        _validate_scenario_references(context, recommendation, outcome_events)
+        return cls(
+            segment=segment,
+            context=context,
+            recommendation=recommendation,
+            outcome_events=outcome_events,
+        )
+
 
 @dataclass(frozen=True)
 class SyntheticDataset:
@@ -73,6 +107,40 @@ class SyntheticDataset:
     # to_json returns canonical JSON suitable for fingerprints and local files.
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
+
+    # from_json validates a complete serialized synthetic dataset.
+    @classmethod
+    def from_json(cls, serialized_dataset: str) -> SyntheticDataset:
+        try:
+            dataset_payload = json.loads(serialized_dataset)
+        except json.JSONDecodeError:
+            raise ValueError("synthetic dataset is not valid JSON") from None
+        if not isinstance(dataset_payload, dict):
+            raise TypeError("synthetic dataset must be a JSON object")
+        required_fields = {"schemaVersion", "synthetic", "seed", "scenarios"}
+        if set(dataset_payload) != required_fields:
+            raise ValueError("synthetic dataset fields are incompatible")
+        if dataset_payload["schemaVersion"] != DATASET_SCHEMA_VERSION:
+            raise ValueError("synthetic dataset version is unsupported")
+        if dataset_payload["synthetic"] is not True:
+            raise ValueError("synthetic dataset must be labeled synthetic")
+        seed = dataset_payload["seed"]
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            raise TypeError("synthetic dataset seed must be an integer")
+        scenario_payloads = dataset_payload["scenarios"]
+        if not isinstance(scenario_payloads, list):
+            raise TypeError("synthetic scenarios must be a JSON array")
+        if not 1 <= len(scenario_payloads) <= MAXIMUM_SYNTHETIC_SCENARIOS:
+            raise ValueError("synthetic scenario count is outside the supported range")
+        return cls(
+            schema_version=DATASET_SCHEMA_VERSION,
+            synthetic=True,
+            seed=seed,
+            scenarios=tuple(
+                SyntheticScenario.from_dict(scenario_payload)
+                for scenario_payload in scenario_payloads
+            ),
+        )
 
     # fingerprint identifies the exact synthetic dataset contents.
     @property
@@ -257,3 +325,21 @@ def _outcome_event(
         strategy_version=STRATEGY_NAME,
         model_version=MODEL_VERSION,
     )
+
+
+# _validate_scenario_references checks serialized recommendation and outcome links.
+def _validate_scenario_references(
+    context: DecisionContext,
+    recommendation: Recommendation,
+    outcome_events: tuple[OutcomeEvent, ...],
+) -> None:
+    if recommendation.request_id != context.request_id:
+        raise ValueError("synthetic recommendation request does not match context")
+    context_offer_ids = {candidate.offer_id for candidate in context.candidates}
+    if not set(recommendation.ranked_offer_ids).issubset(context_offer_ids):
+        raise ValueError("synthetic recommendation contains an unknown offer")
+    for outcome_event in outcome_events:
+        if outcome_event.recommendation_id != recommendation.recommendation_id:
+            raise ValueError("synthetic outcome recommendation does not match")
+        if outcome_event.offer_id not in recommendation.ranked_offer_ids:
+            raise ValueError("synthetic outcome contains an unknown offer")

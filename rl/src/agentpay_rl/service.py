@@ -89,6 +89,11 @@ class RecommendationService:
             "modelVersion": self._ranker.model_version,
         }
 
+    # maximum_request_bytes exposes the read limit to transport adapters.
+    @property
+    def maximum_request_bytes(self) -> int:
+        return self._maximum_request_bytes
+
 
 # _validate_recommendation rejects ranker output that escapes the input candidates.
 def _validate_recommendation(

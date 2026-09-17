@@ -88,7 +88,7 @@ rl/
 - Reward components, strategy version, feature version, and dataset version appear in every report.
 - No code in this workspace can access payment credentials or call payment APIs.
 
-## Local commands after implementation
+## Reproducible commands
 
 ```powershell
 python -m venv .venv
@@ -97,6 +97,13 @@ python -m pip install -e ".[dev]"
 pytest
 ruff check .
 mypy src
-python -m agentpay_rl.cli simulate
-python -m agentpay_rl.cli evaluate
+agentpay-rl simulate --output data/generated/dataset.json --dataset-version agentpay.synthetic-dataset.v1 --seed 41 --scenario-count 300
+agentpay-rl train --input data/generated/dataset.json --output data/generated/model.json --feature-version agentpay.features.v1 --reward-version reward-v1 --seed 41
+agentpay-rl evaluate --dataset data/generated/dataset.json --model data/generated/model.json --report-json data/generated/report.json --report-markdown data/generated/report.md --evaluation-version agentpay.evaluation-report.v1 --minimum-reward-delta 0 --maximum-dispute-rate-delta 0
+agentpay-rl serve --model data/generated/model.json --host 127.0.0.1 --port 8080
 ```
+
+Every command requires explicit paths and contract versions and emits dataset,
+model, or report fingerprints. `evaluate` exits non-zero when configured
+regression thresholds fail. The local HTTP service exposes `POST /recommend`,
+`GET /health`, and `GET /metadata`; it does not expose training data.
