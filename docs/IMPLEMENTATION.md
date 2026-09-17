@@ -76,7 +76,7 @@ M4 acceptance: one real testnet payment invokes the demo seller once; invalid, e
 ## Milestone M5 — Bedrock buyer and fallback client
 
 - [x] **AGT-001** Implement tool schemas matching the documented API operations.
-- [ ] **AGT-002** Implement Bedrock invocation with model ID supplied through configuration.
+- [x] **AGT-002** Implement Bedrock invocation with model ID supplied through configuration.
 - [ ] **AGT-003** Validate every model tool call through the same Go domain services used by HTTP clients.
 - [ ] **AGT-004** Implement a deterministic buyer client that can complete the full flow without Bedrock.
 - [ ] **AGT-005** Add budget, maximum-price, timeout, and tool-call-count limits.
