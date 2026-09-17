@@ -19,6 +19,7 @@ const (
 	ErrorCodeBadRequest    = "bad_request"
 	ErrorCodeUnauthorized  = "unauthorized"
 	ErrorCodeConflict      = "conflict"
+	ErrorCodeGone          = "gone"
 	ErrorCodeNotFound      = "not_found"
 	ErrorCodeUnprocessable = "unprocessable_entity"
 	ErrorCodeInternal      = "internal_error"

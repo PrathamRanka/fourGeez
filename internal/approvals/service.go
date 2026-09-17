@@ -1,7 +1,9 @@
 package approvals
 
 import (
+	"context"
 	"errors"
+	"net/url"
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -9,6 +11,179 @@ import (
 )
 
 const maximumApproverLabelLength = 80
+
+// ErrApprovalNotRequired reports an invalid session request for a ready intent.
+var ErrApprovalNotRequired = errors.New("purchase intent does not require approval")
+
+// Service coordinates approval rules with persistence and signing boundaries.
+type Service struct {
+	repository       Repository
+	intentRepository IntentRepository
+	idGenerator      domain.IDGenerator
+	tokenGenerator   TokenGenerator
+	tokenSigner      *ApprovalTokenSigner
+	clock            domain.Clock
+	publicBaseURL    string
+}
+
+// NewService creates the approval application service.
+func NewService(
+	repository Repository,
+	intentRepository IntentRepository,
+	idGenerator domain.IDGenerator,
+	tokenGenerator TokenGenerator,
+	tokenSigner *ApprovalTokenSigner,
+	clock domain.Clock,
+	publicBaseURL string,
+) *Service {
+	return &Service{
+		repository:       repository,
+		intentRepository: intentRepository,
+		idGenerator:      idGenerator,
+		tokenGenerator:   tokenGenerator,
+		tokenSigner:      tokenSigner,
+		clock:            clock,
+		publicBaseURL:    strings.TrimSuffix(publicBaseURL, "/"),
+	}
+}
+
+// Create starts a two-person approval session for an approval-bound intent.
+func (service *Service) Create(
+	ctx context.Context,
+	intentID domain.ID,
+	request CreateSessionRequest,
+) (SessionResponse, error) {
+	purchaseIntent, err := service.intentRepository.Get(ctx, intentID)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+	if !purchaseIntent.RequiresApproval() {
+		return SessionResponse{}, ErrApprovalNotRequired
+	}
+
+	sessionID, err := service.idGenerator.New(domain.ApprovalIDPrefix)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+	labels := make([]string, len(request.Approvers))
+	for index, approver := range request.Approvers {
+		labels[index] = approver.Label
+	}
+	session, grants, err := NewSession(SessionParams{
+		SessionID:      sessionID,
+		IntentID:       purchaseIntent.IntentID(),
+		IntentHash:     purchaseIntent.IntentHash(),
+		ApproverLabels: labels,
+		CreatedAt:      domain.NewTimestamp(service.clock.Now()),
+		ExpiresAt:      purchaseIntent.ExpiresAt(),
+	}, service.tokenGenerator)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+	if err := service.repository.Create(ctx, session); err != nil {
+		return SessionResponse{}, err
+	}
+	return service.response(session, grants, ""), nil
+}
+
+// Get returns a redacted current session after applying expiration.
+func (service *Service) Get(ctx context.Context, sessionID domain.ID) (SessionResponse, error) {
+	session, err := service.repository.Get(ctx, sessionID)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+	expectedVersion := session.Version()
+	if session.Expire(domain.NewTimestamp(service.clock.Now())) {
+		if err := service.repository.Update(ctx, session, expectedVersion); err != nil {
+			return SessionResponse{}, err
+		}
+	}
+	return service.response(session, nil, ""), nil
+}
+
+// Decide records one invitation decision and returns a token only on resolution.
+func (service *Service) Decide(
+	ctx context.Context,
+	sessionID domain.ID,
+	rawInvitationToken string,
+	request DecideRequest,
+) (SessionResponse, error) {
+	session, err := service.repository.Get(ctx, sessionID)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+	expectedVersion := session.Version()
+	result, err := session.Decide(
+		rawInvitationToken,
+		request.Decision,
+		domain.NewTimestamp(service.clock.Now()),
+		service.tokenSigner,
+	)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+	if err := service.repository.Update(ctx, session, expectedVersion); err != nil {
+		return SessionResponse{}, err
+	}
+	return service.response(session, nil, result.ApprovalToken), nil
+}
+
+// AuthorizeInvitation verifies that a token belongs to the requested session.
+func (service *Service) AuthorizeInvitation(
+	ctx context.Context,
+	sessionID domain.ID,
+	rawInvitationToken string,
+) error {
+	session, err := service.repository.Get(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	if session.Expire(domain.NewTimestamp(service.clock.Now())) {
+		return ErrSessionExpired
+	}
+	if _, exists := session.invitationByHash[hashToken(rawInvitationToken)]; !exists {
+		return ErrInvitationInvalid
+	}
+	return nil
+}
+
+// response converts a session into its redacted API representation.
+func (service *Service) response(
+	session Session,
+	grants []InvitationGrant,
+	approvalToken string,
+) SessionResponse {
+	decisions := make([]DecisionView, 0, len(session.invitations))
+	for _, invitation := range session.Invitations() {
+		if invitation.Decision == nil || invitation.DecidedAt == nil {
+			continue
+		}
+		decisions = append(decisions, DecisionView{
+			Label:     invitation.Label,
+			Decision:  *invitation.Decision,
+			DecidedAt: *invitation.DecidedAt,
+		})
+	}
+	invitationLinks := make([]InvitationLink, 0, len(grants))
+	for _, grant := range grants {
+		invitationURL := service.publicBaseURL + "/approve/" + session.sessionID.String() + "?token=" + url.QueryEscape(grant.Token)
+		invitationLinks = append(invitationLinks, InvitationLink{Label: grant.Label, URL: invitationURL})
+	}
+	return SessionResponse{
+		SessionID:         session.sessionID,
+		IntentID:          session.intentID,
+		IntentHash:        session.intentHash,
+		RequiredApprovals: session.requiredApprovals,
+		Decisions:         decisions,
+		Status:            session.status,
+		ExpiresAt:         session.expiresAt,
+		CreatedAt:         session.createdAt,
+		UpdatedAt:         session.updatedAt,
+		Version:           session.version,
+		Invitations:       invitationLinks,
+		ApprovalToken:     approvalToken,
+	}
+}
 
 // NewSession validates the binding and creates secure invitation grants.
 func NewSession(
@@ -108,4 +283,86 @@ func (session Session) approvalCount() int {
 		}
 	}
 	return count
+}
+
+// Decide records one invitation decision and resolves the session when possible.
+func (session *Session) Decide(
+	rawInvitationToken string,
+	decision Decision,
+	decidedAt domain.Timestamp,
+	signer *ApprovalTokenSigner,
+) (DecisionResult, error) {
+	if session.status != SessionStatusPending {
+		return DecisionResult{}, ErrSessionResolved
+	}
+	if session.Expire(decidedAt) {
+		return DecisionResult{}, ErrSessionExpired
+	}
+	if decision != DecisionApprove && decision != DecisionVeto {
+		return DecisionResult{}, domain.NewValidationError(
+			"decision",
+			"supported",
+			"must be approve or veto",
+		)
+	}
+	if signer == nil {
+		return DecisionResult{}, domain.NewValidationError(
+			"approvalTokenSigner",
+			"required",
+			"is required",
+		)
+	}
+
+	invitationIndex, exists := session.invitationByHash[hashToken(rawInvitationToken)]
+	if !exists {
+		return DecisionResult{}, ErrInvitationInvalid
+	}
+	invitation := &session.invitations[invitationIndex]
+	if invitation.Decision != nil {
+		return DecisionResult{}, ErrInvitationUsed
+	}
+
+	decisionCopy := decision
+	decidedAtCopy := decidedAt
+	invitation.Decision = &decisionCopy
+	invitation.DecidedAt = &decidedAtCopy
+	session.updatedAt = decidedAt
+	session.version++
+
+	if decision == DecisionVeto {
+		session.status = SessionStatusVetoed
+		return DecisionResult{Status: session.status}, nil
+	}
+	if session.approvalCount() < session.requiredApprovals {
+		return DecisionResult{Status: session.status}, nil
+	}
+
+	token, tokenHash, err := signer.Issue(
+		session.sessionID,
+		session.intentID,
+		session.intentHash,
+		session.expiresAt,
+	)
+	if err != nil {
+		return DecisionResult{}, err
+	}
+	session.status = SessionStatusApproved
+	session.approvalTokenHash = tokenHash
+	return DecisionResult{
+		Status:        session.status,
+		ApprovalToken: token,
+	}, nil
+}
+
+// Expire transitions a pending session when its deadline is reached.
+func (session *Session) Expire(now domain.Timestamp) bool {
+	if session.status != SessionStatusPending ||
+		now.Time().Before(session.expiresAt.Time()) {
+		return false
+	}
+
+	session.status = SessionStatusExpired
+	session.updatedAt = now
+	session.version++
+	return true
 }

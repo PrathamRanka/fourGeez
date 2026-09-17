@@ -51,7 +51,7 @@ M2 acceptance: domain tests cover valid transitions, invalid transitions, replay
 - [x] **API-002** Implement seller onboarding and route configuration endpoints.
 - [x] **API-003** Implement manifest and `llms.txt` generation.
 - [x] **API-004** Implement purchase-intent endpoints.
-- [ ] **API-005** Implement approval-session and decision endpoints.
+- [x] **API-005** Implement approval-session and decision endpoints.
 - [ ] **API-006** Implement WebSocket connection registration and approval event publication.
 - [ ] **API-007** Implement transaction and evidence-read endpoints.
 - [ ] **API-008** Implement dispute creation and retrieval.

@@ -60,6 +60,14 @@ func (authenticator *StaticAuthenticator) AuthenticateAgent(
 	}, true
 }
 
+// AuthenticateAgentRequest validates an agent credential from a feature controller.
+func AuthenticateAgentRequest(
+	ctx context.Context,
+	key string,
+) (Principal, bool) {
+	return authenticateAgent(ctx, authenticatorFromContext(ctx), key)
+}
+
 // secureEqual compares credentials without content-dependent timing.
 func secureEqual(expected, actual []byte) bool {
 	if len(expected) == 0 || len(actual) == 0 {

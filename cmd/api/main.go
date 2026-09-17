@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
@@ -26,6 +27,7 @@ func main() {
 
 	catalogRepository := memory.NewCatalogRepository()
 	intentRepository := memory.NewPurchaseIntentRepository()
+	approvalRepository := memory.NewApprovalRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
@@ -44,6 +46,27 @@ func main() {
 	)
 	intentController := intents.NewHTTPController(intentService, idempotencyStore)
 	intentController.RegisterRoutes(mux)
+	approvalTokenSigner, err := approvals.NewApprovalTokenSigner(
+		[]byte(os.Getenv("AGENTPAY_LOCAL_APPROVAL_TOKEN_SECRET")),
+	)
+	if err != nil {
+		slog.Error("invalid approval token secret", "error", err)
+		os.Exit(1)
+	}
+	approvalService := approvals.NewService(
+		approvalRepository,
+		intentRepository,
+		idGenerator,
+		approvals.NewSecureTokenGenerator(nil),
+		approvalTokenSigner,
+		clock,
+		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
+	)
+	approvalController := approvals.NewHTTPController(
+		approvalService,
+		idempotencyStore,
+	)
+	approvalController.RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
 		Authenticator: api.NewStaticAuthenticator(

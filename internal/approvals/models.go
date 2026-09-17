@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"context"
 	"errors"
 
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -63,6 +64,62 @@ type Invitation struct {
 type DecisionResult struct {
 	Status        SessionStatus
 	ApprovalToken string
+}
+
+// ApproverRequest identifies one approval participant label.
+type ApproverRequest struct {
+	Label string `json:"label"`
+}
+
+// CreateSessionRequest is the approval-session creation request.
+type CreateSessionRequest struct {
+	Approvers []ApproverRequest `json:"approvers"`
+}
+
+// DecideRequest is the approval decision request.
+type DecideRequest struct {
+	Decision Decision `json:"decision"`
+}
+
+// DecisionView is the public representation of a recorded decision.
+type DecisionView struct {
+	Label     string           `json:"label"`
+	Decision  Decision         `json:"decision"`
+	DecidedAt domain.Timestamp `json:"decidedAt"`
+}
+
+// InvitationLink is a one-time approval invitation returned at creation.
+type InvitationLink struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+}
+
+// SessionResponse is the redacted approval-session API representation.
+type SessionResponse struct {
+	SessionID         domain.ID            `json:"sessionId"`
+	IntentID          domain.ID            `json:"intentId"`
+	IntentHash        intents.SHA256Digest `json:"intentHash"`
+	RequiredApprovals int                  `json:"requiredApprovals"`
+	Decisions         []DecisionView       `json:"decisions"`
+	Status            SessionStatus        `json:"status"`
+	ExpiresAt         domain.Timestamp     `json:"expiresAt"`
+	CreatedAt         domain.Timestamp     `json:"createdAt"`
+	UpdatedAt         domain.Timestamp     `json:"updatedAt"`
+	Version           uint64               `json:"version"`
+	Invitations       []InvitationLink     `json:"invitations,omitempty"`
+	ApprovalToken     string               `json:"approvalToken,omitempty"`
+}
+
+// Repository is the persistence boundary consumed by approval use cases.
+type Repository interface {
+	Create(ctx context.Context, session Session) error
+	Get(ctx context.Context, sessionID domain.ID) (Session, error)
+	Update(ctx context.Context, session Session, expectedVersion uint64) error
+}
+
+// IntentRepository loads purchase intents for approval binding.
+type IntentRepository interface {
+	Get(ctx context.Context, intentID domain.ID) (intents.PurchaseIntent, error)
 }
 
 // Session binds human decisions to one immutable purchase-intent hash.
