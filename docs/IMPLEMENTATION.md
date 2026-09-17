@@ -114,25 +114,38 @@ This track may begin after M1 and must not block or modify the payment-critical 
 
 R1 acceptance: the model ranks only eligible offers, beats or matches the deterministic baseline on predefined synthetic scenarios, reproduces results from fixed seeds, and has no access to authorization or payment capabilities.
 
-## Milestone M7 — Human storefront and unified commerce
+## Milestone M7 — Seller operations, storefront, and growth
 
-- [ ] **HUM-001** Verify the selected human-checkout provider, lock merchant and settlement responsibilities, and update OpenAPI and data-model compatibility notes.
-- [ ] **HUM-002** Implement hosted human checkout creation against the same immutable purchase-intent rules used by agents.
-- [ ] **HUM-003** Implement authenticated, idempotent payment callbacks with replay protection and no success-redirect trust.
-- [ ] **HUM-004** Persist purchase channel and payment rail so human and agent sales share transaction, fulfillment, evidence, and dispute behavior.
-- [ ] **BIL-001** Implement seller subscription plans without taking custody of buyer-to-seller x402 funds.
-- [ ] **BIL-002** Implement auditable metered billing from successful transaction records.
+- [ ] **WAL-001** Define the seller payment-destination contract and add seller-scoped wallet create, list, and read operations for explicit asset and network pairs.
+- [ ] **WAL-002** Implement wallet-ownership challenges, verification, guarded activation, and confirmed rotation without storing private keys or signed challenge material.
+- [ ] **PAY-010** Add payment reconciliation that distinguishes challenged, verified, finalized, fulfilled, failed, and disputed amounts using safe facilitator or network references.
+- [ ] **ANL-001** Implement seller sales aggregates grouped by asset, network, route, UTC day, and transaction status without combining unlike currencies.
+- [ ] **API-010** Add bounded seller transaction filters, dashboard-summary endpoints, and cursor pagination for date, route, status, asset, and network.
+- [ ] **EVT-001** Define seller webhook subscriptions and signed event contracts for payment verified, fulfillment succeeded, fulfillment failed, and dispute changes.
+- [ ] **EVT-002** Implement idempotent webhook delivery, bounded retries, dead-letter state, replay-safe redelivery, and seller-visible delivery history.
+- [ ] **RCP-001** Implement downloadable machine-readable purchase receipts backed by transaction and evidence-chain verification.
+- [ ] **BIL-001** Implement seller plans, quotas, and feature limits independently from buyer-to-seller payment settlement.
+- [ ] **BIL-002** Implement immutable usage-meter events and invoice exports from successful AgentPay transactions; payment collection for AgentPay invoices remains a separate adapter.
+- [ ] **AUD-001** Implement seller-visible audit events for credentials, wallets, prices, route lifecycle, publication, webhook configuration, and administrative suspension.
+- [ ] **OPS-001** Enforce per-seller API, MCP, route, and webhook quotas with deterministic permission-denied and rate-limit responses.
+- [ ] **SEO-001** Define stack detection and the supported integration matrix for Next.js, React/Vite, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, Gin, Echo, Fiber, FastAPI, Starlette, Flask, and Django; keep unsupported ecosystems explicitly labeled.
+- [ ] **SEO-002** Publish setup bundle v2 for Claude Code, Codex, and generic MCP hosts with technical SEO, AEO, and agent-discovery generation using stack-native conventions.
+- [ ] **SEO-003** Add deterministic checks for metadata, canonical URLs, robots directives, sitemap output, structured data, semantic content, `llms.txt`, manifest consistency, accessibility, and performance budgets. Never promise or report guaranteed search ranking.
+- [ ] **STK-001** Add maintained integration recipes and focused tests for the supported JavaScript and TypeScript stacks.
+- [ ] **STK-002** Add maintained integration recipes and focused tests for the supported Go and Python stacks.
+- [ ] **STK-003** Add verified package and setup-bundle support for ASP.NET Core, Spring Boot, Rails, and Laravel before advertising those ecosystems as supported.
 - [ ] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.
-- [ ] **WEB-002** Implement seller onboarding, project credentials, product-route configuration, validation, and publication controls.
-- [ ] **WEB-003** Implement seller-branded storefront and product-detail pages generated from published paid routes.
-- [ ] **WEB-004** Implement human checkout, success, cancellation, fulfillment, and purchase-history experiences.
-- [ ] **WEB-005** Implement the unified seller dashboard for human and agent transactions, revenue, payment status, and filters.
-- [ ] **WEB-006** Implement buyer chat/tool activity view with deterministic fallback indicator.
-- [ ] **WEB-007** Implement live approval page, decision controls, REST fallback, and expiration state.
-- [ ] **WEB-008** Implement evidence verification and dispute creation/resolution views.
-- [ ] **WEB-009** Add loading, empty, retryable error, terminal error, disabled, and permission-denied states.
+- [ ] **WEB-002** Implement seller onboarding for storefront creation, verified wallet setup, project credentials, MCP configuration, setup-prompt copy, and sandbox status.
+- [ ] **WEB-003** Implement product-route draft, price, validation, publish, pause, archive, and emergency-disable controls with version history.
+- [ ] **WEB-004** Implement the seller dashboard for gross verified payments, fulfilled sales, failures, disputes, route performance, and asset/network-separated totals.
+- [ ] **WEB-005** Implement transaction detail, evidence verification, webhook delivery history, and receipt download views.
+- [ ] **WEB-006** Implement seller-branded storefront and product-detail pages with wallet/x402 purchase instructions and generated SEO/AEO metadata.
+- [ ] **WEB-007** Implement buyer chat/tool activity view with deterministic fallback indicator.
+- [ ] **WEB-008** Implement live approval page, decision controls, REST fallback, and expiration state.
+- [ ] **WEB-009** Implement evidence verification and dispute creation/resolution views.
+- [ ] **WEB-010** Add loading, empty, retryable error, terminal error, disabled, permission-denied, quota, and suspended-seller states.
 
-M7 acceptance: the same published product can be purchased through the hosted human storefront and the agent/x402 path, both produce one normalized transaction history, and all primary screens pass responsive, accessibility, and secret-exposure checks.
+M7 acceptance: a seller can verify a payment destination, connect a supported coding agent, publish and pause products, receive x402 funds directly, reconcile every payment, receive signed notifications, and view asset-separated sales and evidence in an accessible dashboard. Generated storefronts expose validated technical SEO, AEO, manifest, and `llms.txt` output without making ranking guarantees.
 
 ## Milestone M8 — AWS infrastructure and operations
 
@@ -159,14 +172,24 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-005** Demonstrate duplicate, non-delivery, and quality dispute outcomes.
 - [ ] **REL-006** Rehearse deterministic fallback and AWS dependency failures.
 - [ ] **REL-007** Connect a coding agent, generate a seller integration, approve publication, and pass the sandbox validator.
-- [ ] **REL-008** Complete one human checkout and one agent/x402 purchase for the same storefront and show both in the seller dashboard.
+- [ ] **REL-008** Complete one browser-wallet purchase and one agent/x402 purchase for the same storefront and show both in the seller dashboard without double counting.
 - [ ] **REL-009** Run the complete demo three consecutive times without manual data repair.
+- [ ] **REL-010** Verify generated storefront metadata, structured data, sitemap, `llms.txt`, and manifest output across the supported stack fixtures.
 
-M9 acceptance: all release gates in `TEST_PLAN.md` pass, generated changes are reviewable, both buyer channels work, and mocked behavior is visibly labeled.
+M9 acceptance: all release gates in `TEST_PLAN.md` pass, generated changes are reviewable, browser-wallet and agent purchase paths work, dashboard totals reconcile by asset and network, and mocked behavior is visibly labeled.
+
+## Deferred milestone H1 — Card checkout
+
+- [ ] **HUM-001** Verify a human card-checkout provider and lock merchant-of-record, settlement, refund, tax, chargeback, and platform-fee responsibilities.
+- [ ] **HUM-002** Implement seller payment-account onboarding without exposing financial credentials to AgentPay agents or browser code.
+- [ ] **HUM-003** Implement hosted card checkout against the same immutable purchase-intent rules used by x402.
+- [ ] **HUM-004** Implement authenticated, idempotent provider callbacks with replay protection and no success-redirect trust.
+- [ ] **HUM-005** Persist card payment-rail metadata so card and x402 sales use the same fulfillment, evidence, receipt, and dispute behavior.
 
 ## Post-hackathon backlog
 
 - Full seller SDKs beyond the maintained verification packages.
+- Card checkout remains deferred until H1; Stripe or another provider is not required for the agent-first x402 release.
 - Seller-controlled reimbursement adapter.
 - Enterprise authentication and configurable N-of-M approval.
 - Protocol adapter interface for additional rails.

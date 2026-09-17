@@ -10,7 +10,11 @@ AgentPay turns a seller's existing API or digital service into one commerce surf
 
 ### Web application
 
-The Next.js application provides seller onboarding, product and route configuration, a seller sales dashboard, hosted human storefronts, the agent buyer demonstration, live approval, transaction evidence, and dispute views.
+The Next.js application provides seller onboarding, verified payment-destination
+setup, product and route configuration, an asset-separated sales dashboard,
+seller-branded storefronts, browser-wallet purchase guidance, the agent buyer
+demonstration, live approval, transaction evidence, receipts, webhook status,
+and dispute views.
 
 Server Components render read-heavy pages. Client Components are limited to buyer interaction, approval decisions, WebSocket status, and small optimistic controls.
 
@@ -22,6 +26,13 @@ The MCP server exposes bounded AgentPay operations; it is not a general remote s
 
 Generated integration code must use maintained AgentPay request-verification packages when available. Coding agents must not generate independent cryptographic protocols or place project credentials in browser code.
 
+Setup bundle v2 also detects supported application stacks and proposes
+stack-native technical SEO, answer-engine optimization, and agent-discovery
+changes. Those changes include visible metadata, canonical URLs, structured
+data, sitemap and robots output, semantic page content, `llms.txt`, and manifest
+consistency. The automation cannot guarantee ranking and must not generate
+deceptive or invisible search content.
+
 ### Go API
 
 One deployable Go binary owns all authoritative business rules through isolated packages:
@@ -31,17 +42,22 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `policy`: budget and approval evaluation.
 - `approvals`: sessions, invitations, decisions, and approval tokens.
 - `payments`: x402 challenge creation and facilitator verification.
+- `settlement`: seller payment destinations, ownership verification, rotation,
+  and reconciliation status.
 - `proxy`: upstream request forwarding and seller request signatures.
 - `evidence`: append-only evidence events and chain verification.
 - `disputes`: deterministic classification and recommendations.
 - `agents`: Bedrock tool orchestration and deterministic fallback.
+- `analytics`: seller-scoped, asset-separated sales aggregates and dashboard queries.
+- `notifications`: signed seller webhook subscriptions and delivery attempts.
+- `billing`: seller plans, quotas, usage meters, and invoice exports; it never
+  controls buyer funds or seller settlement.
 
 Packages may call each other through explicit interfaces. They must not write another package's DynamoDB records directly.
 
-M6 and M7 add two package boundaries after their contracts are finalized:
+M6 and M7 add package boundaries after their contracts are finalized:
 
 - `integrations`: project credentials, MCP operations, integration validation, and framework setup metadata.
-- `billing`: seller subscription and metered platform billing; it does not control buyer funds or seller settlement.
 
 ### Feature package layout
 
@@ -77,18 +93,25 @@ Shared primitives and storage adapters remain organized by their concrete respon
 4. **Seller boundary:** forwarded requests are allowlisted by configured method and route, protected against SSRF, and signed for the seller.
 5. **Evidence boundary:** evidence writers may append but cannot update or delete objects; verification uses a separate read role.
 6. **Coding-agent boundary:** repository files, prompts, generated code, and MCP arguments are untrusted; write operations are scoped, validated, audited, and confirmed by the seller.
-7. **Human-checkout boundary:** provider callbacks are authenticated and idempotent, and successful payment still passes through the same intent and transaction rules as x402.
+7. **Browser-wallet boundary:** browser input and wallet responses are untrusted;
+   only server-side x402 verification may advance payment state.
+8. **Webhook boundary:** subscriptions use validated public HTTPS destinations;
+   deliveries are signed, bounded, retried, and protected against SSRF.
 
 ## Seller launch lifecycle
 
 1. The seller creates a storefront and receives a project-scoped integration credential.
-2. The seller connects the AgentPay MCP server to a supported coding agent.
-3. The coding agent inspects the local API contract and proposes products backed by concrete HTTPS routes.
-4. The agent adds maintained signature-verification middleware, server-only configuration, storefront code, and tests.
-5. The seller reviews prices, payout configuration, route publication, and deployment changes.
-6. Confirmed products are registered through idempotent control-plane operations.
-7. A sandbox purchase verifies discovery, payment gating, signed forwarding, and exactly-once fulfillment.
-8. The seller explicitly publishes the storefront and deploys the prepared application.
+2. The seller configures an asset-and-network-specific payment destination and
+   proves control without disclosing a private key.
+3. The seller connects the AgentPay MCP server to a supported coding agent.
+4. The coding agent inspects the local API contract and proposes products backed by concrete HTTPS routes.
+5. The agent adds maintained signature-verification middleware, server-only
+   configuration, storefront code, technical SEO/AEO, agent discovery, and tests.
+6. The seller reviews prices, payment destinations, route publication, generated
+   content, and deployment changes.
+7. Confirmed products are registered through idempotent control-plane operations.
+8. A sandbox purchase verifies discovery, payment gating, signed forwarding, and exactly-once fulfillment.
+9. The seller explicitly publishes the storefront and deploys the prepared application.
 
 The coding agent prepares and validates changes. It never receives production payout secrets and never publishes or deploys without seller confirmation.
 
@@ -97,9 +120,13 @@ The coding agent prepares and validates changes. It never receives production pa
 Both buyer channels consume the same published paid routes:
 
 - **Agent channel:** manifest or `llms.txt` discovery, immutable intent, optional approval, x402 payment, and signed fulfillment.
-- **Human channel:** seller-branded product page, immutable intent, optional approval, hosted checkout, and the same signed fulfillment.
+- **Browser channel:** seller-branded product page, immutable intent, optional
+  approval, x402-compatible wallet payment, and the same signed fulfillment.
 
 The channel is presentation and payment-rail metadata. It does not create separate pricing, authorization, evidence, transaction, or dispute semantics.
+
+Card checkout is deferred to H1. Selecting a provider later must not change the
+authoritative intent, fulfillment, evidence, receipt, or dispute domains.
 
 ## Purchase lifecycle
 
@@ -135,7 +162,13 @@ The channel is presentation and payment-rail metadata. It does not create separa
 | WebSocket disconnect | Approval remains queryable over REST; reconnect receives the current snapshot. |
 | Duplicate paid retry | Return the prior transaction outcome; never forward twice. |
 | Expired approval | Require a new approval session before issuing another challenge. |
+| Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
+| Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
+| Search metadata validation fails | Keep the storefront publishable only after the seller fixes or explicitly removes the invalid generated metadata. |
 
 ## Deliberate exclusions
 
-The first implementation does not provide physical goods, shipping, inventory, tax calculation, production custody, generalized refunds, cross-seller reputation, autonomous negotiation, arbitrary remote code execution, or automatic quality judgments.
+The first implementation does not provide card checkout, physical goods,
+shipping, inventory, tax calculation, production custody, generalized refunds,
+cross-seller reputation, autonomous negotiation, arbitrary remote code
+execution, guaranteed search ranking, or automatic quality judgments.

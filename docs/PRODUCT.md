@@ -35,7 +35,8 @@ The intended onboarding flow is:
 3. The seller connects the AgentPay MCP server to a supported coding agent such
    as Claude Code or Codex.
 4. The coding agent inspects the seller repository and proposes sellable routes,
-   storefront pages, verification middleware, configuration, and tests.
+   storefront pages, verification middleware, technical SEO/AEO improvements,
+   agent-discovery metadata, configuration, and tests.
 5. The seller reviews the proposed prices, routes, generated code, and deployment
    changes.
 6. Only after explicit confirmation may the integration publish products or
@@ -47,13 +48,20 @@ A representative prompt is:
 
 ```text
 Connect this project to AgentPay. Identify sellable API routes, propose products
-and prices, install AgentPay request verification, generate the storefront,
-run the integration tests, and prepare the deployment for my approval.
+and prices, install AgentPay request verification, generate the storefront and
+stack-native technical SEO/AEO metadata, run the integration tests, and prepare
+the changes for my approval.
 ```
 
 The coding agent may prepare code and configuration automatically. It must not
 invent prices, publish products, rotate credentials, or deploy production
 changes without explicit seller confirmation.
+
+SEO/AEO generation improves crawlability and machine discovery but never
+guarantees placement, traffic, conversion, or ranking in a search engine or AI
+answer. Generated changes must avoid keyword stuffing, hidden content, doorway
+pages, fabricated reviews, fabricated claims, and schema markup that is not
+supported by visible page content.
 
 ## Seller integration surface
 
@@ -66,7 +74,8 @@ V1 does not require a large seller SDK. AgentPay provides:
   server frameworks;
 - framework templates and copyable examples;
 - a sandbox validation command; and
-- generated public storefront, manifest, `llms.txt`, and paid URLs.
+- generated public storefront, manifest, `llms.txt`, sitemap, structured data,
+  canonical metadata, and paid URLs.
 
 The seller exposes an HTTPS fulfillment endpoint. AgentPay verifies payment and
 approval, claims the transaction exactly once, and forwards a signed request to
@@ -81,20 +90,38 @@ Agents discover products through the storefront manifest or `llms.txt`, create
 an immutable purchase intent, satisfy approval when required, pay through the
 x402 adapter, and call the AgentPay paid URL.
 
-### Human channel
+### Browser channel
 
 People browse a seller-branded storefront, choose the same published products,
-complete a hosted human checkout, and receive the same digital fulfillment.
-The human checkout provider is selected and verified before implementation; it
-must enter the same intent, transaction, evidence, and dispute pipeline rather
-than creating a parallel order system.
+and may complete an x402-compatible wallet payment through browser instructions
+or a supported wallet flow. Agent and browser purchases enter the same intent,
+transaction, evidence, receipt, fulfillment, and dispute pipeline. Card checkout
+is deferred and is not required for the agent-first release.
 
 ## Unified commerce rule
 
-Human and agent purchases share the authoritative seller quote and the same
+Browser and agent purchases share the authoritative seller quote and the same
 purchase-intent, approval, transaction, fulfillment, evidence, and dispute
 rules. Channel and payment-rail metadata may differ, but neither channel may
 bypass domain validation.
+
+## Seller payment and reporting
+
+Each seller configures and proves control of an asset-and-network-specific
+payment destination. AgentPay never requests or stores the private key. Route
+prices reference an active seller payment destination rather than treating an
+unverified address as trusted configuration.
+
+AgentPay records payment and transaction facts centrally as requests pass
+through the gateway. The coding agent is required for repository setup, not for
+ongoing sales reporting. Seller dashboards derive gross verified payments,
+fulfilled sales, failures, disputes, route performance, and usage from AgentPay
+records. Amounts are always grouped by asset and network and are never summed
+across unlike currencies.
+
+Sellers may configure signed webhooks for payment, fulfillment, and dispute
+events. Webhook delivery is retried and audited, but dashboard records remain
+authoritative when a seller endpoint is unavailable.
 
 ## Revenue model
 
@@ -105,19 +132,24 @@ The initial revenue model is seller-funded software and usage billing:
 - higher tiers for approvals, evidence retention, limits, analytics, and support.
 
 Buyer funds continue directly to the seller under the x402 flow. AgentPay does
-not custody or redistribute seller funds in V1. Human-checkout settlement,
-platform fees, refunds, tax responsibility, and merchant-of-record status must
-be explicitly decided before enabling production card payments.
+not custody or redistribute seller funds in V1. AgentPay subscriptions and
+metered usage are accounted for separately from buyer settlement and may be
+invoiced through a future billing adapter. Card settlement, platform fees,
+refunds, tax responsibility, and merchant-of-record status must be explicitly
+decided before enabling production card payments.
 
 ## Definition of a launch-ready seller
 
 A seller is ready to publish only when:
 
 - authentication and project scope are valid;
+- at least one asset-and-network-specific payment destination is verified;
 - every product maps to an enabled, validated paid route;
 - the upstream target passes SSRF and reachability checks;
 - request-signature verification passes the sandbox test;
 - prices and payout configuration were explicitly approved by the seller;
 - no secret is present in committed files or browser bundles;
-- human and agent storefront representations agree; and
+- browser and agent storefront representations agree;
+- generated metadata, sitemap, structured data, `llms.txt`, and manifest pass
+  deterministic consistency checks; and
 - a sandbox purchase reaches the intended fulfillment endpoint exactly once.

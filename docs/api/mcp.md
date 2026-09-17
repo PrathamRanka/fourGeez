@@ -40,12 +40,12 @@ unrestricted HTTP requests.
 
 ## Setup prompt
 
-The read-scoped `prepare_agentpay_integration` prompt requires `host` and
-`framework` arguments. Host is one of `claude-code`, `codex`, or `generic-mcp`.
-Framework is one of `go`, `node`, or `python`. The prompt selects the matching
-versioned setup bundle and verification package, directs the coding agent to
-produce tests and a reviewable diff, and preserves the publication and
-deployment confirmation boundaries in `SETUP_BUNDLES.md`.
+The version-one read-scoped `prepare_agentpay_integration` prompt requires
+`host` and `framework`. SEO-002 introduces version two with `host` and `stack`,
+repository-manifest verification, the support tiers in `SETUP_BUNDLES.md`, and
+stack-native SEO/AEO generation. Both versions select a pinned verification
+package, direct the coding agent to produce tests and a reviewable diff, and
+preserve publication and deployment confirmation boundaries.
 
 ## Mutation tools
 

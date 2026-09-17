@@ -4,7 +4,7 @@ Status: **Locked for the implemented backend; planned M6/M7 additions are explic
 
 ## Conventions
 
-- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`. M6 adds the `key_` integration-credential prefix before credential records are written.
+- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, and `key_`. Planned M7 entities add `dst_` payment destinations, `whk_` webhook subscriptions, `whd_` webhook deliveries, `aud_` audit events, and `mtr_` usage-meter events.
 - Timestamps are RFC 3339 UTC strings.
 - Payment amounts are canonical strings in atomic units; floating-point numbers and leading zeros are forbidden at persistence boundaries, except that zero is `"0"`.
 - `asset` is a chain-specific contract or asset identifier.
@@ -16,9 +16,14 @@ Status: **Locked for the implemented backend; planned M6/M7 additions are explic
 
 ## Commerce terminology and compatibility
 
-A published `PaidRoute` is the V1 product offered in both the human storefront and machine-readable catalog. A separate product entity is not introduced until a real fulfillment type cannot be represented by an HTTPS route.
+A published `PaidRoute` is the V1 product offered in both the browser storefront and machine-readable catalog. A separate product entity is not introduced until a real fulfillment type cannot be represented by an HTTPS route.
 
-The dual-channel milestone adds `purchaseChannel` and `paymentRail` to new purchase intents and transactions. Records created before that migration omit those fields and are interpreted as `purchaseChannel=agent` and `paymentRail=x402`. Writers must not emit the new fields until the corresponding compatibility migration and repository tests are complete.
+The browser-wallet milestone adds `purchaseChannel` to new purchase intents and
+transactions. Records created before that migration omit the field and are
+interpreted as `purchaseChannel=agent`. The initial `paymentRail` remains
+`x402`; a future card rail requires its own compatibility migration. Writers
+must not emit new fields until the corresponding migration and repository tests
+are complete.
 
 ## Entities
 
@@ -35,6 +40,30 @@ The dual-channel milestone adds `purchaseChannel` and `paymentRail` to new purch
 | `status` | enum | `draft`, `active`, `suspended` |
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
+
+### PaymentDestination (planned M7)
+
+A payment destination belongs to one seller and one exact asset/network pair.
+It contains public addressing and verification metadata only. Private keys,
+seed phrases, raw signed challenges, and wallet-provider credentials are never
+accepted or persisted.
+
+| Field | Type | Notes |
+|---|---|---|
+| `destinationId` | string | `dst_` prefixed ULID |
+| `sellerId` | string | Owning seller |
+| `asset`, `network` | string | Exact payment pair supported by the x402 adapter |
+| `address` | string | Public destination validated for the selected network |
+| `status` | enum | `pending_verification`, `active`, `disabled`, `rotated` |
+| `challengeHash` | string/null | Hash of the current one-time ownership challenge |
+| `challengeExpiresAt` | timestamp/null | Short-lived verification expiry |
+| `verifiedAt` | timestamp/null | First successful ownership proof |
+| `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
+| `version` | integer | Used for guarded activation, disabling, and rotation |
+
+Only one destination may be active for a seller, asset, and network. A route
+references an active destination. Rotation affects only purchase intents
+created after the rotation and requires explicit seller confirmation.
 
 ### IntegrationCredential
 
@@ -75,7 +104,8 @@ authority without constant-time verification of the complete token hash.
 | `amount` | string | Atomic units |
 | `asset` | string | Testnet asset identifier |
 | `network` | string | Testnet network identifier |
-| `payTo` | string | Seller testnet address |
+| `payTo` | string | Compatibility snapshot of the verified seller destination used by new intents |
+| `paymentDestinationId` | string/null | Planned M7 reference to the verified seller destination |
 | `approvalThresholdAmount` | string/null | Approval required when amount is greater than or equal to threshold |
 | `upstreamTimeoutSeconds` | integer | Range 1–30 |
 | `enabled` | boolean | Disabled routes cannot issue challenges |
@@ -105,7 +135,7 @@ An intent becomes immutable after creation.
 | `intentId` | string | Primary identifier |
 | `sellerId`, `routeId` | string | Resolved offer |
 | `buyerId` | string | Demo agent/API-key identity |
-| `purchaseChannel` | enum | Planned M7 field: `agent` or `human` |
+| `purchaseChannel` | enum | Planned M7 field: `agent` or `browser` |
 | `requestMethod`, `requestPath` | string | Canonical target |
 | `requestBodyHash` | string | Hash of canonical request bytes |
 | `amount`, `asset`, `network` | string | Frozen quote |
@@ -141,11 +171,14 @@ Raw invitation tokens are returned only when the session is created. When the se
 | `transactionId` | string | Primary identifier |
 | `intentId` | string | Unique; an intent executes once |
 | `sellerId`, `routeId`, `buyerId` | string | Query dimensions |
-| `purchaseChannel` | enum | Planned M7 field: `agent` or `human` |
-| `paymentRail` | enum | Planned M7 field: `x402` or the selected human checkout rail |
+| `purchaseChannel` | enum | Planned M7 field: `agent` or `browser` |
+| `paymentRail` | enum | Planned M7 field: `x402`; future rails require a migration |
 | `status` | enum | State machine below |
 | `paymentIdentifier` | string/null | Unique replay-protection value supplied by payment adapter |
 | `paymentProofHash` | string/null | Never store raw proof |
+| `paymentReference` | string/null | Safe facilitator or network reference, never a raw proof |
+| `paymentFinality` | enum/null | Planned M7: `unconfirmed`, `confirmed`, `finalized`, `failed` |
+| `reconciledAt` | timestamp/null | Last successful reconciliation time |
 | `upstreamStatus` | integer/null | HTTP status received from seller |
 | `responseHash` | string/null | Hash of captured response bytes |
 | `responseSummary` | object/null | Allowlisted metadata only |
@@ -168,6 +201,46 @@ REFUND_RECOMMENDED -> RESOLVED
 ```
 
 Terminal states are `RESOLVED` and an undisputed `FULFILLED`. Invalid transitions return `409 state_conflict`.
+
+### SellerSalesAggregate (planned M7)
+
+Sales aggregates are idempotent projections of authoritative transaction
+events. They never replace transaction or evidence records and never combine
+different assets or networks.
+
+| Field | Type | Notes |
+|---|---|---|
+| `sellerId` | string | Aggregate owner |
+| `bucketDate` | string | UTC date in `YYYY-MM-DD` form |
+| `asset`, `network` | string | Required grouping dimensions |
+| `routeId` | string/null | Null for seller-wide bucket; set for route bucket |
+| `verifiedPaymentCount`, `fulfilledCount`, `failedCount`, `disputedCount` | integer | Non-negative counters |
+| `verifiedAmount`, `fulfilledAmount` | string | Atomic-unit totals for this asset/network only |
+| `lastTransactionAt` | timestamp/null | Newest included transaction |
+| `version` | integer | Conditional-update version |
+
+### WebhookSubscription and WebhookDelivery (planned M7)
+
+`WebhookSubscription` stores a seller-scoped HTTPS destination, allowlisted
+event types, secret reference, enabled status, and version. `WebhookDelivery`
+stores the event ID, subscription ID, attempt number, status, response metadata,
+next retry time, and payload hash. It never stores the signing secret or an
+unrestricted response body.
+
+### UsageMeterEvent (planned M7)
+
+Usage meter events are immutable and idempotently derived from successful
+AgentPay operations. They record seller, meter name, quantity, source
+transaction or operation ID, plan version, and UTC timestamp. Invoice export
+does not move buyer funds or imply a billing-provider choice.
+
+### AuditEvent (planned M7)
+
+Audit events append seller-scoped changes to credentials, payment destinations,
+routes, prices, publication state, webhook subscriptions, quotas, and
+administrative status. Each event records actor, action, target, outcome,
+request ID, timestamp, and allowlisted changed-field names without secrets or
+repository contents.
 
 ### ApprovalConnection
 
@@ -237,6 +310,12 @@ Examples:
 PK=SELLER#sel_123       SK=PROFILE
 PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123
+PK=SELLER#sel_123       SK=DESTINATION#dst_123
+PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL
+PK=SELLER#sel_123       SK=WEBHOOK#whk_123
+PK=SELLER#sel_123       SK=WEBHOOK_DELIVERY#whd_123
+PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123
+PK=SELLER#sel_123       SK=METER#<createdAt>#mtr_123
 PK=INTENT#int_123       SK=PROFILE
 PK=APPROVAL#aps_123     SK=PROFILE
 PK=APPROVAL#aps_123     SK=INVITE#<tokenHash>

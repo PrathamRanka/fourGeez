@@ -12,7 +12,9 @@ Status: **Required for every implementation task**.
 - Secrets and payment proofs never appear in browser bundles, API responses, evidence payloads, or logs.
 - A dispute result is reproducible from recorded facts and rule version.
 - A coding agent cannot publish products, rotate credentials, or deploy production changes without explicit seller authorization.
-- Human and agent checkout channels cannot bypass the same pricing, approval, and fulfillment rules.
+- Browser and agent purchase channels cannot bypass the same pricing, approval, and fulfillment rules.
+- A seller payment destination cannot become active without bounded ownership verification.
+- Generated SEO/AEO content cannot invent claims, reviews, prices, availability, or hidden search content.
 
 ## Protected assets
 
@@ -47,6 +49,12 @@ Status: **Required for every implementation task**.
 | Generated secret exposure | Write secrets only to ignored server-side configuration, scan generated changes, and never serialize secrets into browser code or model prompts |
 | Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |
 | Human checkout forgery or replay | Authenticate provider callbacks, bind them to immutable intents, process them idempotently, and reuse transaction replay protection |
+| Payout-address substitution | Verify wallet ownership, bind destinations to seller and asset/network, require explicit confirmed rotation, and freeze the destination in each purchase intent |
+| Dashboard revenue inflation | Derive aggregates idempotently from authoritative payment and transaction events and keep assets/networks separate |
+| Forged seller webhook | Sign canonical payloads, include event IDs and timestamps, use constant-time verification, and make redelivery idempotent |
+| Webhook SSRF | Apply the seller-proxy public-address, DNS-rebinding, redirect, timeout, and response-size controls to webhook destinations |
+| SEO/AEO abuse | Require visible-content consistency, prohibit fabricated claims and keyword stuffing, validate structured data, and never promise ranking |
+| Tenant resource exhaustion | Apply seller-scoped quotas and rate limits to API, MCP, route, analytics, and webhook operations |
 
 ## Canonical hashing
 
@@ -117,9 +125,14 @@ Forbidden:
 - Project credentials are seller-scoped, hashed at rest, revocable, and never committed to the seller repository.
 - Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.
 - Repository analysis must not upload unrelated source files, `.env` contents, credentials, wallet material, customer information, or proprietary data to AgentPay.
+- SEO/AEO generation may inspect public page structure and allowlisted product
+  metadata only. It must not upload private source, generate hidden content, or
+  state that ranking improvement is guaranteed.
 
 ## Human checkout requirements
 
+- Card checkout is deferred to milestone H1 and is not required for the
+  agent-first x402 release.
 - The human checkout provider must be selected and its official integration guidance recorded before adding a dependency.
 - A provider success redirect is not proof of payment; only an authenticated server callback may advance payment state.
 - Provider events require replay protection and idempotent processing.

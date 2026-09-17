@@ -25,7 +25,7 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 | [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
 | [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Purchase and approval sequence |
 | [uml/seller-integration-sequence.puml](uml/seller-integration-sequence.puml) | Coding-agent seller integration and publication sequence |
-| [uml/human-purchase-sequence.puml](uml/human-purchase-sequence.puml) | Human checkout through the shared commerce pipeline |
+| [uml/browser-wallet-purchase-sequence.puml](uml/browser-wallet-purchase-sequence.puml) | Browser-wallet x402 purchase through the shared commerce pipeline |
 | [uml/dispute-sequence.puml](uml/dispute-sequence.puml) | Dispute sequence |
 
 ## Authority and conflict rules

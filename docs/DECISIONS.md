@@ -26,6 +26,11 @@ Last reviewed: 2026-09-17.
 | ADR-018 | Use maintained request-verification packages rather than generated cryptographic implementations. | Keeps seller integration small while preserving one audited signature protocol. |
 | ADR-019 | Fund the initial product through seller subscriptions and metered software usage, separately from buyer-to-seller settlement. | Allows monetization without taking custody of buyer funds. |
 | ADR-020 | Use Terraform for infrastructure and remove the existing CDK placeholder during AWS-000. | Prevents dual ownership of AWS resources and matches the repository engineering contract. |
+| ADR-021 | Ship the first seller dashboard around direct seller x402 settlement; defer card checkout to H1. | The dashboard can use AgentPay transaction records without placing AgentPay in the buyer-funds flow. |
+| ADR-022 | Require a verified seller payment destination for each asset and network before route publication. | A copied or mistyped payout address must not silently receive buyer funds. |
+| ADR-023 | Treat AgentPay transaction, reconciliation, evidence, and aggregate records as the dashboard source of truth; the seller coding agent is setup-time tooling, not a runtime sales reporter. | Sales remain visible when the coding agent is disconnected and can be isolated by seller. |
+| ADR-024 | Generate technical SEO, AEO, and agent-discovery assets through setup bundles, but never promise rankings or generate deceptive content. | Search placement is controlled by external systems; AgentPay can improve discoverability and correctness only. |
+| ADR-025 | Publish an explicit tested-stack matrix. A stack is advertised as supported only after its integration recipe and focused fixture pass. | Language-level verification primitives do not prove framework-level raw-body, middleware-order, routing, or rendering compatibility. |
 
 ## Hackathon assumptions
 
@@ -46,7 +51,7 @@ Last reviewed: 2026-09-17.
 - Data residency and multi-region recovery.
 - Enterprise SSO and SCIM.
 - Real custodial wallets.
-- The production human-checkout provider and merchant-of-record arrangement, to be decided before implementation.
+- The production card-checkout provider and merchant-of-record arrangement, deferred to H1.
 - MPP, AP2, or UCP adapters.
 - Physical-product inventory, shipping, taxation, and returns.
 - Negotiation optimization and RL.

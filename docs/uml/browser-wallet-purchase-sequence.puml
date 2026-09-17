@@ -1,22 +1,26 @@
-@startuml AgentPay Human Purchase Sequence
+@startuml AgentPay Browser Wallet Purchase Sequence
 !theme plain
-title AgentPay — Human Purchase Through Shared Commerce
+title AgentPay - Browser Wallet Purchase Through Shared Commerce
 
 actor Buyer
 participant "Hosted storefront" as Web
 participant "AgentPay API" as API
-participant "Human checkout provider" as Checkout
+participant "Buyer wallet" as Wallet
+participant "x402 facilitator" as Facilitator
 participant "Transaction service" as Transactions
 participant "Seller API" as Seller
 participant "Evidence service" as Evidence
 
 Buyer -> Web : Select published product
-Web -> API : Create immutable purchase intent\nchannel=human
+Web -> API : Create immutable purchase intent\nchannel=browser
 API --> Web : Frozen seller quote and approval requirement
-Web -> Checkout : Start hosted checkout
-Buyer -> Checkout : Complete payment
-Checkout -> API : Authenticated idempotent callback
-API -> Transactions : Verify payment and claim fulfillment once
+Web -> API : Request paid route
+API --> Web : Return x402 challenge
+Buyer -> Wallet : Approve exact asset, network, amount, and destination
+Web -> API : Retry with payment proof
+API -> Facilitator : Verify payment proof
+Facilitator --> API : Verified payment reference
+API -> Transactions : Claim fulfillment once
 Transactions -> Evidence : Append payment verification
 Transactions -> Seller : Forward signed request
 Seller --> Transactions : Return digital result

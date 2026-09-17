@@ -18,6 +18,13 @@ Run without AWS or network access.
 - Every dispute rule and fallback to seller review.
 - Header and log redaction.
 - URL and IP SSRF rejection.
+- Payment-destination challenge expiry, invalid signatures, replay, activation,
+  disabling, and rotation.
+- Asset/network-separated aggregate updates and duplicate-event rejection.
+- Webhook signature, retry, dead-letter, redelivery, and SSRF behavior.
+- Plan quota boundaries and immutable usage-meter events.
+- SEO/AEO validation for canonical URLs, structured data, visible-content
+  consistency, sitemap, robots directives, `llms.txt`, and manifest output.
 
 ### API contract tests
 
@@ -41,7 +48,10 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - MCP credentials cannot cross seller boundaries or exceed their scopes.
 - MCP mutation retries return the original result and do not duplicate products.
 - Generated seller middleware accepts valid AgentPay signatures and rejects modified bodies, stale timestamps, and replayed transaction identifiers.
-- Authenticated human-checkout callbacks and x402 verification create the same normalized transaction outcome.
+- Payment reconciliation never reports unconfirmed value as finalized and remains idempotent across repeated provider observations.
+- Dashboard aggregate projection retries cannot double count a transaction.
+- Seller webhooks preserve event identity across retries and never block the authoritative transaction write.
+- Every advertised stack fixture installs verification, preserves raw request bytes, exposes the sandbox route, and produces valid discovery metadata.
 
 ### End-to-end tests
 
@@ -54,7 +64,14 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 7. Raise `quality_or_output` dispute and receive `seller_review`.
 8. Disable Bedrock and complete the purchase through deterministic fallback.
 9. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
-10. Buy the same published product through the human storefront and agent/x402 flow and verify both sales appear in the seller dashboard.
+10. Buy the same published product through a browser wallet and an agent/x402
+    flow and verify both sales appear once in the seller dashboard.
+11. Rotate the seller payment destination and prove existing intents retain the
+    old frozen destination while new intents use the verified replacement.
+12. Disable seller webhooks, complete a purchase, and prove the dashboard and
+    evidence remain authoritative.
+13. Generate a supported-stack storefront and validate canonical metadata,
+    structured data, sitemap, robots, manifest, and `llms.txt` consistency.
 
 ## Web quality checks
 
@@ -64,8 +81,9 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - Reduced-motion mode removes nonessential transitions.
 - Layout checks at 360, 768, 1280, and 1440 pixel widths.
 - No horizontal page overflow.
-- Human storefront product and checkout pages remain usable without agent tooling.
+- Public storefront product and browser-wallet purchase pages remain usable without agent tooling.
 - Seller automation screens clearly distinguish proposed, validated, published, and failed integration states.
+- Dashboard totals label asset and network and never display one combined total for unlike currencies.
 - Lighthouse targets on the deployed demo: accessibility at least 95; best practices at least 90.
 
 ## Performance and resilience targets
