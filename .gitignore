@@ -7,7 +7,7 @@ npm-debug.log*
 *.tsbuildinfo
 
 # Go
-bin/
+/bin/
 *.test
 coverage.out
 
