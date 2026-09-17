@@ -35,7 +35,7 @@ M1 acceptance: a clean checkout can install dependencies and run all empty-proje
 - [x] **BE-001** Implement shared IDs, money type, UTC timestamps, validation errors, and idempotency interface.
 - [x] **BE-002** Implement seller and paid-route domain models.
 - [x] **BE-003** Implement immutable purchase intents and canonical request hashing.
-- [ ] **BE-004** Implement deterministic policy evaluation for approval thresholds.
+- [x] **BE-004** Implement deterministic policy evaluation for approval thresholds.
 - [ ] **BE-005** Implement approval sessions, invitations, decisions, expiration, veto, and approval-token validation.
 - [ ] **BE-006** Implement transaction state machine with guarded transitions.
 - [ ] **BE-007** Implement evidence event hashing, chaining, signing interface, and chain verification.

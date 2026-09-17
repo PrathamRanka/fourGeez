@@ -52,6 +52,8 @@ Status: **Locked for hackathon implementation**.
 
 Price updates apply only to purchase intents created after the update. Existing intents retain their frozen amount until they expire or execute.
 
+Approval threshold evaluation is inclusive: an amount equal to or greater than the applicable threshold requires approval. A missing threshold means no approval requirement from that policy. The recorded policy version is `approval-threshold-v1`.
+
 ### PurchaseIntent
 
 An intent becomes immutable after creation.
