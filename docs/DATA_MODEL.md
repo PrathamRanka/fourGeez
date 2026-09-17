@@ -84,8 +84,12 @@ The price and commercial fields of an intent never change after creation. Seller
 | `status` | enum | `pending`, `approved`, `vetoed`, `expired` |
 | `expiresAt` | timestamp | Same or earlier than intent expiration |
 | `approvalTokenHash` | string/null | Only the token hash is persisted |
+| `createdAt`, `updatedAt` | timestamp | UTC creation and latest state change |
+| `version` | integer | Starts at 1 and increments on every decision or expiration |
 
 Each invitation is stored as a child item containing approver label, token hash, expiration, use timestamp, and decision. An invitation can produce one decision only.
+
+Raw invitation tokens are returned only when the session is created. When the second approval resolves a session, a short-lived HMAC-signed approval token is returned once and only its SHA-256 hash is persisted. The token is bound to the session ID, intent ID, complete intent hash, and session expiration.
 
 ### Transaction
 

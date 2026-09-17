@@ -509,7 +509,7 @@ components:
                   url: { type: string, format: uri }
     ApprovalSession:
       type: object
-      required: [sessionId, intentId, intentHash, requiredApprovals, decisions, status, expiresAt, createdAt]
+      required: [sessionId, intentId, intentHash, requiredApprovals, decisions, status, expiresAt, createdAt, updatedAt, version]
       properties:
         sessionId: { type: string }
         intentId: { type: string }
@@ -527,6 +527,8 @@ components:
         status: { type: string, enum: [pending, approved, vetoed, expired] }
         expiresAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
     Transaction:
       type: object
       required: [transactionId, intentId, sellerId, routeId, buyerId, status, amount, asset, network, createdAt, updatedAt]
