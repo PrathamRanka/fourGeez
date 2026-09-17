@@ -98,6 +98,41 @@ func (signer *ApprovalTokenSigner) Issue(sessionID, intentID domain.ID, intentHa
 
 // Verify validates signature, binding, version, and expiration.
 func (signer *ApprovalTokenSigner) Verify(token string, expectedSessionID, expectedIntentID domain.ID, expectedIntentHash intents.SHA256Digest, now domain.Timestamp) (ApprovalTokenClaims, error) {
+	claims, err := signer.verifyClaims(token, now)
+	if err != nil {
+		return ApprovalTokenClaims{}, err
+	}
+	if claims.SessionID != expectedSessionID ||
+		claims.IntentID != expectedIntentID ||
+		claims.IntentHash != expectedIntentHash {
+		return ApprovalTokenClaims{}, ErrApprovalTokenInvalid
+	}
+	return claims, nil
+}
+
+// VerifyForIntent validates a token before its claimed session is loaded.
+func (signer *ApprovalTokenSigner) VerifyForIntent(
+	token string,
+	expectedIntentID domain.ID,
+	expectedIntentHash intents.SHA256Digest,
+	now domain.Timestamp,
+) (ApprovalTokenClaims, error) {
+	claims, err := signer.verifyClaims(token, now)
+	if err != nil {
+		return ApprovalTokenClaims{}, err
+	}
+	if claims.IntentID != expectedIntentID ||
+		claims.IntentHash != expectedIntentHash {
+		return ApprovalTokenClaims{}, ErrApprovalTokenInvalid
+	}
+	return claims, nil
+}
+
+// verifyClaims validates token structure, signature, version, and expiration.
+func (signer *ApprovalTokenSigner) verifyClaims(
+	token string,
+	now domain.Timestamp,
+) (ApprovalTokenClaims, error) {
 	segments := strings.Split(token, ".")
 	if len(segments) != 2 {
 		return ApprovalTokenClaims{}, ErrApprovalTokenInvalid
@@ -116,10 +151,7 @@ func (signer *ApprovalTokenSigner) Verify(token string, expectedSessionID, expec
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return ApprovalTokenClaims{}, ErrApprovalTokenInvalid
 	}
-	if claims.Version != approvalTokenVersion ||
-		claims.SessionID != expectedSessionID ||
-		claims.IntentID != expectedIntentID ||
-		claims.IntentHash != expectedIntentHash {
+	if claims.Version != approvalTokenVersion {
 		return ApprovalTokenClaims{}, ErrApprovalTokenInvalid
 	}
 	if !now.Time().Before(claims.ExpiresAt.Time()) {

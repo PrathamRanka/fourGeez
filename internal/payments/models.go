@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/intents"
 )
 
 const (
@@ -32,6 +35,14 @@ var (
 	ErrPaymentTimeout = errors.New("payment verification timed out")
 	// ErrPaymentUnavailable reports that the payment provider is unavailable.
 	ErrPaymentUnavailable = errors.New("payment provider unavailable")
+	// ErrPaidRouteMismatch reports a paid request outside its frozen intent.
+	ErrPaidRouteMismatch = errors.New("paid route does not match purchase intent")
+	// ErrIntentExpired reports a purchase intent that can no longer execute.
+	ErrIntentExpired = errors.New("purchase intent has expired")
+	// ErrApprovalRequired reports a missing approval for a protected intent.
+	ErrApprovalRequired = errors.New("purchase approval is required")
+	// ErrApprovalInvalid reports an invalid or stale approval token.
+	ErrApprovalInvalid = errors.New("purchase approval is invalid")
 )
 
 // Requirements contains the immutable terms required for exact payment.
@@ -71,4 +82,37 @@ type Adapter interface {
 	CreateChallenge(context.Context, Requirements) (Challenge, error)
 	Verify(context.Context, string, Requirements) (VerificationResult, error)
 	Settle(context.Context, string, Requirements) (SettlementResult, error)
+}
+
+// PaidRouteRequest identifies the frozen purchase requested by an agent.
+type PaidRouteRequest struct {
+	Slug          string
+	Method        catalog.RouteMethod
+	ProxyPath     string
+	IntentID      domain.ID
+	ApprovalToken string
+}
+
+// ResolvedPaidRoute contains trusted values required for payment and forwarding.
+type ResolvedPaidRoute struct {
+	Seller         catalog.Seller
+	Route          catalog.PaidRoute
+	PurchaseIntent intents.PurchaseIntent
+	Requirements   Requirements
+}
+
+// PaidRouteCatalogRepository resolves sellers and their configured routes.
+type PaidRouteCatalogRepository interface {
+	ResolveSellerBySlug(context.Context, string) (catalog.Seller, error)
+	GetRoute(context.Context, domain.ID) (catalog.PaidRoute, error)
+}
+
+// PaidRouteIntentRepository loads immutable purchase intents.
+type PaidRouteIntentRepository interface {
+	Get(context.Context, domain.ID) (intents.PurchaseIntent, error)
+}
+
+// PaidRouteApprovalRepository loads the session named by an approval token.
+type PaidRouteApprovalRepository interface {
+	Get(context.Context, domain.ID) (approvals.Session, error)
 }

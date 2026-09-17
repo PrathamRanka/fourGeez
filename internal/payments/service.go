@@ -10,7 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/gowebpki/jcs"
 	x402 "github.com/x402-foundation/x402/go"
 	x402http "github.com/x402-foundation/x402/go/http"
@@ -30,6 +33,16 @@ type MockAdapter struct{}
 type X402Adapter struct {
 	facilitator x402.FacilitatorClient
 	timeout     time.Duration
+}
+
+// PaidRouteService resolves paid requests against immutable purchase state.
+type PaidRouteService struct {
+	catalogRepository  PaidRouteCatalogRepository
+	intentRepository   PaidRouteIntentRepository
+	approvalRepository PaidRouteApprovalRepository
+	approvalSigner     *approvals.ApprovalTokenSigner
+	clock              domain.Clock
+	publicBaseURL      string
 }
 
 var _ Adapter = (*X402Adapter)(nil)
@@ -64,6 +77,135 @@ func NewX402AdapterWithFacilitator(
 		facilitator: facilitator,
 		timeout:     timeout,
 	}
+}
+
+// NewPaidRouteService creates the paid-route resolution service.
+func NewPaidRouteService(
+	catalogRepository PaidRouteCatalogRepository,
+	intentRepository PaidRouteIntentRepository,
+	approvalRepository PaidRouteApprovalRepository,
+	approvalSigner *approvals.ApprovalTokenSigner,
+	clock domain.Clock,
+	publicBaseURL string,
+) *PaidRouteService {
+	return &PaidRouteService{
+		catalogRepository:  catalogRepository,
+		intentRepository:   intentRepository,
+		approvalRepository: approvalRepository,
+		approvalSigner:     approvalSigner,
+		clock:              clock,
+		publicBaseURL:      strings.TrimRight(publicBaseURL, "/"),
+	}
+}
+
+// Resolve validates route identity, intent expiry, and approval binding.
+func (service *PaidRouteService) Resolve(
+	ctx context.Context,
+	request PaidRouteRequest,
+) (ResolvedPaidRoute, error) {
+	purchaseIntent, err := service.intentRepository.Get(ctx, request.IntentID)
+	if err != nil {
+		return ResolvedPaidRoute{}, err
+	}
+	if !service.clock.Now().Before(purchaseIntent.ExpiresAt().Time()) {
+		return ResolvedPaidRoute{}, ErrIntentExpired
+	}
+	seller, err := service.catalogRepository.ResolveSellerBySlug(
+		ctx,
+		request.Slug,
+	)
+	if err != nil {
+		return ResolvedPaidRoute{}, ErrPaidRouteMismatch
+	}
+	route, err := service.catalogRepository.GetRoute(
+		ctx,
+		purchaseIntent.RouteID(),
+	)
+	if err != nil {
+		return ResolvedPaidRoute{}, err
+	}
+	if !paidRouteMatches(request, seller, route, purchaseIntent) {
+		return ResolvedPaidRoute{}, ErrPaidRouteMismatch
+	}
+	if purchaseIntent.RequiresApproval() {
+		if strings.TrimSpace(request.ApprovalToken) == "" {
+			return ResolvedPaidRoute{}, ErrApprovalRequired
+		}
+		if err := service.verifyApproval(
+			ctx,
+			request.ApprovalToken,
+			purchaseIntent,
+		); err != nil {
+			return ResolvedPaidRoute{}, err
+		}
+	}
+
+	return ResolvedPaidRoute{
+		Seller:         seller,
+		Route:          route,
+		PurchaseIntent: purchaseIntent,
+		Requirements: Requirements{
+			Scheme:  ExactScheme,
+			Network: purchaseIntent.Network(),
+			Asset:   purchaseIntent.Asset(),
+			Amount:  purchaseIntent.Amount(),
+			PayTo:   route.PayTo,
+			ResourceURL: service.publicBaseURL +
+				"/pay/" + seller.Slug + route.PathPattern,
+			Description:       route.Description,
+			MIMEType:          route.MIMEType,
+			MaxTimeoutSeconds: route.UpstreamTimeoutSeconds,
+		},
+	}, nil
+}
+
+// verifyApproval validates the token and its persisted approved session.
+func (service *PaidRouteService) verifyApproval(
+	ctx context.Context,
+	token string,
+	purchaseIntent intents.PurchaseIntent,
+) error {
+	if service.approvalSigner == nil || service.approvalRepository == nil {
+		return ErrApprovalInvalid
+	}
+	claims, err := service.approvalSigner.VerifyForIntent(
+		token,
+		purchaseIntent.IntentID(),
+		purchaseIntent.IntentHash(),
+		domain.NewTimestamp(service.clock.Now()),
+	)
+	if err != nil {
+		return ErrApprovalInvalid
+	}
+	session, err := service.approvalRepository.Get(ctx, claims.SessionID)
+	if err != nil {
+		return ErrApprovalInvalid
+	}
+	if session.Status() != approvals.SessionStatusApproved ||
+		session.IntentID() != purchaseIntent.IntentID() ||
+		session.IntentHash() != purchaseIntent.IntentHash() ||
+		!session.MatchesApprovalToken(token) {
+		return ErrApprovalInvalid
+	}
+	return nil
+}
+
+// paidRouteMatches checks every route dimension frozen into the intent.
+func paidRouteMatches(
+	request PaidRouteRequest,
+	seller catalog.Seller,
+	route catalog.PaidRoute,
+	purchaseIntent intents.PurchaseIntent,
+) bool {
+	return seller.Status == catalog.SellerStatusActive &&
+		route.Enabled &&
+		seller.SellerID == route.SellerID &&
+		seller.SellerID == purchaseIntent.SellerID() &&
+		route.RouteID == purchaseIntent.RouteID() &&
+		request.Method == route.Method &&
+		string(request.Method) == string(purchaseIntent.RequestMethod()) &&
+		request.ProxyPath == route.PathPattern &&
+		request.ProxyPath == purchaseIntent.RequestPath()
 }
 
 // CreateChallenge creates a base64-encoded x402 v2 payment requirement.

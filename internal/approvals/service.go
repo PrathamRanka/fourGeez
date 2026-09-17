@@ -2,6 +2,7 @@ package approvals
 
 import (
 	"context"
+	"crypto/hmac"
 	"errors"
 	"net/url"
 	"strings"
@@ -391,4 +392,15 @@ func (session *Session) Expire(now domain.Timestamp) bool {
 	session.updatedAt = now
 	session.version++
 	return true
+}
+
+// MatchesApprovalToken compares a raw token with the persisted digest safely.
+func (session Session) MatchesApprovalToken(token string) bool {
+	if session.approvalTokenHash == "" {
+		return false
+	}
+	return hmac.Equal(
+		[]byte(hashToken(token)),
+		[]byte(session.approvalTokenHash),
+	)
 }
