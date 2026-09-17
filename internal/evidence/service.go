@@ -19,6 +19,125 @@ const evidenceHashDomain = "agentpay.evidence.v1"
 
 const minimumLocalEvidenceSecretBytes = 32
 
+// Recorder appends narrowly allowlisted payment lifecycle evidence.
+type Recorder struct {
+	repository  Repository
+	idGenerator domain.IDGenerator
+	signer      Signer
+	clock       domain.Clock
+}
+
+// NewRecorder creates a payment lifecycle evidence recorder.
+func NewRecorder(
+	repository Repository,
+	idGenerator domain.IDGenerator,
+	signer Signer,
+	clock domain.Clock,
+) *Recorder {
+	return &Recorder{
+		repository:  repository,
+		idGenerator: idGenerator,
+		signer:      signer,
+		clock:       clock,
+	}
+}
+
+// RecordPaymentChallenge records only the public payment terms.
+func (recorder *Recorder) RecordPaymentChallenge(
+	ctx context.Context,
+	transactionID domain.ID,
+	facts PaymentChallengeFacts,
+) error {
+	return recorder.append(ctx, transactionID, EventPaymentChallenged, map[string]any{
+		"amount":  facts.Amount,
+		"asset":   facts.Asset,
+		"network": facts.Network,
+	})
+}
+
+// RecordPaymentVerification records identifiers and hashes, never raw proof.
+func (recorder *Recorder) RecordPaymentVerification(
+	ctx context.Context,
+	transactionID domain.ID,
+	facts PaymentVerificationFacts,
+) error {
+	return recorder.append(ctx, transactionID, EventPaymentVerified, map[string]any{
+		"paymentIdentifier": facts.PaymentIdentifier,
+		"paymentProofHash":  facts.PaymentProofHash.String(),
+	})
+}
+
+// RecordProxyForwarding records the allowlisted seller operation.
+func (recorder *Recorder) RecordProxyForwarding(
+	ctx context.Context,
+	transactionID domain.ID,
+	facts ProxyForwardingFacts,
+) error {
+	return recorder.append(ctx, transactionID, EventProxyForwarded, map[string]any{
+		"sellerId": facts.SellerID,
+		"routeId":  facts.RouteID,
+		"method":   facts.Method,
+		"path":     facts.Path,
+	})
+}
+
+// RecordDelivery records response metadata and hashes without response bodies.
+func (recorder *Recorder) RecordDelivery(
+	ctx context.Context,
+	transactionID domain.ID,
+	facts DeliveryFacts,
+) error {
+	eventType := EventDeliveryFailed
+	if facts.Succeeded {
+		eventType = EventDeliverySucceeded
+	}
+	payload := map[string]any{
+		"statusCode":    facts.StatusCode,
+		"responseHash":  facts.ResponseHash.String(),
+		"contentType":   facts.ContentType,
+		"contentLength": facts.ContentLength,
+	}
+	if facts.FailureCode != "" {
+		payload["failureCode"] = facts.FailureCode
+	}
+	return recorder.append(ctx, transactionID, eventType, payload)
+}
+
+// append signs and stores the next event in a transaction chain.
+func (recorder *Recorder) append(
+	ctx context.Context,
+	transactionID domain.ID,
+	eventType EventType,
+	payload map[string]any,
+) error {
+	events, err := recorder.repository.ListByTransaction(ctx, transactionID)
+	if err != nil {
+		return err
+	}
+	var previous *Event
+	if len(events) > 0 {
+		previousEvent := events[len(events)-1]
+		previous = &previousEvent
+	}
+	eventID, err := recorder.idGenerator.New(domain.EvidenceIDPrefix)
+	if err != nil {
+		return err
+	}
+	event, err := Append(ctx, EventParams{
+		EventID:       eventID,
+		TransactionID: transactionID,
+		Sequence:      uint64(len(events) + 1),
+		EventType:     eventType,
+		ActorType:     ActorSystem,
+		Payload:       payload,
+		CreatedAt:     domain.NewTimestamp(recorder.clock.Now()),
+	}, previous, recorder.signer)
+	if err != nil {
+		return err
+	}
+	return recorder.repository.Append(ctx, event)
+}
+
 // LocalHMACSigner provides deterministic local signing without production KMS.
 type LocalHMACSigner struct {
 	keyID  string

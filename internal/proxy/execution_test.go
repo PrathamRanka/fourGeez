@@ -11,6 +11,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -27,10 +28,12 @@ func TestExecutionServiceForwardsExactlyOnce(t *testing.T) {
 	}
 	forwarder := &recordingForwarder{}
 	signer := &recordingRequestSigner{}
+	recorder := &recordingLifecycleRecorder{}
 	service := NewExecutionService(
 		repository,
 		signer,
 		forwarder,
+		recorder,
 		domain.FixedClock{
 			Value: time.Date(2026, time.September, 17, 10, 1, 0, 0, time.UTC),
 		},
@@ -72,6 +75,20 @@ func TestExecutionServiceForwardsExactlyOnce(t *testing.T) {
 			forwarder.calls.Load(),
 			signer.calls.Load(),
 		)
+	}
+	if recorder.forwarding.Load() != 1 || recorder.delivery.Load() != 1 {
+		t.Fatalf(
+			"evidence calls = (%d, %d)",
+			recorder.forwarding.Load(),
+			recorder.delivery.Load(),
+		)
+	}
+	stored, err := repository.Get(t.Context(), transaction.TransactionID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status() != transactions.StatusFulfilled {
+		t.Fatalf("transaction status = %s", stored.Status())
 	}
 }
 
@@ -184,6 +201,31 @@ func (signer *recordingRequestSigner) Sign(
 
 type recordingForwarder struct {
 	calls atomic.Int32
+}
+
+type recordingLifecycleRecorder struct {
+	forwarding atomic.Int32
+	delivery   atomic.Int32
+}
+
+// RecordProxyForwarding records the pre-forward evidence call.
+func (recorder *recordingLifecycleRecorder) RecordProxyForwarding(
+	context.Context,
+	domain.ID,
+	evidence.ProxyForwardingFacts,
+) error {
+	recorder.forwarding.Add(1)
+	return nil
+}
+
+// RecordDelivery records the post-forward evidence call.
+func (recorder *recordingLifecycleRecorder) RecordDelivery(
+	context.Context,
+	domain.ID,
+	evidence.DeliveryFacts,
+) error {
+	recorder.delivery.Add(1)
+	return nil
 }
 
 // Forward records one seller invocation.

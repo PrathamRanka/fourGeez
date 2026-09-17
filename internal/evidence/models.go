@@ -51,6 +51,43 @@ type Signer interface {
 	Verify(ctx context.Context, keyID string, digest []byte, signature string) (bool, error)
 }
 
+// Repository persists and loads one append-only transaction evidence chain.
+type Repository interface {
+	Append(context.Context, Event) error
+	ListByTransaction(context.Context, domain.ID) ([]Event, error)
+}
+
+// PaymentChallengeFacts are the allowlisted payment challenge fields.
+type PaymentChallengeFacts struct {
+	Amount  string
+	Asset   string
+	Network string
+}
+
+// PaymentVerificationFacts are safe results derived from a payment proof.
+type PaymentVerificationFacts struct {
+	PaymentIdentifier string
+	PaymentProofHash  intents.SHA256Digest
+}
+
+// ProxyForwardingFacts identify the seller operation without request content.
+type ProxyForwardingFacts struct {
+	SellerID string
+	RouteID  string
+	Method   string
+	Path     string
+}
+
+// DeliveryFacts contain allowlisted seller response metadata only.
+type DeliveryFacts struct {
+	Succeeded     bool
+	StatusCode    int
+	ResponseHash  intents.SHA256Digest
+	ContentType   string
+	ContentLength int64
+	FailureCode   string
+}
+
 // EventParams contains the unsigned values for a new evidence event.
 type EventParams struct {
 	EventID       domain.ID

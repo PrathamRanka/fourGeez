@@ -202,6 +202,7 @@ func paidRouteMatches(
 		seller.SellerID == route.SellerID &&
 		seller.SellerID == purchaseIntent.SellerID() &&
 		route.RouteID == purchaseIntent.RouteID() &&
+		request.BuyerID == purchaseIntent.BuyerID() &&
 		request.Method == route.Method &&
 		string(request.Method) == string(purchaseIntent.RequestMethod()) &&
 		request.ProxyPath == route.PathPattern &&

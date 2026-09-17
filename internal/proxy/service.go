@@ -19,6 +19,9 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 const maximumPaidRequestBytes int64 = 1024 * 1024
@@ -41,11 +44,33 @@ type HMACSigner struct {
 	clock          domain.Clock
 }
 
+// LocalSecretProvider supplies one process-local development secret.
+type LocalSecretProvider struct {
+	secret []byte
+}
+
+// NewLocalSecretProvider copies a local development seller secret.
+func NewLocalSecretProvider(secret []byte) *LocalSecretProvider {
+	return &LocalSecretProvider{secret: append([]byte(nil), secret...)}
+}
+
+// GetSecret returns a copy without exposing the stored value.
+func (provider *LocalSecretProvider) GetSecret(
+	context.Context,
+	string,
+) ([]byte, error) {
+	if len(provider.secret) < minimumHMACSecretBytes {
+		return nil, ErrSigningUnavailable
+	}
+	return append([]byte(nil), provider.secret...), nil
+}
+
 // ExecutionService claims a transaction before any seller-side effect.
 type ExecutionService struct {
 	repository ForwardingRepository
 	signer     RequestSigner
 	forwarder  SellerForwarder
+	recorder   LifecycleRecorder
 	clock      domain.Clock
 }
 
@@ -65,12 +90,14 @@ func NewExecutionService(
 	repository ForwardingRepository,
 	signer RequestSigner,
 	forwarder SellerForwarder,
+	recorder LifecycleRecorder,
 	clock domain.Clock,
 ) *ExecutionService {
 	return &ExecutionService{
 		repository: repository,
 		signer:     signer,
 		forwarder:  forwarder,
+		recorder:   recorder,
 		clock:      clock,
 	}
 }
@@ -97,6 +124,23 @@ func (service *ExecutionService) Execute(
 	if !won {
 		return ForwardResponse{}, ErrAlreadyForwarded
 	}
+	if service.recorder == nil {
+		return ForwardResponse{}, errors.New(
+			"forwarding evidence recorder is required",
+		)
+	}
+	if err := service.recorder.RecordProxyForwarding(
+		ctx,
+		claimed.TransactionID(),
+		evidence.ProxyForwardingFacts{
+			SellerID: request.Seller.SellerID.String(),
+			RouteID:  request.Route.RouteID.String(),
+			Method:   string(request.Method),
+			Path:     request.Path,
+		},
+	); err != nil {
+		return ForwardResponse{}, err
+	}
 
 	signature, err := service.signer.Sign(
 		ctx,
@@ -111,7 +155,7 @@ func (service *ExecutionService) Execute(
 	if err != nil {
 		return ForwardResponse{}, err
 	}
-	return service.forwarder.Forward(
+	response, err := service.forwarder.Forward(
 		ctx,
 		ForwardRequest{
 			Seller:      request.Seller,
@@ -123,6 +167,102 @@ func (service *ExecutionService) Execute(
 			Signature:   signature,
 		},
 	)
+	if err != nil {
+		expectedVersion := claimed.Version()
+		if stateErr := claimed.MarkFailed(
+			deliveryFailureCode(err),
+			nil,
+			nil,
+			domain.NewTimestamp(service.clock.Now()),
+		); stateErr != nil {
+			return ForwardResponse{}, stateErr
+		}
+		if stateErr := service.repository.Update(
+			ctx,
+			claimed,
+			expectedVersion,
+		); stateErr != nil {
+			return ForwardResponse{}, stateErr
+		}
+		recordError := service.recorder.RecordDelivery(
+			ctx,
+			claimed.TransactionID(),
+			evidence.DeliveryFacts{
+				Succeeded:   false,
+				FailureCode: deliveryFailureCode(err),
+			},
+		)
+		if recordError != nil {
+			return ForwardResponse{}, recordError
+		}
+		return ForwardResponse{}, err
+	}
+	responseDigest := sha256.Sum256(response.Body)
+	responseHash, err := intents.ParseSHA256Digest(
+		hex.EncodeToString(responseDigest[:]),
+	)
+	if err != nil {
+		return ForwardResponse{}, err
+	}
+	expectedVersion := claimed.Version()
+	succeeded := response.StatusCode >= 200 && response.StatusCode <= 299
+	if succeeded {
+		err = claimed.MarkFulfilled(
+			response.StatusCode,
+			responseHash,
+			transactions.ResponseSummary{
+				ContentType:   response.ContentType,
+				ContentLength: int64(len(response.Body)),
+			},
+			domain.NewTimestamp(service.clock.Now()),
+		)
+	} else {
+		status := response.StatusCode
+		err = claimed.MarkFailed(
+			"upstream_status",
+			&status,
+			&responseHash,
+			domain.NewTimestamp(service.clock.Now()),
+		)
+	}
+	if err != nil {
+		return ForwardResponse{}, err
+	}
+	if err := service.repository.Update(
+		ctx,
+		claimed,
+		expectedVersion,
+	); err != nil {
+		return ForwardResponse{}, err
+	}
+	if err := service.recorder.RecordDelivery(
+		ctx,
+		claimed.TransactionID(),
+		evidence.DeliveryFacts{
+			Succeeded:     succeeded,
+			StatusCode:    response.StatusCode,
+			ResponseHash:  responseHash,
+			ContentType:   response.ContentType,
+			ContentLength: int64(len(response.Body)),
+		},
+	); err != nil {
+		return ForwardResponse{}, err
+	}
+	return response, nil
+}
+
+// deliveryFailureCode maps transport errors to stable evidence values.
+func deliveryFailureCode(err error) string {
+	if errors.Is(err, ErrUpstreamTimeout) {
+		return "upstream_timeout"
+	}
+	if errors.Is(err, ErrResponseTooLarge) {
+		return "response_too_large"
+	}
+	if errors.Is(err, ErrResponseContentType) {
+		return "response_content_type"
+	}
+	return "upstream_unavailable"
 }
 
 // Sign creates the canonical timestamped seller authentication headers.

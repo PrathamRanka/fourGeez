@@ -7,7 +7,10 @@ import (
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 const (
@@ -43,6 +46,8 @@ var (
 	ErrApprovalRequired = errors.New("purchase approval is required")
 	// ErrApprovalInvalid reports an invalid or stale approval token.
 	ErrApprovalInvalid = errors.New("purchase approval is invalid")
+	// ErrPaymentReplay reports a proof or intent already claimed elsewhere.
+	ErrPaymentReplay = errors.New("payment proof has already been used")
 )
 
 // Requirements contains the immutable terms required for exact payment.
@@ -90,6 +95,7 @@ type PaidRouteRequest struct {
 	Method        catalog.RouteMethod
 	ProxyPath     string
 	IntentID      domain.ID
+	BuyerID       string
 	ApprovalToken string
 }
 
@@ -99,6 +105,22 @@ type ResolvedPaidRoute struct {
 	Route          catalog.PaidRoute
 	PurchaseIntent intents.PurchaseIntent
 	Requirements   Requirements
+}
+
+// CheckoutRequest contains one authenticated paid-route attempt.
+type CheckoutRequest struct {
+	PaidRouteRequest
+	PaymentProof string
+	Body         []byte
+	ContentType  string
+}
+
+// CheckoutResult contains either a challenge or a delivered seller response.
+type CheckoutResult struct {
+	TransactionID    domain.ID
+	Challenge        *Challenge
+	Response         *proxy.ForwardResponse
+	SettlementHeader string
 }
 
 // PaidRouteCatalogRepository resolves sellers and their configured routes.
@@ -115,4 +137,30 @@ type PaidRouteIntentRepository interface {
 // PaidRouteApprovalRepository loads the session named by an approval token.
 type PaidRouteApprovalRepository interface {
 	Get(context.Context, domain.ID) (approvals.Session, error)
+}
+
+// CheckoutTransactionRepository persists transaction lifecycle mutations.
+type CheckoutTransactionRepository interface {
+	Create(context.Context, transactions.Transaction) error
+	Get(context.Context, domain.ID) (transactions.Transaction, error)
+	Update(context.Context, transactions.Transaction, uint64) error
+}
+
+// PaymentEvidenceRecorder records safe payment lifecycle facts.
+type PaymentEvidenceRecorder interface {
+	RecordPaymentChallenge(
+		context.Context,
+		domain.ID,
+		evidence.PaymentChallengeFacts,
+	) error
+	RecordPaymentVerification(
+		context.Context,
+		domain.ID,
+		evidence.PaymentVerificationFacts,
+	) error
+}
+
+// PaidExecutor performs the already-verified seller invocation.
+type PaidExecutor interface {
+	Execute(context.Context, proxy.ExecutionRequest) (proxy.ForwardResponse, error)
 }

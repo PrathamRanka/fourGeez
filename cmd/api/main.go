@@ -12,7 +12,9 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
+	"github.com/fourgeez/agentpay/internal/proxy"
 	"github.com/fourgeez/agentpay/internal/realtime"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
@@ -97,6 +99,46 @@ func main() {
 		slog.Error("invalid local evidence signing configuration", "error", err)
 		os.Exit(1)
 	}
+	evidenceRecorder := evidence.NewRecorder(
+		evidenceRepository,
+		idGenerator,
+		evidenceSigner,
+		clock,
+	)
+	paidRouteService := payments.NewPaidRouteService(
+		catalogRepository,
+		intentRepository,
+		approvalRepository,
+		approvalTokenSigner,
+		clock,
+		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
+	)
+	var paymentAdapter payments.Adapter = payments.NewX402Adapter()
+	if os.Getenv("AGENTPAY_USE_MOCK_PAYMENT") == "true" {
+		paymentAdapter = payments.NewMockAdapter()
+	}
+	sellerSigner := proxy.NewHMACSigner(
+		proxy.NewLocalSecretProvider(
+			[]byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
+		),
+		clock,
+	)
+	executionService := proxy.NewExecutionService(
+		transactionRepository,
+		sellerSigner,
+		proxy.NewForwarder(nil),
+		evidenceRecorder,
+		clock,
+	)
+	checkoutService := payments.NewCheckoutService(
+		paidRouteService,
+		paymentAdapter,
+		transactionRepository,
+		evidenceRecorder,
+		executionService,
+		clock,
+	)
+	payments.NewHTTPController(checkoutService).RegisterRoutes(mux)
 	transactionService := transactions.NewService(
 		transactionRepository,
 		evidenceRepository,

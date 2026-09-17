@@ -106,6 +106,10 @@ Raw invitation tokens are returned only when the session is created. When the se
 | `responseSummary` | object/null | Allowlisted metadata only |
 | `failureCode` | string/null | Stable internal code |
 
+For the first implementation, a transaction ID reuses its purchase intent's
+ULID payload with the `txn_` prefix. This provides a deterministic point lookup
+and enforces one transaction per intent without a table scan.
+
 Transaction states:
 
 ```text

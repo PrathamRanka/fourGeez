@@ -26,6 +26,7 @@ func TestPaidRouteServiceResolvesFrozenIntent(t *testing.T) {
 			Method:    fixture.route.Method,
 			ProxyPath: fixture.route.PathPattern,
 			IntentID:  fixture.purchaseIntent.IntentID(),
+			BuyerID:   fixture.purchaseIntent.BuyerID(),
 		},
 	)
 	if err != nil {
@@ -80,6 +81,7 @@ func TestPaidRouteServiceRejectsRouteAndIntentMismatches(t *testing.T) {
 				Method:    fixture.route.Method,
 				ProxyPath: fixture.route.PathPattern,
 				IntentID:  fixture.purchaseIntent.IntentID(),
+				BuyerID:   fixture.purchaseIntent.BuyerID(),
 			}
 			test.mutate(&request)
 			_, err := fixture.service.Resolve(t.Context(), request)
@@ -100,6 +102,7 @@ func TestPaidRouteServiceRequiresBoundApproval(t *testing.T) {
 		Method:    fixture.route.Method,
 		ProxyPath: fixture.route.PathPattern,
 		IntentID:  fixture.purchaseIntent.IntentID(),
+		BuyerID:   fixture.purchaseIntent.BuyerID(),
 	}
 
 	if _, err := fixture.service.Resolve(
@@ -136,6 +139,7 @@ func TestPaidRouteServiceRejectsExpiredIntent(t *testing.T) {
 			Method:    fixture.route.Method,
 			ProxyPath: fixture.route.PathPattern,
 			IntentID:  fixture.purchaseIntent.IntentID(),
+			BuyerID:   fixture.purchaseIntent.BuyerID(),
 		},
 	)
 	if !errors.Is(err, ErrIntentExpired) {

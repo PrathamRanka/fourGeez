@@ -8,6 +8,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -102,6 +103,7 @@ type ForwardingRepository interface {
 		uint64,
 		domain.Timestamp,
 	) (transactions.Transaction, bool, error)
+	Update(context.Context, transactions.Transaction, uint64) error
 }
 
 // RequestSigner signs one claimed seller request.
@@ -112,6 +114,20 @@ type RequestSigner interface {
 // SellerForwarder sends one request to an already validated seller route.
 type SellerForwarder interface {
 	Forward(context.Context, ForwardRequest) (ForwardResponse, error)
+}
+
+// LifecycleRecorder persists allowlisted forwarding and delivery evidence.
+type LifecycleRecorder interface {
+	RecordProxyForwarding(
+		context.Context,
+		domain.ID,
+		evidence.ProxyForwardingFacts,
+	) error
+	RecordDelivery(
+		context.Context,
+		domain.ID,
+		evidence.DeliveryFacts,
+	) error
 }
 
 // Resolver resolves a hostname at validation and connection time.
