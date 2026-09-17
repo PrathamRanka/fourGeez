@@ -172,6 +172,12 @@ authoritative intent, fulfillment, evidence, receipt, or dispute domains.
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
 | Search metadata validation fails | Keep the storefront publishable only after the seller fixes or explicitly removes the invalid generated metadata. |
 
+The checkout path records proof verification as `confirmed`, then records the
+x402 settle response and its safe network reference as `finalized` before the
+seller request may be claimed. Provider timeouts do not promote finality. A
+definitive settlement rejection is recorded as failed, while delivery failure
+remains a separate transaction outcome after finalization.
+
 ## Deliberate exclusions
 
 The first implementation does not provide card checkout, physical goods,

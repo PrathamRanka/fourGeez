@@ -146,7 +146,45 @@ func (service *CheckoutService) Execute(
 		request.PaymentProof,
 		resolved.Requirements,
 	)
+	if err == nil && !settlement.Settled {
+		err = ErrPaymentRejected
+	}
 	if err != nil {
+		if errors.Is(err, ErrPaymentRejected) {
+			failedVersion := transaction.Version()
+			if failErr := transaction.FailPayment(
+				"settlement_rejected",
+				"",
+				domain.NewTimestamp(service.clock.Now()),
+			); failErr != nil {
+				return CheckoutResult{}, failErr
+			}
+			if updateErr := service.transactionRepository.Update(
+				ctx,
+				transaction,
+				failedVersion,
+			); updateErr != nil {
+				return CheckoutResult{}, updateErr
+			}
+		}
+		return CheckoutResult{}, err
+	}
+	finalizationVersion := transaction.Version()
+	if err := transaction.FinalizePayment(
+		settlement.PaymentIdentifier,
+		settlement.PaymentReference,
+		domain.NewTimestamp(service.clock.Now()),
+	); err != nil {
+		return CheckoutResult{}, err
+	}
+	if err := service.transactionRepository.Update(
+		ctx,
+		transaction,
+		finalizationVersion,
+	); err != nil {
+		if errors.Is(err, persistence.ErrConditionFailed) {
+			return CheckoutResult{}, ErrPaymentReplay
+		}
 		return CheckoutResult{}, err
 	}
 	response, err := service.executor.Execute(

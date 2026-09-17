@@ -49,6 +49,12 @@ func TestTransactionRoutesReturnVerifiedRedactedEvidence(t *testing.T) {
 	if !detail.Evidence.Valid || len(detail.Evidence.Events) != 2 {
 		t.Fatalf("evidence summary = %#v", detail.Evidence)
 	}
+	if detail.Transaction.PaymentReference != "0xtestnettransaction" ||
+		detail.Transaction.PaymentFinality != transactions.PaymentFinalityFinalized ||
+		detail.Transaction.Reconciliation == nil ||
+		detail.Transaction.Reconciliation.Stage != transactions.ReconciliationStageFulfilled {
+		t.Fatalf("transaction reconciliation = %#v", detail.Transaction)
+	}
 	if getResponse.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("transaction response did not disable caching")
 	}
@@ -292,7 +298,14 @@ func newFulfilledTransaction(
 	); err != nil {
 		t.Fatal(err)
 	}
-	if err := transaction.MarkForwarded(createdAt.Add(3 * time.Second)); err != nil {
+	if err := transaction.FinalizePayment(
+		"payment-"+rawTransactionID,
+		"0xtestnettransaction",
+		createdAt.Add(3*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkForwarded(createdAt.Add(4 * time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.MarkFulfilled(
@@ -302,7 +315,7 @@ func newFulfilledTransaction(
 			ContentType:   "application/json",
 			ContentLength: 20,
 		},
-		createdAt.Add(4*time.Second),
+		createdAt.Add(5*time.Second),
 	); err != nil {
 		t.Fatal(err)
 	}

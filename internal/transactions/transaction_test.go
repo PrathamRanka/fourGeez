@@ -132,6 +132,124 @@ func TestVerifyPaymentValidatesEvidence(t *testing.T) {
 	}
 }
 
+// TestTransactionReconciliationDistinguishesPaymentAndDeliveryStages verifies PAY-010 reporting.
+func TestTransactionReconciliationDistinguishesPaymentAndDeliveryStages(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	createdAt := transaction.UpdatedAt()
+	proofHash := mustTransactionDigest(t, strings.Repeat("a", 64))
+	responseHash := mustTransactionDigest(t, strings.Repeat("b", 64))
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Reconciliation().Stage != ReconciliationStageChallenged {
+		t.Fatalf("challenge reconciliation = %#v", transaction.Reconciliation())
+	}
+	if err := transaction.VerifyPayment(
+		"payment-123",
+		proofHash,
+		createdAt.Add(2*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.PaymentFinality() != PaymentFinalityConfirmed ||
+		transaction.Reconciliation().Stage != ReconciliationStageVerified {
+		t.Fatalf("verified reconciliation = %#v", transaction.Reconciliation())
+	}
+	if err := transaction.FinalizePayment(
+		"payment-123",
+		"0xtestnettransaction",
+		createdAt.Add(3*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.PaymentFinality() != PaymentFinalityFinalized ||
+		transaction.PaymentReference() != "0xtestnettransaction" ||
+		transaction.Reconciliation().Stage != ReconciliationStageFinalized {
+		t.Fatalf("finalized reconciliation = %#v", transaction.Reconciliation())
+	}
+	if err := transaction.MarkForwarded(createdAt.Add(4 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkFulfilled(
+		200,
+		responseHash,
+		ResponseSummary{ContentType: "application/json", ContentLength: 42},
+		createdAt.Add(5*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Reconciliation().Stage != ReconciliationStageFulfilled {
+		t.Fatalf("fulfilled reconciliation = %#v", transaction.Reconciliation())
+	}
+	if err := transaction.OpenDispute(createdAt.Add(6 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Reconciliation().Stage != ReconciliationStageDisputed {
+		t.Fatalf("disputed reconciliation = %#v", transaction.Reconciliation())
+	}
+}
+
+// TestTransactionRejectsMismatchedPaymentFinalization protects proof identity.
+func TestTransactionRejectsMismatchedPaymentFinalization(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	createdAt := transaction.UpdatedAt()
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment(
+		"payment-123",
+		mustTransactionDigest(t, strings.Repeat("a", 64)),
+		createdAt.Add(2*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	version := transaction.Version()
+	err := transaction.FinalizePayment(
+		"different-payment",
+		"0xtestnettransaction",
+		createdAt.Add(3*time.Second),
+	)
+	assertTransactionValidationField(t, err, "paymentIdentifier")
+	if transaction.Version() != version ||
+		transaction.PaymentFinality() != PaymentFinalityConfirmed {
+		t.Fatal("rejected finalization mutated the transaction")
+	}
+}
+
+// TestTransactionRecordsRejectedSettlementAsFailed verifies failed payment reconciliation.
+func TestTransactionRecordsRejectedSettlementAsFailed(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	createdAt := transaction.UpdatedAt()
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment(
+		"payment-123",
+		mustTransactionDigest(t, strings.Repeat("a", 64)),
+		createdAt.Add(2*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.FailPayment(
+		"settlement_rejected",
+		"",
+		createdAt.Add(3*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Status() != StatusFailed ||
+		transaction.PaymentFinality() != PaymentFinalityFailed ||
+		transaction.Reconciliation().Stage != ReconciliationStageFailed {
+		t.Fatalf("failed reconciliation = %#v", transaction.Reconciliation())
+	}
+}
+
 func TestNewTransactionValidation(t *testing.T) {
 	t.Parallel()
 

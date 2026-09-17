@@ -186,7 +186,7 @@ Raw invitation tokens are returned only when the session is created. When the se
 | `paymentIdentifier` | string/null | Unique replay-protection value supplied by payment adapter |
 | `paymentProofHash` | string/null | Never store raw proof |
 | `paymentReference` | string/null | Safe facilitator or network reference, never a raw proof |
-| `paymentFinality` | enum/null | Planned M7: `unconfirmed`, `confirmed`, `finalized`, `failed` |
+| `paymentFinality` | enum/null | `confirmed`, `finalized`, or `failed`; null before a payment observation |
 | `reconciledAt` | timestamp/null | Last successful reconciliation time |
 | `upstreamStatus` | integer/null | HTTP status received from seller |
 | `responseHash` | string/null | Hash of captured response bytes |
@@ -203,13 +203,27 @@ Transaction states:
 PROPOSED -> APPROVAL_PENDING -> APPROVED -> PAYMENT_REQUIRED
 PROPOSED -------------------------------> PAYMENT_REQUIRED
 PAYMENT_REQUIRED -> PAYMENT_VERIFIED -> FORWARDED -> FULFILLED
-                                          |             |
-                                          +-> FAILED <---+
+                         |                |             |
+                         +-> FAILED       +-> FAILED <---+
 FULFILLED|FAILED -> DISPUTED -> REFUND_RECOMMENDED|RESOLVED
 REFUND_RECOMMENDED -> RESOLVED
 ```
 
 Terminal states are `RESOLVED` and an undisputed `FULFILLED`. Invalid transitions return `409 state_conflict`.
+
+Payment verification records `paymentFinality=confirmed`. A successful x402
+settlement records `paymentFinality=finalized`, the safe facilitator or network
+transaction reference, and `reconciledAt` before seller forwarding. A definitive
+settlement rejection records `paymentFinality=failed` and moves the transaction
+to `FAILED`; timeout or unavailable responses remain `confirmed` because final
+network outcome is unknown. Records written before this migration that contain
+a payment identifier but no finality are interpreted conservatively as
+`confirmed`, never `finalized`.
+
+The API derives one reconciliation bucket without mutating persisted state:
+`challenged`, `verified`, `finalized`, `fulfilled`, `failed`, or `disputed`.
+Every bucket carries one atomic-unit amount and its exact asset/network pair, so
+unlike currencies are never combined.
 
 ### SellerSalesAggregate (planned M7)
 

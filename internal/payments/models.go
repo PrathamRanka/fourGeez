@@ -79,6 +79,7 @@ type VerificationResult struct {
 type SettlementResult struct {
 	Settled           bool
 	PaymentIdentifier string
+	PaymentReference  string
 	ResponseHeader    string
 }
 

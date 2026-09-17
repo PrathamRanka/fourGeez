@@ -330,7 +330,11 @@ func (adapter *X402Adapter) Settle(
 	if err != nil {
 		return SettlementResult{}, classifyFacilitatorError(ctx, err)
 	}
-	if response == nil || !response.Success || response.Transaction == "" {
+	if response == nil ||
+		!response.Success ||
+		response.Transaction == "" ||
+		string(response.Network) != requirements.Network ||
+		(response.Amount != "" && response.Amount != requirements.Amount.String()) {
 		return SettlementResult{}, ErrPaymentRejected
 	}
 	encoded, err := json.Marshal(response)
@@ -341,6 +345,7 @@ func (adapter *X402Adapter) Settle(
 	return SettlementResult{
 		Settled:           true,
 		PaymentIdentifier: paymentIdentifier,
+		PaymentReference:  response.Transaction,
 		ResponseHeader:    base64.StdEncoding.EncodeToString(encoded),
 	}, nil
 }
@@ -431,9 +436,14 @@ func (adapter *MockAdapter) Settle(
 	responsePayload := struct {
 		Success           bool   `json:"success"`
 		PaymentIdentifier string `json:"paymentIdentifier"`
+		PaymentReference  string `json:"paymentReference"`
 	}{
 		Success:           true,
 		PaymentIdentifier: verification.PaymentIdentifier,
+		PaymentReference: "mock_settlement_" + strings.TrimPrefix(
+			verification.PaymentIdentifier,
+			mockPaymentIdentifierPrefix,
+		),
 	}
 	encoded, err := json.Marshal(responsePayload)
 	if err != nil {
@@ -443,6 +453,7 @@ func (adapter *MockAdapter) Settle(
 	return SettlementResult{
 		Settled:           true,
 		PaymentIdentifier: verification.PaymentIdentifier,
+		PaymentReference:  responsePayload.PaymentReference,
 		ResponseHeader:    base64.StdEncoding.EncodeToString(encoded),
 	}, nil
 }

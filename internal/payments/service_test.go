@@ -61,7 +61,8 @@ func TestX402AdapterVerifiesAndSettlesExactPayment(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !settlement.Settled ||
-		settlement.PaymentIdentifier != verification.PaymentIdentifier {
+		settlement.PaymentIdentifier != verification.PaymentIdentifier ||
+		settlement.PaymentReference != facilitator.settleResponse.Transaction {
 		t.Fatalf("settlement = %#v", settlement)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(settlement.ResponseHeader)
@@ -74,6 +75,54 @@ func TestX402AdapterVerifiesAndSettlesExactPayment(t *testing.T) {
 	}
 	if response.Transaction != facilitator.settleResponse.Transaction {
 		t.Fatalf("transaction = %q", response.Transaction)
+	}
+}
+
+// TestX402AdapterRejectsMismatchedSettlementFacts prevents false finality.
+func TestX402AdapterRejectsMismatchedSettlementFacts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		response *x402.SettleResponse
+	}{
+		{
+			name: "wrong network",
+			response: &x402.SettleResponse{
+				Success:     true,
+				Transaction: "0xtestnettransaction",
+				Network:     "eip155:1",
+				Amount:      "10000",
+			},
+		},
+		{
+			name: "wrong amount",
+			response: &x402.SettleResponse{
+				Success:     true,
+				Transaction: "0xtestnettransaction",
+				Network:     x402.Network(BaseSepoliaNetwork),
+				Amount:      "9999",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			adapter := NewX402AdapterWithFacilitator(
+				&fakeFacilitatorClient{settleResponse: test.response},
+				testVerificationTimeout,
+			)
+			_, err := adapter.Settle(
+				t.Context(),
+				validPaymentProof(t, validRequirements()),
+				validRequirements(),
+			)
+			if !errors.Is(err, ErrPaymentRejected) {
+				t.Fatalf("Settle() error = %v, want payment rejected", err)
+			}
+		})
 	}
 }
 
@@ -320,6 +369,7 @@ func TestMockAdapterVerifiesAndSettlesApprovedProof(t *testing.T) {
 	}
 	if !settlement.Settled ||
 		settlement.PaymentIdentifier != verification.PaymentIdentifier ||
+		settlement.PaymentReference == "" ||
 		settlement.ResponseHeader == "" {
 		t.Fatalf("settlement = %#v", settlement)
 	}

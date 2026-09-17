@@ -18,6 +18,9 @@ type Snapshot struct {
 	Status            TransactionStatus     `json:"status"`
 	PaymentIdentifier string                `json:"paymentIdentifier,omitempty"`
 	PaymentProofHash  intents.SHA256Digest  `json:"paymentProofHash,omitempty"`
+	PaymentReference  string                `json:"paymentReference,omitempty"`
+	PaymentFinality   PaymentFinality       `json:"paymentFinality,omitempty"`
+	ReconciledAt      *domain.Timestamp     `json:"reconciledAt,omitempty"`
 	UpstreamStatus    *int                  `json:"upstreamStatus,omitempty"`
 	ResponseHash      *intents.SHA256Digest `json:"responseHash,omitempty"`
 	ResponseSummary   *ResponseSummary      `json:"responseSummary,omitempty"`
@@ -41,6 +44,9 @@ func (transaction Transaction) Snapshot() Snapshot {
 		Status:            transaction.status,
 		PaymentIdentifier: transaction.paymentIdentifier,
 		PaymentProofHash:  transaction.paymentProofHash,
+		PaymentReference:  transaction.paymentReference,
+		PaymentFinality:   transaction.paymentFinality,
+		ReconciledAt:      transaction.ReconciledAt(),
 		UpstreamStatus:    transaction.UpstreamStatus(),
 		ResponseHash:      transaction.ResponseHash(),
 		ResponseSummary:   transaction.ResponseSummary(),
@@ -59,6 +65,21 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 	if snapshot.Version == 0 || snapshot.CreatedAt.Time().IsZero() || snapshot.UpdatedAt.Time().IsZero() || !validStoredStatus(snapshot.Status) {
 		return Transaction{}, domain.NewValidationError("status", "persistence", "stored transaction metadata is invalid")
 	}
+	paymentFinality := snapshot.PaymentFinality
+	reconciledAt := snapshot.ReconciledAt
+	if paymentFinality == "" && snapshot.PaymentIdentifier != "" {
+		paymentFinality = PaymentFinalityConfirmed
+		if reconciledAt == nil {
+			reconciledAt = &snapshot.UpdatedAt
+		}
+	}
+	if paymentFinality != "" && !validPaymentFinality(paymentFinality) {
+		return Transaction{}, domain.NewValidationError(
+			"paymentFinality",
+			"persistence",
+			"stored payment finality is invalid",
+		)
+	}
 	return Transaction{
 		transactionID:     snapshot.TransactionID,
 		intentID:          snapshot.IntentID,
@@ -71,6 +92,9 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 		status:            snapshot.Status,
 		paymentIdentifier: snapshot.PaymentIdentifier,
 		paymentProofHash:  snapshot.PaymentProofHash,
+		paymentReference:  snapshot.PaymentReference,
+		paymentFinality:   paymentFinality,
+		reconciledAt:      reconciledAt,
 		upstreamStatus:    snapshot.UpstreamStatus,
 		responseHash:      snapshot.ResponseHash,
 		responseSummary:   snapshot.ResponseSummary,
@@ -79,6 +103,16 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 		updatedAt:         snapshot.UpdatedAt,
 		version:           snapshot.Version,
 	}, nil
+}
+
+// validPaymentFinality reports whether a stored observation belongs to the contract.
+func validPaymentFinality(finality PaymentFinality) bool {
+	switch finality {
+	case PaymentFinalityConfirmed, PaymentFinalityFinalized, PaymentFinalityFailed:
+		return true
+	default:
+		return false
+	}
 }
 
 // validStoredStatus reports whether a transaction status is part of the state machine.

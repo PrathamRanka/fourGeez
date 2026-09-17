@@ -10,6 +10,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 // TestCheckoutServiceRecordsChallengeAndVerification verifies safe payment evidence.
@@ -69,6 +70,15 @@ func TestCheckoutServiceRecordsChallengeAndVerification(t *testing.T) {
 	}
 	if delivery.Response == nil || delivery.SettlementHeader == "" {
 		t.Fatalf("delivery result = %#v", delivery)
+	}
+	transaction, err := transactionRepository.Get(t.Context(), delivery.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transaction.PaymentFinality() != transactions.PaymentFinalityFinalized ||
+		transaction.PaymentReference() == "" ||
+		transaction.Reconciliation().Stage != transactions.ReconciliationStageFinalized {
+		t.Fatalf("payment reconciliation = %#v", transaction.Reconciliation())
 	}
 	events, err := evidenceRepository.ListByTransaction(
 		t.Context(),

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.3.1
+  version: 0.3.2
   description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
   license:
     name: Proprietary
@@ -811,11 +811,26 @@ components:
         amount: { $ref: '#/components/schemas/AtomicAmount' }
         asset: { type: string }
         network: { type: string }
+        paymentFinality: { type: string, enum: [confirmed, finalized, failed] }
+        paymentReference: { type: string, minLength: 1, maxLength: 512 }
+        reconciledAt: { type: string, format: date-time }
+        reconciliation: { $ref: '#/components/schemas/PaymentReconciliation' }
         upstreamStatus: { type: [integer, 'null'] }
         responseHash: { oneOf: [{ $ref: '#/components/schemas/Sha256' }, { type: 'null' }] }
         failureCode: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    PaymentReconciliation:
+      type: object
+      additionalProperties: false
+      required: [stage, amount, asset, network]
+      properties:
+        stage: { type: string, enum: [challenged, verified, finalized, fulfilled, failed, disputed] }
+        amount: { $ref: '#/components/schemas/AtomicAmount' }
+        asset: { type: string }
+        network: { type: string }
+        paymentReference: { type: string, minLength: 1, maxLength: 512 }
+        reconciledAt: { type: string, format: date-time }
     EvidenceEvent:
       type: object
       required: [eventId, transactionId, sequence, eventType, actorType, payload, eventHash, kmsKeyId, kmsSignature, createdAt]

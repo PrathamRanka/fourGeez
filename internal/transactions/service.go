@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode"
 
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
@@ -11,8 +12,9 @@ import (
 )
 
 const (
-	defaultTransactionPageLimit = 25
-	maximumTransactionPageLimit = 100
+	defaultTransactionPageLimit   = 25
+	maximumTransactionPageLimit   = 100
+	maximumPaymentReferenceLength = 512
 )
 
 // ErrSellerAccess reports a seller transaction request outside its tenancy.
@@ -147,21 +149,30 @@ func (service *Service) ListSeller(
 
 // transactionResponse removes payment and internal persistence fields.
 func transactionResponse(transaction Transaction) Response {
+	reconciliation := transaction.Reconciliation()
+	var publicReconciliation *Reconciliation
+	if reconciliation.Stage != "" {
+		publicReconciliation = &reconciliation
+	}
 	return Response{
-		TransactionID:  transaction.TransactionID(),
-		IntentID:       transaction.IntentID(),
-		SellerID:       transaction.SellerID(),
-		RouteID:        transaction.RouteID(),
-		BuyerID:        transaction.BuyerID(),
-		Status:         transaction.Status(),
-		Amount:         transaction.Amount(),
-		Asset:          transaction.Asset(),
-		Network:        transaction.Network(),
-		UpstreamStatus: transaction.UpstreamStatus(),
-		ResponseHash:   transaction.ResponseHash(),
-		FailureCode:    transaction.FailureCode(),
-		CreatedAt:      transaction.CreatedAt(),
-		UpdatedAt:      transaction.UpdatedAt(),
+		TransactionID:    transaction.TransactionID(),
+		IntentID:         transaction.IntentID(),
+		SellerID:         transaction.SellerID(),
+		RouteID:          transaction.RouteID(),
+		BuyerID:          transaction.BuyerID(),
+		Status:           transaction.Status(),
+		Amount:           transaction.Amount(),
+		Asset:            transaction.Asset(),
+		Network:          transaction.Network(),
+		PaymentFinality:  transaction.PaymentFinality(),
+		PaymentReference: transaction.PaymentReference(),
+		ReconciledAt:     transaction.ReconciledAt(),
+		Reconciliation:   publicReconciliation,
+		UpstreamStatus:   transaction.UpstreamStatus(),
+		ResponseHash:     transaction.ResponseHash(),
+		FailureCode:      transaction.FailureCode(),
+		CreatedAt:        transaction.CreatedAt(),
+		UpdatedAt:        transaction.UpdatedAt(),
 	}
 }
 
@@ -200,7 +211,7 @@ func allowedTransition(current, next TransactionStatus) bool {
 	case StatusPaymentRequired:
 		return next == StatusPaymentVerified
 	case StatusPaymentVerified:
-		return next == StatusForwarded
+		return next == StatusForwarded || next == StatusFailed
 	case StatusForwarded:
 		return next == StatusFulfilled || next == StatusFailed
 	case StatusFulfilled, StatusFailed:
@@ -289,6 +300,123 @@ func (transaction *Transaction) VerifyPayment(
 	}
 	transaction.paymentIdentifier = strings.TrimSpace(paymentIdentifier)
 	transaction.paymentProofHash = proofHash
+	transaction.paymentFinality = PaymentFinalityConfirmed
+	reconciledAt := at
+	transaction.reconciledAt = &reconciledAt
+	return nil
+}
+
+// FinalizePayment records a successful settlement observation without changing delivery state.
+func (transaction *Transaction) FinalizePayment(
+	paymentIdentifier string,
+	paymentReference string,
+	at domain.Timestamp,
+) error {
+	if strings.TrimSpace(paymentIdentifier) != transaction.paymentIdentifier {
+		return domain.NewValidationError(
+			"paymentIdentifier",
+			"match",
+			"must match the verified payment identifier",
+		)
+	}
+	if err := validatePaymentReference(paymentReference, true); err != nil {
+		return err
+	}
+	if transaction.status != StatusPaymentVerified ||
+		transaction.paymentFinality != PaymentFinalityConfirmed {
+		return InvalidTransitionError{
+			From: transaction.status,
+			To:   StatusPaymentVerified,
+		}
+	}
+	if err := transaction.validateMutationTime(at); err != nil {
+		return err
+	}
+	transaction.paymentReference = strings.TrimSpace(paymentReference)
+	transaction.paymentFinality = PaymentFinalityFinalized
+	reconciledAt := at
+	transaction.reconciledAt = &reconciledAt
+	transaction.updatedAt = at
+	transaction.version++
+	return nil
+}
+
+// FailPayment records a definitive settlement rejection before seller forwarding.
+func (transaction *Transaction) FailPayment(
+	failureCode string,
+	paymentReference string,
+	at domain.Timestamp,
+) error {
+	if strings.TrimSpace(failureCode) == "" {
+		return domain.NewValidationError("failureCode", "required", "is required")
+	}
+	if err := validatePaymentReference(paymentReference, false); err != nil {
+		return err
+	}
+	if transaction.status != StatusPaymentVerified ||
+		transaction.paymentFinality != PaymentFinalityConfirmed {
+		return InvalidTransitionError{From: transaction.status, To: StatusFailed}
+	}
+	if err := transaction.transition(StatusFailed, at); err != nil {
+		return err
+	}
+	transaction.failureCode = strings.TrimSpace(failureCode)
+	transaction.paymentReference = strings.TrimSpace(paymentReference)
+	transaction.paymentFinality = PaymentFinalityFailed
+	reconciledAt := at
+	transaction.reconciledAt = &reconciledAt
+	return nil
+}
+
+// Reconciliation returns one deterministic seller reporting bucket for this transaction.
+func (transaction Transaction) Reconciliation() Reconciliation {
+	stage := ReconciliationStage("")
+	switch transaction.status {
+	case StatusPaymentRequired:
+		stage = ReconciliationStageChallenged
+	case StatusPaymentVerified, StatusForwarded:
+		if transaction.paymentFinality == PaymentFinalityFinalized {
+			stage = ReconciliationStageFinalized
+		} else {
+			stage = ReconciliationStageVerified
+		}
+	case StatusFulfilled:
+		stage = ReconciliationStageFulfilled
+	case StatusFailed:
+		stage = ReconciliationStageFailed
+	case StatusDisputed, StatusRefundRecommended, StatusResolved:
+		stage = ReconciliationStageDisputed
+	}
+	return Reconciliation{
+		Stage:            stage,
+		Amount:           transaction.amount,
+		Asset:            transaction.asset,
+		Network:          transaction.network,
+		PaymentReference: transaction.paymentReference,
+		ReconciledAt:     transaction.ReconciledAt(),
+	}
+}
+
+// validatePaymentReference rejects missing or unsafe settlement references.
+func validatePaymentReference(paymentReference string, required bool) error {
+	trimmed := strings.TrimSpace(paymentReference)
+	if required && trimmed == "" {
+		return domain.NewValidationError("paymentReference", "required", "is required")
+	}
+	if len(trimmed) > maximumPaymentReferenceLength {
+		return domain.NewValidationError(
+			"paymentReference",
+			"length",
+			"exceeds the maximum length",
+		)
+	}
+	if strings.IndexFunc(trimmed, unicode.IsControl) >= 0 {
+		return domain.NewValidationError(
+			"paymentReference",
+			"format",
+			"must not contain control characters",
+		)
+	}
 	return nil
 }
 
@@ -389,12 +517,8 @@ func (transaction *Transaction) transition(
 	next TransactionStatus,
 	at domain.Timestamp,
 ) error {
-	if at.Before(transaction.updatedAt) {
-		return domain.NewValidationError(
-			"updatedAt",
-			"chronology",
-			"cannot occur before the previous update",
-		)
+	if err := transaction.validateMutationTime(at); err != nil {
+		return err
 	}
 	if !allowedTransition(transaction.status, next) {
 		return InvalidTransitionError{From: transaction.status, To: next}
@@ -402,5 +526,17 @@ func (transaction *Transaction) transition(
 	transaction.status = next
 	transaction.updatedAt = at
 	transaction.version++
+	return nil
+}
+
+// validateMutationTime prevents state or reconciliation timestamps from moving backward.
+func (transaction Transaction) validateMutationTime(at domain.Timestamp) error {
+	if at.Before(transaction.updatedAt) {
+		return domain.NewValidationError(
+			"updatedAt",
+			"chronology",
+			"cannot occur before the previous update",
+		)
+	}
 	return nil
 }
