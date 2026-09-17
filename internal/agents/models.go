@@ -1,6 +1,13 @@
 package agents
 
-import "context"
+import (
+	"context"
+
+	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/catalog"
+	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/intents"
+)
 
 // JSONSchema describes the bounded object schemas exposed to a model.
 type JSONSchema struct {
@@ -44,4 +51,65 @@ type ModelResponse struct {
 // ModelInvoker proposes buyer actions without executing them.
 type ModelInvoker interface {
 	Invoke(context.Context, ModelRequest) (ModelResponse, error)
+}
+
+// CatalogService exposes the same storefront use case used by HTTP clients.
+type CatalogService interface {
+	GetStorefrontManifest(context.Context, string) (catalog.StorefrontManifest, error)
+}
+
+// IntentService exposes the same immutable-intent use cases used by HTTP clients.
+type IntentService interface {
+	Create(
+		context.Context,
+		string,
+		intents.CreateIntentRequest,
+	) (intents.PurchaseIntent, error)
+	Get(context.Context, domain.ID) (intents.PurchaseIntent, error)
+}
+
+// ApprovalService exposes the same approval use cases used by HTTP clients.
+type ApprovalService interface {
+	Create(
+		context.Context,
+		domain.ID,
+		approvals.CreateSessionRequest,
+	) (approvals.SessionResponse, error)
+	Get(context.Context, domain.ID) (approvals.SessionResponse, error)
+}
+
+// ToolResult associates validated domain output with the originating model call.
+type ToolResult struct {
+	ToolCallID string `json:"toolCallId"`
+	Value      any    `json:"value"`
+}
+
+// PurchaseIntentView is the immutable model-safe intent representation.
+type PurchaseIntentView struct {
+	IntentID         domain.ID                    `json:"intentId"`
+	SellerID         domain.ID                    `json:"sellerId"`
+	RouteID          domain.ID                    `json:"routeId"`
+	RequestMethod    intents.RequestMethod        `json:"requestMethod"`
+	RequestPath      string                       `json:"requestPath"`
+	RequestBodyHash  intents.SHA256Digest         `json:"requestBodyHash"`
+	Amount           domain.Amount                `json:"amount"`
+	Asset            string                       `json:"asset"`
+	Network          string                       `json:"network"`
+	MaximumAmount    domain.Amount                `json:"maximumAmount"`
+	RequiresApproval bool                         `json:"requiresApproval"`
+	IntentHash       intents.SHA256Digest         `json:"intentHash"`
+	Status           intents.PurchaseIntentStatus `json:"status"`
+	ExpiresAt        domain.Timestamp             `json:"expiresAt"`
+}
+
+// ApprovalSessionView excludes invitation URLs and approval tokens from models.
+type ApprovalSessionView struct {
+	SessionID         domain.ID                `json:"sessionId"`
+	IntentID          domain.ID                `json:"intentId"`
+	IntentHash        intents.SHA256Digest     `json:"intentHash"`
+	RequiredApprovals int                      `json:"requiredApprovals"`
+	Decisions         []approvals.DecisionView `json:"decisions"`
+	Status            approvals.SessionStatus  `json:"status"`
+	ExpiresAt         domain.Timestamp         `json:"expiresAt"`
+	UpdatedAt         domain.Timestamp         `json:"updatedAt"`
 }

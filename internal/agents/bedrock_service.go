@@ -142,7 +142,7 @@ func parseBedrockResponse(output *bedrockruntime.ConverseOutput) ModelResponse {
 		case *bedrocktypes.ContentBlockMemberText:
 			response.Text += block.Value
 		case *bedrocktypes.ContentBlockMemberToolUse:
-			toolInput := decodeToolInput(block.Value.Input)
+			toolInput := decodeBedrockToolInput(block.Value.Input)
 			response.ToolCalls = append(
 				response.ToolCalls,
 				ToolCall{
@@ -157,8 +157,8 @@ func parseBedrockResponse(output *bedrockruntime.ConverseOutput) ModelResponse {
 	return response
 }
 
-// decodeToolInput converts the SDK document without trusting its contents.
-func decodeToolInput(input bedrockdocument.Interface) any {
+// decodeBedrockToolInput converts the SDK document without trusting its contents.
+func decodeBedrockToolInput(input bedrockdocument.Interface) any {
 	if input == nil {
 		return nil
 	}
