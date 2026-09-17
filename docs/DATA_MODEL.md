@@ -181,7 +181,11 @@ PK=TXN#txn_123          SK=PROFILE
 PK=TXN#txn_123          SK=EVENT#000001
 PK=DISPUTE#dsp_123      SK=PROFILE
 PK=IDEMPOTENCY#<scope>  SK=<key>
+PK=PAYMENT#<paymentIdentifier> SK=CLAIM
+PK=SLUG#<slug>          SK=CLAIM
 ```
+
+`PAYMENT#...` and `SLUG#...` claim items are created in the same DynamoDB transaction as their owning record with `attribute_not_exists(PK)` conditions. They enforce uniqueness; the corresponding GSIs remain the query paths for transaction and storefront lookup.
 
 Required secondary indexes:
 
