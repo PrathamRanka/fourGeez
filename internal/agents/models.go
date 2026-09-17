@@ -7,6 +7,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/payments"
 )
 
 // JSONSchema describes the bounded object schemas exposed to a model.
@@ -112,4 +113,47 @@ type ApprovalSessionView struct {
 	Status            approvals.SessionStatus  `json:"status"`
 	ExpiresAt         domain.Timestamp         `json:"expiresAt"`
 	UpdatedAt         domain.Timestamp         `json:"updatedAt"`
+}
+
+// ToolExecutor validates and executes one model-safe domain operation.
+type ToolExecutor interface {
+	Execute(context.Context, string, ToolCall) (ToolResult, error)
+}
+
+// CheckoutService executes the payment-owned purchase boundary.
+type CheckoutService interface {
+	Execute(context.Context, payments.CheckoutRequest) (payments.CheckoutResult, error)
+}
+
+// BuyerMode identifies how a purchase plan was produced.
+type BuyerMode string
+
+const (
+	// BuyerModeDeterministic identifies the Bedrock-free fallback path.
+	BuyerModeDeterministic BuyerMode = "deterministic"
+)
+
+// DeterministicPurchaseRequest contains explicit inputs for a fallback purchase.
+type DeterministicPurchaseRequest struct {
+	BuyerID          string
+	Slug             string
+	RouteID          domain.ID
+	RequestBodyHash  string
+	MaximumAmount    string
+	ApproverLabels   []string
+	ExistingIntentID domain.ID
+	ApprovalToken    string
+	PaymentProof     string
+	Body             []byte
+	ContentType      string
+}
+
+// DeterministicPurchaseResult reports progress without pretending approval.
+type DeterministicPurchaseResult struct {
+	Mode             BuyerMode
+	PurchaseIntent   PurchaseIntentView
+	ApprovalSession  *ApprovalSessionView
+	AwaitingApproval bool
+	AwaitingPayment  bool
+	Checkout         payments.CheckoutResult
 }
