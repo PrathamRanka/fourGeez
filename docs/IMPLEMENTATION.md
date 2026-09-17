@@ -40,7 +40,7 @@ M1 acceptance: a clean checkout can install dependencies and run all empty-proje
 - [x] **BE-006** Implement transaction state machine with guarded transitions.
 - [x] **BE-007** Implement evidence event hashing, chaining, signing interface, and chain verification.
 - [x] **BE-008** Implement dispute classification rules.
-- [ ] **BE-009** Implement in-memory repositories for local development and unit tests.
+- [x] **BE-009** Implement in-memory repositories for local development and unit tests.
 - [ ] **BE-010** Implement DynamoDB repositories and conditional writes.
 
 M2 acceptance: domain tests cover valid transitions, invalid transitions, replay, expiration, modified intents, chain tampering, and every dispute rule.

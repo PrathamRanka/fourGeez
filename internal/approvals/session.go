@@ -233,6 +233,17 @@ func (session Session) ExpiresAt() domain.Timestamp { return session.expiresAt }
 // Version returns the optimistic-concurrency version.
 func (session Session) Version() uint64 { return session.version }
 
+// Clone returns an independent in-memory persistence snapshot.
+func (session Session) Clone() Session {
+	cloned := session
+	cloned.invitations = session.Invitations()
+	cloned.invitationByHash = make(map[string]int, len(session.invitationByHash))
+	for tokenHash, index := range session.invitationByHash {
+		cloned.invitationByHash[tokenHash] = index
+	}
+	return cloned
+}
+
 func (session Session) approvalCount() int {
 	count := 0
 	for _, invitation := range session.invitations {
