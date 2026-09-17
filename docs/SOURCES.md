@@ -1,6 +1,6 @@
 # Verified sources and implementation unknowns
 
-Last reviewed: 2026-09-18.
+Last reviewed: 2026-09-17.
 
 Only official documentation and repositories should determine protocol wire behavior, SDK imports, AWS resource behavior, and security-sensitive configuration. Blog posts may provide context but cannot override these sources.
 
@@ -46,9 +46,9 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 |---|---|---|
 | MCP protocol | https://modelcontextprotocol.io/specification/2026-07-28 | Pin the protocol version and expose only declared resources, prompts, and tools. |
 | MCP authorization | https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization | Remote seller integrations use standards-based authorization, seller scope, and least privilege. |
-| MCP Streamable HTTP transport | https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http | Generic setup describes one authenticated Streamable HTTP endpoint without inventing a client-specific configuration schema. Verified 2026-09-18. |
-| Codex MCP configuration | https://developers.openai.com/codex/mcp | Use project-scoped `.codex/config.toml` and `bearer_token_env_var`; do not write bearer values into the file. Verified 2026-09-18. |
-| Claude Code MCP configuration | https://code.claude.com/docs/en/mcp | Use project-scoped `.mcp.json`, explicit `type: "http"`, and environment expansion for URL and authorization header values. Verified 2026-09-18. |
+| MCP Streamable HTTP transport | https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http | Generic setup describes one authenticated Streamable HTTP endpoint without inventing a client-specific configuration schema. Verified 2026-09-17. |
+| Codex MCP configuration | https://developers.openai.com/codex/mcp | Use project-scoped `.codex/config.toml` and `bearer_token_env_var`; do not write bearer values into the file. Verified 2026-09-17. |
+| Claude Code MCP configuration | https://code.claude.com/docs/en/mcp | Use project-scoped `.mcp.json`, explicit `type: "http"`, and environment expansion for URL and authorization header values. Verified 2026-09-17. |
 
 Host-specific configuration must be rechecked against these official sources
 before changing a published setup-bundle version.
