@@ -12,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/integrations/mcpserver"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/payments"
@@ -72,6 +73,7 @@ func main() {
 			idempotencyStore,
 			clock,
 		),
+		analyzer.NewService(),
 	).RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,

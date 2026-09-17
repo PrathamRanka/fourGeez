@@ -89,7 +89,7 @@ M5 acceptance: Bedrock cannot execute an unknown route, change an approved inten
 - [x] **AUT-002** Define and implement seller-scoped integration credentials with read, configure, publish, validate, and rotate scopes.
 - [x] **AUT-003** Publish a remote MCP server with authenticated read-only seller, storefront, route, transaction-summary, and integration-document resources.
 - [x] **AUT-004** Add idempotent MCP mutation tools for storefront configuration, draft-route creation, price changes, validation, and publication with explicit confirmation metadata. Initial seller/storefront creation remains in the seller API because integration credentials are seller-scoped.
-- [ ] **AUT-005** Implement deterministic OpenAPI and repository-manifest analysis that proposes supported paid routes without publishing them automatically.
+- [x] **AUT-005** Implement deterministic OpenAPI and repository-manifest analysis that proposes supported paid routes without publishing them automatically.
 - [ ] **AUT-006** Implement maintained seller-request verification packages for the initial supported Go, Node.js, and Python server frameworks.
 - [ ] **AUT-007** Publish versioned Claude Code, Codex, and generic MCP setup bundles that install verification, generate storefront integration code, and run tests.
 - [ ] **AUT-008** Implement a sandbox validator that verifies discovery, signature handling, payment gating, and exactly-once fulfillment before publication.

@@ -12,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -23,6 +24,7 @@ func TestHTTPControllerServesAuthenticatedResources(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{},
 		newTestResourceService(t),
+		nil,
 		nil,
 	)
 	server := httptest.NewServer(controller)
@@ -71,6 +73,7 @@ func TestHTTPControllerRequiresReadableCredential(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{},
 		newTestResourceService(t),
+		nil,
 		nil,
 	)
 	requestBody := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`
@@ -127,6 +130,7 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 			memory.NewIdempotencyStore(),
 			clock,
 		),
+		nil,
 	)
 	server := httptest.NewServer(controller)
 	t.Cleanup(server.Close)
@@ -222,6 +226,66 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 	}
 }
 
+// TestHTTPControllerAnalyzesRepositoryWithoutPublishing verifies AUT-005 integration.
+func TestHTTPControllerAnalyzesRepositoryWithoutPublishing(t *testing.T) {
+	t.Parallel()
+
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		nil,
+		analyzer.NewService(),
+	)
+	server := httptest.NewServer(controller)
+	t.Cleanup(server.Close)
+	client := protocol.NewClient(
+		&protocol.Implementation{Name: "agentpay-analyzer-test", Version: "1.0.0"},
+		nil,
+	)
+	session, err := client.Connect(
+		t.Context(),
+		&protocol.StreamableClientTransport{
+			Endpoint:             server.URL,
+			HTTPClient:           authenticatedHTTPClient("validate-token"),
+			DisableStandaloneSSE: true,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = session.Close()
+	})
+
+	result, err := session.CallTool(
+		t.Context(),
+		&protocol.CallToolParams{
+			Name: "analyze_repository",
+			Arguments: map[string]any{
+				"manifest": map[string]any{
+					"schemaVersion": "agentpay.repository.v1",
+					"serviceName":   "Research API",
+					"framework":     "go",
+					"openapiPath":   "openapi.yaml",
+				},
+				"openapi": "openapi: 3.1.0\npaths:\n  /research:\n    post:\n      summary: Research\n",
+			},
+		},
+	)
+	if err != nil || result.IsError {
+		t.Fatalf("CallTool() = (%#v, %v)", result, err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("structured result = %#v", result.StructuredContent)
+	}
+	proposals, ok := structured["proposals"].([]any)
+	if !ok || len(proposals) != 1 {
+		t.Fatalf("proposals = %#v", structured["proposals"])
+	}
+}
+
 // TestMutationToolResultRedactsUnexpectedErrors verifies safe MCP failures.
 func TestMutationToolResultRedactsUnexpectedErrors(t *testing.T) {
 	t.Parallel()
@@ -241,6 +305,7 @@ func TestHTTPControllerRedactsCredentialRepositoryFailures(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{err: repositoryError},
 		newTestResourceService(t),
+		nil,
 		nil,
 	)
 	request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
@@ -264,6 +329,7 @@ func TestHTTPControllerLimitsRequestBodies(t *testing.T) {
 	controller := NewHTTPController(
 		&testCredentialAuthenticator{},
 		newTestResourceService(t),
+		nil,
 		nil,
 	)
 	request := httptest.NewRequest(
@@ -307,6 +373,12 @@ func (authenticator *testCredentialAuthenticator) AuthenticateToken(
 			SellerID:     domain.ID(testSellerID),
 			CredentialID: domain.ID(testCredentialID),
 			Scopes:       []integrations.Scope{integrations.ScopeConfigure},
+		}, nil
+	case "validate-token":
+		return integrations.Principal{
+			SellerID:     domain.ID(testSellerID),
+			CredentialID: domain.ID(testCredentialID),
+			Scopes:       []integrations.Scope{integrations.ScopeValidate},
 		}, nil
 	default:
 		return integrations.Principal{}, integrations.ErrCredentialInvalid

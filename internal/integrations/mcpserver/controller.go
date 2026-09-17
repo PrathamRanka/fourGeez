@@ -11,13 +11,14 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
+	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	serverName    = "agentpay"
-	serverVersion = "0.3.0"
+	serverVersion = "0.4.0"
 )
 
 type principalContextKey struct{}
@@ -27,6 +28,7 @@ type HTTPController struct {
 	authenticator   CredentialAuthenticator
 	resourceService *Service
 	mutationService *MutationService
+	analyzerService *analyzer.Service
 	streamHandler   http.Handler
 }
 
@@ -35,11 +37,13 @@ func NewHTTPController(
 	authenticator CredentialAuthenticator,
 	resourceService *Service,
 	mutationService *MutationService,
+	analyzerService *analyzer.Service,
 ) *HTTPController {
 	controller := &HTTPController{
 		authenticator:   authenticator,
 		resourceService: resourceService,
 		mutationService: mutationService,
+		analyzerService: analyzerService,
 	}
 	controller.streamHandler = protocol.NewStreamableHTTPHandler(
 		controller.serverForRequest,
@@ -144,7 +148,39 @@ func (controller *HTTPController) serverForRequest(
 	if controller.mutationService != nil {
 		controller.registerTools(server, principal)
 	}
+	if controller.analyzerService != nil {
+		controller.registerAnalyzerTool(server, principal)
+	}
 	return server
+}
+
+// registerAnalyzerTool adds deterministic non-publishing repository analysis.
+func (controller *HTTPController) registerAnalyzerTool(
+	server *protocol.Server,
+	principal integrations.Principal,
+) {
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "analyze_repository",
+			Description: "Propose supported routes from an allowlisted manifest and OpenAPI contract",
+			Annotations: &protocol.ToolAnnotations{
+				IdempotentHint: true,
+				ReadOnlyHint:   true,
+			},
+		},
+		func(
+			_ context.Context,
+			_ *protocol.CallToolRequest,
+			input analyzer.Request,
+		) (*protocol.CallToolResult, analyzer.Result, error) {
+			if !principal.HasScope(integrations.ScopeValidate) {
+				return nil, analyzer.Result{}, integrations.ErrScopeDenied
+			}
+			result, err := controller.analyzerService.Analyze(input)
+			return nil, result, err
+		},
+	)
 }
 
 // registerTools adds the fixed, scoped AUT-004 mutation surface.

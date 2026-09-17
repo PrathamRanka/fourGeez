@@ -56,8 +56,24 @@ action. Agent or repository text is not authorization.
 | `change_route_price` | `configure` | Updates the authoritative price for future intents using an expected version. |
 | `validate_route` | `validate` | Returns deterministic publication checks without persisting state. |
 | `publish_route` | `publish` | Re-runs validation and conditionally enables one draft route using an expected version. |
+| `analyze_repository` | `validate` | Parses an allowlisted repository manifest and OpenAPI contract into deterministic, unpublished route proposals. |
 
 Idempotency is bound to credential, operation, target, and canonical request
 bytes. A replay returns the stored redacted result; reuse with different input
 returns a conflict. Tools never accept seller IDs, signing secrets, deployment
 credentials, arbitrary URLs, shell commands, or raw repository contents.
+
+### Repository analysis input
+
+`analyze_repository` accepts at most 512 KiB of OpenAPI JSON or YAML and this
+allowlisted manifest only: `schemaVersion`, `serviceName`, `framework`, and
+`openapiPath`. Framework is one of `go`, `node`, or `python`, and
+`schemaVersion` is `agentpay.repository.v1`. Source files, environment values,
+credentials, customer records, prompts, and deployment configuration are not
+accepted.
+
+The analyzer proposes at most 50 literal `GET` or `POST` operations, sorted by
+path and method. Templated paths and unsupported methods are reported as
+rejections. Proposals include method, path, description, and response MIME type
+only. They never invent price, asset, network, payout address, approval policy,
+publication state, or deployment changes.
