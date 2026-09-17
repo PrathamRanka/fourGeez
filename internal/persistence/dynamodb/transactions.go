@@ -80,23 +80,38 @@ func (repository *TransactionRepository) ListBySeller(
 	limit int,
 	cursor string,
 ) ([]transactions.Transaction, *string, error) {
+	return repository.QueryBySeller(
+		ctx,
+		transactions.SellerTransactionQuery{
+			SellerID: sellerID,
+			Limit:    limit,
+			Cursor:   cursor,
+		},
+	)
+}
+
+// QueryBySeller queries the seller index and applies bounded transaction filters.
+func (repository *TransactionRepository) QueryBySeller(
+	ctx context.Context,
+	query transactions.SellerTransactionQuery,
+) ([]transactions.Transaction, *string, error) {
 	keyCondition := "GSI1PK = :sellerPartitionKey"
 	ascending := false
-	queryLimit := int32(limit)
+	queryLimit := int32(query.Limit)
 	input := &awssdk.QueryInput{
 		TableName:              &repository.tableName,
 		IndexName:              stringPointer("GSI1"),
 		KeyConditionExpression: &keyCondition,
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":sellerPartitionKey": stringAttributeValue(
-				sellerPartitionKey(sellerID.String()),
+				sellerPartitionKey(query.SellerID.String()),
 			),
 		},
 		Limit:            &queryLimit,
 		ScanIndexForward: &ascending,
 	}
-	if cursor != "" {
-		cursorID, err := domain.ParseID(cursor, domain.TransactionIDPrefix)
+	if query.Cursor != "" {
+		cursorID, err := domain.ParseID(query.Cursor, domain.TransactionIDPrefix)
 		if err != nil {
 			return nil, nil, domain.NewValidationError(
 				"cursor",
@@ -105,7 +120,7 @@ func (repository *TransactionRepository) ListBySeller(
 			)
 		}
 		cursorTransaction, err := repository.Get(ctx, cursorID)
-		if err != nil || cursorTransaction.SellerID() != sellerID {
+		if err != nil || cursorTransaction.SellerID() != query.SellerID {
 			return nil, nil, domain.NewValidationError(
 				"cursor",
 				"scope",
@@ -118,7 +133,7 @@ func (repository *TransactionRepository) ListBySeller(
 			),
 			"SK": stringAttributeValue(profileSortKey),
 			"GSI1PK": stringAttributeValue(
-				sellerPartitionKey(sellerID.String()),
+				sellerPartitionKey(query.SellerID.String()),
 			),
 			"GSI1SK": stringAttributeValue(
 				fmt.Sprintf(
@@ -135,6 +150,7 @@ func (repository *TransactionRepository) ListBySeller(
 		return nil, nil, err
 	}
 	page := make([]transactions.Transaction, 0, len(output.Items))
+	var lastEvaluatedTransactionID string
 	for _, item := range output.Items {
 		var snapshot transactions.Snapshot
 		if err := unmarshalPayload(item, &snapshot); err != nil {
@@ -144,11 +160,14 @@ func (repository *TransactionRepository) ListBySeller(
 		if err != nil {
 			return nil, nil, err
 		}
-		page = append(page, transaction)
+		lastEvaluatedTransactionID = transaction.TransactionID().String()
+		if query.Matches(transaction) {
+			page = append(page, transaction)
+		}
 	}
 	var nextCursor *string
-	if len(output.LastEvaluatedKey) > 0 && len(page) > 0 {
-		value := page[len(page)-1].TransactionID().String()
+	if len(output.LastEvaluatedKey) > 0 && lastEvaluatedTransactionID != "" {
+		value := lastEvaluatedTransactionID
 		nextCursor = &value
 	}
 	return page, nextCursor, nil

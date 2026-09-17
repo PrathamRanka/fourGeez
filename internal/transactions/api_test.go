@@ -9,10 +9,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -133,6 +135,76 @@ func TestSellerTransactionRoutePaginatesAndEnforcesOwnership(t *testing.T) {
 	}
 }
 
+// TestSellerTransactionFiltersAndDashboardSummary verifies API-010 seller reads.
+func TestSellerTransactionFiltersAndDashboardSummary(t *testing.T) {
+	t.Parallel()
+
+	handler, seller, transaction := newTransactionAPIHandler(t, 2)
+	from := url.QueryEscape("2026-09-17T00:00:00Z")
+	to := url.QueryEscape("2026-09-18T00:00:00Z")
+	filters := "from=" + from +
+		"&to=" + to +
+		"&routeId=" + transaction.RouteID().String() +
+		"&status=FULFILLED" +
+		"&asset=test-usdc" +
+		"&network=test-network"
+	listRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/sellers/"+seller.SellerID.String()+"/transactions?"+filters,
+		nil,
+	)
+	listRequest.Header.Set("Authorization", "Bearer seller-secret")
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("filtered list status/body = %d/%s", listResponse.Code, listResponse.Body.String())
+	}
+	var page transactions.ListResponse
+	if err := json.Unmarshal(listResponse.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 2 {
+		t.Fatalf("filtered transactions = %#v", page.Items)
+	}
+
+	summaryRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/sellers/"+seller.SellerID.String()+"/dashboard-summary?"+filters,
+		nil,
+	)
+	summaryRequest.Header.Set("Authorization", "Bearer seller-secret")
+	summaryResponse := httptest.NewRecorder()
+	handler.ServeHTTP(summaryResponse, summaryRequest)
+	if summaryResponse.Code != http.StatusOK {
+		t.Fatalf("summary status/body = %d/%s", summaryResponse.Code, summaryResponse.Body.String())
+	}
+	var summary analytics.DashboardSummaryResponse
+	if err := json.Unmarshal(summaryResponse.Body.Bytes(), &summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary.TransactionCount != 2 || len(summary.Aggregates) != 2 {
+		t.Fatalf("dashboard summary = %#v", summary)
+	}
+}
+
+// TestSellerTransactionFiltersRejectUnboundedSummary verifies the date-window guard.
+func TestSellerTransactionFiltersRejectUnboundedSummary(t *testing.T) {
+	t.Parallel()
+
+	handler, seller, _ := newTransactionAPIHandler(t, 1)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/sellers/"+seller.SellerID.String()+"/dashboard-summary",
+		nil,
+	)
+	request.Header.Set("Authorization", "Bearer seller-secret")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("summary status = %d, want 400", response.Code)
+	}
+}
+
 // TestTransactionServiceReportsTamperedEvidence verifies integrity reporting.
 func TestTransactionServiceReportsTamperedEvidence(t *testing.T) {
 	t.Parallel()
@@ -198,6 +270,9 @@ func newTransactionAPIHandler(
 	controller := transactions.NewHTTPController(service)
 	mux := http.NewServeMux()
 	controller.RegisterRoutes(mux)
+	analytics.NewHTTPController(
+		analytics.NewDashboardService(service, analytics.NewService()),
+	).RegisterRoutes(mux)
 	return api.Middleware(
 		api.Config{
 			Authenticator: api.NewStaticAuthenticator(
@@ -408,6 +483,14 @@ func (repository *transactionTestRepository) ListBySeller(
 	_ domain.ID,
 	_ int,
 	_ string,
+) ([]transactions.Transaction, *string, error) {
+	return nil, nil, nil
+}
+
+// QueryBySeller returns no rows because the integrity test uses Get only.
+func (repository *transactionTestRepository) QueryBySeller(
+	_ context.Context,
+	_ transactions.SellerTransactionQuery,
 ) ([]transactions.Transaction, *string, error) {
 	return nil, nil, nil
 }

@@ -142,6 +142,19 @@ type ListResponse struct {
 	NextCursor *string    `json:"nextCursor,omitempty"`
 }
 
+// SellerTransactionQuery contains bounded seller transaction filters.
+type SellerTransactionQuery struct {
+	SellerID domain.ID
+	From     *domain.Timestamp
+	To       *domain.Timestamp
+	RouteID  *domain.ID
+	Status   TransactionStatus
+	Asset    string
+	Network  string
+	Limit    int
+	Cursor   string
+}
+
 // ReadRepository loads transaction read models and seller pages.
 type ReadRepository interface {
 	Get(ctx context.Context, transactionID domain.ID) (Transaction, error)
@@ -150,6 +163,10 @@ type ReadRepository interface {
 		sellerID domain.ID,
 		limit int,
 		cursor string,
+	) ([]Transaction, *string, error)
+	QueryBySeller(
+		ctx context.Context,
+		query SellerTransactionQuery,
 	) ([]Transaction, *string, error)
 }
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.3.2
+  version: 0.3.3
   description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
   license:
     name: Proprietary
@@ -320,6 +320,12 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - { $ref: '#/components/parameters/TransactionFrom' }
+        - { $ref: '#/components/parameters/TransactionTo' }
+        - { $ref: '#/components/parameters/TransactionRouteId' }
+        - { $ref: '#/components/parameters/TransactionStatus' }
+        - { $ref: '#/components/parameters/TransactionAsset' }
+        - { $ref: '#/components/parameters/TransactionNetwork' }
       responses:
         '200':
           description: Seller transactions
@@ -333,7 +339,31 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Transaction' }
                   nextCursor: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /v1/sellers/{sellerId}/dashboard-summary:
+    get:
+      summary: Get bounded seller sales aggregates
+      tags: [Sellers, Transactions]
+      operationId: getSellerDashboardSummary
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/TransactionFrom' }
+        - { $ref: '#/components/parameters/TransactionTo' }
+        - { $ref: '#/components/parameters/TransactionRouteId' }
+        - { $ref: '#/components/parameters/TransactionStatus' }
+        - { $ref: '#/components/parameters/TransactionAsset' }
+        - { $ref: '#/components/parameters/TransactionNetwork' }
+      responses:
+        '200':
+          description: Asset, network, route, UTC day, and reconciliation-stage aggregates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /v1/intents:
     post:
       summary: Create an immutable purchase intent
@@ -601,6 +631,12 @@ components:
     TransactionId: { name: transactionId, in: path, required: true, schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' } }
     CredentialId: { name: credentialId, in: path, required: true, schema: { type: string, pattern: '^key_[A-Za-z0-9]+$' } }
     DestinationId: { name: destinationId, in: path, required: true, schema: { type: string, pattern: '^dst_[A-Za-z0-9]+$' } }
+    TransactionFrom: { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+    TransactionTo: { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+    TransactionRouteId: { name: routeId, in: query, required: false, schema: { type: string, pattern: '^rte_[A-Za-z0-9]+$' } }
+    TransactionStatus: { name: status, in: query, required: false, schema: { type: string, enum: [PROPOSED, APPROVAL_PENDING, APPROVED, PAYMENT_REQUIRED, PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] } }
+    TransactionAsset: { name: asset, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 160 } }
+    TransactionNetwork: { name: network, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 80 } }
   schemas:
     CreateSellerRequest:
       type: object
@@ -831,6 +867,29 @@ components:
         network: { type: string }
         paymentReference: { type: string, minLength: 1, maxLength: 512 }
         reconciledAt: { type: string, format: date-time }
+    SalesAggregate:
+      type: object
+      additionalProperties: false
+      required: [sellerId, bucketDate, asset, network, stage, transactionCount, amount, lastTransactionAt]
+      properties:
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        bucketDate: { type: string, format: date }
+        asset: { type: string }
+        network: { type: string }
+        routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+        stage: { type: string, enum: [challenged, verified, finalized, fulfilled, failed, disputed] }
+        transactionCount: { type: integer, minimum: 0 }
+        amount: { $ref: '#/components/schemas/AtomicAmount' }
+        lastTransactionAt: { type: string, format: date-time }
+    DashboardSummary:
+      type: object
+      additionalProperties: false
+      required: [transactionCount, aggregates]
+      properties:
+        transactionCount: { type: integer, minimum: 0, maximum: 1000 }
+        aggregates:
+          type: array
+          items: { $ref: '#/components/schemas/SalesAggregate' }
     EvidenceEvent:
       type: object
       required: [eventId, transactionId, sequence, eventType, actorType, payload, eventHash, kmsKeyId, kmsSignature, createdAt]

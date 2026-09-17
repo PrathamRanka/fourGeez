@@ -3,7 +3,6 @@ package transactions
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -78,29 +77,16 @@ func (controller *HTTPController) listSeller(
 		writeTransactionError(response, request, persistence.ErrNotFound)
 		return
 	}
-	limit := 0
-	if rawLimit := request.URL.Query().Get("limit"); rawLimit != "" {
-		limit, err = strconv.Atoi(rawLimit)
-		if err != nil {
-			writeTransactionError(
-				response,
-				request,
-				domain.NewValidationError(
-					"limit",
-					"integer",
-					"must be an integer",
-				),
-			)
-			return
-		}
+	query, err := ParseSellerTransactionQuery(sellerID, request.URL.Query(), false)
+	if err != nil {
+		writeTransactionError(response, request, err)
+		return
 	}
 	principal, _ := api.PrincipalFromContext(request.Context())
-	page, err := controller.service.ListSeller(
+	page, err := controller.service.ListSellerFiltered(
 		request.Context(),
-		sellerID,
 		principal.Subject,
-		limit,
-		request.URL.Query().Get("cursor"),
+		query,
 	)
 	if err != nil {
 		writeTransactionError(response, request, err)

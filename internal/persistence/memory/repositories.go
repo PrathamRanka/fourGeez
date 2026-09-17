@@ -241,17 +241,32 @@ func (repository *TransactionRepository) Get(_ context.Context, transactionID do
 
 // ListBySeller returns a newest-first cursor page without scanning production data.
 func (repository *TransactionRepository) ListBySeller(
-	_ context.Context,
+	ctx context.Context,
 	sellerID domain.ID,
 	limit int,
 	cursor string,
+) ([]transactions.Transaction, *string, error) {
+	return repository.QueryBySeller(
+		ctx,
+		transactions.SellerTransactionQuery{
+			SellerID: sellerID,
+			Limit:    limit,
+			Cursor:   cursor,
+		},
+	)
+}
+
+// QueryBySeller returns a filtered newest-first cursor page.
+func (repository *TransactionRepository) QueryBySeller(
+	_ context.Context,
+	query transactions.SellerTransactionQuery,
 ) ([]transactions.Transaction, *string, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 
 	matching := make([]transactions.Transaction, 0)
 	for _, transaction := range repository.transactions {
-		if transaction.SellerID() == sellerID {
+		if query.Matches(transaction) {
 			matching = append(matching, transaction)
 		}
 	}
@@ -265,8 +280,8 @@ func (repository *TransactionRepository) ListBySeller(
 	})
 
 	start := 0
-	if cursor != "" {
-		cursorID, err := domain.ParseID(cursor, domain.TransactionIDPrefix)
+	if query.Cursor != "" {
+		cursorID, err := domain.ParseID(query.Cursor, domain.TransactionIDPrefix)
 		if err != nil {
 			return nil, nil, domain.NewValidationError(
 				"cursor",
@@ -289,7 +304,7 @@ func (repository *TransactionRepository) ListBySeller(
 			)
 		}
 	}
-	end := start + limit
+	end := start + query.Limit
 	if end > len(matching) {
 		end = len(matching)
 	}

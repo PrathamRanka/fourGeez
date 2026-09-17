@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
@@ -43,7 +44,8 @@ func TestOpenAPIM3OperationAndResponseCoverage(t *testing.T) {
 		"getPaymentDestination":             {"200", "400", "404"},
 		"createPaymentDestinationChallenge": {"201", "400", "404", "409"},
 		"verifyPaymentDestination":          {"200", "400", "404", "409", "410", "422"},
-		"listSellerTransactions":            {"200", "404"},
+		"listSellerTransactions":            {"200", "400", "404"},
+		"getSellerDashboardSummary":         {"200", "400", "404", "422"},
 		"listIntegrationCredentials":        {"200", "400", "404"},
 		"createIntegrationCredential":       {"201", "400", "404", "409"},
 		"revokeIntegrationCredential":       {"200", "400", "404", "409"},
@@ -86,6 +88,7 @@ func TestM3OpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "createPaymentDestinationChallenge", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/payment-destinations/dst_01K5D09YJ0C0M7RJM4FWQ0K9H8/ownership-challenges", wantStatus: http.StatusUnauthorized},
 		{operationID: "verifyPaymentDestination", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/payment-destinations/dst_01K5D09YJ0C0M7RJM4FWQ0K9H8/verify", wantStatus: http.StatusUnauthorized},
 		{operationID: "listSellerTransactions", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/transactions", wantStatus: http.StatusUnauthorized},
+		{operationID: "getSellerDashboardSummary", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/dashboard-summary?from=2026-09-01T00:00:00Z&to=2026-09-17T23:59:59Z", wantStatus: http.StatusUnauthorized},
 		{operationID: "listIntegrationCredentials", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials", wantStatus: http.StatusUnauthorized},
 		{operationID: "createIntegrationCredential", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials", wantStatus: http.StatusUnauthorized},
 		{operationID: "revokeIntegrationCredential", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials/key_01K5D09YJ0C0M7RJM4FWQ0K9H8/revoke", wantStatus: http.StatusUnauthorized},
@@ -276,6 +279,9 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		catalogRepository,
 	)
 	transactions.NewHTTPController(transactionService).RegisterRoutes(mux)
+	analytics.NewHTTPController(
+		analytics.NewDashboardService(transactionService, analytics.NewService()),
+	).RegisterRoutes(mux)
 	disputeService := disputes.NewService(
 		disputeRepository,
 		transactionRepository,

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
@@ -199,6 +200,9 @@ func main() {
 	)
 	transactionController := transactions.NewHTTPController(transactionService)
 	transactionController.RegisterRoutes(mux)
+	analytics.NewHTTPController(
+		analytics.NewDashboardService(transactionService, analytics.NewService()),
+	).RegisterRoutes(mux)
 	disputeService := disputes.NewService(
 		disputeRepository,
 		transactionRepository,

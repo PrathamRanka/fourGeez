@@ -120,7 +120,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **WAL-002** Implement wallet-ownership challenges, verification, guarded activation, and confirmed rotation without storing private keys or signed challenge material.
 - [x] **PAY-010** Add payment reconciliation that distinguishes challenged, verified, finalized, fulfilled, failed, and disputed amounts using safe facilitator or network references.
 - [x] **ANL-001** Implement seller sales aggregates grouped by asset, network, route, UTC day, and transaction status without combining unlike currencies.
-- [ ] **API-010** Add bounded seller transaction filters, dashboard-summary endpoints, and cursor pagination for date, route, status, asset, and network.
+- [x] **API-010** Add bounded seller transaction filters, dashboard-summary endpoints, and cursor pagination for date, route, status, asset, and network.
 - [ ] **EVT-001** Define seller webhook subscriptions and signed event contracts for payment verified, fulfillment succeeded, fulfillment failed, and dispute changes.
 - [ ] **EVT-002** Implement idempotent webhook delivery, bounded retries, dead-letter state, replay-safe redelivery, and seller-visible delivery history.
 - [ ] **RCP-001** Implement downloadable machine-readable purchase receipts backed by transaction and evidence-chain verification.

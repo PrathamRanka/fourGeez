@@ -114,34 +114,49 @@ func (service *Service) ListSeller(
 	limit int,
 	cursor string,
 ) (ListResponse, error) {
+	return service.ListSellerFiltered(
+		ctx,
+		ownerSubject,
+		SellerTransactionQuery{
+			SellerID: sellerID,
+			Limit:    limit,
+			Cursor:   cursor,
+		},
+	)
+}
+
+// ListSellerFiltered returns one authorized page matching bounded filters.
+func (service *Service) ListSellerFiltered(
+	ctx context.Context,
+	ownerSubject string,
+	query SellerTransactionQuery,
+) (ListResponse, error) {
 	if service.sellerRepository == nil {
 		return ListResponse{}, ErrSellerAccess
 	}
-	seller, err := service.sellerRepository.GetSeller(ctx, sellerID)
+	seller, err := service.sellerRepository.GetSeller(ctx, query.SellerID)
 	if err != nil || seller.OwnerSubject != ownerSubject {
 		return ListResponse{}, ErrSellerAccess
 	}
-	if limit == 0 {
-		limit = defaultTransactionPageLimit
+	if query.Limit == 0 {
+		query.Limit = defaultTransactionPageLimit
 	}
-	if limit < 1 || limit > maximumTransactionPageLimit {
+	if query.Limit < 1 || query.Limit > maximumTransactionPageLimit {
 		return ListResponse{}, domain.NewValidationError(
 			"limit",
 			"range",
 			"must be between 1 and 100",
 		)
 	}
-	transactions, nextCursor, err := service.repository.ListBySeller(
+	transactionPage, nextCursor, err := service.repository.QueryBySeller(
 		ctx,
-		sellerID,
-		limit,
-		cursor,
+		query,
 	)
 	if err != nil {
 		return ListResponse{}, err
 	}
-	items := make([]Response, len(transactions))
-	for index, transaction := range transactions {
+	items := make([]Response, len(transactionPage))
+	for index, transaction := range transactionPage {
 		items[index] = transactionResponse(transaction)
 	}
 	return ListResponse{Items: items, NextCursor: nextCursor}, nil
