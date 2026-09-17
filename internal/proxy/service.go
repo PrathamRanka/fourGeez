@@ -71,6 +71,7 @@ type ExecutionService struct {
 	signer     RequestSigner
 	forwarder  SellerForwarder
 	recorder   LifecycleRecorder
+	usage      UsageRecorder
 	clock      domain.Clock
 }
 
@@ -83,6 +84,11 @@ func NewHMACSigner(
 		secretProvider: secretProvider,
 		clock:          clock,
 	}
+}
+
+// SetUsageRecorder attaches optional seller billing metering.
+func (service *ExecutionService) SetUsageRecorder(recorder UsageRecorder) {
+	service.usage = recorder
 }
 
 // NewExecutionService creates the exactly-once forwarding service.
@@ -247,6 +253,12 @@ func (service *ExecutionService) Execute(
 		},
 	); err != nil {
 		return ForwardResponse{}, err
+	}
+	if succeeded && service.usage != nil {
+		_ = service.usage.RecordSuccessfulTransactionUsage(
+			ctx,
+			claimed.TransactionID(),
+		)
 	}
 	return response, nil
 }

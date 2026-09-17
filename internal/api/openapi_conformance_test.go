@@ -41,6 +41,7 @@ func TestOpenAPIM3OperationAndResponseCoverage(t *testing.T) {
 		"createSeller":                      {"201", "400", "409"},
 		"listSellerPlans":                   {"200", "429"},
 		"getSellerPlan":                     {"200", "400", "404"},
+		"getSellerInvoiceExport":            {"200", "400", "404", "422"},
 		"createPaidRoute":                   {"201", "400", "404", "409"},
 		"updatePaidRoutePrice":              {"200", "400", "404", "409"},
 		"listPaymentDestinations":           {"200", "400", "404"},
@@ -91,6 +92,7 @@ func TestM3OpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "createSeller", method: http.MethodPost, path: "/v1/sellers", wantStatus: http.StatusUnauthorized},
 		{operationID: "listSellerPlans", method: http.MethodGet, path: "/v1/plans", wantStatus: http.StatusOK},
 		{operationID: "getSellerPlan", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/plan", wantStatus: http.StatusUnauthorized},
+		{operationID: "getSellerInvoiceExport", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/invoice-export?from=2026-09-01T00:00:00Z&to=2026-10-01T00:00:00Z", wantStatus: http.StatusUnauthorized},
 		{operationID: "createPaidRoute", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/routes", wantStatus: http.StatusUnauthorized},
 		{operationID: "updatePaidRoutePrice", method: http.MethodPatch, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/routes/rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
 		{operationID: "listPaymentDestinations", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/payment-destinations", wantStatus: http.StatusUnauthorized},
@@ -204,6 +206,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
+	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(
@@ -230,10 +233,19 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	})
 	catalogService := catalog.NewService(catalogRepository, idGenerator, clock)
 	catalog.NewHTTPController(catalogService, idempotencyStore).RegisterRoutes(mux)
-	billing.NewHTTPController(
-		billing.NewService(
-			sellerPlanRepository,
+	billingService := billing.NewService(
+		sellerPlanRepository,
+		catalogService,
+		clock,
+	)
+	billing.NewHTTPController(billingService).RegisterRoutes(mux)
+	billing.NewUsageHTTPController(
+		billing.NewUsageService(
+			usageMeterEventRepository,
+			billingService,
+			transactionRepository,
 			catalogService,
+			idGenerator,
 			clock,
 		),
 	).RegisterRoutes(mux)

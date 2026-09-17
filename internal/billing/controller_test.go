@@ -52,6 +52,44 @@ func TestPlanRoutesExposeCatalogAndSellerAssignment(t *testing.T) {
 	}
 }
 
+// TestInvoiceExportRouteReturnsBoundedUsage verifies the BIL-002 HTTP contract.
+func TestInvoiceExportRouteReturnsBoundedUsage(t *testing.T) {
+	t.Parallel()
+	occurredAt := domain.NewTimestamp(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC))
+	transaction := fulfilledBillingTransaction(t, occurredAt)
+	planRepository := newBillingRepository()
+	planService := NewService(planRepository, billingControllerAuthorizer{sellerID: transaction.SellerID()}, domain.FixedClock{Value: occurredAt.Time()})
+	if _, err := planService.GetSellerPlan(context.Background(), "local-seller", transaction.SellerID()); err != nil {
+		t.Fatal(err)
+	}
+	usageRepository := newUsageRepository()
+	usageService := NewUsageService(
+		usageRepository,
+		planService,
+		billingTransactionReader{transaction: transaction},
+		billingControllerAuthorizer{sellerID: transaction.SellerID()},
+		domain.NewULIDGenerator(domain.FixedClock{Value: occurredAt.Time()}, strings.NewReader(strings.Repeat("u", 128))),
+		domain.FixedClock{Value: occurredAt.Time()},
+	)
+	if _, err := usageService.RecordSuccessfulTransaction(context.Background(), transaction.TransactionID()); err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	NewUsageHTTPController(usageService).RegisterRoutes(mux)
+	handler := api.Middleware(api.Config{Authenticator: api.NewStaticAuthenticator("seller-token", "agent-key")}, mux)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/v1/sellers/"+transaction.SellerID().String()+"/invoice-export?from=2026-09-01T00:00:00Z&to=2026-10-01T00:00:00Z",
+		nil,
+	)
+	request.Header.Set("Authorization", "Bearer seller-token")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"quantity":1`) {
+		t.Fatalf("invoice response = %d %s", response.Code, response.Body.String())
+	}
+}
+
 type billingControllerAuthorizer struct {
 	sellerID domain.ID
 }

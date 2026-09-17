@@ -92,6 +92,33 @@ func TestExecutionServiceForwardsExactlyOnce(t *testing.T) {
 	}
 }
 
+// TestExecutionServiceMetersSuccessWithoutBlockingFulfillment verifies billing isolation.
+func TestExecutionServiceMetersSuccessWithoutBlockingFulfillment(t *testing.T) {
+	t.Parallel()
+
+	repository := memory.NewTransactionRepository()
+	transaction := verifiedTransaction(t)
+	if err := repository.Create(t.Context(), transaction); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &failingUsageRecorder{}
+	service := NewExecutionService(
+		repository,
+		&recordingRequestSigner{},
+		&recordingForwarder{},
+		&recordingLifecycleRecorder{},
+		domain.FixedClock{Value: time.Date(2026, time.September, 17, 10, 1, 0, 0, time.UTC)},
+	)
+	service.SetUsageRecorder(recorder)
+	response, err := service.Execute(t.Context(), validExecutionRequest(t, transaction))
+	if err != nil || response.StatusCode != 200 {
+		t.Fatalf("Execute() = (%#v, %v)", response, err)
+	}
+	if recorder.calls.Load() != 1 {
+		t.Fatalf("usage recorder calls = %d, want 1", recorder.calls.Load())
+	}
+}
+
 // verifiedTransaction creates a transaction ready for its forwarding claim.
 func verifiedTransaction(t *testing.T) transactions.Transaction {
 	t.Helper()
@@ -206,6 +233,19 @@ type recordingForwarder struct {
 type recordingLifecycleRecorder struct {
 	forwarding atomic.Int32
 	delivery   atomic.Int32
+}
+
+type failingUsageRecorder struct {
+	calls atomic.Int32
+}
+
+// RecordSuccessfulTransactionUsage records a call and simulates billing unavailability.
+func (recorder *failingUsageRecorder) RecordSuccessfulTransactionUsage(
+	_ context.Context,
+	_ domain.ID,
+) error {
+	recorder.calls.Add(1)
+	return errors.New("billing unavailable")
 }
 
 // RecordProxyForwarding records the pre-forward evidence call.

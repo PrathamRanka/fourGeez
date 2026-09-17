@@ -4,7 +4,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"time"
 )
+
+// usageMeterSortKey returns the chronological immutable usage key.
+func usageMeterSortKey(occurredAt time.Time, meterEventID string) string {
+	return "METER#" + occurredAt.UTC().Format(time.RFC3339Nano) + "#" + meterEventID
+}
+
+// usageMeterSourceSortKey returns the unique meter-source claim key.
+func usageMeterSourceSortKey(meterName string, sourceID string) string {
+	return "METER_SOURCE#" + meterName + "#" + sourceID
+}
 
 const profileSortKey = "PROFILE"
 

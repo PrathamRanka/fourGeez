@@ -34,6 +34,8 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "webhook delivery", got: webhookDeliverySortKey("whd_123"), want: "WEBHOOK_DELIVERY#whd_123"},
 		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
 		{name: "seller plan", got: sellerPlanSortKey, want: "BILLING_PLAN"},
+		{name: "usage meter", got: usageMeterSortKey(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC), "mtr_123"), want: "METER#2026-09-17T10:00:00Z#mtr_123"},
+		{name: "usage source", got: usageMeterSourceSortKey("successful_transaction", "txn_123"), want: "METER_SOURCE#successful_transaction#txn_123"},
 		{name: "payment destination", got: paymentDestinationSortKey("dst_123"), want: "DESTINATION#dst_123"},
 		{name: "intent", got: intentPartitionKey("int_123"), want: "INTENT#int_123"},
 		{name: "approval", got: approvalPartitionKey("aps_123"), want: "APPROVAL#aps_123"},
@@ -68,6 +70,34 @@ func TestSellerPlanRepositoryUsesSellerScopedConditionalWrites(t *testing.T) {
 		readStringAttribute(client.putInput.Item["PK"]) != sellerPartitionKey(assignment.SellerID().String()) ||
 		readStringAttribute(client.putInput.Item["SK"]) != sellerPlanSortKey {
 		t.Fatalf("seller plan item = %#v", client.putInput)
+	}
+}
+
+// TestUsageMeterRepositoryAtomicallyClaimsSource verifies immutable metering.
+func TestUsageMeterRepositoryAtomicallyClaimsSource(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	repository := NewUsageMeterEventRepository(client, "agentpay-dev")
+	event := testDynamoUsageMeterEvent(t)
+	stored, created, err := repository.CreateIfAbsent(t.Context(), event)
+	if err != nil || !created || stored.MeterEventID() != event.MeterEventID() {
+		t.Fatalf("CreateIfAbsent() = (%#v, %v, %v)", stored, created, err)
+	}
+	input := client.transactWriteInput
+	if input == nil || len(input.TransactItems) != 2 {
+		t.Fatalf("TransactItems = %#v", input)
+	}
+	claimSortKey := readStringAttribute(input.TransactItems[0].Put.Item["SK"])
+	eventSortKey := readStringAttribute(input.TransactItems[1].Put.Item["SK"])
+	if claimSortKey != usageMeterSourceSortKey(
+		string(event.MeterName()),
+		event.SourceTransactionID().String(),
+	) || eventSortKey != usageMeterSortKey(
+		event.OccurredAt().Time(),
+		event.MeterEventID().String(),
+	) {
+		t.Fatalf("usage keys = (%q, %q)", claimSortKey, eventSortKey)
 	}
 }
 
@@ -439,6 +469,25 @@ func testDynamoSellerPlan(t *testing.T) billing.SellerPlan {
 		t.Fatal(err)
 	}
 	return assignment
+}
+
+// testDynamoUsageMeterEvent creates one immutable usage fixture.
+func testDynamoUsageMeterEvent(t *testing.T) billing.UsageMeterEvent {
+	t.Helper()
+	event, err := billing.NewUsageMeterEvent(billing.UsageMeterEventParams{
+		MeterEventID:        mustDynamoID(t, "mtr_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.UsageMeterEventIDPrefix),
+		SellerID:            mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		MeterName:           billing.MeterSuccessfulTransaction,
+		Quantity:            1,
+		SourceTransactionID: mustDynamoID(t, "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.TransactionIDPrefix),
+		PlanID:              billing.PlanStarter,
+		PlanVersion:         1,
+		OccurredAt:          testDynamoTime(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return event
 }
 
 // testDynamoEvidenceChain creates a valid two-event evidence chain.

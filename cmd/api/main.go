@@ -50,6 +50,7 @@ func main() {
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
+	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
@@ -75,13 +76,21 @@ func main() {
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
 	catalogController.RegisterRoutes(mux)
-	billing.NewHTTPController(
-		billing.NewService(
-			sellerPlanRepository,
-			catalogService,
-			clock,
-		),
-	).RegisterRoutes(mux)
+	billingService := billing.NewService(
+		sellerPlanRepository,
+		catalogService,
+		clock,
+	)
+	billing.NewHTTPController(billingService).RegisterRoutes(mux)
+	usageService := billing.NewUsageService(
+		usageMeterEventRepository,
+		billingService,
+		transactionRepository,
+		catalogService,
+		idGenerator,
+		clock,
+	)
+	billing.NewUsageHTTPController(usageService).RegisterRoutes(mux)
 	settlementService := settlement.NewService(
 		paymentDestinationRepository,
 		catalogService,
@@ -219,6 +228,7 @@ func main() {
 		evidenceRecorder,
 		clock,
 	)
+	executionService.SetUsageRecorder(usageService)
 	checkoutService := payments.NewCheckoutService(
 		paidRouteService,
 		paymentAdapter,

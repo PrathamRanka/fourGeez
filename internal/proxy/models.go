@@ -130,6 +130,11 @@ type LifecycleRecorder interface {
 	) error
 }
 
+// UsageRecorder records successful fulfillment without controlling buyer flow.
+type UsageRecorder interface {
+	RecordSuccessfulTransactionUsage(context.Context, domain.ID) error
+}
+
 // Resolver resolves a hostname at validation and connection time.
 type Resolver interface {
 	LookupIP(context.Context, string, string) ([]net.IP, error)

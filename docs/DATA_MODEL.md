@@ -338,12 +338,21 @@ period start/end, assignment timestamps, and optimistic `version`. Status is
 changing plans requires an explicit trusted billing operation and never changes
 buyer settlement state.
 
-### UsageMeterEvent (planned M7)
+### UsageMeterEvent
 
-Usage meter events are immutable and idempotently derived from successful
-AgentPay operations. They record seller, meter name, quantity, source
-transaction or operation ID, plan version, and UTC timestamp. Invoice export
-does not move buyer funds or imply a billing-provider choice.
+Usage meter events use ID prefix `mtr_` and are immutable and idempotently
+derived from successful AgentPay operations. V1 defines meter
+`successful_transaction`; it records quantity `1` only after a transaction is
+both payment-finalized and fulfilled. The uniqueness key is
+`(meterName, sourceTransactionId)`, so retries cannot double count usage.
+
+Each event stores `meterEventId`, `sellerId`, `meterName`, `quantity`,
+`sourceTransactionId`, `planId`, `planVersion`, and `occurredAt`. The invoice
+export is a generated usage statement grouped by meter, plan ID, and plan
+version for an explicit UTC window of at most 31 days and at most 1,000 events.
+It contains no buyer funds, price, tax, currency, payment destination, or
+collection instruction. A future billing adapter may price and collect the
+export without changing x402 settlement.
 
 ### AuditEvent (planned M7)
 
@@ -430,6 +439,7 @@ PK=SELLER#sel_123       SK=WEBHOOK_EVENT#whk_123#evt_123
 PK=SELLER#sel_123       SK=BILLING_PLAN
 PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123
 PK=SELLER#sel_123       SK=METER#<createdAt>#mtr_123
+PK=SELLER#sel_123       SK=METER_SOURCE#successful_transaction#txn_123
 PK=INTENT#int_123       SK=PROFILE
 PK=APPROVAL#aps_123     SK=PROFILE
 PK=APPROVAL#aps_123     SK=INVITE#<tokenHash>

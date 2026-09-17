@@ -114,6 +114,14 @@ func (service *Service) GetSellerPlan(
 	if err := service.authorizer.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
 		return SellerPlanResponse{}, ErrSellerPlanNotFound
 	}
+	return service.ResolveSellerPlan(ctx, sellerID)
+}
+
+// ResolveSellerPlan returns or initializes an assignment for internal consumers.
+func (service *Service) ResolveSellerPlan(
+	ctx context.Context,
+	sellerID domain.ID,
+) (SellerPlanResponse, error) {
 	assignment, err := service.repository.Get(ctx, sellerID)
 	if err == nil {
 		return sellerPlanResponse(assignment)
