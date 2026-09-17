@@ -4,6 +4,7 @@ node_modules/
 out/
 coverage/
 npm-debug.log*
+*.tsbuildinfo
 
 # Go
 bin/
