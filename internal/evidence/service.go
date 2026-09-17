@@ -1,9 +1,13 @@
 package evidence
 
 import (
+	"context"
+	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -12,6 +16,147 @@ import (
 )
 
 const evidenceHashDomain = "agentpay.evidence.v1"
+
+const minimumLocalEvidenceSecretBytes = 32
+
+// LocalHMACSigner provides deterministic local signing without production KMS.
+type LocalHMACSigner struct {
+	keyID  string
+	secret []byte
+}
+
+// NewLocalHMACSigner validates and copies local evidence signing configuration.
+func NewLocalHMACSigner(
+	keyID string,
+	secret []byte,
+) (*LocalHMACSigner, error) {
+	trimmedKeyID := strings.TrimSpace(keyID)
+	if trimmedKeyID == "" {
+		return nil, domain.NewValidationError(
+			"evidenceKeyId",
+			"required",
+			"is required",
+		)
+	}
+	if len(secret) < minimumLocalEvidenceSecretBytes {
+		return nil, domain.NewValidationError(
+			"evidenceSigningSecret",
+			"length",
+			"must contain at least 32 bytes",
+		)
+	}
+	return &LocalHMACSigner{
+		keyID:  trimmedKeyID,
+		secret: append([]byte(nil), secret...),
+	}, nil
+}
+
+// Sign creates a local HMAC signature for evidence bytes.
+func (signer *LocalHMACSigner) Sign(
+	_ context.Context,
+	digest []byte,
+) (Signature, error) {
+	mac := hmac.New(sha256.New, signer.secret)
+	_, _ = mac.Write(digest)
+	return Signature{
+		KeyID: signer.keyID,
+		Value: base64.StdEncoding.EncodeToString(mac.Sum(nil)),
+	}, nil
+}
+
+// Verify checks a local evidence signature using constant-time comparison.
+func (signer *LocalHMACSigner) Verify(
+	ctx context.Context,
+	keyID string,
+	digest []byte,
+	signature string,
+) (bool, error) {
+	if keyID != signer.keyID {
+		return false, nil
+	}
+	expected, err := signer.Sign(ctx, digest)
+	if err != nil {
+		return false, err
+	}
+	return hmac.Equal(
+		[]byte(expected.Value),
+		[]byte(signature),
+	), nil
+}
+
+// Append validates, hashes, and signs the next evidence event.
+func Append(
+	ctx context.Context,
+	params EventParams,
+	previous *Event,
+	signer Signer,
+) (Event, error) {
+	if err := validateEventParams(params, previous, signer); err != nil {
+		return Event{}, err
+	}
+	event := newUnsignedEvent(params, previous)
+	digest, digestBytes, err := calculateHash(event)
+	if err != nil {
+		return Event{}, err
+	}
+	signature, err := signer.Sign(ctx, digestBytes)
+	if err != nil {
+		return Event{}, err
+	}
+	if signature.KeyID == "" || signature.Value == "" {
+		return Event{}, domain.NewValidationError(
+			"signature",
+			"required",
+			"signer must return a key identifier and signature",
+		)
+	}
+	event.EventHash = digest
+	event.KMSKeyID = signature.KeyID
+	event.KMSSignature = signature.Value
+	return event, nil
+}
+
+// VerifyChain verifies event ordering, hashes, links, and signatures.
+func VerifyChain(ctx context.Context, events []Event, verifier Signer) error {
+	if len(events) == 0 || verifier == nil {
+		return ErrChainInvalid
+	}
+	for index, event := range events {
+		if err := validateStoredEvent(event, index, events); err != nil {
+			return fmt.Errorf(
+				"%w: event %d: %v",
+				ErrChainInvalid,
+				index+1,
+				err,
+			)
+		}
+		digest, digestBytes, err := calculateHash(event)
+		if err != nil || digest != event.EventHash {
+			return fmt.Errorf(
+				"%w: event %d hash mismatch",
+				ErrChainInvalid,
+				index+1,
+			)
+		}
+		valid, err := verifier.Verify(
+			ctx,
+			event.KMSKeyID,
+			digestBytes,
+			event.KMSSignature,
+		)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return fmt.Errorf(
+				"%w: event %d signature mismatch",
+				ErrChainInvalid,
+				index+1,
+			)
+		}
+	}
+	return nil
+}
 
 // newUnsignedEvent constructs an event before hashing and signing.
 func newUnsignedEvent(params EventParams, previous *Event) Event {

@@ -9,9 +9,11 @@ import (
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/realtime"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 // main starts the local AgentPay HTTP API.
@@ -29,6 +31,8 @@ func main() {
 	catalogRepository := memory.NewCatalogRepository()
 	intentRepository := memory.NewPurchaseIntentRepository()
 	approvalRepository := memory.NewApprovalRepository()
+	transactionRepository := memory.NewTransactionRepository()
+	evidenceRepository := memory.NewEvidenceRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
@@ -83,6 +87,22 @@ func main() {
 		os.Getenv("AGENTPAY_WEB_ORIGIN"),
 	)
 	realtimeController.RegisterRoutes(mux)
+	evidenceSigner, err := evidence.NewLocalHMACSigner(
+		os.Getenv("AGENTPAY_LOCAL_EVIDENCE_KEY_ID"),
+		[]byte(os.Getenv("AGENTPAY_LOCAL_EVIDENCE_SIGNING_SECRET")),
+	)
+	if err != nil {
+		slog.Error("invalid local evidence signing configuration", "error", err)
+		os.Exit(1)
+	}
+	transactionService := transactions.NewService(
+		transactionRepository,
+		evidenceRepository,
+		evidenceSigner,
+		catalogRepository,
+	)
+	transactionController := transactions.NewHTTPController(transactionService)
+	transactionController.RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
 		Authenticator: api.NewStaticAuthenticator(

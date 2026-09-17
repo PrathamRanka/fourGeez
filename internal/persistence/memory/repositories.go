@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"sort"
 	"sync"
 
 	"github.com/fourgeez/agentpay/internal/approvals"
@@ -236,6 +237,69 @@ func (repository *TransactionRepository) Get(_ context.Context, transactionID do
 		return transactions.Transaction{}, persistence.ErrNotFound
 	}
 	return transaction, nil
+}
+
+// ListBySeller returns a newest-first cursor page without scanning production data.
+func (repository *TransactionRepository) ListBySeller(
+	_ context.Context,
+	sellerID domain.ID,
+	limit int,
+	cursor string,
+) ([]transactions.Transaction, *string, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+
+	matching := make([]transactions.Transaction, 0)
+	for _, transaction := range repository.transactions {
+		if transaction.SellerID() == sellerID {
+			matching = append(matching, transaction)
+		}
+	}
+	sort.Slice(matching, func(leftIndex, rightIndex int) bool {
+		left := matching[leftIndex]
+		right := matching[rightIndex]
+		if left.CreatedAt().String() == right.CreatedAt().String() {
+			return left.TransactionID().String() > right.TransactionID().String()
+		}
+		return left.CreatedAt().Time().After(right.CreatedAt().Time())
+	})
+
+	start := 0
+	if cursor != "" {
+		cursorID, err := domain.ParseID(cursor, domain.TransactionIDPrefix)
+		if err != nil {
+			return nil, nil, domain.NewValidationError(
+				"cursor",
+				"format",
+				"must identify a transaction in the seller page",
+			)
+		}
+		start = -1
+		for index, transaction := range matching {
+			if transaction.TransactionID() == cursorID {
+				start = index + 1
+				break
+			}
+		}
+		if start < 0 {
+			return nil, nil, domain.NewValidationError(
+				"cursor",
+				"scope",
+				"does not belong to this seller",
+			)
+		}
+	}
+	end := start + limit
+	if end > len(matching) {
+		end = len(matching)
+	}
+	page := append([]transactions.Transaction(nil), matching[start:end]...)
+	var nextCursor *string
+	if end < len(matching) && len(page) > 0 {
+		value := page[len(page)-1].TransactionID().String()
+		nextCursor = &value
+	}
+	return page, nextCursor, nil
 }
 
 func (repository *TransactionRepository) Update(_ context.Context, transaction transactions.Transaction, expectedVersion uint64) error {

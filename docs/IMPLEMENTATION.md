@@ -53,7 +53,7 @@ M2 acceptance: domain tests cover valid transitions, invalid transitions, replay
 - [x] **API-004** Implement purchase-intent endpoints.
 - [x] **API-005** Implement approval-session and decision endpoints.
 - [x] **API-006** Implement WebSocket connection registration and approval event publication.
-- [ ] **API-007** Implement transaction and evidence-read endpoints.
+- [x] **API-007** Implement transaction and evidence-read endpoints.
 - [ ] **API-008** Implement dispute creation and retrieval.
 - [ ] **API-009** Add OpenAPI conformance tests for every endpoint and error response.
 

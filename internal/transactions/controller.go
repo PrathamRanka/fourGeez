@@ -1,167 +1,131 @@
 package transactions
 
 import (
-	"strings"
+	"errors"
+	"net/http"
+	"strconv"
 
+	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/domain"
-	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
-// RequireApproval moves a proposed transaction into approval pending.
-func (transaction *Transaction) RequireApproval(at domain.Timestamp) error {
-	return transaction.transition(StatusApprovalPending, at)
+// HTTPController exposes transaction and evidence read operations.
+type HTTPController struct {
+	service *Service
 }
 
-// MarkApproved records successful approval.
-func (transaction *Transaction) MarkApproved(at domain.Timestamp) error {
-	return transaction.transition(StatusApproved, at)
+// NewHTTPController creates the transaction read controller.
+func NewHTTPController(service *Service) *HTTPController {
+	return &HTTPController{service: service}
 }
 
-// RequirePayment marks the transaction ready for a payment challenge.
-func (transaction *Transaction) RequirePayment(at domain.Timestamp) error {
-	return transaction.transition(StatusPaymentRequired, at)
+// RegisterRoutes registers transaction detail and seller-list endpoints.
+func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
+	mux.Handle(
+		"GET /v1/transactions/{transactionId}",
+		api.RequireAgentOrSeller(http.HandlerFunc(controller.get)),
+	)
+	mux.Handle(
+		"GET /v1/sellers/{sellerId}/transactions",
+		api.RequireSeller(http.HandlerFunc(controller.listSeller)),
+	)
 }
 
-// VerifyPayment records a verified payment identifier and proof hash.
-func (transaction *Transaction) VerifyPayment(
-	paymentIdentifier string,
-	proofHash intents.SHA256Digest,
-	at domain.Timestamp,
-) error {
-	if strings.TrimSpace(paymentIdentifier) == "" {
-		return domain.NewValidationError("paymentIdentifier", "required", "is required")
+// get returns a transaction with its evidence verification summary.
+func (controller *HTTPController) get(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	response.Header().Set("Cache-Control", "no-store")
+	transactionID, err := domain.ParseID(
+		request.PathValue("transactionId"),
+		domain.TransactionIDPrefix,
+	)
+	if err != nil {
+		writeTransactionError(response, request, persistence.ErrNotFound)
+		return
 	}
-	if _, err := intents.ParseSHA256Digest(proofHash.String()); err != nil {
-		return domain.NewValidationError(
-			"paymentProofHash",
-			"format",
-			"must be a SHA-256 digest",
+	principal, _ := api.PrincipalFromContext(request.Context())
+	var detail DetailResponse
+	if principal.Kind == api.PrincipalSeller {
+		detail, err = controller.service.GetForSeller(
+			request.Context(),
+			transactionID,
+			principal.Subject,
 		)
+	} else {
+		detail, err = controller.service.Get(request.Context(), transactionID)
 	}
-	if err := transaction.transition(StatusPaymentVerified, at); err != nil {
-		return err
+	if err != nil {
+		writeTransactionError(response, request, err)
+		return
 	}
-
-	transaction.paymentIdentifier = strings.TrimSpace(paymentIdentifier)
-	transaction.paymentProofHash = proofHash
-	return nil
+	_ = api.WriteJSON(response, http.StatusOK, detail)
 }
 
-// MarkForwarded claims the transaction for one seller invocation.
-func (transaction *Transaction) MarkForwarded(at domain.Timestamp) error {
-	return transaction.transition(StatusForwarded, at)
-}
-
-// MarkFulfilled records successful seller delivery.
-func (transaction *Transaction) MarkFulfilled(
-	status int,
-	responseHash intents.SHA256Digest,
-	summary ResponseSummary,
-	at domain.Timestamp,
-) error {
-	if status < 200 || status > 299 {
-		return domain.NewValidationError(
-			"upstreamStatus",
-			"success",
-			"must be a successful HTTP status",
-		)
+// listSeller returns one authorized cursor page of seller transactions.
+func (controller *HTTPController) listSeller(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	response.Header().Set("Cache-Control", "no-store")
+	sellerID, err := domain.ParseID(
+		request.PathValue("sellerId"),
+		domain.SellerIDPrefix,
+	)
+	if err != nil {
+		writeTransactionError(response, request, persistence.ErrNotFound)
+		return
 	}
-	if _, err := intents.ParseSHA256Digest(responseHash.String()); err != nil {
-		return domain.NewValidationError(
-			"responseHash",
-			"format",
-			"must be a SHA-256 digest",
-		)
-	}
-	if summary.ContentLength < 0 {
-		return domain.NewValidationError(
-			"responseSummary.contentLength",
-			"non_negative",
-			"must not be negative",
-		)
-	}
-	if err := transaction.transition(StatusFulfilled, at); err != nil {
-		return err
-	}
-
-	transaction.upstreamStatus = intPointer(status)
-	responseHashCopy := responseHash
-	transaction.responseHash = &responseHashCopy
-	summaryCopy := summary
-	transaction.responseSummary = &summaryCopy
-	return nil
-}
-
-// MarkFailed records a stable delivery failure.
-func (transaction *Transaction) MarkFailed(
-	failureCode string,
-	status *int,
-	responseHash *intents.SHA256Digest,
-	at domain.Timestamp,
-) error {
-	if strings.TrimSpace(failureCode) == "" {
-		return domain.NewValidationError("failureCode", "required", "is required")
-	}
-	if responseHash != nil {
-		if _, err := intents.ParseSHA256Digest(responseHash.String()); err != nil {
-			return domain.NewValidationError(
-				"responseHash",
-				"format",
-				"must be a SHA-256 digest",
+	limit := 0
+	if rawLimit := request.URL.Query().Get("limit"); rawLimit != "" {
+		limit, err = strconv.Atoi(rawLimit)
+		if err != nil {
+			writeTransactionError(
+				response,
+				request,
+				domain.NewValidationError(
+					"limit",
+					"integer",
+					"must be an integer",
+				),
 			)
+			return
 		}
 	}
-	if err := transaction.transition(StatusFailed, at); err != nil {
-		return err
+	principal, _ := api.PrincipalFromContext(request.Context())
+	page, err := controller.service.ListSeller(
+		request.Context(),
+		sellerID,
+		principal.Subject,
+		limit,
+		request.URL.Query().Get("cursor"),
+	)
+	if err != nil {
+		writeTransactionError(response, request, err)
+		return
 	}
-
-	transaction.failureCode = strings.TrimSpace(failureCode)
-	if status != nil {
-		transaction.upstreamStatus = intPointer(*status)
-	}
-	if responseHash != nil {
-		responseHashCopy := *responseHash
-		transaction.responseHash = &responseHashCopy
-	}
-	return nil
+	_ = api.WriteJSON(response, http.StatusOK, page)
 }
 
-// OpenDispute marks a completed transaction as disputed.
-func (transaction *Transaction) OpenDispute(at domain.Timestamp) error {
-	return transaction.transition(StatusDisputed, at)
-}
-
-// RecommendRefund records a deterministic refund recommendation.
-func (transaction *Transaction) RecommendRefund(at domain.Timestamp) error {
-	return transaction.transition(StatusRefundRecommended, at)
-}
-
-// Resolve closes a disputed transaction.
-func (transaction *Transaction) Resolve(at domain.Timestamp) error {
-	return transaction.transition(StatusResolved, at)
-}
-
-// transition applies one guarded transaction state change.
-func (transaction *Transaction) transition(
-	next TransactionStatus,
-	at domain.Timestamp,
-) error {
-	if at.Before(transaction.updatedAt) {
-		return domain.NewValidationError(
-			"updatedAt",
-			"chronology",
-			"cannot occur before the previous update",
-		)
+// writeTransactionError maps read failures to stable API errors.
+func writeTransactionError(
+	response http.ResponseWriter,
+	request *http.Request,
+	err error,
+) {
+	var validationErrors domain.ValidationErrors
+	status := http.StatusInternalServerError
+	code := api.ErrorCodeInternal
+	switch {
+	case errors.As(err, &validationErrors):
+		status = http.StatusBadRequest
+		code = api.ErrorCodeBadRequest
+	case errors.Is(err, persistence.ErrNotFound),
+		errors.Is(err, ErrSellerAccess):
+		status = http.StatusNotFound
+		code = api.ErrorCodeNotFound
 	}
-	if !allowedTransition(transaction.status, next) {
-		return InvalidTransitionError{
-			From: transaction.status,
-			To:   next,
-		}
-	}
-
-	transaction.status = next
-	transaction.updatedAt = at
-	transaction.version++
-	return nil
+	api.WriteError(response, request, status, code, err.Error(), nil)
 }

@@ -1,9 +1,12 @@
 package transactions
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
 )
 
@@ -63,6 +66,66 @@ type Transaction struct {
 	createdAt         domain.Timestamp
 	updatedAt         domain.Timestamp
 	version           uint64
+}
+
+// Response is the public transaction representation without payment secrets.
+type Response struct {
+	TransactionID  domain.ID             `json:"transactionId"`
+	IntentID       domain.ID             `json:"intentId"`
+	SellerID       domain.ID             `json:"sellerId"`
+	RouteID        domain.ID             `json:"routeId"`
+	BuyerID        string                `json:"buyerId"`
+	Status         TransactionStatus     `json:"status"`
+	Amount         domain.Amount         `json:"amount"`
+	Asset          string                `json:"asset"`
+	Network        string                `json:"network"`
+	UpstreamStatus *int                  `json:"upstreamStatus,omitempty"`
+	ResponseHash   *intents.SHA256Digest `json:"responseHash,omitempty"`
+	FailureCode    string                `json:"failureCode,omitempty"`
+	CreatedAt      domain.Timestamp      `json:"createdAt"`
+	UpdatedAt      domain.Timestamp      `json:"updatedAt"`
+}
+
+// EvidenceResponse contains a chain verification result and its events.
+type EvidenceResponse struct {
+	Valid  bool             `json:"valid"`
+	Events []evidence.Event `json:"events"`
+}
+
+// DetailResponse combines one transaction with its evidence chain.
+type DetailResponse struct {
+	Transaction Response         `json:"transaction"`
+	Evidence    EvidenceResponse `json:"evidence"`
+}
+
+// ListResponse is one cursor-paginated seller transaction page.
+type ListResponse struct {
+	Items      []Response `json:"items"`
+	NextCursor *string    `json:"nextCursor,omitempty"`
+}
+
+// ReadRepository loads transaction read models and seller pages.
+type ReadRepository interface {
+	Get(ctx context.Context, transactionID domain.ID) (Transaction, error)
+	ListBySeller(
+		ctx context.Context,
+		sellerID domain.ID,
+		limit int,
+		cursor string,
+	) ([]Transaction, *string, error)
+}
+
+// EvidenceRepository loads the append-only chain for one transaction.
+type EvidenceRepository interface {
+	ListByTransaction(
+		ctx context.Context,
+		transactionID domain.ID,
+	) ([]evidence.Event, error)
+}
+
+// SellerRepository loads seller ownership for tenant authorization.
+type SellerRepository interface {
+	GetSeller(ctx context.Context, sellerID domain.ID) (catalog.Seller, error)
 }
 
 // InvalidTransitionError reports an unsupported transaction state change.

@@ -73,6 +73,87 @@ func (repository *TransactionRepository) Get(
 	return transactions.Restore(snapshot)
 }
 
+// ListBySeller queries the documented seller transaction index newest first.
+func (repository *TransactionRepository) ListBySeller(
+	ctx context.Context,
+	sellerID domain.ID,
+	limit int,
+	cursor string,
+) ([]transactions.Transaction, *string, error) {
+	keyCondition := "GSI1PK = :sellerPartitionKey"
+	ascending := false
+	queryLimit := int32(limit)
+	input := &awssdk.QueryInput{
+		TableName:              &repository.tableName,
+		IndexName:              stringPointer("GSI1"),
+		KeyConditionExpression: &keyCondition,
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":sellerPartitionKey": stringAttributeValue(
+				sellerPartitionKey(sellerID.String()),
+			),
+		},
+		Limit:            &queryLimit,
+		ScanIndexForward: &ascending,
+	}
+	if cursor != "" {
+		cursorID, err := domain.ParseID(cursor, domain.TransactionIDPrefix)
+		if err != nil {
+			return nil, nil, domain.NewValidationError(
+				"cursor",
+				"format",
+				"must be a transaction identifier",
+			)
+		}
+		cursorTransaction, err := repository.Get(ctx, cursorID)
+		if err != nil || cursorTransaction.SellerID() != sellerID {
+			return nil, nil, domain.NewValidationError(
+				"cursor",
+				"scope",
+				"does not belong to this seller",
+			)
+		}
+		input.ExclusiveStartKey = map[string]types.AttributeValue{
+			"PK": stringAttributeValue(
+				transactionPartitionKey(cursorID.String()),
+			),
+			"SK": stringAttributeValue(profileSortKey),
+			"GSI1PK": stringAttributeValue(
+				sellerPartitionKey(sellerID.String()),
+			),
+			"GSI1SK": stringAttributeValue(
+				fmt.Sprintf(
+					"TXN#%s#%s",
+					cursorTransaction.CreatedAt().String(),
+					cursorID.String(),
+				),
+			),
+		}
+	}
+
+	output, err := repository.client.Query(ctx, input)
+	if err != nil {
+		return nil, nil, err
+	}
+	page := make([]transactions.Transaction, 0, len(output.Items))
+	for _, item := range output.Items {
+		var snapshot transactions.Snapshot
+		if err := unmarshalPayload(item, &snapshot); err != nil {
+			return nil, nil, err
+		}
+		transaction, err := transactions.Restore(snapshot)
+		if err != nil {
+			return nil, nil, err
+		}
+		page = append(page, transaction)
+	}
+	var nextCursor *string
+	if len(output.LastEvaluatedKey) > 0 && len(page) > 0 {
+		value := page[len(page)-1].TransactionID().String()
+		nextCursor = &value
+	}
+	return page, nextCursor, nil
+}
+
 // Update replaces a transaction when its stored version matches.
 func (repository *TransactionRepository) Update(
 	ctx context.Context,

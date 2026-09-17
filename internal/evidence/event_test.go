@@ -106,6 +106,42 @@ func TestAppendRejectsInvalidSequenceAndVocabulary(t *testing.T) {
 	}
 }
 
+// TestLocalHMACSignerSignsAndVerifiesEvidence verifies local evidence integrity.
+func TestLocalHMACSignerSignsAndVerifiesEvidence(t *testing.T) {
+	t.Parallel()
+
+	signer, err := NewLocalHMACSigner(
+		"local-evidence-key-v1",
+		[]byte("0123456789abcdef0123456789abcdef"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := []byte("evidence digest")
+	signature, err := signer.Sign(t.Context(), digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := signer.Verify(
+		t.Context(),
+		signature.KeyID,
+		digest,
+		signature.Value,
+	)
+	if err != nil || !valid {
+		t.Fatalf("Verify() = (%v, %v), want true", valid, err)
+	}
+	valid, err = signer.Verify(
+		t.Context(),
+		signature.KeyID,
+		[]byte("modified"),
+		signature.Value,
+	)
+	if err != nil || valid {
+		t.Fatalf("modified Verify() = (%v, %v), want false", valid, err)
+	}
+}
+
 func newEvidenceChain(t *testing.T, signer Signer) []Event {
 	t.Helper()
 	params := validEventParams(t)
