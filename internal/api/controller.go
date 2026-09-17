@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -48,6 +49,24 @@ func DecodeJSON(
 
 	request.Body = http.MaxBytesReader(response, request.Body, MaximumJSONBodyBytes)
 	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+
+	var trailingValue any
+	if err := decoder.Decode(&trailingValue); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("request body must contain one JSON value")
+		}
+		return err
+	}
+	return nil
+}
+
+// DecodeJSONBytes strictly decodes an already captured request body.
+func DecodeJSONBytes(encoded []byte, destination any) error {
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
 		return err

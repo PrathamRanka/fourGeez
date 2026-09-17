@@ -1,6 +1,10 @@
 package api
 
-import "context"
+import (
+	"context"
+
+	"github.com/fourgeez/agentpay/internal/domain"
+)
 
 const (
 	// RequestIDHeader carries the request correlation identifier.
@@ -12,10 +16,22 @@ const (
 	// MaximumJSONBodyBytes limits control-plane JSON payloads to one MiB.
 	MaximumJSONBodyBytes int64 = 1 << 20
 
-	ErrorCodeBadRequest   = "bad_request"
-	ErrorCodeUnauthorized = "unauthorized"
-	ErrorCodeInternal     = "internal_error"
+	ErrorCodeBadRequest    = "bad_request"
+	ErrorCodeUnauthorized  = "unauthorized"
+	ErrorCodeConflict      = "conflict"
+	ErrorCodeNotFound      = "not_found"
+	ErrorCodeUnprocessable = "unprocessable_entity"
+	ErrorCodeInternal      = "internal_error"
 )
+
+// IdempotencyDecision contains either a replay or permission to execute.
+type IdempotencyDecision struct {
+	Key         domain.IdempotencyKey
+	RequestHash string
+	Replay      bool
+	Status      int
+	Body        []byte
+}
 
 // ErrorBody is the stable machine-readable API error.
 type ErrorBody struct {

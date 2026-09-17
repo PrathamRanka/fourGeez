@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"mime"
 	"net"
 	"net/url"
@@ -27,6 +28,140 @@ var (
 	sellerSlugPattern = regexp.MustCompile(`^[a-z0-9-]{3,48}$`)
 	routePathPattern  = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
 )
+
+// Service coordinates catalog domain rules with persistence boundaries.
+type Service struct {
+	repository  Repository
+	idGenerator domain.IDGenerator
+	clock       domain.Clock
+}
+
+// NewService creates the catalog application service.
+func NewService(
+	repository Repository,
+	idGenerator domain.IDGenerator,
+	clock domain.Clock,
+) *Service {
+	return &Service{
+		repository:  repository,
+		idGenerator: idGenerator,
+		clock:       clock,
+	}
+}
+
+// CreateSeller creates a seller owned by the authenticated subject.
+func (service *Service) CreateSeller(
+	ctx context.Context,
+	ownerSubject string,
+	request CreateSellerRequest,
+) (SellerResponse, error) {
+	sellerID, err := service.idGenerator.New(domain.SellerIDPrefix)
+	if err != nil {
+		return SellerResponse{}, err
+	}
+	seller, err := NewSeller(SellerParams{
+		SellerID:        sellerID,
+		OwnerSubject:    ownerSubject,
+		Slug:            request.Slug,
+		Name:            request.Name,
+		UpstreamBaseURL: request.UpstreamBaseURL,
+		CreatedAt:       domain.NewTimestamp(service.clock.Now()),
+	})
+	if err != nil {
+		return SellerResponse{}, err
+	}
+	if err := service.repository.CreateSeller(ctx, seller); err != nil {
+		return SellerResponse{}, err
+	}
+	return sellerResponse(seller), nil
+}
+
+// CreateRoute creates a paid route for a seller owned by the caller.
+func (service *Service) CreateRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	request CreateRouteRequest,
+) (PaidRoute, error) {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if seller.OwnerSubject != ownerSubject {
+		return PaidRoute{}, domain.NewValidationError("sellerId", "owner", "seller is not owned by the caller")
+	}
+	routeID, err := service.idGenerator.New(domain.RouteIDPrefix)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	route, err := NewPaidRoute(PaidRouteParams{
+		RouteID:                 routeID,
+		SellerID:                sellerID,
+		Method:                  request.Method,
+		PathPattern:             request.PathPattern,
+		Description:             request.Description,
+		MIMEType:                request.MIMEType,
+		Amount:                  request.Amount,
+		Asset:                   request.Asset,
+		Network:                 request.Network,
+		PayTo:                   request.PayTo,
+		ApprovalThresholdAmount: request.ApprovalThresholdAmount,
+		UpstreamTimeoutSeconds:  request.UpstreamTimeoutSeconds,
+		CreatedAt:               domain.NewTimestamp(service.clock.Now()),
+	})
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.CreateRoute(ctx, route); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// UpdateRoutePrice updates only future intent pricing for an owned route.
+func (service *Service) UpdateRoutePrice(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request UpdateRoutePriceRequest,
+) (PaidRoute, error) {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if seller.OwnerSubject != ownerSubject {
+		return PaidRoute{}, domain.NewValidationError("sellerId", "owner", "seller is not owned by the caller")
+	}
+	route, err := service.repository.GetRoute(ctx, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if route.SellerID != sellerID {
+		return PaidRoute{}, domain.NewValidationError("routeId", "owner", "route does not belong to the seller")
+	}
+	if err := route.ChangePrice(request.Amount, domain.NewTimestamp(service.clock.Now())); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.UpdateRoute(ctx, route, request.ExpectedVersion); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// sellerResponse removes private seller fields from public responses.
+func sellerResponse(seller Seller) SellerResponse {
+	return SellerResponse{
+		SellerID:        seller.SellerID,
+		Name:            seller.Name,
+		Slug:            seller.Slug,
+		UpstreamBaseURL: seller.UpstreamBaseURL,
+		Status:          seller.Status,
+		CreatedAt:       seller.CreatedAt,
+		UpdatedAt:       seller.UpdatedAt,
+		Version:         seller.Version,
+	}
+}
 
 // NewSeller validates and creates a draft seller.
 func NewSeller(params SellerParams) (Seller, error) {

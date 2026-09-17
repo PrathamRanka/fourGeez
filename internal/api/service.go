@@ -3,12 +3,20 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"strings"
+	"time"
+
+	"github.com/fourgeez/agentpay/internal/domain"
 )
 
 const requestIDByteLength = 16
+
+// ErrIdempotencyConflict reports reuse of a key with a different request.
+var ErrIdempotencyConflict = errors.New("idempotency key was reused with a different request")
 
 // StaticAuthenticator validates configured local-development credentials.
 type StaticAuthenticator struct {
@@ -81,4 +89,64 @@ func incomingRequestID(value string) string {
 		}
 	}
 	return trimmedValue
+}
+
+// CheckIdempotency validates a mutation key and returns a stored replay when present.
+func CheckIdempotency(
+	ctx context.Context,
+	store domain.IdempotencyStore,
+	scope string,
+	rawKey string,
+	requestBody []byte,
+) (IdempotencyDecision, error) {
+	key, err := domain.ParseIdempotencyKey(rawKey)
+	if err != nil {
+		return IdempotencyDecision{}, err
+	}
+
+	digest := sha256.Sum256(requestBody)
+	requestHash := hex.EncodeToString(digest[:])
+	record, found, err := store.Load(ctx, scope, key)
+	if err != nil {
+		return IdempotencyDecision{}, err
+	}
+	if found && record.RequestHash != requestHash {
+		return IdempotencyDecision{}, ErrIdempotencyConflict
+	}
+	if found {
+		return IdempotencyDecision{
+			Key:         key,
+			RequestHash: requestHash,
+			Replay:      true,
+			Status:      record.ResponseStatus,
+			Body:        record.ResponseBody,
+		}, nil
+	}
+
+	return IdempotencyDecision{
+		Key:         key,
+		RequestHash: requestHash,
+	}, nil
+}
+
+// SaveIdempotency stores a completed mutation response for later replay.
+func SaveIdempotency(
+	ctx context.Context,
+	store domain.IdempotencyStore,
+	scope string,
+	decision IdempotencyDecision,
+	status int,
+	body []byte,
+	createdAt time.Time,
+) error {
+	_, err := store.SaveIfAbsent(ctx, domain.IdempotencyRecord{
+		Scope:          scope,
+		Key:            decision.Key,
+		RequestHash:    decision.RequestHash,
+		ResponseStatus: status,
+		ResponseBody:   append([]byte(nil), body...),
+		CreatedAt:      domain.NewTimestamp(createdAt),
+		ExpiresAt:      domain.NewTimestamp(createdAt.Add(24 * time.Hour)),
+	})
+	return err
 }
