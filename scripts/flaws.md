@@ -646,3 +646,1373 @@ AgentPay is ready for startup launch only when:
   least-privilege IAM, protected secrets, monitoring, and environment
   separation; and
 - all mock, deferred, preview, and testnet behavior is labeled truthfully.
+
+## Subscription enforcement for a seller-controlled MCP
+
+### Security conclusion
+
+AgentPay cannot prevent a seller from continuing to run, modify, or fork code
+that is already deployed in the seller's infrastructure. The architecture must
+therefore avoid placing any authoritative commercial capability in that code.
+
+Cancellation enforcement comes from removing the seller's ability to
+participate in the AgentPay network, not from remotely disabling local files.
+After access ends, the seller may still run a local MCP process, but it must be
+unable to:
+
+- authenticate to AgentPay's MCP or control APIs;
+- mint a fresh short-lived capability token;
+- appear as active in AgentPay-hosted discovery;
+- create a new purchase intent through AgentPay;
+- receive a valid AgentPay x402 payment challenge;
+- have a payment verified or settled through AgentPay;
+- receive an AgentPay transaction-execution authorization;
+- obtain an official receipt, evidence chain, webhook, or dashboard record; or
+- display a valid AgentPay-issued availability or verification badge.
+
+A forked MCP may imitate screens, accept direct requests, or implement an
+independent payment flow, because the seller controls its own infrastructure.
+It cannot forge AgentPay signatures, cloud records, transaction identifiers,
+receipts, discovery status, or payment verification. Such traffic is outside
+the AgentPay network and must not be represented as an AgentPay transaction.
+
+### Correct interpretation of "install our MCP"
+
+AgentPay should not ship the authoritative MCP server as a self-contained
+seller-hosted service. The preferred installation consists of:
+
+1. project configuration that points the seller's coding agent to AgentPay's
+   remote cloud MCP endpoint;
+2. a project API key or OAuth client credential stored in a server-side secret
+   store or environment variable;
+3. repository-local generated integration files and public discovery metadata;
+4. a small AgentPay request-verification package in the seller's application;
+   and
+5. an optional local MCP connector that only proxies bounded tool calls to the
+   cloud MCP and caches non-authoritative documentation.
+
+The optional connector must not contain subscription policy, signing keys,
+payment verification authority, publication authority, or transaction state.
+Every privileged operation still calls AgentPay's cloud control plane.
+
+### Non-negotiable invariants
+
+1. The seller API key is a bootstrap credential, not a permanent transaction
+   capability.
+2. The API key is accepted only by the cloud token-exchange endpoint and
+   explicit key-management endpoints.
+3. MCP and control-plane requests use short-lived signed access tokens.
+4. Every privileged request validates the current seller entitlement, not only
+   the token signature and expiry.
+5. Every new purchase checks subscription state before intent creation, before
+   challenge issuance, and immediately before x402 verification/settlement.
+6. A finalized buyer payment creates a bounded fulfillment obligation. Normal
+   subscription cancellation must not strand a buyer after funds are finalized.
+7. Exactly-once seller forwarding is claimed in AgentPay's cloud database before
+   the seller is called.
+8. The seller fulfillment endpoint accepts only AgentPay-signed execution
+   requests for official transactions.
+9. Discovery is advisory. A cached product listing never authorizes payment or
+   execution.
+10. Redis accelerates revocation and replay checks but is not the source of
+    truth for subscriptions, credentials, or transaction state.
+11. Transaction authorization fails closed when current entitlement or
+    revocation state cannot be established.
+12. Raw API keys, access tokens, payment signatures, and execution tokens are
+    never written to logs or audit records.
+
+### Cloud and seller responsibility split
+
+| Capability | AgentPay cloud/control plane | Seller infrastructure |
+|---|---|---|
+| Seller identity and account status | Authoritative | No authority |
+| Subscription and entitlements | Authoritative database plus cache | May display last-known state only |
+| API-key registry and revocation | Authoritative | Stores its own raw key securely |
+| Short-lived access-token signing | KMS/HSM-backed cloud signer | Verifies public key only when necessary |
+| Official MCP endpoint and tools | Authoritative remote server | Optional untrusted proxy/connector |
+| Public network directory | Authoritative active listing | May host generated local metadata |
+| Product publication state and price | Authoritative | May propose configuration |
+| Purchase intents and policy | Authoritative | No mutation authority |
+| x402 challenge, verification, settlement | Authoritative gateway and verified facilitator | Receives funds at its verified destination |
+| Transaction claim and execution grant | Authoritative conditional write and signer | Verifies exact signed request and fulfills |
+| Evidence, receipts, audit, webhooks | Authoritative append-only records | Receives signed requests/events |
+| Seller business implementation | No ownership | Authoritative for the digital service output |
+
+The existing Go modular monolith should remain the authoritative implementation
+of these cloud responsibilities. TypeScript examples below define the required
+behavior and can be used for a Node edge service, local connector, and seller
+verification package. They must not create a second independent source of
+payment or authorization rules.
+
+### Subscription state and cancellation policy
+
+The billing domain needs a documented entitlement state separate from provider
+invoice terminology:
+
+- `active`: new MCP operations and transactions are allowed;
+- `grace`: allowed only when the commercial policy explicitly grants a bounded
+  grace period;
+- `suspended`: new privileged operations and transactions are denied;
+- `cancelled`: access may continue only until `accessEndsAt`;
+- `closed`: all credentials are revoked and no new access is allowed.
+
+`cancelAtPeriodEnd` does not stop access immediately. The entitlement remains
+active until the exact UTC `accessEndsAt` timestamp. Non-payment, fraud, policy
+abuse, or administrator suspension can stop new operations immediately.
+
+Cancellation checkpoints:
+
+| Operation | Active/grace | Access ended/suspended/closed |
+|---|---:|---:|
+| Read public discovery | Allowed | Return inactive/tombstone state; remove from network index |
+| Read private MCP resources | Allowed | Denied |
+| Mutate configuration or publish | Allowed by scope/quota | Denied |
+| Create purchase intent | Allowed | Denied |
+| Issue x402 challenge | Allowed | Denied |
+| Verify or settle a new payment | Allowed after fresh check | Denied |
+| Fulfill payment finalized before suspension | Allowed exactly once | Allowed exactly once unless fraud quarantine policy requires refund handling |
+| Read historical invoices/exports | Optional restricted account access | Read-only according to retention policy |
+
+The important race rule is: **before settlement, subscription status can block
+the transaction; after settlement, AgentPay has a buyer-facing fulfillment
+obligation.** A normal cancellation must allow that already-finalized
+transaction to complete through a short-lived, transaction-specific execution
+grant. An emergency fraud suspension may quarantine it, but then AgentPay needs
+an explicit refund or incident procedure rather than silently retaining buyer
+funds without delivery.
+
+### Discovery must be separate from authorization
+
+Discovery answers, "What might this seller offer?" Authorization answers,
+"May this exact transaction happen now?" They must never be conflated.
+
+Public discovery may be cached for performance and search indexing. Each
+AgentPay-hosted manifest should include:
+
+- seller and product identifiers;
+- human-readable product name and public slug;
+- price, asset, network, and verified payment destination reference;
+- publication revision;
+- `available` or `inactive` status;
+- `issuedAt` and short `expiresAt` timestamps; and
+- an AgentPay signature or canonical URL to the authoritative manifest.
+
+On cancellation, AgentPay removes the seller from the network directory,
+invalidates CDN/Redis entries, publishes an inactive tombstone, and refuses new
+intent creation. A stale copy may remain on the internet, but it has no power:
+the cloud transaction endpoint performs a fresh entitlement and route check.
+
+Seller-hosted `llms.txt`, manifests, or forked MCP resources are claims made by
+the seller. Agents should treat them as candidate discovery input and require a
+fresh AgentPay intent or capability response before considering the product an
+active AgentPay offer.
+
+### Production request flow
+
+```text
+Seller MCP host or local connector
+  -> exchange project API key with AgentPay cloud
+  -> receive 2-5 minute seller-scoped access token
+  -> call AgentPay remote MCP with token
+  -> cloud verifies signature, audience, scope, credential, entitlement epoch,
+     current subscription, quota, and idempotency
+  -> cloud performs bounded read/mutation and appends audit decision
+
+Buyer agent or browser
+  -> read public discovery
+  -> create immutable intent in AgentPay cloud
+  -> cloud checks active seller, published route, frozen quote, wallet, policy
+  -> optional approval completes
+  -> AgentPay paid URL returns the x402 payment requirement
+  -> buyer retries with PAYMENT-SIGNATURE
+  -> cloud rechecks seller entitlement and frozen intent
+  -> official x402 adapter verifies and settles exact payment
+  -> cloud stores unique payment identifier and finalized transaction
+  -> cloud atomically claims transaction for forwarding
+  -> cloud signs a one-time execution capability bound to transaction, method,
+     path, body hash, seller, route, destination, and expiry
+  -> cloud calls seller fulfillment endpoint
+  -> seller middleware verifies AgentPay signature and exact request binding
+  -> cloud records response hash, evidence, receipt, analytics, and webhook
+```
+
+The buyer must call an AgentPay-owned paid URL, not the seller MCP, for an
+official transaction. Buyer funds can still settle directly to the seller's
+verified wallet; AgentPay controls the challenge, verification, transaction
+state, and execution authorization without taking custody.
+
+### Token model
+
+Use distinct tokens for distinct purposes:
+
+| Token | Audience | Lifetime | Purpose |
+|---|---|---:|---|
+| Project API key | Token endpoint only | Long-lived until rotation/revocation | Bootstrap machine identity |
+| MCP access token | `agentpay-mcp` | 2-5 minutes | Scoped MCP/control API access |
+| Seller web session | `agentpay-dashboard` | Short access plus managed refresh | Human dashboard access |
+| Discovery signature | Public verifiers | 1-5 minutes for availability | Authentic but non-authoritative catalog hint |
+| Execution capability | Exact seller service | 30-60 seconds, one use | Fulfill one finalized transaction |
+| Webhook signature | Seller webhook endpoint | Timestamp-bounded | Authenticate one event payload |
+
+An MCP access token should contain only bounded claims:
+
+```json
+{
+  "iss": "https://api.agentpay.example",
+  "aud": "agentpay-mcp",
+  "sub": "credential:icr_...",
+  "sellerId": "sel_...",
+  "credentialId": "icr_...",
+  "scopes": ["read", "configure"],
+  "entitlementEpoch": 42,
+  "jti": "tok_...",
+  "iat": 1789728000,
+  "exp": 1789728300
+}
+```
+
+The signature and expiry alone are insufficient for immediate revocation.
+Middleware must compare `entitlementEpoch` with the current cloud value. API-key
+revocation, subscription suspension, account closure, and administrator lock
+increment that epoch, causing already-issued access tokens to fail immediately.
+
+### API-key design
+
+- Generate at least 256 bits of random secret material.
+- Format keys so the public lookup identifier is separate from the secret, for
+  example `apk_live_<credentialId>.<secret>`.
+- Show the raw key once.
+- Store only a keyed digest of the secret and metadata such as seller, scopes,
+  status, expiry, created time, last-used time, and version.
+- Use a server-side pepper from KMS/Secrets Manager and constant-time digest
+  comparison.
+- Do not accept the API key directly as a transaction or execution credential.
+- Rate-limit exchanges by credential, seller, IP risk signal, and account.
+- Rotate credentials after reactivation or suspected exposure.
+
+### Redis cache and invalidation model
+
+Suggested keys:
+
+```text
+agentpay:entitlement:{sellerId}                 JSON, TTL 15-30 seconds
+agentpay:entitlement-epoch:{sellerId}           integer, no opportunistic TTL
+agentpay:credential-revoked:{credentialId}      1, retained through max token TTL
+agentpay:token-jti-used:{jti}                   1, SET NX with token-expiry TTL
+agentpay:execution-jti-used:{jti}               1, SET NX with execution TTL
+agentpay:idempotency:{principal}:{operation}:{key}
+agentpay:rate:{sellerId}:{operation}:{period}
+agentpay:discovery:{sellerSlug}:{revision}
+```
+
+Use a durable database transaction and outbox for subscription/key changes:
+
+1. update the authoritative subscription or credential row;
+2. increment the seller entitlement epoch;
+3. write an outbox event in the same transaction;
+4. commit;
+5. update/delete Redis cache keys;
+6. publish `entitlement.changed` for process-local cache invalidation;
+7. remove active discovery listings; and
+8. append the audit event.
+
+Redis Pub/Sub alone is not durable. Consumers must be able to recover from the
+database/outbox revision after a restart. Transaction authorization and token
+exchange fail closed if authoritative state cannot be obtained. Public
+discovery may fail soft by returning an expired/inactive result, but it cannot
+authorize a purchase.
+
+### Audit requirements
+
+Append an allowlisted audit event for every security-relevant decision:
+
+- API key created, exchanged, rotated, revoked, or rejected;
+- access token issued or denied;
+- subscription activated, grace-started, suspended, cancelled, expired,
+  reactivated, or closed;
+- entitlement epoch incremented;
+- MCP operation allowed or denied;
+- discovery listing published, invalidated, or tombstoned;
+- payment challenge issued or denied;
+- payment verification and settlement result;
+- transaction authorization issued, consumed, replayed, expired, or denied;
+- seller forwarding claimed, completed, failed, or skipped; and
+- administrative override or fraud quarantine.
+
+Record request ID, seller ID, credential ID, operation, decision, reason code,
+subscription revision, entitlement epoch, transaction ID when applicable,
+timestamp, and bounded metadata. Store a hash of a token JTI when correlation
+is required. Never log raw credentials, JWTs, payment signatures, wallet
+signatures, approval tokens, or seller secrets.
+
+## TypeScript/Node.js reference implementation
+
+### Repository placement
+
+The authoritative AgentPay backend remains Go. The following TypeScript layout
+is a concrete reference for an optional Node edge gateway, local MCP connector,
+and the existing seller verification package:
+
+```text
+reference/node-control-plane/
+  src/domain/types.ts
+  src/auth/api-key-service.ts
+  src/auth/capability-token-service.ts
+  src/auth/authorization-middleware.ts
+  src/billing/entitlement-service.ts
+  src/cache/redis-keys.ts
+  src/mcp/cloud-mcp-handler.ts
+  src/payments/x402-service.ts
+  src/transactions/transaction-authorizer.ts
+  src/revocation/revocation-service.ts
+  src/audit/audit-service.ts
+
+packages/local-mcp-connector/
+  src/token-client.ts
+  src/mcp-proxy.ts
+
+verification/node/src/
+  execution-capability.ts
+  middleware.ts
+```
+
+Production dependencies should be pinned only when this design is implemented.
+Use the official x402 SDK at the payment adapter boundary, an audited JOSE/JWT
+library for verification and local tests, the official Redis client, and the
+existing AWS/KMS strategy for production signing keys.
+
+### Shared domain contracts
+
+```ts
+// reference/node-control-plane/src/domain/types.ts
+export type SubscriptionStatus =
+  | "active"
+  | "grace"
+  | "suspended"
+  | "cancelled"
+  | "closed";
+
+export type IntegrationScope =
+  | "read"
+  | "configure"
+  | "validate"
+  | "publish"
+  | "rotate";
+
+export type Entitlement = {
+  sellerId: string;
+  status: SubscriptionStatus;
+  accessEndsAt: string | null;
+  entitlementEpoch: number;
+  revision: number;
+};
+
+export type ApiCredential = {
+  credentialId: string;
+  sellerId: string;
+  secretDigest: string;
+  scopes: IntegrationScope[];
+  expiresAt: string | null;
+  revokedAt: string | null;
+};
+
+export type CapabilityClaims = {
+  sellerId: string;
+  credentialId: string;
+  scopes: IntegrationScope[];
+  entitlementEpoch: number;
+  jti: string;
+};
+
+export type AuthorizationPrincipal = CapabilityClaims & {
+  subject: string;
+};
+
+export class AuthorizationError extends Error {
+  constructor(
+    readonly code:
+      | "invalid_credential"
+      | "token_expired"
+      | "token_revoked"
+      | "subscription_inactive"
+      | "insufficient_scope"
+      | "dependency_unavailable",
+    message: string,
+  ) {
+    super(message);
+  }
+}
+```
+
+### API-key authentication
+
+```ts
+// reference/node-control-plane/src/auth/api-key-service.ts
+import {
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
+import type { ApiCredential } from "../domain/types.js";
+import { AuthorizationError } from "../domain/types.js";
+
+export interface CredentialRepository {
+  findById(credentialId: string): Promise<ApiCredential | null>;
+  touchLastUsed(credentialId: string, usedAt: string): Promise<void>;
+}
+
+const prefix = "apk_live_";
+
+export function generateApiKey(credentialId: string): {
+  rawKey: string;
+  secretDigestInput: string;
+} {
+  const secret = randomBytes(32).toString("base64url");
+  return {
+    rawKey: `${prefix}${credentialId}.${secret}`,
+    secretDigestInput: secret,
+  };
+}
+
+export function digestApiKeySecret(secret: string, pepper: Buffer): string {
+  return createHmac("sha256", pepper).update(secret, "utf8").digest("hex");
+}
+
+function constantTimeEqualHex(left: string, right: string): boolean {
+  if (!/^[a-f0-9]{64}$/i.test(left) || !/^[a-f0-9]{64}$/i.test(right)) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
+}
+
+function parseApiKey(rawKey: string): { credentialId: string; secret: string } {
+  if (!rawKey.startsWith(prefix)) {
+    throw new AuthorizationError("invalid_credential", "Invalid API key.");
+  }
+  const separator = rawKey.indexOf(".", prefix.length);
+  if (separator < 0) {
+    throw new AuthorizationError("invalid_credential", "Invalid API key.");
+  }
+  const credentialId = rawKey.slice(prefix.length, separator);
+  const secret = rawKey.slice(separator + 1);
+  if (!credentialId || secret.length < 40) {
+    throw new AuthorizationError("invalid_credential", "Invalid API key.");
+  }
+  return { credentialId, secret };
+}
+
+export class ApiKeyService {
+  constructor(
+    private readonly credentials: CredentialRepository,
+    private readonly pepper: Buffer,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  async authenticate(rawKey: string): Promise<ApiCredential> {
+    const parsed = parseApiKey(rawKey);
+    const credential = await this.credentials.findById(parsed.credentialId);
+    const suppliedDigest = digestApiKeySecret(parsed.secret, this.pepper);
+    const storedDigest = credential?.secretDigest ?? "0".repeat(64);
+
+    if (!constantTimeEqualHex(suppliedDigest, storedDigest) || !credential) {
+      throw new AuthorizationError("invalid_credential", "Invalid API key.");
+    }
+    if (credential.revokedAt) {
+      throw new AuthorizationError("token_revoked", "API key is revoked.");
+    }
+    if (credential.expiresAt && new Date(credential.expiresAt) <= this.now()) {
+      throw new AuthorizationError("token_expired", "API key is expired.");
+    }
+
+    await this.credentials.touchLastUsed(
+      credential.credentialId,
+      this.now().toISOString(),
+    );
+    return credential;
+  }
+}
+```
+
+### Subscription validation and Redis caching
+
+```ts
+// reference/node-control-plane/src/billing/entitlement-service.ts
+import type { RedisClientType } from "redis";
+import {
+  AuthorizationError,
+  type Entitlement,
+} from "../domain/types.js";
+
+export interface EntitlementRepository {
+  get(sellerId: string): Promise<Entitlement | null>;
+}
+
+export const entitlementKey = (sellerId: string) =>
+  `agentpay:entitlement:${sellerId}`;
+export const entitlementEpochKey = (sellerId: string) =>
+  `agentpay:entitlement-epoch:${sellerId}`;
+
+export class EntitlementService {
+  constructor(
+    private readonly repository: EntitlementRepository,
+    private readonly redis: RedisClientType,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  async resolve(
+    sellerId: string,
+    consistency: "cached" | "strong",
+  ): Promise<Entitlement> {
+    if (consistency === "cached") {
+      const cached = await this.redis.get(entitlementKey(sellerId));
+      if (cached) return JSON.parse(cached) as Entitlement;
+    }
+
+    const entitlement = await this.repository.get(sellerId);
+    if (!entitlement) {
+      throw new AuthorizationError(
+        "subscription_inactive",
+        "Seller subscription is unavailable.",
+      );
+    }
+
+    await this.redis
+      .multi()
+      .set(entitlementKey(sellerId), JSON.stringify(entitlement), { EX: 20 })
+      .set(
+        entitlementEpochKey(sellerId),
+        String(entitlement.entitlementEpoch),
+      )
+      .exec();
+    return entitlement;
+  }
+
+  async assertActive(
+    sellerId: string,
+    consistency: "cached" | "strong" = "strong",
+  ): Promise<Entitlement> {
+    const entitlement = await this.resolve(sellerId, consistency);
+    const now = this.now();
+    const accessEnded =
+      entitlement.accessEndsAt !== null &&
+      new Date(entitlement.accessEndsAt) <= now;
+    const statusAllowsAccess =
+      entitlement.status === "active" || entitlement.status === "grace";
+
+    if (!statusAllowsAccess || accessEnded) {
+      throw new AuthorizationError(
+        "subscription_inactive",
+        "Seller subscription is not active.",
+      );
+    }
+    return entitlement;
+  }
+
+  async assertEpoch(sellerId: string, tokenEpoch: number): Promise<void> {
+    let current = await this.redis.get(entitlementEpochKey(sellerId));
+    if (current === null) {
+      const entitlement = await this.resolve(sellerId, "strong");
+      current = String(entitlement.entitlementEpoch);
+    }
+    if (!Number.isSafeInteger(tokenEpoch) || Number(current) !== tokenEpoch) {
+      throw new AuthorizationError("token_revoked", "Access was revoked.");
+    }
+  }
+}
+```
+
+For token exchange, MCP mutations, publication, intent creation, challenge
+issuance, and payment verification, use `strong`. A short cached read is
+acceptable only for non-sensitive private views when the epoch is still
+checked. Redis errors on transaction-critical operations must become
+`dependency_unavailable`, not an allow decision.
+
+### Short-lived signed access tokens
+
+```ts
+// reference/node-control-plane/src/auth/capability-token-service.ts
+import { randomUUID } from "node:crypto";
+import {
+  SignJWT,
+  jwtVerify,
+  type KeyLike,
+  type JWTPayload,
+} from "jose";
+import type {
+  ApiCredential,
+  CapabilityClaims,
+} from "../domain/types.js";
+
+const issuer = "https://api.agentpay.example";
+const audience = "agentpay-mcp";
+const accessLifetimeSeconds = 300;
+
+export class CapabilityTokenService {
+  constructor(
+    private readonly signingKey: KeyLike,
+    private readonly verificationKey: KeyLike,
+    private readonly keyId: string,
+  ) {}
+
+  async issue(
+    credential: ApiCredential,
+    entitlementEpoch: number,
+  ): Promise<string> {
+    const now = Math.floor(Date.now() / 1000);
+    return new SignJWT({
+      sellerId: credential.sellerId,
+      credentialId: credential.credentialId,
+      scopes: credential.scopes,
+      entitlementEpoch,
+    })
+      .setProtectedHeader({ alg: "ES256", kid: this.keyId, typ: "at+jwt" })
+      .setIssuer(issuer)
+      .setAudience(audience)
+      .setSubject(`credential:${credential.credentialId}`)
+      .setJti(randomUUID())
+      .setIssuedAt(now)
+      .setExpirationTime(now + accessLifetimeSeconds)
+      .sign(this.signingKey);
+  }
+
+  async verify(token: string): Promise<CapabilityClaims & { subject: string }> {
+    const result = await jwtVerify(token, this.verificationKey, {
+      issuer,
+      audience,
+      algorithms: ["ES256"],
+      clockTolerance: 5,
+    });
+    return parseClaims(result.payload);
+  }
+}
+
+function parseClaims(payload: JWTPayload): CapabilityClaims & {
+  subject: string;
+} {
+  if (
+    typeof payload.sub !== "string" ||
+    typeof payload.jti !== "string" ||
+    typeof payload.sellerId !== "string" ||
+    typeof payload.credentialId !== "string" ||
+    typeof payload.entitlementEpoch !== "number" ||
+    !Array.isArray(payload.scopes) ||
+    !payload.scopes.every((scope) => typeof scope === "string")
+  ) {
+    throw new Error("Invalid capability claims.");
+  }
+  return {
+    subject: payload.sub,
+    jti: payload.jti,
+    sellerId: payload.sellerId,
+    credentialId: payload.credentialId,
+    entitlementEpoch: payload.entitlementEpoch,
+    scopes: payload.scopes as CapabilityClaims["scopes"],
+  };
+}
+```
+
+The sample accepts injected JOSE keys so it is testable. Production token
+signing belongs in a cloud-only signing boundary backed by KMS/HSM or a managed
+authorization server. Private signing material must never be copied into the
+seller connector, seller repository, browser, or ordinary application
+configuration.
+
+### Token exchange and authorization middleware
+
+```ts
+// reference/node-control-plane/src/auth/authorization-middleware.ts
+import type { FastifyReply, FastifyRequest } from "fastify";
+import type { IntegrationScope } from "../domain/types.js";
+import { ApiKeyService } from "./api-key-service.js";
+import { CapabilityTokenService } from "./capability-token-service.js";
+import { EntitlementService } from "../billing/entitlement-service.js";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    agentPayPrincipal?: {
+      sellerId: string;
+      credentialId: string;
+      scopes: IntegrationScope[];
+      entitlementEpoch: number;
+      jti: string;
+    };
+  }
+}
+
+export function createTokenExchange(dependencies: {
+  apiKeys: ApiKeyService;
+  entitlements: EntitlementService;
+  tokens: CapabilityTokenService;
+}) {
+  return async function tokenExchange(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) {
+    const rawKey = request.headers["x-agentpay-api-key"];
+    if (typeof rawKey !== "string") {
+      return reply.code(401).send({
+        error: { code: "unauthorized", message: "API key is required." },
+      });
+    }
+
+    const credential = await dependencies.apiKeys.authenticate(rawKey);
+    const entitlement = await dependencies.entitlements.assertActive(
+      credential.sellerId,
+      "strong",
+    );
+    const accessToken = await dependencies.tokens.issue(
+      credential,
+      entitlement.entitlementEpoch,
+    );
+
+    return reply
+      .header("Cache-Control", "no-store")
+      .send({
+        accessToken,
+        tokenType: "Bearer",
+        expiresIn: 300,
+        scope: credential.scopes.join(" "),
+      });
+  };
+}
+
+export function requireCapability(
+  dependencies: {
+    entitlements: EntitlementService;
+    tokens: CapabilityTokenService;
+  },
+  requiredScope: IntegrationScope,
+) {
+  return async function authorize(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) {
+    const authorization = request.headers.authorization;
+    if (!authorization?.startsWith("Bearer ")) {
+      return reply.code(401).send({
+        error: { code: "unauthorized", message: "Access token is required." },
+      });
+    }
+
+    const claims = await dependencies.tokens.verify(authorization.slice(7));
+    if (!claims.scopes.includes(requiredScope)) {
+      return reply.code(403).send({
+        error: { code: "permission_denied", message: "Scope is not allowed." },
+      });
+    }
+
+    await dependencies.entitlements.assertEpoch(
+      claims.sellerId,
+      claims.entitlementEpoch,
+    );
+    await dependencies.entitlements.assertActive(claims.sellerId, "strong");
+
+    request.agentPayPrincipal = claims;
+  };
+}
+```
+
+The implementation must translate expected authorization failures into the
+documented public error shape and audit both allowed and denied decisions.
+Unexpected token or cache errors must not leak details.
+
+### Local MCP connector
+
+```ts
+// packages/local-mcp-connector/src/token-client.ts
+type TokenResponse = {
+  accessToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+};
+
+export class AgentPayTokenClient {
+  private cached: { token: string; refreshAt: number } | null = null;
+
+  constructor(
+    private readonly cloudOrigin: string,
+    private readonly apiKey: string,
+  ) {}
+
+  async getAccessToken(): Promise<string> {
+    if (this.cached && Date.now() < this.cached.refreshAt) {
+      return this.cached.token;
+    }
+
+    const response = await fetch(`${this.cloudOrigin}/v1/oauth/token`, {
+      method: "POST",
+      headers: {
+        "X-AgentPay-API-Key": this.apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ grantType: "client_credentials" }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) {
+      this.cached = null;
+      throw new Error(`AgentPay token exchange failed with ${response.status}.`);
+    }
+
+    const token = (await response.json()) as TokenResponse;
+    const safetyWindowMilliseconds = 30_000;
+    this.cached = {
+      token: token.accessToken,
+      refreshAt:
+        Date.now() + token.expiresIn * 1_000 - safetyWindowMilliseconds,
+    };
+    return token.accessToken;
+  }
+
+  clear(): void {
+    this.cached = null;
+  }
+}
+```
+
+```ts
+// packages/local-mcp-connector/src/mcp-proxy.ts
+import { AgentPayTokenClient } from "./token-client.js";
+
+export class CloudMcpProxy {
+  constructor(
+    private readonly cloudOrigin: string,
+    private readonly tokens: AgentPayTokenClient,
+  ) {}
+
+  async invoke(jsonRpcRequest: unknown): Promise<unknown> {
+    const invoke = async () => {
+      const token = await this.tokens.getAccessToken();
+      return fetch(`${this.cloudOrigin}/mcp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(jsonRpcRequest),
+        signal: AbortSignal.timeout(15_000),
+      });
+    };
+
+    let response = await invoke();
+    if (response.status === 401) {
+      this.tokens.clear();
+      response = await invoke();
+    }
+    if (!response.ok) {
+      throw new Error(`AgentPay MCP request failed with ${response.status}.`);
+    }
+    return response.json();
+  }
+}
+```
+
+This connector can be forked, but a fork cannot produce a token after the API
+key or subscription is revoked. The connector must never cache mutation
+results as authorization and must never implement a local payment bypass.
+
+### Cloud MCP request flow
+
+```ts
+// reference/node-control-plane/src/mcp/cloud-mcp-handler.ts
+import type { FastifyInstance } from "fastify";
+
+export function registerCloudMcp(app: FastifyInstance, services: {
+  authorizeRead: ReturnType<typeof import("../auth/authorization-middleware.js").requireCapability>;
+  consumeMcpQuota(sellerId: string): Promise<void>;
+  dispatch(input: {
+    sellerId: string;
+    credentialId: string;
+    body: unknown;
+  }): Promise<unknown>;
+}) {
+  app.post(
+    "/mcp",
+    { preHandler: services.authorizeRead },
+    async (request, reply) => {
+      const principal = request.agentPayPrincipal;
+      if (!principal) return reply.code(401).send();
+
+      await services.consumeMcpQuota(principal.sellerId);
+      const response = await services.dispatch({
+        sellerId: principal.sellerId,
+        credentialId: principal.credentialId,
+        body: request.body,
+      });
+      return reply.send(response);
+    },
+  );
+}
+```
+
+The dispatcher still enforces each tool's exact scope, confirmation,
+idempotency, target ownership, plan feature, quota, and domain validation. A
+top-level `read` scope is not permission to invoke mutation tools.
+
+### x402 verification boundary
+
+```ts
+// reference/node-control-plane/src/payments/x402-service.ts
+export type PaymentRequirements = {
+  scheme: string;
+  network: string;
+  asset: string;
+  amount: string;
+  payTo: string;
+  resource: string;
+};
+
+export type VerifiedPayment = {
+  valid: boolean;
+  paymentIdentifier: string;
+  payerReference?: string;
+};
+
+export type SettledPayment = {
+  success: boolean;
+  networkReference: string;
+};
+
+export interface X402Facilitator {
+  verify(
+    paymentSignature: string,
+    requirements: PaymentRequirements,
+  ): Promise<VerifiedPayment>;
+  settle(
+    paymentSignature: string,
+    requirements: PaymentRequirements,
+  ): Promise<SettledPayment>;
+}
+
+export interface PaymentRepository {
+  reserveVerifiedPayment(input: {
+    transactionId: string;
+    paymentIdentifier: string;
+    requirements: PaymentRequirements;
+  }): Promise<void>; // unique conditional write on paymentIdentifier
+  markFinalized(input: {
+    transactionId: string;
+    networkReference: string;
+  }): Promise<void>;
+  markFailed(transactionId: string, reason: string): Promise<void>;
+}
+
+export class X402PaymentService {
+  constructor(
+    private readonly facilitator: X402Facilitator,
+    private readonly payments: PaymentRepository,
+    private readonly assertSellerActive: (sellerId: string) => Promise<void>,
+  ) {}
+
+  async verifyAndSettle(input: {
+    sellerId: string;
+    transactionId: string;
+    paymentSignature: string;
+    frozenRequirements: PaymentRequirements;
+    presentedRequirements: PaymentRequirements;
+  }): Promise<SettledPayment> {
+    await this.assertSellerActive(input.sellerId);
+    assertExactRequirements(
+      input.frozenRequirements,
+      input.presentedRequirements,
+    );
+
+    const verification = await this.facilitator.verify(
+      input.paymentSignature,
+      input.frozenRequirements,
+    );
+    if (!verification.valid) {
+      await this.payments.markFailed(input.transactionId, "payment_rejected");
+      throw new Error("Payment verification failed.");
+    }
+
+    await this.payments.reserveVerifiedPayment({
+      transactionId: input.transactionId,
+      paymentIdentifier: verification.paymentIdentifier,
+      requirements: input.frozenRequirements,
+    });
+
+    // Recheck immediately before the irreversible settlement boundary.
+    await this.assertSellerActive(input.sellerId);
+    const settlement = await this.facilitator.settle(
+      input.paymentSignature,
+      input.frozenRequirements,
+    );
+    if (!settlement.success) {
+      await this.payments.markFailed(input.transactionId, "settlement_failed");
+      throw new Error("Payment settlement failed.");
+    }
+
+    await this.payments.markFinalized({
+      transactionId: input.transactionId,
+      networkReference: settlement.networkReference,
+    });
+    return settlement;
+  }
+}
+
+function assertExactRequirements(
+  frozen: PaymentRequirements,
+  presented: PaymentRequirements,
+): void {
+  const fields: Array<keyof PaymentRequirements> = [
+    "scheme",
+    "network",
+    "asset",
+    "amount",
+    "payTo",
+    "resource",
+  ];
+  if (fields.some((field) => frozen[field] !== presented[field])) {
+    throw new Error("Payment requirements do not match the frozen intent.");
+  }
+}
+```
+
+The concrete `X402Facilitator` adapter must use the pinned official x402 SDK
+and its canonical payload/header serialization. AgentPay code must not invent
+an alternative proof format. Amounts remain atomic-unit strings; underpayment
+and overpayment are rejected.
+
+### Transaction authorization and exactly-once forwarding
+
+```ts
+// reference/node-control-plane/src/transactions/transaction-authorizer.ts
+import { createHash, randomUUID } from "node:crypto";
+import { SignJWT, type KeyLike } from "jose";
+
+export interface TransactionRepository {
+  claimFinalizedForForwarding(
+    transactionId: string,
+  ): Promise<{
+    transactionId: string;
+    sellerId: string;
+    routeId: string;
+    method: string;
+    path: string;
+    requestBody: Uint8Array;
+    sellerAudience: string;
+  } | null>;
+}
+
+export class TransactionAuthorizer {
+  constructor(
+    private readonly transactions: TransactionRepository,
+    private readonly signingKey: KeyLike,
+    private readonly keyId: string,
+  ) {}
+
+  async claimAndAuthorize(transactionId: string): Promise<{
+    transaction: NonNullable<
+      Awaited<ReturnType<TransactionRepository["claimFinalizedForForwarding"]>>
+    >;
+    executionToken: string;
+  }> {
+    const transaction =
+      await this.transactions.claimFinalizedForForwarding(transactionId);
+    if (!transaction) {
+      throw new Error("Transaction is not eligible for forwarding.");
+    }
+
+    const bodyHash = createHash("sha256")
+      .update(transaction.requestBody)
+      .digest("base64url");
+    const now = Math.floor(Date.now() / 1000);
+    const executionToken = await new SignJWT({
+      kind: "agentpay-fulfillment",
+      sellerId: transaction.sellerId,
+      routeId: transaction.routeId,
+      transactionId: transaction.transactionId,
+      method: transaction.method,
+      path: transaction.path,
+      bodyHash,
+    })
+      .setProtectedHeader({ alg: "ES256", kid: this.keyId, typ: "JWT" })
+      .setIssuer("https://api.agentpay.example")
+      .setAudience(transaction.sellerAudience)
+      .setJti(randomUUID())
+      .setIssuedAt(now)
+      .setExpirationTime(now + 60)
+      .sign(this.signingKey);
+
+    return { transaction, executionToken };
+  }
+}
+```
+
+The repository claim must be a database conditional write from `FINALIZED` to
+`FORWARDING`. Only the caller that wins the claim may invoke the seller. Normal
+subscription cancellation is not rechecked after a finalized payment because
+that transaction is already an obligation; no new product or payment can be
+created after suspension.
+
+### Seller-side execution verification
+
+```ts
+// verification/node/src/execution-capability.ts
+import { createHash } from "node:crypto";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const agentPayKeys = createRemoteJWKSet(
+  new URL("https://api.agentpay.example/.well-known/jwks.json"),
+);
+
+export async function verifyAgentPayExecution(input: {
+  token: string;
+  expectedAudience: string;
+  method: string;
+  path: string;
+  rawBody: Uint8Array;
+}) {
+  const result = await jwtVerify(input.token, agentPayKeys, {
+    issuer: "https://api.agentpay.example",
+    audience: input.expectedAudience,
+    algorithms: ["ES256"],
+    clockTolerance: 5,
+  });
+  const claims = result.payload;
+  const bodyHash = createHash("sha256")
+    .update(input.rawBody)
+    .digest("base64url");
+
+  if (
+    claims.kind !== "agentpay-fulfillment" ||
+    claims.method !== input.method ||
+    claims.path !== input.path ||
+    claims.bodyHash !== bodyHash ||
+    typeof claims.transactionId !== "string" ||
+    typeof claims.jti !== "string"
+  ) {
+    throw new Error("Invalid AgentPay execution capability.");
+  }
+
+  return {
+    transactionId: claims.transactionId,
+    sellerId: String(claims.sellerId),
+    routeId: String(claims.routeId),
+    jti: claims.jti,
+  };
+}
+```
+
+Seller middleware should preserve raw request bytes, verify before parsing,
+reject redirects or unexpected routes, and use `transactionId` as an
+idempotency key. For stronger replay resistance, the middleware can call a
+cloud consume endpoint that atomically performs:
+
+```ts
+const consumed = await redis.set(
+  `agentpay:execution-jti-used:${jti}`,
+  "1",
+  { NX: true, EX: 90 },
+);
+if (consumed !== "OK") throw new Error("Execution capability was replayed.");
+```
+
+The cloud transaction claim remains authoritative even if a seller removes
+this middleware. Removing it only makes the seller's own endpoint less secure;
+it does not grant access to AgentPay's payment or transaction systems.
+
+### Revocation and cache invalidation
+
+```ts
+// reference/node-control-plane/src/revocation/revocation-service.ts
+export interface RevocationRepository {
+  revokeCredentialAndIncrementEpoch(input: {
+    credentialId: string;
+    sellerId: string;
+    reason: string;
+    occurredAt: string;
+  }): Promise<{ newEpoch: number; revision: number }>;
+
+  suspendSellerAndIncrementEpoch(input: {
+    sellerId: string;
+    reason: string;
+    occurredAt: string;
+  }): Promise<{ newEpoch: number; revision: number }>;
+}
+
+export class RevocationService {
+  constructor(
+    private readonly repository: RevocationRepository,
+    private readonly redis: import("redis").RedisClientType,
+  ) {}
+
+  async revokeCredential(input: {
+    credentialId: string;
+    sellerId: string;
+    reason: string;
+  }): Promise<void> {
+    const occurredAt = new Date().toISOString();
+    const result = await this.repository.revokeCredentialAndIncrementEpoch({
+      ...input,
+      occurredAt,
+    });
+    await this.invalidate(input.sellerId, result.newEpoch, result.revision);
+    await this.redis.set(
+      `agentpay:credential-revoked:${input.credentialId}`,
+      "1",
+      { EX: 600 },
+    );
+  }
+
+  async suspendSeller(sellerId: string, reason: string): Promise<void> {
+    const result = await this.repository.suspendSellerAndIncrementEpoch({
+      sellerId,
+      reason,
+      occurredAt: new Date().toISOString(),
+    });
+    await this.invalidate(sellerId, result.newEpoch, result.revision);
+  }
+
+  private async invalidate(
+    sellerId: string,
+    newEpoch: number,
+    revision: number,
+  ): Promise<void> {
+    await this.redis
+      .multi()
+      .del(`agentpay:entitlement:${sellerId}`)
+      .set(`agentpay:entitlement-epoch:${sellerId}`, String(newEpoch))
+      .publish(
+        "agentpay:entitlement.changed",
+        JSON.stringify({ sellerId, newEpoch, revision }),
+      )
+      .exec();
+  }
+}
+```
+
+The repository methods must commit the state change, epoch increment, audit
+record, and outbox event atomically. Redis invalidation happens only after that
+commit. If Redis publication fails, the outbox retries it; transaction-critical
+requests still verify current authoritative state before proceeding.
+
+### Audit service
+
+```ts
+// reference/node-control-plane/src/audit/audit-service.ts
+export type AuditDecision = "allowed" | "denied" | "completed" | "failed";
+
+export type AuditEvent = {
+  eventId: string;
+  requestId: string;
+  sellerId: string;
+  actorType: "seller" | "credential" | "system" | "buyer";
+  actorId: string;
+  action: string;
+  decision: AuditDecision;
+  reasonCode: string;
+  entitlementEpoch?: number;
+  subscriptionRevision?: number;
+  transactionId?: string;
+  metadata: Record<string, string | number | boolean>;
+  occurredAt: string;
+};
+
+export interface AuditRepository {
+  append(event: AuditEvent): Promise<void>;
+}
+
+export class AuditService {
+  constructor(private readonly repository: AuditRepository) {}
+
+  async record(event: AuditEvent): Promise<void> {
+    const forbidden = /token|secret|signature|authorization|cookie|proof/i;
+    for (const key of Object.keys(event.metadata)) {
+      if (forbidden.test(key)) {
+        throw new Error(`Forbidden audit metadata key: ${key}`);
+      }
+    }
+    await this.repository.append(structuredClone(event));
+  }
+}
+```
+
+Security-denial audit writes should be isolated from the public response. A
+temporary audit sink failure must not turn a denied operation into an allowed
+operation. Payment and forwarding evidence remain separate append-only domain
+records rather than being replaced by general audit events.
+
+### Required integration tests
+
+1. Revoking an API key prevents the next token exchange.
+2. Revoking a key invalidates an already-issued access token through the epoch
+   check before its normal expiry.
+3. Cancelling at period end allows access until `accessEndsAt` and denies it at
+   the exact boundary.
+4. Immediate suspension denies MCP reads, MCP writes, intent creation,
+   publication, challenge issuance, and payment verification.
+5. A stale public manifest can be read but cannot create an intent after
+   suspension.
+6. A seller-forked MCP cannot mint a valid AgentPay access or execution token.
+7. A token with a valid signature but old entitlement epoch is denied.
+8. A token for the wrong audience, seller, credential, scope, or route is
+   denied.
+9. Redis invalidation reaches all API instances; a missed Pub/Sub message is
+   recovered from the durable outbox/revision.
+10. Redis or subscription-storage failure causes transaction authorization to
+    fail closed.
+11. Cancellation between challenge issuance and settlement causes settlement
+    to be denied before funds move.
+12. Cancellation after finalized settlement still allows that exact
+    transaction to fulfill once.
+13. Replayed payment identifiers and execution JTIs are rejected.
+14. Concurrent forwarding claims result in exactly one seller invocation.
+15. The x402 amount, asset, network, destination, resource, and intent hash must
+    all match the frozen seller quote.
+16. Audit logs contain the decision and reason but no raw credential, token,
+    signature, proof, cookie, or wallet secret.
+17. Closed sellers disappear from AgentPay discovery and receive an inactive
+    response from authoritative manifests.
+18. Reactivation requires an explicit credential rotation and a new entitlement
+    epoch before MCP access resumes.
+
+### Required changes to the existing AgentPay contracts
+
+Before implementation, update the authoritative documents and code contracts:
+
+- extend the billing state model beyond only `active` and `suspended` or define
+  a separate entitlement projection with `accessEndsAt` and revision;
+- add `entitlementEpoch` to the seller/account security state;
+- change the MCP contract from accepting a permanent integration credential on
+  every operation to accepting short-lived access tokens, with API-key exchange
+  or standards-based client authentication;
+- define token issuer, audience, scopes, lifetime, JWKS, rotation, and
+  introspection/revocation semantics;
+- define public discovery availability, expiry, signature, revision, and
+  inactive tombstone behavior;
+- document subscription checks at intent, challenge, verification, and
+  settlement boundaries;
+- document the post-settlement fulfillment-obligation exception;
+- add transaction execution capability fields and one-time consumption rules;
+- add Redis as a cache/replay/invalidation component, never as the sole source
+  of truth;
+- add durable outbox events for subscription and credential changes;
+- add audit event types for every allow/deny decision listed above;
+- update OpenAPI, MCP, data model, architecture, security, test plan, runbooks,
+  and implementation order together; and
+- implement the authoritative services in Go, then align the Node verification
+  package and optional local connector with the same wire contracts.
+
+### Why a fork cannot bypass AgentPay
+
+A fork can remove local checks because the seller owns the machine. It still
+cannot create a valid AgentPay transaction because all valuable network
+artifacts originate in the cloud:
+
+- the official directory and manifest status;
+- a current seller entitlement decision;
+- a short-lived scoped access token;
+- an immutable purchase intent and quote;
+- an x402 challenge tied to a verified payment destination;
+- facilitator verification and unique payment claim;
+- an AgentPay transaction state transition;
+- a one-time execution signature from a cloud-only key;
+- an evidence chain and official receipt; and
+- dashboard, analytics, webhook, and dispute records.
+
+If a fork invents those values or accepts calls without them, it has created a
+separate seller-operated system. AgentPay should protect its signing keys,
+verification marks, domains, and branding contractually and technically, but it
+should not rely on obfuscation, license checks inside seller code, remote kill
+switches, or client-side subscription checks for security.
