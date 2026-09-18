@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Globe } from "@/components/ui/cobe-globe";
 import styles from "./dashboard-visuals.module.css";
 
 export function DashboardNetworkGlobe() {
-  const [canRenderGlobe, setCanRenderGlobe] = useState(false);
-
-  useEffect(() => {
-    setCanRenderGlobe(typeof ResizeObserver !== "undefined");
-  }, []);
+  const canRenderGlobe = useSyncExternalStore(
+    () => () => undefined,
+    () => typeof ResizeObserver !== "undefined",
+    () => false,
+  );
 
   return (
     <div className={styles.network}>
