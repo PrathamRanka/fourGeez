@@ -49,6 +49,7 @@ const (
 	ActionWebhookSubscriptionDisabled Action = "webhook_subscription.disabled"
 	ActionSellerSuspended             Action = "seller.suspended"
 	ActionServiceEndpointVerified     Action = "service_endpoint.verified"
+	ActionManualRefundRecorded        Action = "manual_refund.recorded"
 )
 
 // TargetType identifies the domain record changed by an action.
@@ -61,6 +62,7 @@ const (
 	TargetTypePaidRoute             TargetType = "paid_route"
 	TargetTypeWebhookSubscription   TargetType = "webhook_subscription"
 	TargetTypeSeller                TargetType = "seller"
+	TargetTypeDispute               TargetType = "dispute"
 )
 
 // Outcome identifies the result represented by an audit event.

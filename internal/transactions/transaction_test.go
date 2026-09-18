@@ -25,9 +25,12 @@ func TestTransactionWithoutApprovalCompletes(t *testing.T) {
 	}{
 		{name: "payment required", run: func() error { return transaction.RequirePayment(createdAt.Add(time.Second)) }, want: StatusPaymentRequired},
 		{name: "payment verified", run: func() error { return transaction.VerifyPayment("payment-123", proofHash, createdAt.Add(2*time.Second)) }, want: StatusPaymentVerified},
-		{name: "forwarded", run: func() error { return transaction.MarkForwarded(createdAt.Add(3 * time.Second)) }, want: StatusForwarded},
+		{name: "payment finalized", run: func() error {
+			return transaction.FinalizePayment("payment-123", "0xtestnettransaction", createdAt.Add(3*time.Second))
+		}, want: StatusPaymentVerified},
+		{name: "forwarded", run: func() error { return transaction.MarkForwarded(createdAt.Add(4 * time.Second)) }, want: StatusForwarded},
 		{name: "fulfilled", run: func() error {
-			return transaction.MarkFulfilled(200, responseHash, ResponseSummary{ContentType: "application/json", ContentLength: 42}, createdAt.Add(4*time.Second))
+			return transaction.MarkFulfilled(200, responseHash, ResponseSummary{ContentType: "application/json", ContentLength: 42}, createdAt.Add(5*time.Second))
 		}, want: StatusFulfilled},
 	}
 
@@ -46,8 +49,8 @@ func TestTransactionWithoutApprovalCompletes(t *testing.T) {
 	if transaction.UpstreamStatus() == nil || *transaction.UpstreamStatus() != 200 || transaction.ResponseHash() == nil || *transaction.ResponseHash() != responseHash {
 		t.Fatal("delivery evidence was not retained")
 	}
-	if transaction.Version() != 5 {
-		t.Fatalf("Version() = %d, want 5", transaction.Version())
+	if transaction.Version() != 6 {
+		t.Fatalf("Version() = %d, want 6", transaction.Version())
 	}
 }
 
@@ -67,11 +70,14 @@ func TestTransactionWithApprovalAndDisputeCompletes(t *testing.T) {
 		{status: StatusPaymentVerified, run: func() error {
 			return transaction.VerifyPayment("payment-123", mustTransactionDigest(t, strings.Repeat("a", 64)), createdAt.Add(4*time.Second))
 		}},
-		{status: StatusForwarded, run: func() error { return transaction.MarkForwarded(createdAt.Add(5 * time.Second)) }},
-		{status: StatusFailed, run: func() error { return transaction.MarkFailed("seller_timeout", nil, nil, createdAt.Add(6*time.Second)) }},
-		{status: StatusDisputed, run: func() error { return transaction.OpenDispute(createdAt.Add(7 * time.Second)) }},
-		{status: StatusRefundRecommended, run: func() error { return transaction.RecommendRefund(createdAt.Add(8 * time.Second)) }},
-		{status: StatusResolved, run: func() error { return transaction.Resolve(createdAt.Add(9 * time.Second)) }},
+		{status: StatusPaymentVerified, run: func() error {
+			return transaction.FinalizePayment("payment-123", "0xtestnettransaction", createdAt.Add(5*time.Second))
+		}},
+		{status: StatusForwarded, run: func() error { return transaction.MarkForwarded(createdAt.Add(6 * time.Second)) }},
+		{status: StatusFailed, run: func() error { return transaction.MarkFailed("seller_timeout", nil, nil, createdAt.Add(7*time.Second)) }},
+		{status: StatusDisputed, run: func() error { return transaction.OpenDispute(createdAt.Add(8 * time.Second)) }},
+		{status: StatusRefundRecommended, run: func() error { return transaction.RecommendRefund(createdAt.Add(9 * time.Second)) }},
+		{status: StatusResolved, run: func() error { return transaction.Resolve(createdAt.Add(10 * time.Second)) }},
 	}
 
 	for _, transition := range transitions {
@@ -81,6 +87,33 @@ func TestTransactionWithApprovalAndDisputeCompletes(t *testing.T) {
 		if transaction.Status() != transition.status {
 			t.Fatalf("Status() = %q, want %q", transaction.Status(), transition.status)
 		}
+	}
+}
+
+func TestTransactionRejectsForwardingBeforePaymentFinality(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	createdAt := transaction.UpdatedAt()
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment(
+		"payment-123",
+		mustTransactionDigest(t, strings.Repeat("a", 64)),
+		createdAt.Add(2*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	version := transaction.Version()
+
+	err := transaction.MarkForwarded(createdAt.Add(3 * time.Second))
+	var transitionError InvalidTransitionError
+	if !errors.As(err, &transitionError) {
+		t.Fatalf("MarkForwarded() error = %v, want InvalidTransitionError", err)
+	}
+	if transaction.Status() != StatusPaymentVerified || transaction.Version() != version {
+		t.Fatal("non-final payment forwarding attempt mutated the transaction")
 	}
 }
 
@@ -284,6 +317,43 @@ func TestNewTransactionValidation(t *testing.T) {
 			_, err := NewTransaction(params)
 			assertTransactionValidationField(t, err, test.wantField)
 		})
+	}
+}
+
+func TestTransactionPreservesLeanV1CommerceSnapshot(t *testing.T) {
+	t.Parallel()
+
+	params := validTransactionParams(t)
+	params.ProductDisplayName = "Research Report"
+	params.ProductSlug = "research-report"
+	params.PaymentDestinationID = mustTransactionID(t, "dst_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.PaymentDestinationIDPrefix)
+	params.PurchaseChannel = PurchaseChannelBrowser
+	params.PurchaseSessionID = "bps_01K5D09YJ0C0M7RJM4FWQ0K9H7"
+	params.PaymentRail = PaymentRailX402
+	transaction, err := NewTransaction(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Restore(transaction.Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.ProductDisplayName() != params.ProductDisplayName ||
+		restored.ProductSlug() != params.ProductSlug ||
+		restored.PaymentDestinationID() != params.PaymentDestinationID ||
+		restored.PurchaseChannel() != PurchaseChannelBrowser ||
+		restored.PurchaseSessionID() != params.PurchaseSessionID ||
+		restored.PaymentRail() != PaymentRailX402 {
+		t.Fatalf("restored commerce snapshot = %#v", restored.Snapshot())
+	}
+	if receiptTransaction(restored).ProductSlug != params.ProductSlug {
+		t.Fatal("receipt omitted immutable product snapshot")
+	}
+	if receiptSchemaVersion(restored) != purchaseReceiptSchemaVersionV2 {
+		t.Fatalf("receipt schema = %q, want v2", receiptSchemaVersion(restored))
+	}
+	if receiptSchemaVersion(*newTestTransaction(t)) != purchaseReceiptSchemaVersionV1 {
+		t.Fatal("legacy transaction did not retain receipt schema v1")
 	}
 }
 

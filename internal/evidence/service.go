@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -48,7 +49,7 @@ func (recorder *Recorder) RecordPaymentChallenge(
 	transactionID domain.ID,
 	facts PaymentChallengeFacts,
 ) error {
-	return recorder.append(ctx, transactionID, EventPaymentChallenged, map[string]any{
+	return recorder.appendOnce(ctx, transactionID, EventPaymentChallenged, map[string]any{
 		"amount":  facts.Amount,
 		"asset":   facts.Asset,
 		"network": facts.Network,
@@ -61,10 +62,32 @@ func (recorder *Recorder) RecordPaymentVerification(
 	transactionID domain.ID,
 	facts PaymentVerificationFacts,
 ) error {
-	return recorder.append(ctx, transactionID, EventPaymentVerified, map[string]any{
+	return recorder.appendOnce(ctx, transactionID, EventPaymentVerified, map[string]any{
 		"paymentIdentifier": facts.PaymentIdentifier,
 		"paymentProofHash":  facts.PaymentProofHash.String(),
 	})
+}
+
+func (recorder *Recorder) appendOnce(
+	ctx context.Context,
+	transactionID domain.ID,
+	eventType EventType,
+	payload map[string]any,
+) error {
+	events, err := recorder.repository.ListByTransaction(ctx, transactionID)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if event.EventType != eventType {
+			continue
+		}
+		if reflect.DeepEqual(event.Payload, payload) {
+			return nil
+		}
+		return ErrEvidenceConflict
+	}
+	return recorder.appendToChain(ctx, transactionID, eventType, payload, events)
 }
 
 // RecordProxyForwarding records the allowlisted seller operation.
@@ -114,6 +137,16 @@ func (recorder *Recorder) append(
 	if err != nil {
 		return err
 	}
+	return recorder.appendToChain(ctx, transactionID, eventType, payload, events)
+}
+
+func (recorder *Recorder) appendToChain(
+	ctx context.Context,
+	transactionID domain.ID,
+	eventType EventType,
+	payload map[string]any,
+	events []Event,
+) error {
 	var previous *Event
 	if len(events) > 0 {
 		previousEvent := events[len(events)-1]

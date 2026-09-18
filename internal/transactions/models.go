@@ -19,6 +19,9 @@ type PaymentFinality string
 // ReconciliationStage identifies the mutually exclusive amount bucket shown to sellers.
 type ReconciliationStage string
 
+type PurchaseChannel string
+type PaymentRail string
+
 const (
 	StatusProposed          TransactionStatus = "PROPOSED"
 	StatusApprovalPending   TransactionStatus = "APPROVAL_PENDING"
@@ -31,6 +34,12 @@ const (
 	StatusDisputed          TransactionStatus = "DISPUTED"
 	StatusRefundRecommended TransactionStatus = "REFUND_RECOMMENDED"
 	StatusResolved          TransactionStatus = "RESOLVED"
+)
+
+const (
+	PurchaseChannelAgent   PurchaseChannel = "agent"
+	PurchaseChannelBrowser PurchaseChannel = "browser"
+	PaymentRailX402        PaymentRail     = "x402"
 )
 
 const (
@@ -50,15 +59,21 @@ const (
 
 // TransactionParams contains the values required to create a transaction.
 type TransactionParams struct {
-	TransactionID domain.ID
-	IntentID      domain.ID
-	SellerID      domain.ID
-	RouteID       domain.ID
-	BuyerID       string
-	Amount        domain.Amount
-	Asset         string
-	Network       string
-	CreatedAt     domain.Timestamp
+	TransactionID        domain.ID
+	IntentID             domain.ID
+	SellerID             domain.ID
+	RouteID              domain.ID
+	BuyerID              string
+	PurchaseSessionID    string
+	ProductDisplayName   string
+	ProductSlug          string
+	PaymentDestinationID domain.ID
+	PurchaseChannel      PurchaseChannel
+	PaymentRail          PaymentRail
+	Amount               domain.Amount
+	Asset                string
+	Network              string
+	CreatedAt            domain.Timestamp
 }
 
 // ResponseSummary contains allowlisted seller response metadata.
@@ -69,49 +84,61 @@ type ResponseSummary struct {
 
 // Transaction records payment, forwarding, delivery, and dispute state.
 type Transaction struct {
-	transactionID     domain.ID
-	intentID          domain.ID
-	sellerID          domain.ID
-	routeID           domain.ID
-	buyerID           string
-	amount            domain.Amount
-	asset             string
-	network           string
-	status            TransactionStatus
-	paymentIdentifier string
-	paymentProofHash  intents.SHA256Digest
-	paymentReference  string
-	paymentFinality   PaymentFinality
-	reconciledAt      *domain.Timestamp
-	upstreamStatus    *int
-	responseHash      *intents.SHA256Digest
-	responseSummary   *ResponseSummary
-	failureCode       string
-	createdAt         domain.Timestamp
-	updatedAt         domain.Timestamp
-	version           uint64
+	transactionID        domain.ID
+	intentID             domain.ID
+	sellerID             domain.ID
+	routeID              domain.ID
+	buyerID              string
+	purchaseSessionID    string
+	productDisplayName   string
+	productSlug          string
+	paymentDestinationID domain.ID
+	purchaseChannel      PurchaseChannel
+	paymentRail          PaymentRail
+	amount               domain.Amount
+	asset                string
+	network              string
+	status               TransactionStatus
+	paymentIdentifier    string
+	paymentProofHash     intents.SHA256Digest
+	paymentReference     string
+	paymentFinality      PaymentFinality
+	reconciledAt         *domain.Timestamp
+	upstreamStatus       *int
+	responseHash         *intents.SHA256Digest
+	responseSummary      *ResponseSummary
+	failureCode          string
+	createdAt            domain.Timestamp
+	updatedAt            domain.Timestamp
+	version              uint64
 }
 
 // Response is the public transaction representation without payment secrets.
 type Response struct {
-	TransactionID    domain.ID             `json:"transactionId"`
-	IntentID         domain.ID             `json:"intentId"`
-	SellerID         domain.ID             `json:"sellerId"`
-	RouteID          domain.ID             `json:"routeId"`
-	BuyerID          string                `json:"buyerId"`
-	Status           TransactionStatus     `json:"status"`
-	Amount           domain.Amount         `json:"amount"`
-	Asset            string                `json:"asset"`
-	Network          string                `json:"network"`
-	PaymentFinality  PaymentFinality       `json:"paymentFinality,omitempty"`
-	PaymentReference string                `json:"paymentReference,omitempty"`
-	ReconciledAt     *domain.Timestamp     `json:"reconciledAt,omitempty"`
-	Reconciliation   *Reconciliation       `json:"reconciliation,omitempty"`
-	UpstreamStatus   *int                  `json:"upstreamStatus,omitempty"`
-	ResponseHash     *intents.SHA256Digest `json:"responseHash,omitempty"`
-	FailureCode      string                `json:"failureCode,omitempty"`
-	CreatedAt        domain.Timestamp      `json:"createdAt"`
-	UpdatedAt        domain.Timestamp      `json:"updatedAt"`
+	TransactionID        domain.ID             `json:"transactionId"`
+	IntentID             domain.ID             `json:"intentId"`
+	SellerID             domain.ID             `json:"sellerId"`
+	RouteID              domain.ID             `json:"routeId"`
+	BuyerID              string                `json:"buyerId"`
+	PurchaseSessionID    string                `json:"purchaseSessionId,omitempty"`
+	ProductDisplayName   string                `json:"productDisplayName,omitempty"`
+	ProductSlug          string                `json:"productSlug,omitempty"`
+	PaymentDestinationID domain.ID             `json:"paymentDestinationId,omitempty"`
+	PurchaseChannel      PurchaseChannel       `json:"purchaseChannel"`
+	PaymentRail          PaymentRail           `json:"paymentRail"`
+	Status               TransactionStatus     `json:"status"`
+	Amount               domain.Amount         `json:"amount"`
+	Asset                string                `json:"asset"`
+	Network              string                `json:"network"`
+	PaymentFinality      PaymentFinality       `json:"paymentFinality,omitempty"`
+	PaymentReference     string                `json:"paymentReference,omitempty"`
+	ReconciledAt         *domain.Timestamp     `json:"reconciledAt,omitempty"`
+	Reconciliation       *Reconciliation       `json:"reconciliation,omitempty"`
+	UpstreamStatus       *int                  `json:"upstreamStatus,omitempty"`
+	ResponseHash         *intents.SHA256Digest `json:"responseHash,omitempty"`
+	FailureCode          string                `json:"failureCode,omitempty"`
+	CreatedAt            domain.Timestamp      `json:"createdAt"`
+	UpdatedAt            domain.Timestamp      `json:"updatedAt"`
 }
 
 // Reconciliation contains the amount and safe reference for one reporting stage.
@@ -222,6 +249,15 @@ func (transaction Transaction) RouteID() domain.ID {
 func (transaction Transaction) BuyerID() string {
 	return transaction.buyerID
 }
+
+func (transaction Transaction) PurchaseSessionID() string  { return transaction.purchaseSessionID }
+func (transaction Transaction) ProductDisplayName() string { return transaction.productDisplayName }
+func (transaction Transaction) ProductSlug() string        { return transaction.productSlug }
+func (transaction Transaction) PaymentDestinationID() domain.ID {
+	return transaction.paymentDestinationID
+}
+func (transaction Transaction) PurchaseChannel() PurchaseChannel { return transaction.purchaseChannel }
+func (transaction Transaction) PaymentRail() PaymentRail         { return transaction.paymentRail }
 
 // Amount returns the exact transaction amount.
 func (transaction Transaction) Amount() domain.Amount {

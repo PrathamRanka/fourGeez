@@ -19,6 +19,8 @@ type developmentSeedRepositories struct {
 	Transactions             *memory.TransactionRepository
 	Evidence                 *memory.EvidenceRepository
 	Disputes                 *memory.DisputeRepository
+	ManualRefundRecords      *memory.ManualRefundRecordRepository
+	BrowserPurchaseSessions  *memory.BrowserPurchaseSessionRepository
 	PaymentDestinations      *memory.PaymentDestinationRepository
 	WebhookSubscriptions     *memory.WebhookSubscriptionRepository
 	WebhookDeliveries        *memory.WebhookDeliveryRepository

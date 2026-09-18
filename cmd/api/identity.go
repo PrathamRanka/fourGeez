@@ -16,13 +16,14 @@ import (
 const localSellerAccessLifetime = 8 * time.Hour
 
 type sellerIdentityConfig struct {
-	Environment  string
-	LocalToken   string
-	LocalSubject string
-	AWSRegion    string
-	UserPoolID   string
-	ClientID     string
-	HTTPClient   *http.Client
+	Environment        string
+	LocalSigningSecret string
+	LocalToken         string
+	LocalSubject       string
+	AWSRegion          string
+	UserPoolID         string
+	ClientID           string
+	HTTPClient         *http.Client
 }
 
 func newSellerIdentityService(
@@ -34,23 +35,34 @@ func newSellerIdentityService(
 		return nil, errors.New("seller identity persistence and clock are required")
 	}
 	if config.Environment == "local" {
-		subject := strings.TrimSpace(config.LocalSubject)
-		if subject == "" {
-			subject = "local-seller"
+		var adapter *identity.LocalAdapter
+		var err error
+		if config.LocalSigningSecret != "" {
+			adapter, err = identity.NewSignedLocalAdapter([]byte(config.LocalSigningSecret), clock)
+			if err != nil {
+				return nil, fmt.Errorf("configure AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET: %w", err)
+			}
+		} else {
+			adapter = identity.NewLocalAdapter(clock)
 		}
-		token := config.LocalToken
-		if token == "" {
-			return nil, errors.New("AGENTPAY_LOCAL_SELLER_TOKEN is required in local mode")
+		if config.LocalToken != "" {
+			subject := strings.TrimSpace(config.LocalSubject)
+			if subject == "" {
+				subject = "local-seller"
+			}
+			digest := sha256.Sum256([]byte(config.LocalToken))
+			identifier := hex.EncodeToString(digest[:])
+			now := clock.Now()
+			if err := adapter.Register(config.LocalToken, identity.Claims{
+				Subject: subject, TokenID: "local-token-" + identifier,
+				SessionID: "local-session-" + identifier, IssuedAt: now,
+				ExpiresAt: now.Add(localSellerAccessLifetime),
+			}); err != nil {
+				return nil, fmt.Errorf("configure local seller identity: %w", err)
+			}
 		}
-		digest := sha256.Sum256([]byte(token))
-		identifier := hex.EncodeToString(digest[:])
-		adapter := identity.NewLocalAdapter(clock)
-		if err := adapter.Register(token, identity.Claims{
-			Subject: subject, TokenID: "local-token-" + identifier,
-			SessionID: "local-session-" + identifier, IssuedAt: clock.Now(),
-			ExpiresAt: clock.Now().Add(localSellerAccessLifetime),
-		}); err != nil {
-			return nil, fmt.Errorf("configure local seller identity: %w", err)
+		if config.LocalSigningSecret == "" && config.LocalToken == "" {
+			return nil, errors.New("AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET or AGENTPAY_LOCAL_SELLER_TOKEN is required in local mode")
 		}
 		return identity.NewService(adapter, revocations, clock), nil
 	}

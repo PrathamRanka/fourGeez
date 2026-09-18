@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -15,8 +16,14 @@ import (
 
 // HTTPController exposes dispute creation and retrieval operations.
 type HTTPController struct {
-	service          *Service
-	idempotencyStore domain.IdempotencyStore
+	service           *Service
+	idempotencyStore  domain.IdempotencyStore
+	browserAuthorizer *browserpurchase.RequestAuthorizer
+}
+
+// SetBrowserPurchaseAuthorizer enables cookie-bound dispute access.
+func (controller *HTTPController) SetBrowserPurchaseAuthorizer(authorizer *browserpurchase.RequestAuthorizer) {
+	controller.browserAuthorizer = authorizer
 }
 
 // NewHTTPController creates the dispute HTTP controller.
@@ -32,13 +39,31 @@ func NewHTTPController(
 
 // RegisterRoutes registers the documented dispute endpoints.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
+	createHandler := http.Handler(api.RequireAgentOrSeller(http.HandlerFunc(controller.create)))
+	getHandler := http.Handler(api.RequireAgentOrSeller(http.HandlerFunc(controller.get)))
+	if controller.browserAuthorizer != nil {
+		createHandler = browserpurchase.RequireAgentSellerOrBrowser(
+			controller.browserAuthorizer,
+			func(*http.Request) (browserpurchase.AuthorizationRequirement, error) {
+				return browserpurchase.AuthorizationRequirement{Authority: browserpurchase.AuthorityRemediation, Mutation: true}, nil
+			},
+			http.HandlerFunc(controller.create),
+		)
+		getHandler = browserpurchase.RequireAgentSellerOrBrowser(
+			controller.browserAuthorizer,
+			func(*http.Request) (browserpurchase.AuthorizationRequirement, error) {
+				return browserpurchase.AuthorizationRequirement{Authority: browserpurchase.AuthorityRemediation}, nil
+			},
+			http.HandlerFunc(controller.get),
+		)
+	}
 	mux.Handle(
 		"POST /v1/disputes",
-		api.RequireAgentOrSeller(http.HandlerFunc(controller.create)),
+		createHandler,
 	)
 	mux.Handle(
 		"GET /v1/disputes/{disputeId}",
-		api.RequireAgentOrSeller(http.HandlerFunc(controller.get)),
+		getHandler,
 	)
 }
 
@@ -79,6 +104,14 @@ func (controller *HTTPController) create(
 	}
 
 	principal, _ := api.PrincipalFromContext(request.Context())
+	if principal.Kind == api.PrincipalBrowser {
+		authorization, ok := browserpurchase.AuthorizationFromContext(request.Context())
+		if !ok || authorization.PurchaseSession.TransactionID == nil ||
+			*authorization.PurchaseSession.TransactionID != input.TransactionID {
+			writeDisputeError(response, request, persistence.ErrNotFound)
+			return
+		}
+	}
 	scope := principal.Subject + ":createDispute"
 	decision, err := api.CheckIdempotency(
 		request.Context(),
@@ -146,6 +179,14 @@ func (controller *HTTPController) get(
 	if err != nil {
 		writeDisputeError(response, request, err)
 		return
+	}
+	if principal.Kind == api.PrincipalBrowser {
+		authorization, ok := browserpurchase.AuthorizationFromContext(request.Context())
+		if !ok || authorization.PurchaseSession.TransactionID == nil ||
+			*authorization.PurchaseSession.TransactionID != dispute.TransactionID {
+			writeDisputeError(response, request, persistence.ErrNotFound)
+			return
+		}
 	}
 	_ = api.WriteJSON(response, http.StatusOK, dispute)
 }

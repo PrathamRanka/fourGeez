@@ -10,6 +10,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/billing"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -31,6 +32,8 @@ type DevelopmentRepositories struct {
 	Transactions             *TransactionRepository
 	Evidence                 *EvidenceRepository
 	Disputes                 *DisputeRepository
+	ManualRefundRecords      *ManualRefundRecordRepository
+	BrowserPurchaseSessions  *BrowserPurchaseSessionRepository
 	PaymentDestinations      *PaymentDestinationRepository
 	WebhookSubscriptions     *WebhookSubscriptionRepository
 	WebhookDeliveries        *WebhookDeliveryRepository
@@ -64,6 +67,8 @@ func (resetter *DevelopmentResetter) Reset(_ context.Context) error {
 	resetTransactions(resetter.repositories.Transactions)
 	resetEvidence(resetter.repositories.Evidence)
 	resetDisputes(resetter.repositories.Disputes)
+	resetManualRefundRecords(resetter.repositories.ManualRefundRecords)
+	resetBrowserPurchaseSessions(resetter.repositories.BrowserPurchaseSessions)
 	resetPaymentDestinations(resetter.repositories.PaymentDestinations)
 	resetWebhookSubscriptions(resetter.repositories.WebhookSubscriptions)
 	resetWebhookDeliveries(resetter.repositories.WebhookDeliveries)
@@ -184,6 +189,27 @@ func resetDisputes(repository *DisputeRepository) {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 	repository.disputes = make(map[domain.ID]disputes.Dispute)
+}
+
+func resetManualRefundRecords(repository *ManualRefundRecordRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.records = make(map[domain.ID]disputes.ManualRefundRecord)
+}
+
+func resetBrowserPurchaseSessions(repository *BrowserPurchaseSessionRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.sessions = make(map[browserpurchase.PurchaseSessionID]browserpurchase.BrowserPurchaseSession)
+	repository.grantIndex = make(map[string]browserpurchase.PurchaseSessionID)
+	repository.idempotency = make(map[string]browserPurchaseCreationRecord)
+	repository.challenges = make(map[browserpurchase.RecoveryChallengeID]browserpurchase.BrowserPurchaseRecoveryChallengeRecord)
 }
 
 func resetPaymentDestinations(repository *PaymentDestinationRepository) {

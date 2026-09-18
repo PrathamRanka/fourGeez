@@ -180,14 +180,21 @@ func newDisputeAPIHandler(
 		); err != nil {
 			t.Fatal(err)
 		}
-		if err := transaction.MarkForwarded(domain.NewTimestamp(clock.Now().Add(3 * time.Second))); err != nil {
+		if err := transaction.FinalizePayment(
+			"payment-dispute-test",
+			"0xtestnettransaction",
+			domain.NewTimestamp(clock.Now().Add(3*time.Second)),
+		); err != nil {
+			t.Fatal(err)
+		}
+		if err := transaction.MarkForwarded(domain.NewTimestamp(clock.Now().Add(4 * time.Second))); err != nil {
 			t.Fatal(err)
 		}
 		if err := transaction.MarkFailed(
 			"seller_timeout",
 			nil,
 			nil,
-			domain.NewTimestamp(clock.Now().Add(4*time.Second)),
+			domain.NewTimestamp(clock.Now().Add(5*time.Second)),
 		); err != nil {
 			t.Fatal(err)
 		}

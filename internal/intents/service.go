@@ -12,7 +12,6 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
-	"github.com/fourgeez/agentpay/internal/policy"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
 )
@@ -28,8 +27,9 @@ const (
 const defaultIntentLifetime = 10 * time.Minute
 
 var (
-	requestPathPattern = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
-	sha256Pattern      = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	requestPathPattern     = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
+	sha256Pattern          = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	purchaseSessionPattern = regexp.MustCompile(`^bps_[A-Za-z0-9]+$`)
 )
 
 // Service coordinates intent rules with catalog and persistence boundaries.
@@ -86,13 +86,6 @@ func (service *Service) Create(
 	if err != nil {
 		return PurchaseIntent{}, err
 	}
-	decision, err := policy.EvaluateApprovalThreshold(
-		route.Amount,
-		route.ApprovalThresholdAmount,
-	)
-	if err != nil {
-		return PurchaseIntent{}, err
-	}
 	intentID, err := service.idGenerator.New(domain.IntentIDPrefix)
 	if err != nil {
 		return PurchaseIntent{}, err
@@ -114,7 +107,7 @@ func (service *Service) Create(
 		Asset:                route.Asset,
 		Network:              route.Network,
 		MaximumAmount:        request.MaximumAmount,
-		RequiresApproval:     decision.RequiresApproval(),
+		RequiresApproval:     false,
 		CreatedAt:            createdAt,
 		ExpiresAt:            createdAt.Add(defaultIntentLifetime),
 	})
@@ -144,6 +137,7 @@ func (service *Service) Get(
 
 // createPurchaseIntent constructs an immutable validated purchase proposal.
 func createPurchaseIntent(params PurchaseIntentParams) (PurchaseIntent, error) {
+	params = normalizePurchaseIdentity(params)
 	validationErrors := validatePurchaseIntentParams(params)
 	if len(validationErrors) > 0 {
 		return PurchaseIntent{}, validationErrors
@@ -160,6 +154,8 @@ func createPurchaseIntent(params PurchaseIntentParams) (PurchaseIntent, error) {
 		SellerID:             params.SellerID.String(),
 		RouteID:              params.RouteID.String(),
 		BuyerID:              strings.TrimSpace(params.BuyerID),
+		PurchaseSessionID:    strings.TrimSpace(params.PurchaseSessionID),
+		PurchaseChannel:      params.PurchaseChannel,
 		ProductDisplayName:   strings.TrimSpace(params.ProductDisplayName),
 		ProductSlug:          strings.TrimSpace(params.ProductSlug),
 		PaymentDestinationID: params.PaymentDestinationID.String(),
@@ -184,6 +180,8 @@ func createPurchaseIntent(params PurchaseIntentParams) (PurchaseIntent, error) {
 		sellerID:             params.SellerID,
 		routeID:              params.RouteID,
 		buyerID:              strings.TrimSpace(params.BuyerID),
+		purchaseSessionID:    strings.TrimSpace(params.PurchaseSessionID),
+		purchaseChannel:      params.PurchaseChannel,
 		productDisplayName:   strings.TrimSpace(params.ProductDisplayName),
 		productSlug:          strings.TrimSpace(params.ProductSlug),
 		paymentDestinationID: params.PaymentDestinationID,
@@ -296,6 +294,18 @@ func validatePurchaseIntentParams(params PurchaseIntentParams) domain.Validation
 	if buyerID == "" || len(buyerID) > maximumBuyerIDLength {
 		validationErrors = append(validationErrors, domain.NewValidationError("buyerId", "length", "must contain 1-160 characters"))
 	}
+	switch params.PurchaseChannel {
+	case PurchaseChannelAgent:
+		if strings.TrimSpace(params.PurchaseSessionID) != "" {
+			validationErrors = append(validationErrors, domain.NewValidationError("purchaseSessionId", "forbidden", "must be empty for agent purchases"))
+		}
+	case PurchaseChannelBrowser:
+		if !purchaseSessionPattern.MatchString(strings.TrimSpace(params.PurchaseSessionID)) || buyerID != "browser:"+strings.TrimSpace(params.PurchaseSessionID) {
+			validationErrors = append(validationErrors, domain.NewValidationError("purchaseSessionId", "binding", "must identify the owning browser purchase session"))
+		}
+	default:
+		validationErrors = append(validationErrors, domain.NewValidationError("purchaseChannel", "supported", "must be agent or browser"))
+	}
 	if params.RequestMethod != RequestMethodGet && params.RequestMethod != RequestMethodPost {
 		validationErrors = append(validationErrors, domain.NewValidationError("requestMethod", "supported", "must be GET or POST"))
 	}
@@ -324,4 +334,22 @@ func validatePurchaseIntentParams(params PurchaseIntentParams) domain.Validation
 		validationErrors = append(validationErrors, domain.NewValidationError("expiresAt", "chronology", "must occur after creation"))
 	}
 	return validationErrors
+}
+
+func normalizePurchaseIdentity(params PurchaseIntentParams) PurchaseIntentParams {
+	params.BuyerID = strings.TrimSpace(params.BuyerID)
+	params.PurchaseSessionID = strings.TrimSpace(params.PurchaseSessionID)
+	if params.PurchaseChannel != "" {
+		return params
+	}
+	const browserBuyerPrefix = "browser:"
+	if strings.HasPrefix(params.BuyerID, browserBuyerPrefix) {
+		params.PurchaseChannel = PurchaseChannelBrowser
+		if params.PurchaseSessionID == "" {
+			params.PurchaseSessionID = strings.TrimPrefix(params.BuyerID, browserBuyerPrefix)
+		}
+		return params
+	}
+	params.PurchaseChannel = PurchaseChannelAgent
+	return params
 }

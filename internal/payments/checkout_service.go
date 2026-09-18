@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
@@ -22,7 +23,37 @@ type CheckoutService struct {
 	transactionRepository CheckoutTransactionRepository
 	evidenceRecorder      PaymentEvidenceRecorder
 	executor              PaidExecutor
+	authorizer            CommerceAuthorizer
+	browserPurchases      BrowserPurchaseLifecycle
 	clock                 domain.Clock
+}
+
+// SetBrowserPurchaseLifecycle connects browser checkout to its durable grant.
+func (service *CheckoutService) SetBrowserPurchaseLifecycle(lifecycle BrowserPurchaseLifecycle) {
+	service.browserPurchases = lifecycle
+}
+
+// NewCheckoutServiceWithCommerceAuthorizer creates the launch checkout use case
+// with fresh entitlement checks at every pre-finality payment boundary.
+func NewCheckoutServiceWithCommerceAuthorizer(
+	resolver *PaidRouteService,
+	adapter Adapter,
+	transactionRepository CheckoutTransactionRepository,
+	evidenceRecorder PaymentEvidenceRecorder,
+	executor PaidExecutor,
+	clock domain.Clock,
+	authorizer CommerceAuthorizer,
+) *CheckoutService {
+	service := NewCheckoutService(
+		resolver,
+		adapter,
+		transactionRepository,
+		evidenceRecorder,
+		executor,
+		clock,
+	)
+	service.authorizer = authorizer
+	return service
 }
 
 // NewCheckoutService creates the paid-route checkout use case.
@@ -53,24 +84,36 @@ func (service *CheckoutService) Execute(
 	if err != nil {
 		return CheckoutResult{}, err
 	}
-	transaction, created, err := service.loadOrCreateTransaction(ctx, resolved)
+	requestBodyHash, err := intents.HashRequestBody(request.Body, request.ContentType)
+	if err != nil || requestBodyHash != resolved.PurchaseIntent.RequestBodyHash() {
+		return CheckoutResult{}, ErrPaidRouteMismatch
+	}
+	transaction, _, err := service.loadOrCreateTransaction(ctx, resolved)
 	if err != nil {
 		return CheckoutResult{}, err
 	}
-	if created {
-		if err := service.evidenceRecorder.RecordPaymentChallenge(
-			ctx,
-			transaction.TransactionID(),
-			evidence.PaymentChallengeFacts{
-				Amount:  resolved.Requirements.Amount.String(),
-				Asset:   resolved.Requirements.Asset,
-				Network: resolved.Requirements.Network,
-			},
-		); err != nil {
-			return CheckoutResult{}, err
-		}
+	if err := service.claimBrowserTransaction(ctx, transaction); err != nil {
+		return CheckoutResult{}, err
+	}
+	if err := service.evidenceRecorder.RecordPaymentChallenge(
+		ctx,
+		transaction.TransactionID(),
+		evidence.PaymentChallengeFacts{
+			Amount:  resolved.Requirements.Amount.String(),
+			Asset:   resolved.Requirements.Asset,
+			Network: resolved.Requirements.Network,
+		},
+	); err != nil {
+		return CheckoutResult{}, err
 	}
 	if strings.TrimSpace(request.PaymentProof) == "" {
+		if transaction.Status() == transactions.StatusPaymentVerified &&
+			transaction.PaymentFinality() == transactions.PaymentFinalityFinalized {
+			return service.executeFinalized(ctx, request, resolved, transaction, "", "")
+		}
+		if err := service.authorizeCommerce(ctx, resolved.Seller.SellerID, CommerceOperationChallenge); err != nil {
+			return CheckoutResult{}, err
+		}
 		challenge, err := service.adapter.CreateChallenge(
 			ctx,
 			resolved.Requirements,
@@ -84,61 +127,93 @@ func (service *CheckoutService) Execute(
 		}, nil
 	}
 
-	verification, err := service.adapter.Verify(
-		ctx,
-		request.PaymentProof,
-		resolved.Requirements,
-	)
-	if err != nil {
-		if errors.Is(err, ErrPaymentRejected) {
-			challenge, challengeErr := service.adapter.CreateChallenge(
-				ctx,
-				resolved.Requirements,
-			)
-			if challengeErr != nil {
-				return CheckoutResult{}, challengeErr
-			}
-			return CheckoutResult{
-				TransactionID: transaction.TransactionID(),
-				Challenge:     &challenge,
-			}, err
-		}
-		return CheckoutResult{}, err
-	}
-	proofDigest := sha256.Sum256([]byte(request.PaymentProof))
-	proofHash, err := intents.ParseSHA256Digest(
-		hex.EncodeToString(proofDigest[:]),
-	)
+	proofHash, err := paymentProofHash(request.PaymentProof)
 	if err != nil {
 		return CheckoutResult{}, err
 	}
-	expectedVersion := transaction.Version()
-	if err := transaction.VerifyPayment(
-		verification.PaymentIdentifier,
-		proofHash,
-		domain.NewTimestamp(service.clock.Now()),
-	); err != nil {
-		return CheckoutResult{}, err
-	}
-	if err := service.transactionRepository.Update(
-		ctx,
-		transaction,
-		expectedVersion,
-	); err != nil {
-		if errors.Is(err, persistence.ErrPaymentIdentifierConflict) ||
-			errors.Is(err, persistence.ErrConditionFailed) {
+	if transaction.PaymentIdentifier() != "" {
+		if transaction.PaymentProofHash() != proofHash {
 			return CheckoutResult{}, ErrPaymentReplay
 		}
+		if transaction.Status() != transactions.StatusPaymentVerified {
+			return CheckoutResult{}, ErrPaymentReplay
+		}
+		if transaction.PaymentFinality() == transactions.PaymentFinalityFinalized {
+			payerAddress := ""
+			if transaction.PurchaseChannel() == transactions.PurchaseChannelBrowser && service.browserPurchases != nil {
+				verification, verifyErr := service.adapter.Verify(ctx, request.PaymentProof, resolved.Requirements)
+				if verifyErr != nil {
+					return CheckoutResult{}, verifyErr
+				}
+				payerAddress = verification.PayerAddress
+			}
+			return service.executeFinalized(ctx, request, resolved, transaction, "", payerAddress)
+		}
+		if transaction.PaymentFinality() != transactions.PaymentFinalityConfirmed {
+			return CheckoutResult{}, ErrPaymentReplay
+		}
+	}
+
+	if err := service.authorizeCommerce(ctx, resolved.Seller.SellerID, CommerceOperationVerification); err != nil {
 		return CheckoutResult{}, err
+	}
+	paymentIdentifier := transaction.PaymentIdentifier()
+	payerAddress := ""
+	if paymentIdentifier == "" {
+		verification, verifyErr := service.adapter.Verify(
+			ctx,
+			request.PaymentProof,
+			resolved.Requirements,
+		)
+		if verifyErr != nil {
+			if errors.Is(verifyErr, ErrPaymentRejected) {
+				challenge, challengeErr := service.adapter.CreateChallenge(
+					ctx,
+					resolved.Requirements,
+				)
+				if challengeErr != nil {
+					return CheckoutResult{}, challengeErr
+				}
+				return CheckoutResult{
+					TransactionID: transaction.TransactionID(),
+					Challenge:     &challenge,
+				}, verifyErr
+			}
+			return CheckoutResult{}, verifyErr
+		}
+		paymentIdentifier = verification.PaymentIdentifier
+		payerAddress = verification.PayerAddress
+		expectedVersion := transaction.Version()
+		if err := transaction.VerifyPayment(
+			paymentIdentifier,
+			proofHash,
+			domain.NewTimestamp(service.clock.Now()),
+		); err != nil {
+			return CheckoutResult{}, err
+		}
+		if err := service.transactionRepository.Update(
+			ctx,
+			transaction,
+			expectedVersion,
+		); err != nil {
+			if errors.Is(err, persistence.ErrPaymentIdentifierConflict) ||
+				errors.Is(err, persistence.ErrConditionFailed) {
+				return CheckoutResult{}, ErrPaymentReplay
+			}
+			return CheckoutResult{}, err
+		}
 	}
 	if err := service.evidenceRecorder.RecordPaymentVerification(
 		ctx,
 		transaction.TransactionID(),
 		evidence.PaymentVerificationFacts{
-			PaymentIdentifier: verification.PaymentIdentifier,
+			PaymentIdentifier: paymentIdentifier,
 			PaymentProofHash:  proofHash,
 		},
 	); err != nil {
+		return CheckoutResult{}, err
+	}
+	if err := service.authorizeCommerce(ctx, resolved.Seller.SellerID, CommerceOperationSettlement); err != nil {
 		return CheckoutResult{}, err
 	}
 	settlement, err := service.adapter.Settle(
@@ -146,7 +221,11 @@ func (service *CheckoutService) Execute(
 		request.PaymentProof,
 		resolved.Requirements,
 	)
-	if err == nil && !settlement.Settled {
+	if err == nil && (!settlement.Settled || settlement.PaymentIdentifier != paymentIdentifier) {
+		err = ErrPaymentRejected
+	}
+	if err == nil && payerAddress != "" && settlement.PayerAddress != "" &&
+		!strings.EqualFold(payerAddress, settlement.PayerAddress) {
 		err = ErrPaymentRejected
 	}
 	if err != nil {
@@ -171,7 +250,7 @@ func (service *CheckoutService) Execute(
 	}
 	finalizationVersion := transaction.Version()
 	if err := transaction.FinalizePayment(
-		settlement.PaymentIdentifier,
+		paymentIdentifier,
 		settlement.PaymentReference,
 		domain.NewTimestamp(service.clock.Now()),
 	); err != nil {
@@ -185,6 +264,27 @@ func (service *CheckoutService) Execute(
 		if errors.Is(err, persistence.ErrConditionFailed) {
 			return CheckoutResult{}, ErrPaymentReplay
 		}
+		return CheckoutResult{}, err
+	}
+	return service.executeFinalized(
+		ctx,
+		request,
+		resolved,
+		transaction,
+		settlement.ResponseHeader,
+		firstNonEmpty(payerAddress, settlement.PayerAddress),
+	)
+}
+
+func (service *CheckoutService) executeFinalized(
+	ctx context.Context,
+	request CheckoutRequest,
+	resolved ResolvedPaidRoute,
+	transaction transactions.Transaction,
+	settlementHeader string,
+	payerAddress string,
+) (CheckoutResult, error) {
+	if err := service.completeBrowserPurchase(ctx, transaction, payerAddress); err != nil {
 		return CheckoutResult{}, err
 	}
 	response, err := service.executor.Execute(
@@ -205,8 +305,65 @@ func (service *CheckoutService) Execute(
 	return CheckoutResult{
 		TransactionID:    transaction.TransactionID(),
 		Response:         &response,
-		SettlementHeader: settlement.ResponseHeader,
+		SettlementHeader: settlementHeader,
 	}, nil
+}
+
+func (service *CheckoutService) claimBrowserTransaction(ctx context.Context, transaction transactions.Transaction) error {
+	if transaction.PurchaseChannel() != transactions.PurchaseChannelBrowser || service.browserPurchases == nil {
+		return nil
+	}
+	purchaseSessionID, err := browserpurchase.ParsePurchaseSessionID(transaction.PurchaseSessionID())
+	if err != nil {
+		return err
+	}
+	_, err = service.browserPurchases.ClaimTransaction(ctx, purchaseSessionID, transaction.TransactionID())
+	return err
+}
+
+func (service *CheckoutService) completeBrowserPurchase(ctx context.Context, transaction transactions.Transaction, payerAddress string) error {
+	if transaction.PurchaseChannel() != transactions.PurchaseChannelBrowser || service.browserPurchases == nil || payerAddress == "" {
+		return nil
+	}
+	purchaseSessionID, err := browserpurchase.ParsePurchaseSessionID(transaction.PurchaseSessionID())
+	if err != nil {
+		return err
+	}
+	return service.browserPurchases.Complete(
+		ctx,
+		purchaseSessionID,
+		transaction.Network(),
+		payerAddress,
+		transaction.TransactionID(),
+		transaction.UpdatedAt().Time(),
+	)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func paymentProofHash(proof string) (intents.SHA256Digest, error) {
+	digest := sha256.Sum256([]byte(proof))
+	return intents.ParseSHA256Digest(hex.EncodeToString(digest[:]))
+}
+
+func (service *CheckoutService) authorizeCommerce(
+	ctx context.Context,
+	sellerID domain.ID,
+	operation CommerceOperation,
+) error {
+	if service.authorizer == nil {
+		// The original constructor is retained for local M7 migration fixtures.
+		// Production wiring must use NewCheckoutServiceWithCommerceAuthorizer.
+		return nil
+	}
+	return service.authorizer.AuthorizeCommerce(ctx, sellerID, operation)
 }
 
 // loadOrCreateTransaction initializes one deterministic transaction per intent.
@@ -230,15 +387,21 @@ func (service *CheckoutService) loadOrCreateTransaction(
 	now := domain.NewTimestamp(service.clock.Now())
 	transaction, err = transactions.NewTransaction(
 		transactions.TransactionParams{
-			TransactionID: transactionID,
-			IntentID:      resolved.PurchaseIntent.IntentID(),
-			SellerID:      resolved.Seller.SellerID,
-			RouteID:       resolved.Route.RouteID,
-			BuyerID:       resolved.PurchaseIntent.BuyerID(),
-			Amount:        resolved.PurchaseIntent.Amount(),
-			Asset:         resolved.PurchaseIntent.Asset(),
-			Network:       resolved.PurchaseIntent.Network(),
-			CreatedAt:     now,
+			TransactionID:        transactionID,
+			IntentID:             resolved.PurchaseIntent.IntentID(),
+			SellerID:             resolved.Seller.SellerID,
+			RouteID:              resolved.Route.RouteID,
+			BuyerID:              resolved.PurchaseIntent.BuyerID(),
+			ProductDisplayName:   resolved.PurchaseIntent.ProductDisplayName(),
+			ProductSlug:          resolved.PurchaseIntent.ProductSlug(),
+			PaymentDestinationID: resolved.PurchaseIntent.PaymentDestinationID(),
+			PurchaseSessionID:    resolved.PurchaseIntent.PurchaseSessionID(),
+			PurchaseChannel:      transactionPurchaseChannel(resolved.PurchaseIntent.PurchaseChannel()),
+			PaymentRail:          transactions.PaymentRailX402,
+			Amount:               resolved.PurchaseIntent.Amount(),
+			Asset:                resolved.PurchaseIntent.Asset(),
+			Network:              resolved.PurchaseIntent.Network(),
+			CreatedAt:            now,
 		},
 	)
 	if err != nil {
@@ -263,6 +426,13 @@ func (service *CheckoutService) loadOrCreateTransaction(
 		return transactions.Transaction{}, false, err
 	}
 	return transaction, true, nil
+}
+
+func transactionPurchaseChannel(channel intents.PurchaseChannel) transactions.PurchaseChannel {
+	if channel == intents.PurchaseChannelBrowser {
+		return transactions.PurchaseChannelBrowser
+	}
+	return transactions.PurchaseChannelAgent
 }
 
 // transactionIDForIntent preserves the intent ULID under the transaction prefix.

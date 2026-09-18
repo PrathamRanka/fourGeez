@@ -1,16 +1,16 @@
 asyncapi: 3.1.0
 info:
-  title: AgentPay approval events
-  version: 0.2.0
+  title: AgentPay deferred buyer-approval events
+  version: 0.3.0
   description: |
-    This is the locked M7.1 production target; the M7 development runtime still
-    uses query-token authentication until its approval migration task lands.
-    WebSocket updates for one approval session. REST remains the source of truth.
-    Invitation secrets are delivered in URL fragments and exchanged once over
-    REST into a server-side grant set represented by a Secure, HttpOnly,
-    SameSite=Strict cookie. Query-string tokens are forbidden. The WebSocket
-    upgrade authenticates that cookie, requires the exact configured approval
-    Origin, and selects the grant bound to the sessionId in the channel path.
+    Historical M2 contract retained as design documentation for a future
+    enterprise approval capability. Buyer-side multi-person approval is
+    deferred and disabled for Lean V1: no approval WebSocket server or channel
+    is deployed, no invitation or approval cookie is issued, and no payment
+    depends on these messages. Re-enabling this contract requires a new ADR,
+    active REST contract, persistence migration, security review, and release
+    task.
+  x-agentpay-runtime-status: deferred-disabled
 servers:
   local:
     host: localhost:8080
@@ -18,7 +18,7 @@ servers:
     pathname: /ws
     security:
       - $ref: '#/components/securitySchemes/approvalCookie'
-    description: Local development server. Production uses WSS on the approval web origin.
+    description: Historical endpoint shape only; not started or deployed by Lean V1.
 channels:
   approvalSession:
     address: /approval-sessions/{sessionId}
@@ -34,8 +34,9 @@ operations:
   receiveApprovalEvents:
     action: receive
     channel: { $ref: '#/channels/approvalSession' }
-    summary: Receive approval updates after authenticating with the exchanged invitation cookie.
+    summary: Deferred historical stream for approval-session updates.
     description: |
+      This operation is not available in Lean V1.
       Before upgrade, the server validates the cookie, session binding,
       approver binding, invitation expiry, session expiry, and exact Origin. It returns 401
       invalid_credential for a missing or invalid cookie, 403 permission_denied

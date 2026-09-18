@@ -27,6 +27,47 @@ func TestCreateFreezesFreshAuthorizedProductAndDestination(t *testing.T) {
 	if authorizer.calls != 1 || purchaseIntent.ProductDisplayName() != route.DisplayName || purchaseIntent.ProductSlug() != route.ProductSlug || purchaseIntent.PaymentDestinationID() != destinationID || purchaseIntent.PayTo() != route.PayTo {
 		t.Fatalf("purchase intent = %#v calls=%d", purchaseIntent.Snapshot(), authorizer.calls)
 	}
+	if purchaseIntent.PurchaseChannel() != PurchaseChannelAgent || purchaseIntent.PurchaseSessionID() != "" {
+		t.Fatalf("agent purchase identity = (%s, %q)", purchaseIntent.PurchaseChannel(), purchaseIntent.PurchaseSessionID())
+	}
+}
+
+func TestCreateDisablesHistoricalBuyerApprovalForLeanV1(t *testing.T) {
+	t.Parallel()
+	now := domain.NewTimestamp(time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC))
+	route := authorizedIntentRoute(t, now)
+	threshold := domain.MustParseAmount("1")
+	route.ApprovalThresholdAmount = &threshold
+	destinationID := mustIntentID(t, "dst_01K5D09YJ0C0M7RJM4FWQ0K9H8", domain.PaymentDestinationIDPrefix)
+	authorizer := &intentAuthorizer{route: route, destination: settlement.PaymentDestination{DestinationID: destinationID, SellerID: route.SellerID, Asset: route.Asset, Network: route.Network, Address: route.PayTo, Status: settlement.PaymentDestinationStatusActive}}
+	service := NewServiceWithCommerceAuthorizer(&intentTestRepository{}, &intentRouteRepository{route: route}, authorizer, domain.NewULIDGenerator(domain.FixedClock{Value: now.Time()}, nil), domain.FixedClock{Value: now.Time()})
+	digest, _ := ParseSHA256Digest("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
+	purchaseIntent, err := service.Create(t.Context(), "buyer-agent", CreateIntentRequest{RouteID: route.RouteID, RequestBodyHash: digest, MaximumAmount: route.Amount})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if purchaseIntent.RequiresApproval() || purchaseIntent.Status() != PurchaseIntentStatusReady {
+		t.Fatalf("purchase intent approval state = (%t, %s), want disabled and ready", purchaseIntent.RequiresApproval(), purchaseIntent.Status())
+	}
+}
+
+func TestCreateBindsBrowserPurchaseSessionToIntent(t *testing.T) {
+	t.Parallel()
+	now := domain.NewTimestamp(time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC))
+	route := authorizedIntentRoute(t, now)
+	destinationID := mustIntentID(t, "dst_01K5D09YJ0C0M7RJM4FWQ0K9H8", domain.PaymentDestinationIDPrefix)
+	authorizer := &intentAuthorizer{route: route, destination: settlement.PaymentDestination{DestinationID: destinationID, SellerID: route.SellerID, Asset: route.Asset, Network: route.Network, Address: route.PayTo, Status: settlement.PaymentDestinationStatusActive}}
+	service := NewServiceWithCommerceAuthorizer(&intentTestRepository{}, &intentRouteRepository{route: route}, authorizer, domain.NewULIDGenerator(domain.FixedClock{Value: now.Time()}, nil), domain.FixedClock{Value: now.Time()})
+	digest, _ := ParseSHA256Digest("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
+	purchaseIntent, err := service.Create(t.Context(), "browser:bps_01K5D09YJ0C0M7RJM4FWQ0K9H9", CreateIntentRequest{RouteID: route.RouteID, RequestBodyHash: digest, MaximumAmount: route.Amount})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if purchaseIntent.PurchaseChannel() != PurchaseChannelBrowser || purchaseIntent.PurchaseSessionID() != "bps_01K5D09YJ0C0M7RJM4FWQ0K9H9" {
+		t.Fatalf("browser purchase identity = (%s, %q)", purchaseIntent.PurchaseChannel(), purchaseIntent.PurchaseSessionID())
+	}
 }
 
 type intentAuthorizer struct {

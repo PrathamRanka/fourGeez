@@ -16,7 +16,6 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
-	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
@@ -28,7 +27,6 @@ import (
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
-	"github.com/fourgeez/agentpay/internal/realtime"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
@@ -42,13 +40,12 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 	expected := map[string][]string{
 		"acceptStripeBillingEvent":                {"204", "400", "401", "409", "429", "503"},
 		"archivePaidRoute":                        {"200", "400", "401", "403", "404", "409", "429", "503"},
-		"createApprovalCompletionToken":           {"201", "400", "401", "403", "404", "409", "410", "429", "503"},
-		"createApprovalSession":                   {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
 		"createBrowserPurchaseRecoveryChallenge":  {"201", "400", "404", "409", "410", "422", "429", "503"},
 		"createBrowserPurchaseSession":            {"201", "400", "404", "409", "410", "422", "429", "503"},
 		"createCurrentSellerBillingPortalSession": {"201", "400", "401", "404", "429", "503"},
 		"createDispute":                           {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
 		"createIntegrationCredential":             {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"createManualRefundRecord":                {"201", "400", "401", "403", "404", "409", "422", "429", "503"},
 		"createMcpConfirmationGrant":              {"201", "400", "401", "403", "404", "409", "422", "429", "503"},
 		"createPaidRoute":                         {"201", "400", "401", "403", "404", "409", "429", "503"},
 		"createPaymentDestination":                {"201", "400", "401", "403", "404", "409", "429", "503"},
@@ -56,12 +53,9 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"createPurchaseIntent":                    {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
 		"createSeller":                            {"201", "400", "401", "403", "409", "429", "503"},
 		"createWebhookSubscription":               {"201", "400", "401", "403", "404", "409", "429", "503"},
-		"decideApproval":                          {"200", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
 		"downloadPurchaseReceipt":                 {"200", "401", "403", "404", "409", "429", "503"},
 		"emergencyDisablePaidRoute":               {"200", "400", "401", "403", "404", "409", "429", "503"},
-		"exchangeApprovalInvitation":              {"204", "400", "401", "410", "429", "503"},
 		"exchangeProjectKey":                      {"200", "400", "401", "403", "429", "503"},
-		"getApprovalSession":                      {"200", "401", "403", "404", "410", "429", "503"},
 		"getCapabilityJwks":                       {"200", "429", "503"},
 		"getCurrentSeller":                        {"200", "401", "404", "429", "503"},
 		"getCurrentSellerBillingSummary":          {"200", "401", "404", "429", "503"},
@@ -75,7 +69,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"getCurrentSellerWebhookSummary":          {"200", "401", "404", "429", "503"},
 		"getDispute":                              {"200", "401", "403", "404", "429", "503"},
 		"getHealth":                               {"200", "429", "503"},
-		"getPaidResource":                         {"200", "400", "401", "402", "403", "404", "409", "410", "422", "428", "429", "503"},
+		"getPaidResource":                         {"200", "400", "401", "402", "403", "404", "409", "410", "422", "429", "503"},
 		"getPaidRoute":                            {"200", "400", "401", "403", "404", "429", "503"},
 		"getPaymentDestination":                   {"200", "400", "401", "403", "404", "429", "503"},
 		"getPublicProduct":                        {"200", "404", "410", "429", "503"},
@@ -95,7 +89,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"listWebhookDeliveries":                   {"200", "400", "401", "403", "404", "429", "503"},
 		"listWebhookSubscriptions":                {"200", "400", "401", "403", "404", "429", "503"},
 		"pausePaidRoute":                          {"200", "400", "401", "403", "404", "409", "429", "503"},
-		"postPaidResource":                        {"200", "400", "401", "402", "403", "404", "409", "410", "422", "428", "429", "503"},
+		"postPaidResource":                        {"200", "400", "401", "402", "403", "404", "409", "410", "422", "429", "503"},
 		"publishPaidRoute":                        {"200", "400", "401", "403", "404", "409", "422", "429", "503"},
 		"recoverBrowserPurchase":                  {"204", "400", "401", "404", "409", "410", "422", "429", "503"},
 		"redeliverWebhookDelivery":                {"200", "400", "401", "403", "404", "409", "429", "503"},
@@ -157,13 +151,11 @@ func TestImplementedM7OpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "revokeIntegrationCredential", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/integration-credentials/key_01K5D09YJ0C0M7RJM4FWQ0K9H8/revoke", wantStatus: http.StatusUnauthorized},
 		{operationID: "createPurchaseIntent", method: http.MethodPost, path: "/v1/intents", wantStatus: http.StatusUnauthorized},
 		{operationID: "getPurchaseIntent", method: http.MethodGet, path: "/v1/intents/int_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
-		{operationID: "createApprovalSession", method: http.MethodPost, path: "/v1/intents/int_01K5D09YJ0C0M7RJM4FWQ0K9H7/approval-sessions", wantStatus: http.StatusUnauthorized},
-		{operationID: "getApprovalSession", method: http.MethodGet, path: "/v1/approval-sessions/aps_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusNotFound},
-		{operationID: "decideApproval", method: http.MethodPost, path: "/v1/approval-sessions/aps_01K5D09YJ0C0M7RJM4FWQ0K9H7/decisions", wantStatus: http.StatusUnauthorized},
 		{operationID: "getTransaction", method: http.MethodGet, path: "/v1/transactions/txn_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
 		{operationID: "downloadPurchaseReceipt", method: http.MethodGet, path: "/v1/transactions/txn_01K5D09YJ0C0M7RJM4FWQ0K9H7/receipt", wantStatus: http.StatusUnauthorized},
 		{operationID: "createDispute", method: http.MethodPost, path: "/v1/disputes", wantStatus: http.StatusUnauthorized},
 		{operationID: "getDispute", method: http.MethodGet, path: "/v1/disputes/dsp_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
+		{operationID: "createManualRefundRecord", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/disputes/dsp_01K5D09YJ0C0M7RJM4FWQ0K9H7/refund-records", wantStatus: http.StatusUnauthorized},
 		{operationID: "getStorefrontManifest", method: http.MethodGet, path: "/store/missing/manifest.json", wantStatus: http.StatusNotFound},
 		{operationID: "getStorefrontLlmsText", method: http.MethodGet, path: "/store/missing/llms.txt", wantStatus: http.StatusNotFound},
 	}
@@ -236,7 +228,7 @@ func TestDocumentedErrorEnvelopeConforms(t *testing.T) {
 	}
 }
 
-// newConformanceHandler composes all M3 HTTP and WebSocket routes.
+// newConformanceHandler composes the active Lean V1 HTTP routes.
 func newConformanceHandler(t *testing.T) http.Handler {
 	t.Helper()
 	clock := domain.FixedClock{
@@ -244,10 +236,10 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	}
 	catalogRepository := memory.NewCatalogRepository()
 	intentRepository := memory.NewPurchaseIntentRepository()
-	approvalRepository := memory.NewApprovalRepository()
 	transactionRepository := memory.NewTransactionRepository()
 	evidenceRepository := memory.NewEvidenceRepository()
 	disputeRepository := memory.NewDisputeRepository()
+	manualRefundRecordRepository := memory.NewManualRefundRecordRepository()
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
@@ -260,12 +252,6 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		clock,
 		strings.NewReader(strings.Repeat("c", 2048)),
 	)
-	approvalSigner, err := approvals.NewApprovalTokenSigner(
-		[]byte(strings.Repeat("a", 32)),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	auditAppender := audit.NewAppender(
 		auditEventRepository,
 		idGenerator,
@@ -387,34 +373,6 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		clock,
 	)
 	intents.NewHTTPController(intentService, idempotencyStore).RegisterRoutes(mux)
-	approvalService := approvals.NewService(
-		approvalRepository,
-		intentRepository,
-		idGenerator,
-		approvals.NewSecureTokenGenerator(
-			strings.NewReader(strings.Repeat("t", 512)),
-		),
-		approvalSigner,
-		clock,
-		"http://localhost:3000",
-	)
-	hub := realtime.NewLocalHub()
-	realtimeService := realtime.NewService(
-		hub,
-		approvalService,
-		hub,
-		idGenerator,
-		clock,
-	)
-	approvalService.SetEventPublisher(realtimeService)
-	approvals.NewHTTPController(
-		approvalService,
-		idempotencyStore,
-	).RegisterRoutes(mux)
-	realtime.NewHTTPController(
-		realtime.NewController(realtimeService),
-		hub,
-	).RegisterRoutes(mux)
 	transactionService := transactions.NewService(
 		transactionRepository,
 		evidenceRepository,
@@ -434,6 +392,17 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	)
 	disputes.NewHTTPController(
 		disputeService,
+		idempotencyStore,
+	).RegisterRoutes(mux)
+	manualRemediationService := disputes.NewManualRemediationService(
+		disputeRepository,
+		transactionRepository,
+		manualRefundRecordRepository,
+		clock,
+	)
+	manualRemediationService.SetAuditRecorder(auditAppender)
+	disputes.NewManualRemediationHTTPController(
+		manualRemediationService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
 	return api.Middleware(

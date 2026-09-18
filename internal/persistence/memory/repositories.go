@@ -383,7 +383,9 @@ func (repository *TransactionRepository) ClaimForwarding(_ context.Context, tran
 	if !exists {
 		return transactions.Transaction{}, false, persistence.ErrNotFound
 	}
-	if transaction.Version() != expectedVersion || transaction.Status() != transactions.StatusPaymentVerified {
+	if transaction.Version() != expectedVersion ||
+		transaction.Status() != transactions.StatusPaymentVerified ||
+		transaction.PaymentFinality() != transactions.PaymentFinalityFinalized {
 		return transaction, false, nil
 	}
 	if err := transaction.MarkForwarded(at); err != nil {

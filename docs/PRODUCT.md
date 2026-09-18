@@ -2,20 +2,18 @@
 
 Status: **Locked for the AgentPay MVP direction**.
 
-Implementation status: the M0–M7 development preview exists, but the product
-is not launch-ready. The reduced M7.1 Lean V1 contains fourteen launch tasks
-covering seller authentication, subscription enforcement, cloud-authoritative
-MCP access, the existing x402 commerce path, exactly-once fulfillment, the
-essential seller dashboard, and full-system verification. M8 deployment and M9
-release gates remain incomplete. Current payment support is mock or x402
-testnet only.
+Implementation status: the M0–M7 development preview and the fourteen-task
+M7.1 Lean V1 launch core are implemented and verified locally. M8 deployment
+and M9 deployed release gates remain incomplete, so the product is not yet a
+production-ready paid service. Current payment support is mock or x402 testnet
+only.
 
 ## Product promise
 
 AgentPay turns an existing API or digital service into a storefront that can
 sell to both people and software agents. A seller connects AgentPay to a
 supported coding agent, approves the proposed repository changes, and publishes
-products without manually implementing payment, approval, evidence, or agent
+products without manually implementing payment, evidence, or agent
 discovery protocols.
 
 AgentPay is the commerce gateway and control plane. The seller continues to own
@@ -37,7 +35,7 @@ paired with a plain-language explanation. The initial vocabulary is:
 - **Discovery Mesh** — storefront metadata, manifest, sitemap, and `llms.txt`;
 - **Proof Stream** — transaction, payment, fulfillment, and evidence history;
 - **Revenue Lens** — asset- and network-separated seller analytics; and
-- **Trust Gate** — approval, replay protection, sandbox, and publication checks.
+- **Trust Gate** — wallet consent, replay protection, sandbox, and publication checks.
 
 The public site may use polished demonstrations and restrained motion, but must
 remain fast, accessible, usable without animation, and truthful. It must never
@@ -138,8 +136,8 @@ V1 does not require a large seller SDK. AgentPay provides:
 - generated public storefront, manifest, `llms.txt`, sitemap, structured data,
   canonical metadata, and paid URLs.
 
-The seller exposes an HTTPS fulfillment endpoint. AgentPay verifies payment and
-approval, claims the transaction exactly once, and forwards a signed request to
+The seller exposes an HTTPS fulfillment endpoint. AgentPay verifies payment,
+claims the transaction exactly once, and forwards a signed request to
 that endpoint. Seller code verifies the AgentPay signature and returns the
 digital result.
 
@@ -155,12 +153,12 @@ MCP capability; it is not a transaction credential.
 ### Agent channel
 
 Agents discover products through the storefront manifest or `llms.txt`, create
-an immutable purchase intent, satisfy approval when required, pay through the
-x402 adapter, and call the AgentPay paid URL.
+an immutable purchase intent, enforce the buyer-provided maximum, pay through
+the x402 adapter, and call the AgentPay paid URL.
 
 Discovery is candidate information only. Even an authentic, unexpired manifest
 does not authorize a purchase; the cloud rechecks current seller entitlement,
-route publication, destination, quote, approval, payment, and replay state at
+route publication, destination, quote, payment, and replay state at
 the relevant transaction checkpoints.
 
 ### Browser channel
@@ -180,15 +178,24 @@ with a durable opaque browser purchase grant: commerce authority expires within
 ten minutes, receipt/dispute access survives reloads for 30 days after the
 terminal outcome or a timely dispute's resolution,
 and a finalized payer can recover read/remediation access with wallet proof.
-LCH-035 must implement and verify that target before browser checkout is
-represented as complete.
+LCH-013 and LCH-014 must implement and verify that target before browser
+checkout is represented as complete.
 
 ## Unified commerce rule
 
 Browser and agent purchases share the authoritative seller quote and the same
-purchase-intent, approval, transaction, fulfillment, evidence, and dispute
+purchase-intent, transaction, fulfillment, evidence, and dispute
 rules. Channel and payment-rail metadata may differ, but neither channel may
 bypass domain validation.
+
+Lean V1 has no buyer-side multi-person approval runtime. The seller-approved
+fixed quote is authoritative, `maximumAmount` is the buyer safety ceiling, and
+the buyer wallet authorization/signature is payment consent. The historical M2
+approval domain remains in the repository for compatibility and future work,
+but its REST routes, WebSocket channel, `428 approval_required` branch, approval
+tokens, and approval UI are disabled and excluded from Lean V1. Seller
+confirmation for publication, price changes, credentials, and deployment is a
+separate control-plane safeguard and remains required.
 
 ## Seller payment and reporting
 
@@ -208,13 +215,20 @@ Sellers may configure signed webhooks for payment, fulfillment, and dispute
 events. Webhook delivery is retried and audited, but dashboard records remain
 authoritative when a seller endpoint is unavailable.
 
+When deterministic dispute rules recommend a refund, the authenticated owning
+seller may record one externally completed full refund through the idempotent
+refund-record endpoint. AgentPay validates the finalized transaction and exact
+amount, asset, and network, then stores the seller-supplied reference as an
+append-only audit fact. AgentPay does not execute, custody, or guarantee the
+refund in Lean V1.
+
 ## Revenue model
 
 The initial revenue model is seller-funded software and usage billing:
 
 - a monthly seller subscription;
 - optional metered fees based on successful transactions; and
-- higher tiers for approvals, evidence retention, limits, analytics, and support.
+- higher tiers for evidence retention, limits, analytics, and support.
 
 Buyer funds continue directly to the seller under the x402 flow. AgentPay does
 not custody or redistribute seller funds in V1. AgentPay subscriptions and

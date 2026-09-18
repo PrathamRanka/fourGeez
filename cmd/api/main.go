@@ -5,13 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
-	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/billing"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -28,7 +29,6 @@ import (
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
-	"github.com/fourgeez/agentpay/internal/realtime"
 	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/storefront"
@@ -50,6 +50,8 @@ func main() {
 	transactionRepository := memory.NewTransactionRepository()
 	evidenceRepository := memory.NewEvidenceRepository()
 	disputeRepository := memory.NewDisputeRepository()
+	manualRefundRecordRepository := memory.NewManualRefundRecordRepository()
+	browserPurchaseRepository := memory.NewBrowserPurchaseSessionRepository()
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	confirmationGrantRepository := memory.NewConfirmationGrantRepository()
 	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
@@ -70,7 +72,8 @@ func main() {
 	sellerIdentityService, err := newSellerIdentityService(
 		sellerIdentityConfig{
 			Environment: os.Getenv("AGENTPAY_ENV"), LocalToken: os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
-			LocalSubject: os.Getenv("AGENTPAY_LOCAL_SELLER_SUBJECT"), AWSRegion: os.Getenv("AWS_REGION"),
+			LocalSigningSecret: os.Getenv("AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET"),
+			LocalSubject:       os.Getenv("AGENTPAY_LOCAL_SELLER_SUBJECT"), AWSRegion: os.Getenv("AWS_REGION"),
 			UserPoolID: os.Getenv("AGENTPAY_SELLER_USER_POOL_ID"), ClientID: os.Getenv("AGENTPAY_SELLER_USER_POOL_CLIENT_ID"),
 		},
 		sellerSessionRevocationRepository,
@@ -91,7 +94,14 @@ func main() {
 		),
 		clock,
 	)
-	sellerForwarder := proxy.NewForwarder(nil)
+	sellerForwarder, err := newSellerForwarder(
+		os.Getenv("AGENTPAY_ENV"),
+		os.Getenv("AGENTPAY_SELLER_READINESS_URL"),
+	)
+	if err != nil {
+		slog.Error("invalid local seller forwarding configuration", "error", err)
+		os.Exit(1)
+	}
 	sandboxService := sandbox.NewService(
 		catalogRepository,
 		idGenerator,
@@ -117,7 +127,12 @@ func main() {
 		),
 	).RegisterRoutes(mux)
 	billingService := billing.NewService(
-		sellerPlanRepository,
+		configureOnboardingEntitlementRepository(
+			os.Getenv("AGENTPAY_ENV"),
+			sellerPlanRepository,
+			catalogRepository,
+			clock,
+		),
 		catalogService,
 		clock,
 	)
@@ -277,6 +292,18 @@ func main() {
 	catalogService.SetPublicationAuthorizer(storefrontService)
 	sandboxService.SetEndpointVerificationRecorder(storefrontService)
 	storefront.NewHTTPController(storefrontService).RegisterRoutes(mux)
+	browserPurchaseService := browserpurchase.NewService(browserpurchase.Dependencies{
+		Products:      browserPurchaseProductResolver{products: storefrontService},
+		Repository:    browserPurchaseRepository,
+		ProofVerifier: browserpurchase.NewEVMPersonalSignVerifier(),
+		Clock:         clock,
+	})
+	browserPurchaseCookiePolicy := browserpurchase.CookiePolicy{
+		AllowedOrigin: webOrigin,
+		Secure:        os.Getenv("AGENTPAY_ENV") != "local",
+	}
+	browserpurchase.NewHTTPController(browserPurchaseService, browserPurchaseCookiePolicy).RegisterRoutes(mux)
+	browserPurchaseAuthorizer := browserpurchase.NewRequestAuthorizer(browserPurchaseService, browserPurchaseCookiePolicy)
 	sellerworkspace.NewHTTPController(
 		workspaceService,
 		sellerworkspace.NewContextPrincipalSource(
@@ -311,43 +338,8 @@ func main() {
 		clock,
 	)
 	intentController := intents.NewHTTPController(intentService, idempotencyStore)
+	intentController.SetBrowserPurchaseAuthorizer(browserPurchaseAuthorizer)
 	intentController.RegisterRoutes(mux)
-	approvalTokenSigner, err := approvals.NewApprovalTokenSigner(
-		[]byte(os.Getenv("AGENTPAY_LOCAL_APPROVAL_TOKEN_SECRET")),
-	)
-	if err != nil {
-		slog.Error("invalid approval token secret", "error", err)
-		os.Exit(1)
-	}
-	approvalService := approvals.NewService(
-		approvalRepository,
-		intentRepository,
-		idGenerator,
-		approvals.NewSecureTokenGenerator(nil),
-		approvalTokenSigner,
-		clock,
-		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
-	)
-	realtimeHub := realtime.NewLocalHub()
-	realtimeService := realtime.NewService(
-		realtimeHub,
-		approvalService,
-		realtimeHub,
-		idGenerator,
-		clock,
-	)
-	approvalService.SetEventPublisher(realtimeService)
-	approvalController := approvals.NewHTTPController(
-		approvalService,
-		idempotencyStore,
-	)
-	approvalController.RegisterRoutes(mux)
-	realtimeController := realtime.NewHTTPController(
-		realtime.NewController(realtimeService),
-		realtimeHub,
-		os.Getenv("AGENTPAY_WEB_ORIGIN"),
-	)
-	realtimeController.RegisterRoutes(mux)
 	evidenceSigner, err := evidence.NewLocalHMACSigner(
 		os.Getenv("AGENTPAY_LOCAL_EVIDENCE_KEY_ID"),
 		[]byte(os.Getenv("AGENTPAY_LOCAL_EVIDENCE_SIGNING_SECRET")),
@@ -372,6 +364,8 @@ func main() {
 			Transactions:             transactionRepository,
 			Evidence:                 evidenceRepository,
 			Disputes:                 disputeRepository,
+			ManualRefundRecords:      manualRefundRecordRepository,
+			BrowserPurchaseSessions:  browserPurchaseRepository,
 			PaymentDestinations:      paymentDestinationRepository,
 			WebhookSubscriptions:     webhookSubscriptionRepository,
 			WebhookDeliveries:        webhookDeliveryRepository,
@@ -403,7 +397,6 @@ func main() {
 			EvidenceSigner:      evidenceSigner,
 			SellerSigner:        sellerSigner,
 			SellerSigningSecret: []byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
-			WebSocketRepository: realtimeHub,
 		},
 	)
 	if err != nil {
@@ -420,8 +413,8 @@ func main() {
 	paidRouteService := payments.NewAuthorizedPaidRouteService(
 		catalogRepository,
 		intentRepository,
-		approvalRepository,
-		approvalTokenSigner,
+		nil,
+		nil,
 		storefrontService,
 		clock,
 		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
@@ -430,23 +423,37 @@ func main() {
 	if os.Getenv("AGENTPAY_USE_MOCK_PAYMENT") == "true" {
 		paymentAdapter = payments.NewMockAdapter()
 	}
+	executionCapabilitySigner, err := proxy.NewES256ExecutionCapabilitySigner(
+		proxy.ExecutionCapabilityConfig{Issuer: apiOrigin, Lifetime: 45 * time.Second},
+		capabilityKeys,
+		clock,
+		cryptorand.Reader,
+	)
+	if err != nil {
+		slog.Error("invalid execution capability configuration", "error", err)
+		os.Exit(1)
+	}
 	executionService := proxy.NewExecutionService(
 		transactionRepository,
-		sellerSigner,
+		executionCapabilitySigner,
 		sellerForwarder,
 		evidenceRecorder,
 		clock,
 	)
 	executionService.SetUsageRecorder(usageService)
-	checkoutService := payments.NewCheckoutService(
+	checkoutService := payments.NewCheckoutServiceWithCommerceAuthorizer(
 		paidRouteService,
 		paymentAdapter,
 		transactionRepository,
 		evidenceRecorder,
 		executionService,
 		clock,
+		payments.NewAuthoritativeCommerceAuthorizer(sellerPlanRepository, clock),
 	)
-	payments.NewHTTPController(checkoutService).RegisterRoutes(mux)
+	checkoutService.SetBrowserPurchaseLifecycle(browserPurchaseService)
+	checkoutController := payments.NewHTTPController(checkoutService)
+	checkoutController.SetBrowserPurchaseAuthorizer(browserPurchaseAuthorizer)
+	checkoutController.RegisterRoutes(mux)
 	transactionService := transactions.NewService(
 		transactionRepository,
 		evidenceRepository,
@@ -454,6 +461,7 @@ func main() {
 		catalogRepository,
 	)
 	transactionController := transactions.NewHTTPController(transactionService)
+	transactionController.SetBrowserPurchaseAuthorizer(browserPurchaseAuthorizer)
 	transactionController.RegisterRoutes(mux)
 	analytics.NewHTTPController(
 		analytics.NewDashboardService(transactionService, analytics.NewService()),
@@ -469,7 +477,19 @@ func main() {
 		disputeService,
 		idempotencyStore,
 	)
+	disputeController.SetBrowserPurchaseAuthorizer(browserPurchaseAuthorizer)
 	disputeController.RegisterRoutes(mux)
+	manualRemediationService := disputes.NewManualRemediationService(
+		disputeRepository,
+		transactionRepository,
+		manualRefundRecordRepository,
+		clock,
+	)
+	manualRemediationService.SetAuditRecorder(auditAppender)
+	disputes.NewManualRemediationHTTPController(
+		manualRemediationService,
+		idempotencyStore,
+	).RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
 		Authenticator: identity.NewHTTPAuthenticator(

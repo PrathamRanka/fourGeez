@@ -45,6 +45,16 @@ func TestPurchaseIntentRoutesCreateAndRetrieveImmutableIntent(t *testing.T) {
 	if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
 		t.Fatalf("create response JSON error = %v", err)
 	}
+	var publicResponse map[string]any
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &publicResponse); err != nil {
+		t.Fatalf("create response object error = %v", err)
+	}
+	if _, exposed := publicResponse["requiresApproval"]; exposed {
+		t.Fatal("Lean V1 purchase intent exposed the historical approval field")
+	}
+	if publicResponse["purchaseChannel"] != "agent" {
+		t.Fatalf("purchaseChannel = %#v", publicResponse["purchaseChannel"])
+	}
 	if created.Amount != route.Amount || created.SellerID != route.SellerID {
 		t.Fatal("intent did not freeze the authoritative seller quote")
 	}

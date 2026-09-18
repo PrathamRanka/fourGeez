@@ -12,7 +12,7 @@ credential checks; Redis and distributed invalidation records are deferred.
 
 ## Conventions
 
-- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, `key_`, `dst_`, `whk_`, `whd_`, `aud_`, and `mtr_`.
+- Implemented IDs use canonical ULIDs with sortable, opaque prefixes: `sel_`, `rte_`, `int_`, `aps_`, `txn_`, `evt_`, `dsp_`, `key_`, `dst_`, `whk_`, `whd_`, `aud_`, and `mtr_`. The historical `aps_` records are not created or consumed by Lean V1.
 - Timestamps are RFC 3339 UTC strings.
 - Payment amounts are canonical strings in atomic units; floating-point numbers and leading zeros are forbidden at persistence boundaries, except that zero is `"0"`.
 - `asset` is a chain-specific contract or asset identifier.
@@ -265,7 +265,7 @@ authorization fields.
 | `network` | string | Testnet network identifier |
 | `payTo` | string | Compatibility snapshot of the verified seller destination used by new intents |
 | `paymentDestinationId` | string/null | Planned M7 reference to the verified seller destination |
-| `approvalThresholdAmount` | string/null | Approval required when amount is greater than or equal to threshold |
+| `approvalThresholdAmount` | string/null | Historical M2 compatibility field; ignored by Lean V1 and omitted by new public contracts |
 | `upstreamTimeoutSeconds` | integer | Range 1–30 |
 | `lifecycleStatus` | enum | `draft`, `published`, `paused`, `archived`, or `emergency_disabled` |
 | `enabled` | boolean | Compatibility publication flag; true only while `lifecycleStatus=published` |
@@ -322,7 +322,12 @@ Deterministic and sandbox validation results are computed responses and are not
 persisted; publication performs fresh validation so a stale result cannot
 authorize a changed route.
 
-Approval threshold evaluation is inclusive: an amount equal to or greater than the applicable threshold requires approval. A missing threshold means no approval requirement from that policy. The recorded policy version is `approval-threshold-v1`.
+Historical M2 records may contain `approvalThresholdAmount`. The old
+`approval-threshold-v1` evaluator treated the boundary as inclusive. Lean V1
+does not evaluate this field, create approval sessions, or block a challenge on
+buyer-side approval. New writes must omit it. The seller-approved fixed quote,
+the buyer's `maximumAmount`, and wallet authorization are the active V1 consent
+and spending controls.
 
 ### PurchaseIntent
 
@@ -341,12 +346,15 @@ An intent becomes immutable after creation.
 | `requestBodyHash` | string | Hash of canonical request bytes |
 | `amount`, `asset`, `network` | string | Frozen quote |
 | `maximumAmount` | string | Buyer safety limit |
-| `requiresApproval` | boolean | Policy output |
 | `intentHash` | string | Canonical hash of all execution-relevant fields |
 | `expiresAt` | timestamp | Ten minutes after creation by default |
-| `status` | enum | `ready`, `approval_pending`, `approved`, `expired`, `executed` |
+| `status` | enum | `ready`, `expired`, `executed` |
 
-The price and commercial fields of an intent never change after creation. Seller price updates affect only newly created intents.
+The price and commercial fields of an intent never change after creation.
+Seller price updates affect only newly created intents. Historical M2 intents
+may contain `requiresApproval` and the `approval_pending` or `approved` states;
+they are retained for migration/read compatibility only and cannot enter the
+Lean V1 payment path.
 
 ### BrowserPurchaseSession
 
@@ -366,7 +374,7 @@ seller project credentials, and buyer-agent credentials.
 | `walletBindingHash` | string/null | Verified payer network/address hash recorded no later than finalized payment |
 | `transactionId` | string/null | The one transaction created from this session |
 | `status` | enum | `active`, `completed`, `expired`, or `revoked` |
-| `commerceExpiresAt` | timestamp | Exclusive boundary, at most ten minutes after creation, for intent creation, approval initiation, challenge issuance, verification, and settlement |
+| `commerceExpiresAt` | timestamp | Exclusive boundary, at most ten minutes after creation, for intent creation, challenge issuance, verification, and settlement |
 | `accessExpiresAt` | timestamp | Exclusive browser-access boundary: initially commerce expiry, extended after finalized payment to 30 days after terminal fulfillment/failure, or 30 days after a timely dispute resolves |
 | `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
 
@@ -396,7 +404,13 @@ and discarded. Recovery consumes the challenge conditionally, compares the
 recovered signer to the finalized payer binding, rotates the browser grant and
 CSRF values, and never extends `accessExpiresAt`.
 
-### ApprovalSession
+### ApprovalSession (historical M2; deferred and disabled)
+
+These records document the completed M2 implementation and remain available
+for migration and compatibility tests. Lean V1 creates no approval sessions,
+serves no approval REST or WebSocket runtime, accepts no approval token, and
+never requires approval before issuing an x402 challenge. Re-enabling this
+domain requires a future contract and migration task.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -435,7 +449,7 @@ response without persisting plaintext. A new idempotency key may issue a
 replacement only after atomically invalidating any prior unconsumed token,
 preventing a lost response from blocking the purchase owner.
 
-### ApprovalBrowserGrant
+### ApprovalBrowserGrant (historical M2; deferred and disabled)
 
 The approval cookie identifies one browser grant by an opaque random value; only
 its keyed hash is stored. Each exchanged invitation creates a separate child
@@ -445,6 +459,8 @@ binding never replaces another session's binding. Revoking, expiring, or using
 one invitation affects only that child binding. WebSocket authorization selects
 the exact child binding named by the channel `sessionId` and also verifies the
 configured approval Origin.
+
+No Lean V1 endpoint creates, exchanges, reads, or consumes this grant.
 
 ### Transaction
 
@@ -473,17 +489,20 @@ For the first implementation, a transaction ID reuses its purchase intent's
 ULID payload with the `txn_` prefix. This provides a deterministic point lookup
 and enforces one transaction per intent without a table scan.
 
-Transaction states:
+Lean V1 transaction states:
 
 ```text
-PROPOSED -> APPROVAL_PENDING -> APPROVED -> PAYMENT_REQUIRED
-PROPOSED -------------------------------> PAYMENT_REQUIRED
+PROPOSED -> PAYMENT_REQUIRED
 PAYMENT_REQUIRED -> PAYMENT_VERIFIED -> FORWARDED -> FULFILLED
                          |                |             |
                          +-> FAILED       +-> FAILED <---+
 FULFILLED|FAILED -> DISPUTED -> REFUND_RECOMMENDED|RESOLVED
 REFUND_RECOMMENDED -> RESOLVED
 ```
+
+Historical M2 transactions may contain `APPROVAL_PENDING` or `APPROVED` and
+remain readable. Lean V1 writers never emit those states and the payment path
+does not accept them as authority.
 
 Terminal states are `RESOLVED` and an undisputed `FULFILLED`. Invalid transitions return `409 state_conflict`.
 
@@ -616,10 +635,10 @@ and provider mapping are locked in `SUBSCRIPTION_LIFECYCLE.md`.
 | Analytics window days | 7 | 90 | 365 |
 | Evidence retention days | 30 | 180 | 3,650 |
 
-Starter enables webhooks but not approval workflows or advanced analytics.
-Growth enables approvals, webhooks, and advanced analytics. Scale adds priority
-support. These flags describe entitlement only; enforcement belongs to
-`OPS-001`.
+Starter enables webhooks but not advanced analytics. Growth enables webhooks
+and advanced analytics. Scale adds priority support. Buyer-side approval is not
+a Lean V1 plan feature. These flags describe entitlement only; enforcement
+belongs to `OPS-001`.
 
 Each seller has one authoritative entitlement projection at
 `PK=SELLER#<sellerId>`, `SK=BILLING_PLAN`. The wire record is named
@@ -776,9 +795,10 @@ bounded to 100. Cursors are opaque, seller-bound, and identify the last event
 from the previous page. Audit records are append-only and have no update or
 delete operation.
 
-### ApprovalConnection
+### ApprovalConnection (historical M3; deferred and disabled)
 
-Approval WebSocket connections are ephemeral registrations used only for event delivery. REST approval snapshots remain authoritative.
+These registrations document the completed M3 approval WebSocket. Lean V1 does
+not create them or start the approval WebSocket runtime.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -839,6 +859,35 @@ Dispute classification uses rule version `dispute-rules-v1` and only recorded tr
 
 For `unauthorized`, `duplicate`, `wrong_amount`, and `not_delivered`, a missing fact produces `seller_review` / `insufficient_evidence`. Classification never executes a refund; it records a reproducible recommendation only.
 
+### ManualRefundRecord
+
+A `ManualRefundRecord` is an append-only seller assertion that the seller
+completed a refund outside AgentPay. AgentPay does not custody funds, submit the
+refund, or treat the record alone as network proof. Lean V1 permits at most one
+record per dispute.
+
+| Field | Type | Notes |
+|---|---|---|
+| `disputeId` | string | Primary identity; the dispute must belong to the authenticated seller |
+| `transactionId` | string | Finalized transaction referenced by the dispute |
+| `sellerId` | string | Derived from the authenticated seller and transaction; never accepted from the request body |
+| `amount` | string | Positive atomic-unit amount; must exactly equal the finalized transaction amount in Lean V1 |
+| `asset`, `network` | string | Must exactly match the finalized transaction |
+| `reference` | string | Seller-supplied external refund/provider/network reference, trimmed, 1-512 characters, with control characters rejected |
+| `recordedBy` | string | Authenticated seller principal/subject; never supplied by the request body |
+| `recordedAt` | timestamp | Server-assigned UTC timestamp |
+
+`POST /v1/sellers/{sellerId}/disputes/{disputeId}/refund-records` requires
+`sellerBearer` and `Idempotency-Key`. The dispute must be
+`refund_recommended`, its transaction must have `paymentFinality=finalized`,
+and amount, asset, and network must match exactly. A cross-seller or unknown
+dispute is concealed as `404 not_found`; malformed values or an unfinalized
+transaction return `422 validation_failed`; a dispute outside the
+`refund_recommended` state returns `409 state_conflict`. An exact idempotency
+replay returns the original `201` response, while reuse of the key or the
+dispute's one-record slot with changed input returns
+`409 idempotency_conflict` or `409 state_conflict`, respectively.
+
 ## DynamoDB layout
 
 Use one table named by environment, with `PK` and `SK` strings and on-demand billing for the hackathon.
@@ -881,10 +930,15 @@ PK=APPROVAL#aps_123     SK=CONNECTION#<connectionId>
 PK=TXN#txn_123          SK=PROFILE
 PK=TXN#txn_123          SK=EVENT#000001
 PK=DISPUTE#dsp_123      SK=PROFILE
+PK=DISPUTE#dsp_123      SK=REFUND_RECORD
 PK=IDEMPOTENCY#<scope>  SK=<key>
 PK=PAYMENT#<paymentIdentifier> SK=CLAIM
 PK=SLUG#<slug>          SK=CLAIM
 ```
+
+The `APPROVAL#...` and `APPROVAL_GRANT#...` forms above are historical M2/M3
+compatibility records only. Lean V1 does not write or query them on an active
+commerce path.
 
 Integration credentials remain in the seller partition so listing and
 authorization use point/query operations. Production authentication must never

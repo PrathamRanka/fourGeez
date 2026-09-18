@@ -31,6 +31,7 @@ func TestX402AdapterVerifiesAndSettlesExactPayment(t *testing.T) {
 			Transaction: "0xtestnettransaction",
 			Network:     x402.Network(BaseSepoliaNetwork),
 			Amount:      "10000",
+			Payer:       "0x2222222222222222222222222222222222222222",
 		},
 	}
 	adapter := NewX402AdapterWithFacilitator(
@@ -48,7 +49,8 @@ func TestX402AdapterVerifiesAndSettlesExactPayment(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !verification.Valid ||
-		!strings.HasPrefix(verification.PaymentIdentifier, "x402_") {
+		!strings.HasPrefix(verification.PaymentIdentifier, "x402_") ||
+		verification.PayerAddress != facilitator.verifyResponse.Payer {
 		t.Fatalf("verification = %#v", verification)
 	}
 
@@ -62,7 +64,8 @@ func TestX402AdapterVerifiesAndSettlesExactPayment(t *testing.T) {
 	}
 	if !settlement.Settled ||
 		settlement.PaymentIdentifier != verification.PaymentIdentifier ||
-		settlement.PaymentReference != facilitator.settleResponse.Transaction {
+		settlement.PaymentReference != facilitator.settleResponse.Transaction ||
+		settlement.PayerAddress != facilitator.settleResponse.Payer {
 		t.Fatalf("settlement = %#v", settlement)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(settlement.ResponseHeader)
@@ -151,6 +154,57 @@ func TestX402AdapterRejectsModifiedPaymentProof(t *testing.T) {
 	}
 	if calls.Load() != 0 {
 		t.Fatalf("facilitator calls = %d", calls.Load())
+	}
+}
+
+// TestX402AdapterRejectsEveryModifiedFrozenPaymentTerm verifies that the
+// client cannot substitute any exact-payment or resource binding before the
+// facilitator is called.
+func TestX402AdapterRejectsEveryModifiedFrozenPaymentTerm(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*x402types.PaymentPayload)
+	}{
+		{name: "scheme", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Scheme = "upto" }},
+		{name: "network", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Network = "eip155:1" }},
+		{name: "asset", mutate: func(payload *x402types.PaymentPayload) {
+			payload.Accepted.Asset = "0x2222222222222222222222222222222222222222"
+		}},
+		{name: "amount", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Amount = "9999" }},
+		{name: "destination", mutate: func(payload *x402types.PaymentPayload) {
+			payload.Accepted.PayTo = "0x3333333333333333333333333333333333333333"
+		}},
+		{name: "timeout", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.MaxTimeoutSeconds++ }},
+		{name: "missing resource", mutate: func(payload *x402types.PaymentPayload) { payload.Resource = nil }},
+		{name: "resource URL", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.URL = "https://api.example/pay/demo/other" }},
+		{name: "resource description", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.Description = "Different product" }},
+		{name: "resource MIME type", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.MimeType = "text/plain" }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var calls atomic.Int32
+			facilitator := &fakeFacilitatorClient{
+				verify: func(context.Context, []byte, []byte) (*x402.VerifyResponse, error) {
+					calls.Add(1)
+					return &x402.VerifyResponse{IsValid: true}, nil
+				},
+			}
+			adapter := NewX402AdapterWithFacilitator(facilitator, testVerificationTimeout)
+			proof := paymentProofWithMutation(t, validRequirements(), test.mutate)
+
+			_, err := adapter.Verify(t.Context(), proof, validRequirements())
+			if !errors.Is(err, ErrPaymentRejected) {
+				t.Fatalf("Verify() error = %v, want payment rejected", err)
+			}
+			if calls.Load() != 0 {
+				t.Fatalf("facilitator calls = %d, want 0", calls.Load())
+			}
+		})
 	}
 }
 
@@ -424,6 +478,15 @@ func TestMockAdapterRejectsInvalidRequirements(t *testing.T) {
 		{name: "missing recipient", mutate: func(requirements *Requirements) {
 			requirements.PayTo = ""
 		}},
+		{name: "missing resource", mutate: func(requirements *Requirements) {
+			requirements.ResourceURL = ""
+		}},
+		{name: "missing MIME type", mutate: func(requirements *Requirements) {
+			requirements.MIMEType = ""
+		}},
+		{name: "invalid timeout", mutate: func(requirements *Requirements) {
+			requirements.MaxTimeoutSeconds = 0
+		}},
 	}
 
 	for _, test := range tests {
@@ -523,8 +586,35 @@ func validPaymentProof(t *testing.T, requirements Requirements) string {
 			PayTo:             requirements.PayTo,
 			MaxTimeoutSeconds: requirements.MaxTimeoutSeconds,
 		},
+		Resource: &x402types.ResourceInfo{
+			URL:         requirements.ResourceURL,
+			Description: requirements.Description,
+			MimeType:    requirements.MIMEType,
+		},
 	}
 	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString(encoded)
+}
+
+func paymentProofWithMutation(
+	t *testing.T,
+	requirements Requirements,
+	mutate func(*x402types.PaymentPayload),
+) string {
+	t.Helper()
+	encoded, err := base64.StdEncoding.DecodeString(validPaymentProof(t, requirements))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload x402types.PaymentPayload
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatal(err)
+	}
+	mutate(&payload)
+	encoded, err = json.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
 	}

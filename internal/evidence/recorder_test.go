@@ -134,6 +134,33 @@ func TestRecorderAppendsSafePaymentAndDeliveryEvidence(t *testing.T) {
 	}
 }
 
+func TestRecorderTreatsIdenticalPaymentEvidenceAsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	repository := &recordingEvidenceRepository{}
+	clock := domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)}
+	recorder := NewRecorder(
+		repository,
+		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("i", 256))),
+		hmacTestSigner{keyID: "local-evidence-key", key: []byte(strings.Repeat("e", 32))},
+		clock,
+	)
+	transactionID := mustEvidenceID(t, "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.TransactionIDPrefix)
+	challenge := PaymentChallengeFacts{Amount: "100", Asset: "USDC", Network: "eip155:84532"}
+	verification := PaymentVerificationFacts{PaymentIdentifier: "payment-1", PaymentProofHash: mustEvidenceDigest(t, strings.Repeat("a", 64))}
+	for range 2 {
+		if err := recorder.RecordPaymentChallenge(t.Context(), transactionID, challenge); err != nil {
+			t.Fatal(err)
+		}
+		if err := recorder.RecordPaymentVerification(t.Context(), transactionID, verification); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(repository.events) != 2 {
+		t.Fatalf("event count = %d, want 2", len(repository.events))
+	}
+}
+
 type recordingEvidenceRepository struct {
 	mutex  sync.Mutex
 	events []Event

@@ -170,24 +170,30 @@ func transactionResponse(transaction Transaction) Response {
 		publicReconciliation = &reconciliation
 	}
 	return Response{
-		TransactionID:    transaction.TransactionID(),
-		IntentID:         transaction.IntentID(),
-		SellerID:         transaction.SellerID(),
-		RouteID:          transaction.RouteID(),
-		BuyerID:          transaction.BuyerID(),
-		Status:           transaction.Status(),
-		Amount:           transaction.Amount(),
-		Asset:            transaction.Asset(),
-		Network:          transaction.Network(),
-		PaymentFinality:  transaction.PaymentFinality(),
-		PaymentReference: transaction.PaymentReference(),
-		ReconciledAt:     transaction.ReconciledAt(),
-		Reconciliation:   publicReconciliation,
-		UpstreamStatus:   transaction.UpstreamStatus(),
-		ResponseHash:     transaction.ResponseHash(),
-		FailureCode:      transaction.FailureCode(),
-		CreatedAt:        transaction.CreatedAt(),
-		UpdatedAt:        transaction.UpdatedAt(),
+		TransactionID:        transaction.TransactionID(),
+		IntentID:             transaction.IntentID(),
+		SellerID:             transaction.SellerID(),
+		RouteID:              transaction.RouteID(),
+		BuyerID:              transaction.BuyerID(),
+		PurchaseSessionID:    transaction.PurchaseSessionID(),
+		ProductDisplayName:   transaction.ProductDisplayName(),
+		ProductSlug:          transaction.ProductSlug(),
+		PaymentDestinationID: transaction.PaymentDestinationID(),
+		PurchaseChannel:      transaction.PurchaseChannel(),
+		PaymentRail:          transaction.PaymentRail(),
+		Status:               transaction.Status(),
+		Amount:               transaction.Amount(),
+		Asset:                transaction.Asset(),
+		Network:              transaction.Network(),
+		PaymentFinality:      transaction.PaymentFinality(),
+		PaymentReference:     transaction.PaymentReference(),
+		ReconciledAt:         transaction.ReconciledAt(),
+		Reconciliation:       publicReconciliation,
+		UpstreamStatus:       transaction.UpstreamStatus(),
+		ResponseHash:         transaction.ResponseHash(),
+		FailureCode:          transaction.FailureCode(),
+		CreatedAt:            transaction.CreatedAt(),
+		UpdatedAt:            transaction.UpdatedAt(),
 	}
 }
 
@@ -198,19 +204,33 @@ func NewTransaction(params TransactionParams) (Transaction, error) {
 		return Transaction{}, validationErrors
 	}
 
+	purchaseChannel := params.PurchaseChannel
+	if purchaseChannel == "" {
+		purchaseChannel = PurchaseChannelAgent
+	}
+	paymentRail := params.PaymentRail
+	if paymentRail == "" {
+		paymentRail = PaymentRailX402
+	}
 	return Transaction{
-		transactionID: params.TransactionID,
-		intentID:      params.IntentID,
-		sellerID:      params.SellerID,
-		routeID:       params.RouteID,
-		buyerID:       strings.TrimSpace(params.BuyerID),
-		amount:        params.Amount,
-		asset:         strings.TrimSpace(params.Asset),
-		network:       strings.TrimSpace(params.Network),
-		status:        StatusProposed,
-		createdAt:     params.CreatedAt,
-		updatedAt:     params.CreatedAt,
-		version:       1,
+		transactionID:        params.TransactionID,
+		intentID:             params.IntentID,
+		sellerID:             params.SellerID,
+		routeID:              params.RouteID,
+		buyerID:              strings.TrimSpace(params.BuyerID),
+		purchaseSessionID:    strings.TrimSpace(params.PurchaseSessionID),
+		productDisplayName:   strings.TrimSpace(params.ProductDisplayName),
+		productSlug:          strings.TrimSpace(params.ProductSlug),
+		paymentDestinationID: params.PaymentDestinationID,
+		purchaseChannel:      purchaseChannel,
+		paymentRail:          paymentRail,
+		amount:               params.Amount,
+		asset:                strings.TrimSpace(params.Asset),
+		network:              strings.TrimSpace(params.Network),
+		status:               StatusProposed,
+		createdAt:            params.CreatedAt,
+		updatedAt:            params.CreatedAt,
+		version:              1,
 	}, nil
 }
 
@@ -258,6 +278,31 @@ func validateTransactionParams(params TransactionParams) domain.ValidationErrors
 	validateID(params.RouteID, domain.RouteIDPrefix, "routeId")
 	if strings.TrimSpace(params.BuyerID) == "" {
 		validationErrors = append(validationErrors, domain.NewValidationError("buyerId", "required", "is required"))
+	}
+	if params.PurchaseChannel != "" && params.PurchaseChannel != PurchaseChannelAgent && params.PurchaseChannel != PurchaseChannelBrowser {
+		validationErrors = append(validationErrors, domain.NewValidationError("purchaseChannel", "supported", "must use a supported purchase channel"))
+	}
+	if params.PaymentRail != "" && params.PaymentRail != PaymentRailX402 {
+		validationErrors = append(validationErrors, domain.NewValidationError("paymentRail", "supported", "must use x402"))
+	}
+	if params.PurchaseChannel == PurchaseChannelBrowser && strings.TrimSpace(params.PurchaseSessionID) == "" {
+		validationErrors = append(validationErrors, domain.NewValidationError("purchaseSessionId", "required", "is required for browser purchases"))
+	}
+	commerceSnapshotFields := 0
+	if strings.TrimSpace(params.ProductDisplayName) != "" {
+		commerceSnapshotFields++
+	}
+	if strings.TrimSpace(params.ProductSlug) != "" {
+		commerceSnapshotFields++
+	}
+	if params.PaymentDestinationID.String() != "" {
+		commerceSnapshotFields++
+	}
+	if commerceSnapshotFields != 0 && commerceSnapshotFields != 3 {
+		validationErrors = append(validationErrors, domain.NewValidationError("commerceSnapshot", "complete", "product and payment destination snapshots must be supplied together"))
+	}
+	if params.PaymentDestinationID.String() != "" && params.PaymentDestinationID.Prefix() != domain.PaymentDestinationIDPrefix {
+		validationErrors = append(validationErrors, domain.NewValidationError("paymentDestinationId", "format", "must be a payment destination identifier"))
 	}
 	if params.Amount.IsZero() {
 		validationErrors = append(validationErrors, domain.NewValidationError("amount", "positive", "must be greater than zero"))
@@ -437,6 +482,10 @@ func validatePaymentReference(paymentReference string, required bool) error {
 
 // MarkForwarded claims the transaction for one seller invocation.
 func (transaction *Transaction) MarkForwarded(at domain.Timestamp) error {
+	if transaction.status != StatusPaymentVerified ||
+		transaction.paymentFinality != PaymentFinalityFinalized {
+		return InvalidTransitionError{From: transaction.status, To: StatusForwarded}
+	}
 	return transaction.transition(StatusForwarded, at)
 }
 

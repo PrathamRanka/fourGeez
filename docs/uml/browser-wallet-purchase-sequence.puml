@@ -13,10 +13,10 @@ participant "Evidence service" as Evidence
 
 Buyer -> Web : Select published product
 Web -> API : Create immutable purchase intent\nchannel=browser
-API --> Web : Frozen seller quote and approval requirement
+API --> Web : Frozen seller quote within buyer maximum
 Web -> API : Request paid route
 API --> Web : Return x402 challenge
-Buyer -> Wallet : Approve exact asset, network, amount, and destination
+Buyer -> Wallet : Authorize exact asset, network, amount, destination, and resource
 Web -> API : Retry with payment proof
 API -> Facilitator : Verify payment proof
 Facilitator --> API : Verified payment reference

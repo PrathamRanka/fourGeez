@@ -227,6 +227,11 @@ func PrincipalFromContext(ctx context.Context) (Principal, bool) {
 	return principal, ok
 }
 
+// WithPrincipal attaches an already authenticated principal for feature-owned middleware.
+func WithPrincipal(request *http.Request, principal Principal) *http.Request {
+	return request.WithContext(context.WithValue(request.Context(), principalContextKey{}, principal))
+}
+
 func bearerToken(authorization string) (string, bool) {
 	parts := strings.Fields(authorization)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {

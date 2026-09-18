@@ -172,6 +172,13 @@ func verifiedTransaction(t *testing.T) transactions.Transaction {
 	); err != nil {
 		t.Fatal(err)
 	}
+	if err := transaction.FinalizePayment(
+		"x402_payment",
+		"0xtestnettransaction",
+		createdAt.Add(3*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
 	return transaction
 }
 

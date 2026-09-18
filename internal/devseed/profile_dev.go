@@ -36,6 +36,8 @@ const (
 	InfoPath = "/__dev/seed-profile"
 	// ResetPath clears disposable state and reapplies the active profile.
 	ResetPath = "/__dev/seed-profile/reset"
+	// CancelSellerPath exposes the launch-ready cancellation fixture action.
+	CancelSellerPath = "/__dev/seed-profile/sellers/{sellerId}/cancel"
 
 	launchReadySellerIDValue      = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 	incompleteSellerIDValue       = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8"
@@ -110,6 +112,13 @@ type Metadata struct {
 	InvalidEvidenceTransactionID domain.ID `json:"invalidEvidenceTransactionId"`
 }
 
+type cancellationResponse struct {
+	SellerID          domain.ID                 `json:"sellerId"`
+	EntitlementStatus billing.EntitlementStatus `json:"entitlementStatus"`
+	EntitlementEpoch  uint64                    `json:"entitlementEpoch"`
+	CredentialRevoked bool                      `json:"credentialRevoked"`
+}
+
 // Seeder owns one named fixture set and serializes reset operations.
 type Seeder struct {
 	config       Config
@@ -174,6 +183,102 @@ func (seeder *Seeder) RegisterRoutes(mux *http.ServeMux) {
 		}
 		writeJSON(response, http.StatusOK, metadata)
 	})
+	mux.HandleFunc("POST "+CancelSellerPath, func(response http.ResponseWriter, request *http.Request) {
+		if request.PathValue("sellerId") != seeder.metadata.LaunchReadySellerID.String() {
+			writeJSON(response, http.StatusNotFound, map[string]string{
+				"error": "development seed seller not found",
+			})
+			return
+		}
+		result, err := seeder.cancelLaunchReadySeller(request.Context())
+		if err != nil {
+			writeJSON(response, http.StatusInternalServerError, map[string]string{
+				"error": "development seed cancellation failed",
+			})
+			return
+		}
+		writeJSON(response, http.StatusOK, result)
+	})
+}
+
+func (seeder *Seeder) cancelLaunchReadySeller(ctx context.Context) (cancellationResponse, error) {
+	seeder.mutex.Lock()
+	defer seeder.mutex.Unlock()
+
+	sellerID := seeder.metadata.LaunchReadySellerID
+	credentialID := mustProfileID(launchReadyCredentialIDValue, domain.CredentialIDPrefix)
+	entitlement, err := seeder.repositories.SellerEntitlements.Get(ctx, sellerID)
+	if err != nil {
+		return cancellationResponse{}, fmt.Errorf("load launch-ready entitlement: %w", err)
+	}
+	credential, err := seeder.repositories.IntegrationCredentials.Get(ctx, sellerID, credentialID)
+	if err != nil {
+		return cancellationResponse{}, fmt.Errorf("load launch-ready credential: %w", err)
+	}
+
+	cancelledAt := domain.NewTimestamp(time.Now().UTC())
+	if cancelledAt.Before(entitlement.UpdatedAt()) {
+		cancelledAt = entitlement.UpdatedAt()
+	}
+	if cancelledAt.Before(credential.UpdatedAt()) {
+		cancelledAt = credential.UpdatedAt()
+	}
+
+	if entitlement.Status() != billing.EntitlementStatusCancelled {
+		candidate := billing.EntitlementCandidate{
+			SellerID:               entitlement.SellerID(),
+			PlanID:                 entitlement.PlanID(),
+			PlanVersion:            entitlement.PlanVersion(),
+			Status:                 billing.EntitlementStatusCancelled,
+			BillingPeriodStart:     entitlement.BillingPeriodStart(),
+			BillingPeriodEnd:       entitlement.BillingPeriodEnd(),
+			AccessEndsAt:           cancelledAt,
+			CancelAtPeriodEnd:      false,
+			Source:                 billing.EntitlementSourceLocal,
+			StatusReason:           billing.EntitlementStatusReasonCancelled,
+			Provider:               billing.EntitlementProviderLocal,
+			ProviderCustomerID:     entitlement.ProviderCustomerID(),
+			ProviderSubscriptionID: entitlement.ProviderSubscriptionID(),
+			ProviderPriceID:        entitlement.ProviderPriceID(),
+			LastProviderEventID:    entitlement.LastProviderEventID(),
+		}
+		cancelled, reconciliation, reconcileErr := billing.ReconcileSellerEntitlement(
+			&entitlement,
+			candidate,
+			cancelledAt,
+		)
+		if reconcileErr != nil {
+			return cancellationResponse{}, fmt.Errorf("reconcile launch-ready cancellation: %w", reconcileErr)
+		}
+		if applyErr := seeder.repositories.SellerEntitlements.Apply(
+			ctx,
+			cancelled,
+			reconciliation,
+			entitlement.Version(),
+		); applyErr != nil {
+			return cancellationResponse{}, fmt.Errorf("apply launch-ready cancellation: %w", applyErr)
+		}
+		entitlement = cancelled
+	}
+
+	// Persist the epoch bump first: every transaction-critical authorization
+	// fails closed even if credential revocation must be retried.
+	if credential.RevokedAt() == nil {
+		expectedVersion := credential.Version()
+		if err := credential.Revoke(cancelledAt); err != nil {
+			return cancellationResponse{}, fmt.Errorf("revoke launch-ready credential: %w", err)
+		}
+		if err := seeder.repositories.IntegrationCredentials.Update(ctx, credential, expectedVersion); err != nil {
+			return cancellationResponse{}, fmt.Errorf("persist launch-ready credential revocation: %w", err)
+		}
+	}
+
+	return cancellationResponse{
+		SellerID:          sellerID,
+		EntitlementStatus: entitlement.Status(),
+		EntitlementEpoch:  entitlement.EntitlementEpoch(),
+		CredentialRevoked: credential.RevokedAt() != nil,
+	}, nil
 }
 
 func (seeder *Seeder) seed(ctx context.Context) error {

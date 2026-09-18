@@ -62,8 +62,9 @@ type ErrorResponse struct {
 type PrincipalKind string
 
 const (
-	PrincipalSeller PrincipalKind = "seller"
-	PrincipalAgent  PrincipalKind = "agent"
+	PrincipalSeller  PrincipalKind = "seller"
+	PrincipalAgent   PrincipalKind = "agent"
+	PrincipalBrowser PrincipalKind = "browser"
 )
 
 // Principal is the authenticated identity available to controllers.

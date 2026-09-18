@@ -87,6 +87,7 @@ func TestNewEventAcceptsSubscriptionAndCredentialSecurityActions(t *testing.T) {
 		{action: ActionCredentialExchangeSucceeded, targetType: TargetTypeIntegrationCredential, targetID: "key_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"lastUsedAt"}},
 		{action: ActionCredentialExchangeDenied, targetType: TargetTypeIntegrationCredential, targetID: "key_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"authorization"}},
 		{action: ActionEntitlementChanged, targetType: TargetTypeSeller, targetID: "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"status", "accessEndsAt", "entitlementEpoch", "sourceRevision", "credentialRotationRequired"}},
+		{action: ActionManualRefundRecorded, targetType: TargetTypeDispute, targetID: "dsp_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"amount", "asset", "network", "reference"}},
 	}
 	for _, test := range tests {
 		_, err := NewEvent(EventParams{

@@ -455,6 +455,9 @@ func TestTransactionCreateConditionallyClaimsPaymentIdentifier(t *testing.T) {
 		readStringAttribute(profile.Item["GSI2SK"]) != "TXN#"+transaction.TransactionID().String() {
 		t.Fatalf("transaction payment index is incorrect: %#v", profile.Item)
 	}
+	if readStringAttribute(profile.Item["paymentFinality"]) != string(transactions.PaymentFinalityFinalized) {
+		t.Fatalf("transaction payment finality = %#v", profile.Item["paymentFinality"])
+	}
 }
 
 // TestTransactionClaimForwardingMapsConditionalLoss verifies exactly-one claiming.
@@ -483,7 +486,7 @@ func TestTransactionClaimForwardingMapsConditionalLoss(t *testing.T) {
 	if err != nil || won {
 		t.Fatalf("ClaimForwarding() = (%v, %v), want lost claim without error", won, err)
 	}
-	if client.updateInput == nil || client.updateInput.ConditionExpression == nil || *client.updateInput.ConditionExpression != "#status = :verified AND #version = :expected" {
+	if client.updateInput == nil || client.updateInput.ConditionExpression == nil || *client.updateInput.ConditionExpression != "#status = :verified AND #paymentFinality = :finalized AND #version = :expected" {
 		t.Fatalf("condition = %#v", client.updateInput)
 	}
 }
@@ -675,6 +678,9 @@ func testDynamoTransaction(t *testing.T) transactions.Transaction {
 	}
 	digest, _ := intents.ParseSHA256Digest(strings.Repeat("a", 64))
 	if err := transaction.VerifyPayment("payment-123", digest, testDynamoTime().Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.FinalizePayment("payment-123", "0xtestnettransaction", testDynamoTime().Add(3*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	return transaction

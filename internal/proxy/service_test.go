@@ -67,6 +67,36 @@ func TestForwarderForwardsOnlyConfiguredRoute(t *testing.T) {
 	}
 }
 
+func TestForwarderSendsExecutionCapabilityWithoutLegacyHMACHeaders(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeHTTPClient{response: &http.Response{
+		StatusCode: http.StatusNoContent,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}}
+	forwarder := NewForwarderWithClient(
+		&staticResolver{addresses: []net.IP{net.ParseIP("93.184.216.34")}},
+		client,
+		1024,
+	)
+	request := validForwardRequest(t)
+	request.Signature = SignatureHeaders{
+		ExecutionCapability: "signed.jwt.value",
+		Transaction:         "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+	}
+	if _, err := forwarder.Forward(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	if client.request.Header.Get(ExecutionCapabilityHeader) != "signed.jwt.value" ||
+		client.request.Header.Get(SellerTransactionHeader) != request.Signature.Transaction {
+		t.Fatalf("capability headers = %#v", client.request.Header)
+	}
+	if client.request.Header.Get(SellerSignatureHeader) != "" || client.request.Header.Get(SellerTimestampHeader) != "" {
+		t.Fatalf("legacy headers leaked into v2 request: %#v", client.request.Header)
+	}
+}
+
 // TestForwarderRejectsUnsafeResolvedAddresses verifies SSRF address controls.
 func TestForwarderRejectsUnsafeResolvedAddresses(t *testing.T) {
 	t.Parallel()
@@ -108,6 +138,52 @@ func TestForwarderRejectsUnsafeResolvedAddresses(t *testing.T) {
 				t.Fatalf("HTTP calls = %d", client.calls.Load())
 			}
 		})
+	}
+}
+
+func TestLocalDevelopmentForwarderAllowsOnlyConfiguredLoopbackOrigin(t *testing.T) {
+	t.Parallel()
+
+	forwarder, err := NewLocalDevelopmentForwarder("http://127.0.0.1:8090/research/basic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	forwarder.resolver = &staticResolver{addresses: []net.IP{net.ParseIP("127.0.0.1")}}
+	forwarder.client = &fakeHTTPClient{response: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+	}}
+
+	request := validForwardRequest(t)
+	request.Seller.UpstreamBaseURL = "http://127.0.0.1:8090"
+	if _, err := forwarder.Forward(t.Context(), request); err != nil {
+		t.Fatalf("configured local target: %v", err)
+	}
+
+	request.Seller.UpstreamBaseURL = "http://127.0.0.1:8091"
+	if _, err := forwarder.Forward(t.Context(), request); !errors.Is(err, ErrForbiddenTarget) {
+		t.Fatalf("different local port error = %v", err)
+	}
+
+	request.Seller.UpstreamBaseURL = "http://10.0.0.1:8090"
+	if _, err := forwarder.Forward(t.Context(), request); !errors.Is(err, ErrForbiddenTarget) {
+		t.Fatalf("private target error = %v", err)
+	}
+}
+
+func TestLocalDevelopmentForwarderRejectsUnsafeConfiguration(t *testing.T) {
+	t.Parallel()
+
+	for _, target := range []string{
+		"https://127.0.0.1:8090",
+		"http://10.0.0.1:8090",
+		"http://user:secret@127.0.0.1:8090",
+		"http://127.0.0.1:8090/path?token=secret",
+	} {
+		if _, err := NewLocalDevelopmentForwarder(target); !errors.Is(err, ErrForbiddenTarget) {
+			t.Fatalf("NewLocalDevelopmentForwarder(%q) error = %v", target, err)
+		}
 	}
 }
 

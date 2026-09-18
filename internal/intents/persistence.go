@@ -8,6 +8,8 @@ type Snapshot struct {
 	SellerID             domain.ID            `json:"sellerId"`
 	RouteID              domain.ID            `json:"routeId"`
 	BuyerID              string               `json:"buyerId"`
+	PurchaseSessionID    string               `json:"purchaseSessionId,omitempty"`
+	PurchaseChannel      PurchaseChannel      `json:"purchaseChannel"`
 	ProductDisplayName   string               `json:"productDisplayName"`
 	ProductSlug          string               `json:"productSlug"`
 	PaymentDestinationID domain.ID            `json:"paymentDestinationId,omitempty"`
@@ -26,6 +28,32 @@ type Snapshot struct {
 	ExpiresAt            domain.Timestamp     `json:"expiresAt"`
 }
 
+// Response is the active Lean V1 wire representation. Historical approval
+// fields remain persistence-only and are never exposed by current endpoints.
+type Response struct {
+	IntentID             domain.ID            `json:"intentId"`
+	SellerID             domain.ID            `json:"sellerId"`
+	RouteID              domain.ID            `json:"routeId"`
+	BuyerID              string               `json:"buyerId"`
+	PurchaseSessionID    string               `json:"purchaseSessionId,omitempty"`
+	PurchaseChannel      PurchaseChannel      `json:"purchaseChannel"`
+	ProductDisplayName   string               `json:"productDisplayName"`
+	ProductSlug          string               `json:"productSlug"`
+	PaymentDestinationID domain.ID            `json:"paymentDestinationId"`
+	PayTo                string               `json:"payTo"`
+	RequestMethod        RequestMethod        `json:"requestMethod"`
+	RequestPath          string               `json:"requestPath"`
+	RequestBodyHash      SHA256Digest         `json:"requestBodyHash"`
+	Amount               domain.Amount        `json:"amount"`
+	Asset                string               `json:"asset"`
+	Network              string               `json:"network"`
+	MaximumAmount        domain.Amount        `json:"maximumAmount"`
+	IntentHash           SHA256Digest         `json:"intentHash"`
+	Status               PurchaseIntentStatus `json:"status"`
+	CreatedAt            domain.Timestamp     `json:"createdAt"`
+	ExpiresAt            domain.Timestamp     `json:"expiresAt"`
+}
+
 // Snapshot returns the immutable purchase-intent persistence representation.
 func (purchaseIntent PurchaseIntent) Snapshot() Snapshot {
 	return Snapshot{
@@ -33,6 +61,8 @@ func (purchaseIntent PurchaseIntent) Snapshot() Snapshot {
 		SellerID:             purchaseIntent.sellerID,
 		RouteID:              purchaseIntent.routeID,
 		BuyerID:              purchaseIntent.buyerID,
+		PurchaseSessionID:    purchaseIntent.purchaseSessionID,
+		PurchaseChannel:      purchaseIntent.purchaseChannel,
 		ProductDisplayName:   purchaseIntent.productDisplayName,
 		ProductSlug:          purchaseIntent.productSlug,
 		PaymentDestinationID: purchaseIntent.paymentDestinationID,
@@ -52,6 +82,22 @@ func (purchaseIntent PurchaseIntent) Snapshot() Snapshot {
 	}
 }
 
+// Response returns the approval-free Lean V1 purchase-intent contract.
+func (purchaseIntent PurchaseIntent) Response() Response {
+	return Response{
+		IntentID: purchaseIntent.intentID, SellerID: purchaseIntent.sellerID,
+		RouteID: purchaseIntent.routeID, BuyerID: purchaseIntent.buyerID,
+		PurchaseSessionID: purchaseIntent.purchaseSessionID, PurchaseChannel: purchaseIntent.purchaseChannel,
+		ProductDisplayName: purchaseIntent.productDisplayName, ProductSlug: purchaseIntent.productSlug,
+		PaymentDestinationID: purchaseIntent.paymentDestinationID, PayTo: purchaseIntent.payTo,
+		RequestMethod: purchaseIntent.requestMethod, RequestPath: purchaseIntent.requestPath,
+		RequestBodyHash: purchaseIntent.requestBodyHash, Amount: purchaseIntent.amount,
+		Asset: purchaseIntent.asset, Network: purchaseIntent.network, MaximumAmount: purchaseIntent.maximumAmount,
+		IntentHash: purchaseIntent.intentHash, Status: purchaseIntent.status,
+		CreatedAt: purchaseIntent.createdAt, ExpiresAt: purchaseIntent.expiresAt,
+	}
+}
+
 // Restore validates and recreates an immutable purchase intent from storage.
 func Restore(snapshot Snapshot) (PurchaseIntent, error) {
 	restored, err := NewPurchaseIntent(PurchaseIntentParams{
@@ -59,6 +105,8 @@ func Restore(snapshot Snapshot) (PurchaseIntent, error) {
 		SellerID:             snapshot.SellerID,
 		RouteID:              snapshot.RouteID,
 		BuyerID:              snapshot.BuyerID,
+		PurchaseSessionID:    snapshot.PurchaseSessionID,
+		PurchaseChannel:      snapshot.PurchaseChannel,
 		ProductDisplayName:   snapshot.ProductDisplayName,
 		ProductSlug:          snapshot.ProductSlug,
 		PaymentDestinationID: snapshot.PaymentDestinationID,

@@ -2,13 +2,12 @@
 
 Status: **Locked for the implemented M0–M7 backend and approved MVP direction**.
 
-Implementation status: the reduced M7.1 Lean V1 is required before production
-launch. The current local API uses in-memory persistence and development
-credentials, and the current web authentication entry points are previews.
-Short-lived MCP capabilities, subscription-expiry enforcement, integrated
-local services, complete x402 checkout, and production identity are not yet
-fully deployed. Redis, direct remote MCP OAuth, a global directory, and a full
-operator console are post-launch scaling features rather than V1 blockers.
+Implementation status: the reduced M7.1 Lean V1 is implemented and verified in
+the production-shaped local runtime. The local API still uses in-memory
+persistence and development credentials; AWS deployment, production Cognito,
+managed signing keys, durable evidence storage, and real testnet release proof
+remain M8/M9 work. Redis, direct remote MCP OAuth, a global directory, and a
+full operator console are post-launch scaling features rather than V1 blockers.
 
 ## Purpose
 
@@ -22,10 +21,11 @@ The Next.js application provides the public AgentPay marketing and product site,
 sign-up and sign-in entry points, seller onboarding, verified
 payment-destination setup, product and route configuration, an asset-separated
 sales dashboard, seller-branded storefronts, browser-wallet purchase guidance,
-the agent buyer demonstration, live approval, transaction evidence, receipts,
+the agent buyer demonstration, transaction evidence, receipts,
 webhook status, and dispute views.
 
-Server Components render read-heavy pages. Client Components are limited to buyer interaction, approval decisions, WebSocket status, and small optimistic controls.
+Server Components render read-heavy pages. Client Components are limited to
+buyer interaction, wallet interaction, and small optimistic controls.
 
 The public site and authenticated product share one token, typography,
 navigation, and responsive-layout system. Marketing-only visual effects remain
@@ -71,14 +71,17 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `storefront`: authoritative publication readiness, signed AgentPay-hosted
   discovery, persisted publication revisions, and fresh commerce eligibility.
 - `intents`: immutable purchase proposals and request hashes.
-- `policy`: budget and approval evaluation.
-- `approvals`: sessions, invitations, decisions, and approval tokens.
+- `policy`: buyer maximum and budget evaluation. Historical threshold policy
+  code is disabled for Lean V1.
+- `approvals`: preserved M2 implementation for compatibility and future
+  enterprise work; it has no active Lean V1 route, WebSocket, or payment gate.
 - `payments`: x402 challenge creation and facilitator verification.
 - `settlement`: seller payment destinations, ownership verification, rotation,
   and reconciliation status.
 - `proxy`: upstream request forwarding and seller request signatures.
 - `evidence`: append-only evidence events and chain verification.
-- `disputes`: deterministic classification and recommendations.
+- `disputes`: deterministic classification, recommendations, and append-only
+  seller-recorded external refund metadata; it never moves funds.
 - `agents`: Bedrock tool orchestration and deterministic fallback.
 - `analytics`: deterministic seller-scoped, asset-separated sales read models over bounded transaction queries.
 - `notifications`: signed seller webhook subscriptions and delivery attempts.
@@ -152,12 +155,13 @@ Shared primitives and storage adapters remain organized by their concrete respon
 ### AWS managed services
 
 - API Gateway HTTP API routes browser, agent, and proxy traffic.
-- API Gateway WebSocket API distributes approval updates.
+- The historical API Gateway approval WebSocket design is not deployed for
+  Lean V1.
 - Lambda runs the Go modular monolith for the hackathon.
 - DynamoDB stores mutable operational state and idempotency records.
 - S3 stores immutable evidence event objects.
 - KMS signs evidence event hashes.
-- Cognito authenticates sellers; hackathon approval links use scoped invitation tokens.
+- Cognito authenticates sellers.
 - Secrets Manager stores seller HMAC secrets and the isolated test-wallet secret.
 - Bedrock produces structured purchase proposals and explanations.
 - A remote MCP endpoint exposes seller-scoped integration tools and documentation.
@@ -221,9 +225,10 @@ recovery, and persistence never stores raw challenge or signature material.
 
 Both buyer channels consume the same published paid routes:
 
-- **Agent channel:** manifest or `llms.txt` discovery, immutable intent, optional approval, x402 payment, and signed fulfillment.
-- **Browser channel:** seller-branded product page, immutable intent, optional
-  approval, x402-compatible wallet payment, and the same signed fulfillment.
+- **Agent channel:** manifest or `llms.txt` discovery, immutable intent, buyer
+  maximum validation, x402 payment, and signed fulfillment.
+- **Browser channel:** seller-branded product page, immutable intent,
+  x402-compatible wallet payment, and the same signed fulfillment.
 
 The channel is presentation and payment-rail metadata. It does not create separate pricing, authorization, evidence, transaction, or dispute semantics.
 
@@ -279,19 +284,17 @@ for ownership and persistence.
   HttpOnly cookie survives reloads; ten-minute commerce authority is separated
   from longer-lived receipt/dispute access and can be recovered after payment
   through proof from the bound payer wallet.
-- Approval invitation fragments are exchanged once into a browser grant set
-  represented by a Secure, HttpOnly, SameSite=Strict cookie. State-changing
-  approval and browser-purchase requests additionally require a double-submit
-  CSRF token and exact allowed Origin. One browser grant can hold multiple
-  independently scoped approval sessions.
+- Buyer-side approval invitation, cookie, token, REST, and WebSocket surfaces
+  are disabled for Lean V1. Historical M2 approval records remain readable only
+  for migration/testing and never gate a Lean V1 challenge or transaction.
 - Seller fulfillment uses a 30-60 second ES256 execution capability in
   `X-AgentPay-Execution-Capability`; it is minted only after finalized payment
   and the exactly-once forwarding claim.
 
 AgentPay publishes overlapping ES256 public keys at
 `/.well-known/jwks.json`. MCP access, discovery, and execution signatures pin
-their own type, audience/domain, and claim sets. Browser purchase and approval
-authority are opaque server-side grants rather than JWTs. A valid signature or
+their own type, audience/domain, and claim sets. Browser purchase authority is
+an opaque server-side grant rather than a JWT. A valid signature or
 cookie never replaces current entitlement, credential, ownership, state, CSRF,
 or replay checks.
 
@@ -309,25 +312,26 @@ destination, and workspace publication prerequisites before signing.
    bounded server-side purchase session for the selected product. Either channel creates a
    purchase intent containing the immutable route, product snapshot, request
    hash, destination, quote, channel, and expiration.
-3. The policy engine evaluates the immutable intent.
-4. If approval is required, the API creates a session and returns HTTP `428` with invitation metadata. No x402 challenge is issued yet.
-5. When all required users approve, the purchase owner—not either approver—claims a short-lived approval token bound to the complete intent hash.
-6. The buyer requests the paid route with the intent identifier and optional approval token.
-7. The gateway returns an x402 challenge when payment is absent.
-8. The buyer retries with payment proof.
-9. The gateway rechecks current entitlement, verifies and settles payment, and
+3. The policy engine verifies that the fixed seller quote does not exceed the
+   buyer-provided `maximumAmount`. No buyer-side approval session is created.
+4. The buyer requests the paid route with the intent identifier.
+5. The gateway returns an x402 challenge when payment is absent.
+6. The buyer wallet authorizes the exact asset, network, amount, destination,
+   and resource, then retries with payment proof.
+7. The gateway rechecks current entitlement, verifies and settles payment, and
    records finality.
-10. One conditional-write winner claims the finalized transaction for
+8. One conditional-write winner claims the finalized transaction for
     forwarding and receives a one-time execution capability.
-11. Evidence is appended for verification, forwarding, response, and final outcome.
-12. The proxy forwards exactly once with the execution capability and returns
+9. Evidence is appended for verification, forwarding, response, and final outcome.
+10. The proxy forwards exactly once with the execution capability and returns
     the upstream response.
 
 ## Consistency and idempotency
 
 - Client mutations require `Idempotency-Key`.
 - Purchase intents are immutable after creation.
-- Approval is bound to the intent hash, not only the intent ID.
+- The buyer maximum, request hash, quote, and payment destination are bound to
+  the immutable intent.
 - Payment identifiers are globally unique in the transaction table.
 - A DynamoDB conditional write changes a transaction from `PAYMENT_VERIFIED` to `FORWARDED` only when `paymentFinality=finalized`, the expected version matches, and no forwarding owner exists; only the winner calls the seller.
 - Retried requests return the stored response metadata when replay is safe.
@@ -336,13 +340,13 @@ destination, and workspace publication prerequisites before signing.
 
 | Failure | Required behavior |
 |---|---|
-| Bedrock timeout | Offer deterministic buyer fallback; never infer approval. |
+| Bedrock timeout | Offer deterministic buyer fallback; never bypass the buyer maximum or wallet authorization. |
 | Facilitator unavailable | Return retriable `503`; do not call the seller. |
 | Evidence append fails before forwarding | Stop and return `503`; do not call the seller. |
 | Seller timeout | Record delivery failure and classify `not_delivered` disputes as refund-recommended. |
-| WebSocket disconnect | Approval remains queryable over REST; reconnect receives the current snapshot. |
+| Invalid manual refund record | Reject before persistence; require the authenticated owning seller, a finalized payment, `refund_recommended` status, and an exact amount/asset/network match. |
+| Duplicate manual refund request | Exact `Idempotency-Key` replay returns the original `201`; changed input or a conflicting second record returns `409` and never overwrites the first record. |
 | Duplicate paid retry | Return the prior transaction outcome; never forward twice. |
-| Expired approval | Require a new approval session before issuing another challenge. |
 | Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
 | Seller entitlement inactive or expired | Return `403 subscription_inactive` for authenticated seller/MCP operations, `410 seller_inactive` for public discovery, and reject new intent, challenge, verification, and settlement authorization. |
@@ -367,6 +371,7 @@ remains a separate transaction outcome after finalization.
 ## Deliberate exclusions
 
 The first implementation does not provide card checkout, physical goods,
-shipping, inventory, tax calculation, production custody, generalized refunds,
+shipping, inventory, tax calculation, production custody, automated refund
+execution,
 cross-seller reputation, autonomous negotiation, arbitrary remote code
 execution, guaranteed search ranking, or automatic quality judgments.

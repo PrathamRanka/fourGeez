@@ -9,7 +9,10 @@ import (
 	"github.com/fourgeez/agentpay/internal/evidence"
 )
 
-const purchaseReceiptSchemaVersion = "1"
+const (
+	purchaseReceiptSchemaVersionV1 = "1"
+	purchaseReceiptSchemaVersionV2 = "2"
+)
 
 // GetReceiptForBuyer returns a receipt only to its bound authenticated buyer.
 func (service *Service) GetReceiptForBuyer(
@@ -72,7 +75,7 @@ func (service *Service) purchaseReceipt(
 	rootEvent := events[0]
 	headEvent := events[len(events)-1]
 	return PurchaseReceipt{
-		SchemaVersion: purchaseReceiptSchemaVersion,
+		SchemaVersion: receiptSchemaVersion(transaction),
 		Transaction:   receiptTransaction(transaction),
 		Evidence: ReceiptEvidence{
 			Verified:      true,
@@ -84,25 +87,39 @@ func (service *Service) purchaseReceipt(
 	}, nil
 }
 
+func receiptSchemaVersion(transaction Transaction) string {
+	if transaction.ProductDisplayName() != "" && transaction.ProductSlug() != "" &&
+		transaction.PaymentDestinationID().String() != "" {
+		return purchaseReceiptSchemaVersionV2
+	}
+	return purchaseReceiptSchemaVersionV1
+}
+
 // receiptTransaction copies only safe public transaction fields into a receipt.
 func receiptTransaction(transaction Transaction) ReceiptTransaction {
 	return ReceiptTransaction{
-		TransactionID:    transaction.TransactionID(),
-		IntentID:         transaction.IntentID(),
-		SellerID:         transaction.SellerID(),
-		RouteID:          transaction.RouteID(),
-		BuyerID:          transaction.BuyerID(),
-		Status:           transaction.Status(),
-		Amount:           transaction.Amount(),
-		Asset:            transaction.Asset(),
-		Network:          transaction.Network(),
-		PaymentFinality:  transaction.PaymentFinality(),
-		PaymentReference: transaction.PaymentReference(),
-		ReconciledAt:     transaction.ReconciledAt(),
-		UpstreamStatus:   transaction.UpstreamStatus(),
-		ResponseHash:     transaction.ResponseHash(),
-		FailureCode:      transaction.FailureCode(),
-		CreatedAt:        transaction.CreatedAt(),
-		UpdatedAt:        transaction.UpdatedAt(),
+		TransactionID:        transaction.TransactionID(),
+		IntentID:             transaction.IntentID(),
+		SellerID:             transaction.SellerID(),
+		RouteID:              transaction.RouteID(),
+		BuyerID:              transaction.BuyerID(),
+		PurchaseSessionID:    transaction.PurchaseSessionID(),
+		ProductDisplayName:   transaction.ProductDisplayName(),
+		ProductSlug:          transaction.ProductSlug(),
+		PurchaseChannel:      transaction.PurchaseChannel(),
+		PaymentRail:          transaction.PaymentRail(),
+		PaymentDestinationID: transaction.PaymentDestinationID(),
+		Status:               transaction.Status(),
+		Amount:               transaction.Amount(),
+		Asset:                transaction.Asset(),
+		Network:              transaction.Network(),
+		PaymentFinality:      transaction.PaymentFinality(),
+		PaymentReference:     transaction.PaymentReference(),
+		ReconciledAt:         transaction.ReconciledAt(),
+		UpstreamStatus:       transaction.UpstreamStatus(),
+		ResponseHash:         transaction.ResponseHash(),
+		FailureCode:          transaction.FailureCode(),
+		CreatedAt:            transaction.CreatedAt(),
+		UpdatedAt:            transaction.UpdatedAt(),
 	}
 }

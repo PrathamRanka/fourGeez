@@ -323,6 +323,7 @@ func (adapter *X402Adapter) Verify(
 	return VerificationResult{
 		Valid:             true,
 		PaymentIdentifier: paymentIdentifier,
+		PayerAddress:      response.Payer,
 	}, nil
 }
 
@@ -377,6 +378,7 @@ func (adapter *X402Adapter) Settle(
 		PaymentIdentifier: paymentIdentifier,
 		PaymentReference:  response.Transaction,
 		ResponseHeader:    base64.StdEncoding.EncodeToString(encoded),
+		PayerAddress:      response.Payer,
 	}, nil
 }
 
@@ -449,6 +451,7 @@ func (adapter *MockAdapter) Verify(
 	return VerificationResult{
 		Valid:             true,
 		PaymentIdentifier: mockPaymentIdentifier(proof),
+		PayerAddress:      MockPayerAddress,
 	}, nil
 }
 
@@ -485,6 +488,7 @@ func (adapter *MockAdapter) Settle(
 		PaymentIdentifier: verification.PaymentIdentifier,
 		PaymentReference:  responsePayload.PaymentReference,
 		ResponseHeader:    base64.StdEncoding.EncodeToString(encoded),
+		PayerAddress:      verification.PayerAddress,
 	}, nil
 }
 
@@ -525,6 +529,15 @@ func validateRequirements(requirements Requirements) error {
 			"is required",
 		)
 	}
+	if strings.TrimSpace(requirements.ResourceURL) == "" {
+		return domain.NewValidationError("resource", "required", "is required")
+	}
+	if strings.TrimSpace(requirements.MIMEType) == "" {
+		return domain.NewValidationError("mimeType", "required", "is required")
+	}
+	if requirements.MaxTimeoutSeconds <= 0 {
+		return domain.NewValidationError("maxTimeoutSeconds", "positive", "must be greater than zero")
+	}
 	return nil
 }
 
@@ -547,6 +560,9 @@ func parsePaymentProof(
 	if !matchesRequirements(payload.Accepted, requirements) {
 		return nil, "", ErrPaymentRejected
 	}
+	if !matchesResource(payload.Resource, requirements) {
+		return nil, "", ErrPaymentRejected
+	}
 	canonicalPayload, err := jcs.Transform(payloadBytes)
 	if err != nil {
 		return nil, "", ErrPaymentRejected
@@ -556,6 +572,16 @@ func parsePaymentProof(
 	paymentIdentifier := x402PaymentIdentifierPrefix +
 		hex.EncodeToString(digest[:])
 	return payloadBytes, paymentIdentifier, nil
+}
+
+func matchesResource(
+	resource *x402types.ResourceInfo,
+	requirements Requirements,
+) bool {
+	return resource != nil &&
+		resource.URL == requirements.ResourceURL &&
+		resource.Description == requirements.Description &&
+		resource.MimeType == requirements.MIMEType
 }
 
 // matchesRequirements enforces exact amount and immutable payment terms.

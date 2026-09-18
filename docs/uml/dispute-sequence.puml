@@ -3,6 +3,7 @@
 title Deterministic dispute classification
 
 actor Claimant
+actor Seller
 participant "Go API" as API
 participant "Dispute rules" as Rules
 database "DynamoDB" as DDB
@@ -14,7 +15,7 @@ API -> Evidence : load chain and verify hashes/signatures
 Evidence --> API : valid/invalid + events
 API -> Rules : reason + transaction + evidence facts
 
-alt unauthorized with matching approval/payment
+alt unauthorized claim disproved by payment authorization
   Rules --> API : denied
 else duplicate, wrong amount, or failed delivery
   Rules --> API : refund_recommended
@@ -26,5 +27,11 @@ end
 
 API -> DDB : persist result idempotently
 API --> Claimant : 201 dispute with explanation
-@enduml
 
+opt status = refund_recommended and payment is finalized
+  Seller -> API : POST refund-records\nIdempotency-Key + exact refund metadata
+  API -> API : authenticate owner + validate\namount/asset/network/finality/state
+  API -> DDB : append one ManualRefundRecord
+  API --> Seller : 201 record\nexact replay returns same response
+end
+@enduml

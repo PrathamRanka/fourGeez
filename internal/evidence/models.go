@@ -8,8 +8,12 @@ import (
 	"github.com/fourgeez/agentpay/internal/intents"
 )
 
-// ErrChainInvalid reports evidence tampering or invalid ordering.
-var ErrChainInvalid = errors.New("evidence chain is invalid")
+var (
+	// ErrChainInvalid reports evidence tampering or invalid ordering.
+	ErrChainInvalid = errors.New("evidence chain is invalid")
+	// ErrEvidenceConflict reports a repeated lifecycle event with different facts.
+	ErrEvidenceConflict = errors.New("evidence event conflicts with the existing chain")
+)
 
 // EventType identifies a stable evidence event.
 type EventType string

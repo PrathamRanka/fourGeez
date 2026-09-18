@@ -80,6 +80,7 @@ var actionDefinitions = map[Action]actionDefinition{
 	ActionWebhookSubscriptionUpdated:  newActionDefinition(TargetTypeWebhookSubscription, "endpointUrl", "eventTypes", "status"),
 	ActionWebhookSubscriptionDisabled: newActionDefinition(TargetTypeWebhookSubscription, "status"),
 	ActionSellerSuspended:             newActionDefinition(TargetTypeSeller, "status"),
+	ActionManualRefundRecorded:        newActionDefinition(TargetTypeDispute, "amount", "asset", "network", "reference"),
 }
 
 // Service owns audit validation, append operations, and seller history reads.
@@ -362,6 +363,8 @@ func validateTargetID(targetType TargetType, targetID string) *domain.Validation
 		prefix = domain.WebhookSubscriptionIDPrefix
 	case TargetTypeSeller:
 		prefix = domain.SellerIDPrefix
+	case TargetTypeDispute:
+		prefix = domain.DisputeIDPrefix
 	default:
 		validationError := domain.NewValidationError(
 			"targetType",

@@ -15,13 +15,13 @@ access is not implemented.
 
 - A model cannot authorize or execute a purchase by itself.
 - One payment proof cannot cause more than one seller invocation.
-- Approval applies only to the exact intent shown to approvers.
+- The buyer maximum and wallet authorization apply only to the exact immutable intent.
 - Evidence alteration is detectable.
 - Seller configuration cannot turn the proxy into an SSRF service.
 - Secrets and payment proofs never appear in browser bundles, API responses, evidence payloads, or logs.
 - A dispute result is reproducible from recorded facts and rule version.
 - A coding agent cannot publish products, rotate credentials, or deploy production changes without explicit seller authorization.
-- Browser and agent purchase channels cannot bypass the same pricing, approval, and fulfillment rules.
+- Browser and agent purchase channels cannot bypass the same pricing, payment, and fulfillment rules.
 - A seller payment destination cannot become active without bounded ownership verification.
 - Generated SEO/AEO content cannot invent claims, reviews, prices, availability, or hidden search content.
 
@@ -29,8 +29,8 @@ access is not implemented.
 
 - Test-wallet private key and future payment credentials.
 - Seller HMAC signing secrets.
-- Seller and approver identity data.
-- Approval invitation and execution tokens.
+- Seller identity data.
+- Browser purchase grants and execution capabilities.
 - Payment proof and facilitator response.
 - Seller request/response content.
 - Evidence chain, signatures, and dispute decisions.
@@ -52,8 +52,7 @@ transaction authority.
 | Threat | Required controls |
 |---|---|
 | Payment replay | Unique payment identifier index, conditional write, intent expiration, exactly-once forwarding claim |
-| Intent modification after approval | Canonical intent hash included in session and approval token; reject every mismatch |
-| Invitation theft | 256-bit random token, hash at rest, ten-minute expiry, single use, scoped session/approver, `Referrer-Policy: no-referrer` |
+| Intent or quote modification after wallet consent | Canonical intent and request hashes; exact amount, asset, network, destination, and resource validation; reject every mismatch |
 | Model prompt injection | Fixed tool schemas, no direct HTTP tool, server-side route lookup, amount/budget revalidation, bounded calls and timeouts |
 | SSRF through seller URL | HTTPS allowlist, DNS/IP validation, block loopback/link-local/private/metadata ranges, no redirects, re-resolve on connection |
 | Malicious seller response | Response byte/time limits, content-type allowlist, no active HTML rendering, hash before storage |
@@ -62,7 +61,7 @@ transaction authority.
 | Tenant data access | Cognito subject-to-seller authorization on every seller route; no caller-supplied tenant trust |
 | Seller session replay | Validate exact Cognito issuer, client ID, access-token use, RS256 signature, timestamps, JTI, and token-family identifier; check a hashed server-side revocation record on every request |
 | Duplicate mutation | Required idempotency key bound to caller, operation, and request hash |
-| WebSocket impersonation | Validate invitation token on connect, bind connection to session, authorize every callback, expire connections |
+| Forged refund record | Seller bearer authentication, concealed cross-tenant lookup, finalized-payment and `refund_recommended` checks, exact amount/asset/network binding, append-only one-record-per-dispute persistence, and idempotency |
 | Denial of service | API throttles, body limits, route limits, Lambda concurrency, upstream timeout, Bedrock call budget |
 | Repository prompt injection | Treat repository text as untrusted, expose only allowlisted MCP tools, and require confirmation for commercial or deployment mutations |
 | Self-asserted MCP confirmation | Ignore caller approval booleans, summaries, and timestamps as authority; require a cloud-issued one-time grant bound to the authenticated seller, credential, exact tool, target, canonical arguments hash, expected resource version, and expiry |
@@ -133,7 +132,6 @@ AgentPay uses separate capabilities for separate trust boundaries:
 | MCP access token | Connector process | 300 seconds | `urn:agentpay:mcp` | Exact seller MCP scopes only |
 | MCP confirmation grant | Selected MCP interaction | 5 minutes, one use | One exact cloud MCP mutation | Prove authenticated seller confirmation of exact bound arguments |
 | Browser purchase grant | Secure HttpOnly cookie backed by server-side state | Commerce: 10 minutes; read/remediation: 30 days after terminal outcome or dispute resolution | One browser grant containing bounded purchase sessions | Create/pay once during commerce window; read/recover/dispute afterward |
-| Approval grant set | Secure HttpOnly cookie backed by server-side state | Per-invitation approval expiry | Independently bound approval sessions | Read and decide once for each authorized approver grant |
 | Execution capability | AgentPay proxy and seller endpoint | 60 seconds | `urn:agentpay:seller:<sellerId>` | One exact finalized transaction request |
 
 JWT capabilities use ES256 only. Protected headers pin a capability-specific
@@ -167,18 +165,11 @@ version, expiry, revocation, or prior consumption fails before mutation.
 Caller-supplied `approved`, `summary`, and `confirmedAt` values are display
 metadata only during migration and are forbidden as production authority.
 
-Approval invitation tokens are the one deliberate URL-delivered secret. They
-appear only after `#invite=` in a generated approval URL, so browsers do not
-send them in HTTP requests or referrers. The approval page exchanges the token
-once into a server-side grant set represented by a Secure, HttpOnly,
-SameSite=Strict cookie and removes the fragment. A separate non-HttpOnly
-SameSite=Strict CSRF cookie must match `X-AgentPay-CSRF`; the server also
-requires the exact configured approval Origin and strict JSON content type for
-decisions. Multiple invitation grants may coexist under one browser grant.
-Approvers never receive the purchase-completion token; only the authenticated
-purchase owner may claim it after resolution.
-Seller sessions, project keys, access tokens, browser purchase cookies, payment
-proofs, approval tokens, and execution capabilities must never appear in URLs.
+Buyer-side approval invitation, cookie, token, and WebSocket mechanisms are
+disabled for Lean V1. Historical M2 code and records are not transaction
+authority and must not be exposed by the launch runtime. Seller sessions,
+project keys, access tokens, browser purchase cookies, payment proofs, and
+execution capabilities must never appear in URLs.
 
 ## Seller request authorization
 
@@ -217,14 +208,14 @@ Allowed:
 
 - IDs, timestamps, state transitions, amount/asset/network.
 - Hashes of request, payment proof, and response.
-- Approval labels and decisions shown in the demo.
+- Historical M2 approval labels and decisions when reading retained evidence.
 - Upstream HTTP status, duration, content length, and allowlisted headers.
 - Dispute reason, rule version, classification, and explanation.
 
 Forbidden:
 
 - Raw `PAYMENT-SIGNATURE` or wallet private material.
-- Authorization headers, cookies, invitation tokens, approval tokens, or seller secrets.
+- Authorization headers, cookies, historical invitation/approval tokens, or seller secrets.
 - Unredacted prompts or arbitrary seller response bodies.
 - Full personal addresses, financial account details, or unnecessary user content.
 
@@ -237,12 +228,19 @@ Forbidden:
   `invalid_credential`, `token_expired`, or `token_revoked`; `403` for
   `subscription_inactive`, `insufficient_scope`, or `permission_denied`; `404`
   for `not_found`; `409` for `state_conflict`, `idempotency_conflict`,
-  `payment_replayed`, or `token_replayed`; `410` for `seller_inactive` or
-  `invitation_expired`; `422` for `validation_failed`; `428` for
-  `approval_required`; `429` for `rate_limited`; `402` for `payment_required`
+  `payment_replayed`, or `token_replayed`; `410` for `seller_inactive` or an
+  expired one-time resource; `422` for `validation_failed`; `429` for
+  `rate_limited`; `402` for `payment_required`
   or `payment_rejected`; and `503` for `dependency_unavailable`.
 - Authenticate and authorize the seller before consuming seller-scoped API
   quota so an attacker cannot exhaust another tenant's allowance.
+- Manual refund recording never moves funds. It derives `sellerId` and
+  `recordedBy` from the authenticated seller principal, conceals cross-seller
+  disputes as `404`, requires a finalized transaction and current
+  `refund_recommended` dispute, validates an exact full amount/asset/network
+  match, stores only a bounded external reference, and appends at most one
+  record per dispute. Exact idempotent replay returns the original response;
+  changed replay fails closed.
 - Network authorization requires `status=active` and current UTC time strictly
   before `accessEndsAt`. `grace`, `suspended`, `cancelled`, and `closed` return
   `subscription_inactive`; grace never authorizes MCP, discovery, publication,
@@ -252,8 +250,8 @@ Forbidden:
   `rate_limited` for exhausted monthly counters; neither response may reveal
   another seller's plan or usage.
 - CORS limited to configured web origins.
-- `Cache-Control: no-store` on approval, transaction, dispute, and 402 responses.
-- Security headers on the web app, including CSP and `frame-ancestors 'none'` for approval pages unless embedding is intentionally added.
+- `Cache-Control: no-store` on transaction, dispute, refund-record, and 402 responses.
+- Security headers on the web app, including CSP and `frame-ancestors 'none'` for sensitive checkout pages unless embedding is intentionally added.
 - Constant-time comparison for token and HMAC verification.
 
 ## MCP and coding-agent requirements
@@ -299,7 +297,7 @@ Forbidden:
 - A future card checkout provider must be selected and its official integration guidance recorded before adding a dependency.
 - A provider success redirect is not proof of payment; only an authenticated server callback may advance payment state.
 - Provider events require replay protection and idempotent processing.
-- Human checkout uses the same frozen seller quote, approval policy, fulfillment claim, evidence chain, and dispute rules as x402.
+- Human checkout uses the same frozen seller quote, buyer-maximum check, wallet authorization, fulfillment claim, evidence chain, and dispute rules as agent x402 checkout.
 - Merchant-of-record, platform-fee, refund, tax, chargeback, and seller-payout responsibility must be documented before production activation.
 
 ## Production blockers
@@ -319,7 +317,7 @@ The system must not process real funds until all are complete:
 
 - [ ] No tracked file contains secret-like values.
 - [ ] Tests prove replay and duplicate forwarding are blocked.
-- [ ] Tests prove modified intents invalidate approvals.
+- [ ] Tests prove modified intents, quotes, destinations, or request bodies invalidate payment authorization.
 - [ ] Tests cover private, loopback, link-local, IPv6, redirect, and DNS-rebinding SSRF cases.
 - [ ] Evidence verification fails after any payload, order, hash, or signature change.
 - [ ] Browser build contains no server-only configuration.

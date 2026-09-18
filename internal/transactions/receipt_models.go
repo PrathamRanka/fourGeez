@@ -19,23 +19,29 @@ var (
 
 // ReceiptTransaction contains the safe authoritative transaction fields.
 type ReceiptTransaction struct {
-	TransactionID    domain.ID             `json:"transactionId"`
-	IntentID         domain.ID             `json:"intentId"`
-	SellerID         domain.ID             `json:"sellerId"`
-	RouteID          domain.ID             `json:"routeId"`
-	BuyerID          string                `json:"buyerId"`
-	Status           TransactionStatus     `json:"status"`
-	Amount           domain.Amount         `json:"amount"`
-	Asset            string                `json:"asset"`
-	Network          string                `json:"network"`
-	PaymentFinality  PaymentFinality       `json:"paymentFinality"`
-	PaymentReference string                `json:"paymentReference"`
-	ReconciledAt     *domain.Timestamp     `json:"reconciledAt"`
-	UpstreamStatus   *int                  `json:"upstreamStatus"`
-	ResponseHash     *intents.SHA256Digest `json:"responseHash"`
-	FailureCode      string                `json:"failureCode,omitempty"`
-	CreatedAt        domain.Timestamp      `json:"createdAt"`
-	UpdatedAt        domain.Timestamp      `json:"updatedAt"`
+	TransactionID        domain.ID             `json:"transactionId"`
+	IntentID             domain.ID             `json:"intentId"`
+	SellerID             domain.ID             `json:"sellerId"`
+	RouteID              domain.ID             `json:"routeId"`
+	BuyerID              string                `json:"buyerId"`
+	PurchaseSessionID    string                `json:"purchaseSessionId,omitempty"`
+	ProductDisplayName   string                `json:"productDisplayName,omitempty"`
+	ProductSlug          string                `json:"productSlug,omitempty"`
+	PurchaseChannel      PurchaseChannel       `json:"purchaseChannel,omitempty"`
+	PaymentRail          PaymentRail           `json:"paymentRail,omitempty"`
+	PaymentDestinationID domain.ID             `json:"paymentDestinationId,omitempty"`
+	Status               TransactionStatus     `json:"status"`
+	Amount               domain.Amount         `json:"amount"`
+	Asset                string                `json:"asset"`
+	Network              string                `json:"network"`
+	PaymentFinality      PaymentFinality       `json:"paymentFinality"`
+	PaymentReference     string                `json:"paymentReference"`
+	ReconciledAt         *domain.Timestamp     `json:"reconciledAt"`
+	UpstreamStatus       *int                  `json:"upstreamStatus"`
+	ResponseHash         *intents.SHA256Digest `json:"responseHash"`
+	FailureCode          string                `json:"failureCode,omitempty"`
+	CreatedAt            domain.Timestamp      `json:"createdAt"`
+	UpdatedAt            domain.Timestamp      `json:"updatedAt"`
 }
 
 // ReceiptEvidence contains a verified signed chain and its boundary hashes.

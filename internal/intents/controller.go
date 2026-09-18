@@ -8,14 +8,21 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 // HTTPController exposes purchase-intent use cases through HTTP.
 type HTTPController struct {
-	service          *Service
-	idempotencyStore domain.IdempotencyStore
+	service           *Service
+	idempotencyStore  domain.IdempotencyStore
+	browserAuthorizer *browserpurchase.RequestAuthorizer
+}
+
+// SetBrowserPurchaseAuthorizer enables the browser-cookie buyer channel.
+func (controller *HTTPController) SetBrowserPurchaseAuthorizer(authorizer *browserpurchase.RequestAuthorizer) {
+	controller.browserAuthorizer = authorizer
 }
 
 // NewHTTPController creates the purchase-intent HTTP controller.
@@ -25,7 +32,17 @@ func NewHTTPController(service *Service, idempotencyStore domain.IdempotencyStor
 
 // RegisterRoutes registers purchase-intent endpoints.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
-	mux.Handle("POST /v1/intents", api.RequireAgent(http.HandlerFunc(controller.create)))
+	createHandler := http.Handler(api.RequireAgent(http.HandlerFunc(controller.create)))
+	if controller.browserAuthorizer != nil {
+		createHandler = browserpurchase.RequireAgentOrBrowser(
+			controller.browserAuthorizer,
+			func(*http.Request) (browserpurchase.AuthorizationRequirement, error) {
+				return browserpurchase.AuthorizationRequirement{Authority: browserpurchase.AuthorityCommerce, Mutation: true}, nil
+			},
+			http.HandlerFunc(controller.create),
+		)
+	}
+	mux.Handle("POST /v1/intents", createHandler)
 	mux.Handle("GET /v1/intents/{intentId}", api.RequireAgentOrSeller(http.HandlerFunc(controller.get)))
 }
 
@@ -41,6 +58,13 @@ func (controller *HTTPController) create(response http.ResponseWriter, request *
 	if err := api.DecodeJSONBytes(requestBody, &input); err != nil {
 		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid request body", nil)
 		return
+	}
+	if authorization, ok := browserpurchase.AuthorizationFromContext(request.Context()); ok {
+		session := authorization.PurchaseSession
+		if session.RouteID != input.RouteID || session.RequestBodyHash != input.RequestBodyHash.String() || session.MaximumAmount.Compare(input.MaximumAmount) != 0 {
+			api.WriteError(response, request, http.StatusConflict, api.ErrorCodeConflict, "browser purchase binding does not match the intent request", nil)
+			return
+		}
 	}
 	principal, _ := api.PrincipalFromContext(request.Context())
 	scope := principal.Subject + ":createPurchaseIntent"
@@ -65,7 +89,7 @@ func (controller *HTTPController) create(response http.ResponseWriter, request *
 		writeIntentError(response, request, err)
 		return
 	}
-	encoded, err := json.Marshal(purchaseIntent.Snapshot())
+	encoded, err := json.Marshal(purchaseIntent.Response())
 	if err != nil {
 		api.WriteError(response, request, http.StatusInternalServerError, api.ErrorCodeInternal, "response encoding failed", nil)
 		return
@@ -92,7 +116,7 @@ func (controller *HTTPController) get(response http.ResponseWriter, request *htt
 		writeIntentError(response, request, err)
 		return
 	}
-	_ = api.WriteJSON(response, http.StatusOK, purchaseIntent.Snapshot())
+	_ = api.WriteJSON(response, http.StatusOK, purchaseIntent.Response())
 }
 
 // writeIntentError maps intent service errors to stable HTTP responses.

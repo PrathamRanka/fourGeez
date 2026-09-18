@@ -3,8 +3,10 @@ package payments
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
@@ -30,6 +32,8 @@ const (
 	MockTimeoutProof = "mock-timeout-proof"
 	// MockUnavailableProof deterministically represents facilitator unavailability.
 	MockUnavailableProof = "mock-unavailable-proof"
+	// MockPayerAddress is the deterministic local browser-wallet identity.
+	MockPayerAddress = "0x2222222222222222222222222222222222222222"
 )
 
 var (
@@ -74,6 +78,7 @@ type Challenge struct {
 type VerificationResult struct {
 	Valid             bool
 	PaymentIdentifier string
+	PayerAddress      string
 }
 
 // SettlementResult contains the safe result of settling a verified payment.
@@ -82,6 +87,7 @@ type SettlementResult struct {
 	PaymentIdentifier string
 	PaymentReference  string
 	ResponseHeader    string
+	PayerAddress      string
 }
 
 // Adapter isolates payment protocol implementations from AgentPay use cases.
@@ -106,6 +112,13 @@ const (
 // CommerceAuthorizer performs a fresh authoritative seller-entitlement check.
 type CommerceAuthorizer interface {
 	AuthorizeCommerce(context.Context, domain.ID, CommerceOperation) error
+}
+
+// BrowserPurchaseLifecycle binds the one browser transaction and extends its
+// read/remediation authority only after payment finality.
+type BrowserPurchaseLifecycle interface {
+	ClaimTransaction(context.Context, browserpurchase.PurchaseSessionID, domain.ID) (browserpurchase.BrowserPurchaseSession, error)
+	Complete(context.Context, browserpurchase.PurchaseSessionID, string, string, domain.ID, time.Time) error
 }
 
 // PaidRouteRequest identifies the frozen purchase requested by an agent.

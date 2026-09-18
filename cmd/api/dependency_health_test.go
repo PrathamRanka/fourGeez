@@ -15,7 +15,6 @@ import (
 	"github.com/fourgeez/agentpay/internal/health"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
-	"github.com/fourgeez/agentpay/internal/realtime"
 )
 
 func TestDependencyHealthReportsConfiguredRuntimeReady(t *testing.T) {
@@ -32,7 +31,6 @@ func TestDependencyHealthReportsConfiguredRuntimeReady(t *testing.T) {
 			Timeout:             time.Second,
 		},
 		memory.NewCatalogRepository(),
-		realtime.NewLocalHub(),
 		[]byte("seller-signing-secret-at-least-32-bytes"),
 	)
 
@@ -46,10 +44,13 @@ func TestDependencyHealthReportsConfiguredRuntimeReady(t *testing.T) {
 		t.Fatalf("readiness status = %d, body = %s", response.Code, response.Body.String())
 	}
 	statuses := decodeDependencyStatuses(t, response)
-	for _, name := range []string{"persistence", "signing", "payment", "seller_forwarding", "websocket"} {
+	for _, name := range []string{"persistence", "signing", "payment", "seller_forwarding"} {
 		if statuses[name] != health.DependencyReady {
 			t.Fatalf("readiness response missing ready %s dependency: %s", name, response.Body.String())
 		}
+	}
+	if _, exposed := statuses["websocket"]; exposed {
+		t.Fatalf("Lean V1 readiness must not expose the deferred approval websocket: %s", response.Body.String())
 	}
 }
 
@@ -63,45 +64,38 @@ func TestDependencyHealthFailsClosedForEachUnavailableBoundary(t *testing.T) {
 		name       string
 		config     dependencyHealthConfig
 		catalog    readinessCatalog
-		websocket  readinessWebSocketRepository
 		secret     []byte
 		dependency string
 	}{
 		{
 			name:    "persistence",
 			config:  dependencyHealthConfig{RepositoryMode: "memory", PaymentReadinessURL: successServer.URL, SellerReadinessURL: successServer.URL, Timeout: time.Second},
-			catalog: failingReadinessCatalog{}, websocket: realtime.NewLocalHub(), secret: validSecret,
+			catalog: failingReadinessCatalog{}, secret: validSecret,
 			dependency: "persistence",
 		},
 		{
 			name:    "signing",
 			config:  dependencyHealthConfig{RepositoryMode: "memory", PaymentReadinessURL: successServer.URL, SellerReadinessURL: successServer.URL, Timeout: time.Second},
-			catalog: memory.NewCatalogRepository(), websocket: realtime.NewLocalHub(), secret: []byte("short"),
+			catalog: memory.NewCatalogRepository(), secret: []byte("short"),
 			dependency: "signing",
 		},
 		{
 			name:    "payment",
 			config:  dependencyHealthConfig{RepositoryMode: "memory", PaymentReadinessURL: failureServer.URL, SellerReadinessURL: successServer.URL, Timeout: time.Second},
-			catalog: memory.NewCatalogRepository(), websocket: realtime.NewLocalHub(), secret: validSecret,
+			catalog: memory.NewCatalogRepository(), secret: validSecret,
 			dependency: "payment",
 		},
 		{
 			name:    "seller forwarding",
 			config:  dependencyHealthConfig{RepositoryMode: "memory", PaymentReadinessURL: successServer.URL, SellerReadinessURL: failureServer.URL, Timeout: time.Second},
-			catalog: memory.NewCatalogRepository(), websocket: realtime.NewLocalHub(), secret: validSecret,
+			catalog: memory.NewCatalogRepository(), secret: validSecret,
 			dependency: "seller_forwarding",
-		},
-		{
-			name:    "websocket",
-			config:  dependencyHealthConfig{RepositoryMode: "memory", PaymentReadinessURL: successServer.URL, SellerReadinessURL: successServer.URL, Timeout: time.Second},
-			catalog: memory.NewCatalogRepository(), websocket: failingReadinessWebSocketRepository{}, secret: validSecret,
-			dependency: "websocket",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controller := newTestDependencyHealthController(t, test.config, test.catalog, test.websocket, test.secret)
+			controller := newTestDependencyHealthController(t, test.config, test.catalog, test.secret)
 			mux := http.NewServeMux()
 			controller.RegisterRoutes(mux)
 			response := httptest.NewRecorder()
@@ -125,7 +119,6 @@ func TestDependencyHealthRejectsUnsafeProbeConfiguration(t *testing.T) {
 		EvidenceSigner:      mustEvidenceSigner(t),
 		SellerSigner:        proxy.NewHMACSigner(proxy.NewLocalSecretProvider([]byte("seller-signing-secret-at-least-32-bytes")), domain.SystemClock{}),
 		SellerSigningSecret: []byte("seller-signing-secret-at-least-32-bytes"),
-		WebSocketRepository: realtime.NewLocalHub(),
 	}
 	for _, config := range []dependencyHealthConfig{
 		{RepositoryMode: "dynamodb", PaymentReadinessURL: "http://127.0.0.1/verify", SellerReadinessURL: "http://127.0.0.1/research", Timeout: time.Second},
@@ -143,7 +136,6 @@ func newTestDependencyHealthController(
 	t *testing.T,
 	config dependencyHealthConfig,
 	catalogRepository readinessCatalog,
-	webSocketRepository readinessWebSocketRepository,
 	sellerSigningSecret []byte,
 ) *health.Controller {
 	t.Helper()
@@ -152,7 +144,6 @@ func newTestDependencyHealthController(
 		EvidenceSigner:      mustEvidenceSigner(t),
 		SellerSigner:        proxy.NewHMACSigner(proxy.NewLocalSecretProvider(sellerSigningSecret), domain.SystemClock{}),
 		SellerSigningSecret: sellerSigningSecret,
-		WebSocketRepository: webSocketRepository,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -198,10 +189,4 @@ type failingReadinessCatalog struct{}
 
 func (failingReadinessCatalog) ListRoutesBySeller(context.Context, domain.ID) ([]catalog.PaidRoute, error) {
 	return nil, errors.New("persistence unavailable")
-}
-
-type failingReadinessWebSocketRepository struct{}
-
-func (failingReadinessWebSocketRepository) ListBySession(context.Context, domain.ID) ([]realtime.Connection, error) {
-	return nil, errors.New("websocket repository unavailable")
 }

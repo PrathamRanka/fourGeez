@@ -44,9 +44,14 @@ func (digest *SHA256Digest) UnmarshalJSON(encoded []byte) error {
 // RequestMethod is a paid request method frozen into a purchase intent.
 type RequestMethod string
 
+// PurchaseChannel identifies the caller authority that owns an intent.
+type PurchaseChannel string
+
 const (
-	RequestMethodGet  RequestMethod = "GET"
-	RequestMethodPost RequestMethod = "POST"
+	RequestMethodGet       RequestMethod   = "GET"
+	RequestMethodPost      RequestMethod   = "POST"
+	PurchaseChannelAgent   PurchaseChannel = "agent"
+	PurchaseChannelBrowser PurchaseChannel = "browser"
 )
 
 // PurchaseIntentStatus is the lifecycle state established at creation.
@@ -63,6 +68,8 @@ type PurchaseIntentParams struct {
 	SellerID             domain.ID
 	RouteID              domain.ID
 	BuyerID              string
+	PurchaseSessionID    string
+	PurchaseChannel      PurchaseChannel
 	ProductDisplayName   string
 	ProductSlug          string
 	PaymentDestinationID domain.ID
@@ -85,6 +92,8 @@ type PurchaseIntent struct {
 	sellerID             domain.ID
 	routeID              domain.ID
 	buyerID              string
+	purchaseSessionID    string
+	purchaseChannel      PurchaseChannel
 	productDisplayName   string
 	productSlug          string
 	paymentDestinationID domain.ID
@@ -144,6 +153,16 @@ func (purchaseIntent PurchaseIntent) RouteID() domain.ID {
 // BuyerID returns the buyer identity that created the intent.
 func (purchaseIntent PurchaseIntent) BuyerID() string {
 	return purchaseIntent.buyerID
+}
+
+// PurchaseSessionID returns the browser grant binding when this is a browser purchase.
+func (purchaseIntent PurchaseIntent) PurchaseSessionID() string {
+	return purchaseIntent.purchaseSessionID
+}
+
+// PurchaseChannel returns whether the intent belongs to an agent or browser session.
+func (purchaseIntent PurchaseIntent) PurchaseChannel() PurchaseChannel {
+	return purchaseIntent.purchaseChannel
 }
 
 func (purchaseIntent PurchaseIntent) ProductDisplayName() string {
@@ -217,23 +236,25 @@ func (purchaseIntent PurchaseIntent) ExpiresAt() domain.Timestamp {
 
 // intentHashPayload is the versioned canonical intent hashing shape.
 type intentHashPayload struct {
-	SchemaVersion        string        `json:"schemaVersion"`
-	IntentID             string        `json:"intentId"`
-	SellerID             string        `json:"sellerId"`
-	RouteID              string        `json:"routeId"`
-	BuyerID              string        `json:"buyerId"`
-	ProductDisplayName   string        `json:"productDisplayName"`
-	ProductSlug          string        `json:"productSlug"`
-	PaymentDestinationID string        `json:"paymentDestinationId"`
-	PayTo                string        `json:"payTo"`
-	RequestMethod        RequestMethod `json:"requestMethod"`
-	RequestPath          string        `json:"requestPath"`
-	RequestBodyHash      string        `json:"requestBodyHash"`
-	Amount               string        `json:"amount"`
-	Asset                string        `json:"asset"`
-	Network              string        `json:"network"`
-	MaximumAmount        string        `json:"maximumAmount"`
-	RequiresApproval     bool          `json:"requiresApproval"`
-	CreatedAt            string        `json:"createdAt"`
-	ExpiresAt            string        `json:"expiresAt"`
+	SchemaVersion        string          `json:"schemaVersion"`
+	IntentID             string          `json:"intentId"`
+	SellerID             string          `json:"sellerId"`
+	RouteID              string          `json:"routeId"`
+	BuyerID              string          `json:"buyerId"`
+	PurchaseSessionID    string          `json:"purchaseSessionId,omitempty"`
+	PurchaseChannel      PurchaseChannel `json:"purchaseChannel"`
+	ProductDisplayName   string          `json:"productDisplayName"`
+	ProductSlug          string          `json:"productSlug"`
+	PaymentDestinationID string          `json:"paymentDestinationId"`
+	PayTo                string          `json:"payTo"`
+	RequestMethod        RequestMethod   `json:"requestMethod"`
+	RequestPath          string          `json:"requestPath"`
+	RequestBodyHash      string          `json:"requestBodyHash"`
+	Amount               string          `json:"amount"`
+	Asset                string          `json:"asset"`
+	Network              string          `json:"network"`
+	MaximumAmount        string          `json:"maximumAmount"`
+	RequiresApproval     bool            `json:"requiresApproval"`
+	CreatedAt            string          `json:"createdAt"`
+	ExpiresAt            string          `json:"expiresAt"`
 }

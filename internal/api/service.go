@@ -68,6 +68,15 @@ func AuthenticateAgentRequest(
 	return authenticateAgent(ctx, authenticatorFromContext(ctx), key)
 }
 
+// AuthenticateSellerRequest validates a seller bearer header from a feature controller.
+func AuthenticateSellerRequest(ctx context.Context, authorization string) (Principal, bool) {
+	token, valid := bearerToken(authorization)
+	if !valid {
+		return Principal{}, false
+	}
+	return authenticateSeller(ctx, authenticatorFromContext(ctx), token)
+}
+
 // secureEqual compares credentials without content-dependent timing.
 func secureEqual(expected, actual []byte) bool {
 	if len(expected) == 0 || len(actual) == 0 {

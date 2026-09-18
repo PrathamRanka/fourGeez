@@ -242,6 +242,9 @@ func (repository *TransactionRepository) ClaimForwarding(
 	if transaction.Status() != transactions.StatusPaymentVerified {
 		return transaction, false, nil
 	}
+	if transaction.PaymentFinality() != transactions.PaymentFinalityFinalized {
+		return transaction, false, nil
+	}
 
 	if err := transaction.MarkForwarded(forwardedAt); err != nil {
 		return transactions.Transaction{}, false, err
@@ -252,7 +255,7 @@ func (repository *TransactionRepository) ClaimForwarding(
 		return transactions.Transaction{}, false, err
 	}
 
-	condition := "#status = :verified AND #version = :expected"
+	condition := "#status = :verified AND #paymentFinality = :finalized AND #version = :expected"
 	update := "SET payload = :payload, #status = :forwarded, #version = :next"
 	_, err = repository.client.UpdateItem(ctx, &awssdk.UpdateItemInput{
 		TableName: &repository.tableName,
@@ -263,11 +266,13 @@ func (repository *TransactionRepository) ClaimForwarding(
 		ConditionExpression: &condition,
 		UpdateExpression:    &update,
 		ExpressionAttributeNames: map[string]string{
-			"#status":  "status",
-			"#version": "version",
+			"#status":          "status",
+			"#paymentFinality": "paymentFinality",
+			"#version":         "version",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":verified":  stringAttributeValue(string(transactions.StatusPaymentVerified)),
+			":finalized": stringAttributeValue(string(transactions.PaymentFinalityFinalized)),
 			":forwarded": stringAttributeValue(string(transactions.StatusForwarded)),
 			":expected":  numberAttributeValue(expectedVersion),
 			":next":      numberAttributeValue(transaction.Version()),
@@ -380,6 +385,7 @@ func marshalTransactionItem(
 
 	transactionRecord.Version = transaction.Version()
 	transactionRecord.Status = string(transaction.Status())
+	transactionRecord.PaymentFinality = string(transaction.PaymentFinality())
 	transactionRecord.GSI1PK = sellerPartitionKey(transaction.SellerID().String())
 	transactionRecord.GSI1SK = fmt.Sprintf(
 		"TXN#%s#%s",

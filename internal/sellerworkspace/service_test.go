@@ -300,10 +300,13 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	if err := transaction.VerifyPayment("payment-1", mustWorkspaceDigest(t), createdAt.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if err := transaction.MarkForwarded(createdAt.Add(3 * time.Second)); err != nil {
+	if err := transaction.FinalizePayment("payment-1", "0xtestnettransaction", createdAt.Add(3*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if err := transaction.MarkFulfilled(200, mustWorkspaceDigest(t), transactions.ResponseSummary{ContentType: "application/json", ContentLength: 12}, createdAt.Add(4*time.Second)); err != nil {
+	if err := transaction.MarkForwarded(createdAt.Add(4 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkFulfilled(200, mustWorkspaceDigest(t), transactions.ResponseSummary{ContentType: "application/json", ContentLength: 12}, createdAt.Add(5*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	statusReason := billing.EntitlementStatusReason("")

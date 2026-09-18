@@ -9,7 +9,7 @@ actor Approver
 rectangle "Seller coding agent\nClaude Code / Codex / MCP host" as CodingAgent
 
 rectangle "Next.js web\nAmplify Hosting" as Web
-rectangle "API Gateway\nHTTP + WebSocket + MCP" as Gateway
+rectangle "API Gateway\nHTTP + MCP" as Gateway
 rectangle "Go modular monolith\nAWS Lambda" as API
 database "DynamoDB\noperational state" as DDB
 storage "S3 Object Lock\nevidence events" as S3

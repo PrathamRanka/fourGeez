@@ -15,6 +15,8 @@ import (
 const defaultMaximumResponseBytes int64 = 1024 * 1024
 
 const (
+	// ExecutionCapabilityHeader carries the short-lived ES256 seller capability.
+	ExecutionCapabilityHeader = "X-AgentPay-Execution-Capability"
 	// SellerSignatureHeader carries the base64 HMAC for a forwarded request.
 	SellerSignatureHeader = "X-AgentPay-Signature"
 	// SellerTimestampHeader carries the signed RFC 3339 timestamp.
@@ -66,17 +68,21 @@ type ForwardResponse struct {
 
 // SigningInput contains the request values covered by the seller HMAC.
 type SigningInput struct {
-	TransactionID domain.ID
-	Method        catalog.RouteMethod
-	Path          string
-	Body          []byte
+	TransactionID   domain.ID
+	SellerID        domain.ID
+	RouteID         domain.ID
+	Method          catalog.RouteMethod
+	Path            string
+	Body            []byte
+	PaymentFinality transactions.PaymentFinality
 }
 
 // SignatureHeaders contains safe request authentication metadata.
 type SignatureHeaders struct {
-	Signature   string
-	Timestamp   string
-	Transaction string
+	ExecutionCapability string
+	Signature           string
+	Timestamp           string
+	Transaction         string
 }
 
 // ExecutionRequest contains a verified transaction and its seller request.

@@ -4,11 +4,14 @@ package devseed
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/billing"
@@ -175,6 +178,205 @@ func TestResetEndpointClearsRuntimeChangesAndReappliesTheNamedProfile(t *testing
 	}
 }
 
+func TestCancelEndpointCancelsLaunchReadySellerAndPreservesFinalizedFulfillment(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSeedFixture(t)
+	metadata, err := fixture.seeder.ResetAndSeed(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	initialEntitlement, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initialCredential, err := fixture.credentials.Get(
+		context.Background(),
+		metadata.LaunchReadySellerID,
+		mustSeedID(t, launchReadyCredentialIDValue, domain.CredentialIDPrefix),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fulfilledBefore, err := fixture.transactions.Get(context.Background(), metadata.FulfilledTransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := performCancelRequest(t, fixture.seeder, metadata.LaunchReadySellerID.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("cancel status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var result struct {
+		SellerID          domain.ID                 `json:"sellerId"`
+		EntitlementStatus billing.EntitlementStatus `json:"entitlementStatus"`
+		EntitlementEpoch  uint64                    `json:"entitlementEpoch"`
+		CredentialRevoked bool                      `json:"credentialRevoked"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if result.SellerID != metadata.LaunchReadySellerID ||
+		result.EntitlementStatus != billing.EntitlementStatusCancelled ||
+		result.EntitlementEpoch != initialEntitlement.EntitlementEpoch()+1 ||
+		!result.CredentialRevoked {
+		t.Fatalf("cancellation response = %#v", result)
+	}
+
+	cancelled, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status() != billing.EntitlementStatusCancelled ||
+		cancelled.StatusReason() != billing.EntitlementStatusReasonCancelled ||
+		cancelled.EntitlementEpoch() != initialEntitlement.EntitlementEpoch()+1 ||
+		cancelled.AllowsNetworkAccess(fixedSeedTimestamp) {
+		t.Fatalf("cancelled entitlement = %#v", cancelled.Snapshot())
+	}
+	revoked, err := fixture.credentials.Get(
+		context.Background(),
+		metadata.LaunchReadySellerID,
+		initialCredential.CredentialID(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revoked.RevokedAt() == nil || revoked.Version() != initialCredential.Version()+1 {
+		t.Fatalf("revoked credential = %#v", revoked.Snapshot())
+	}
+	fulfilledAfter, err := fixture.transactions.Get(context.Background(), metadata.FulfilledTransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fulfilledAfter.Status() != transactions.StatusFulfilled ||
+		!reflect.DeepEqual(fulfilledAfter.Snapshot(), fulfilledBefore.Snapshot()) {
+		t.Fatalf("finalized fulfillment changed: before=%#v after=%#v", fulfilledBefore.Snapshot(), fulfilledAfter.Snapshot())
+	}
+}
+
+func TestCancelEndpointRejectsAnySellerExceptTheExactLaunchReadyFixture(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSeedFixture(t)
+	metadata, err := fixture.seeder.ResetAndSeed(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	initialEntitlement, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name     string
+		sellerID string
+	}{
+		{name: "wrong seeded seller", sellerID: metadata.IncompleteSellerID.String()},
+		{name: "nonexistent seller", sellerID: "sel_01K5D09YJ0C0M7RJM4FWQ0K9HZ"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := performCancelRequest(t, fixture.seeder, test.sellerID)
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("cancel status = %d, body = %s", response.Code, response.Body.String())
+			}
+		})
+	}
+
+	unchanged, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Status() != billing.EntitlementStatusActive || unchanged.Version() != initialEntitlement.Version() {
+		t.Fatalf("launch-ready entitlement changed = %#v", unchanged.Snapshot())
+	}
+}
+
+func TestCancelEndpointIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSeedFixture(t)
+	metadata, err := fixture.seeder.ResetAndSeed(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response := performCancelRequest(t, fixture.seeder, metadata.LaunchReadySellerID.String()); response.Code != http.StatusOK {
+		t.Fatalf("first cancel status = %d, body = %s", response.Code, response.Body.String())
+	}
+	firstEntitlement, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstCredential, err := fixture.credentials.Get(
+		context.Background(),
+		metadata.LaunchReadySellerID,
+		mustSeedID(t, launchReadyCredentialIDValue, domain.CredentialIDPrefix),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := performCancelRequest(t, fixture.seeder, metadata.LaunchReadySellerID.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("retry cancel status = %d, body = %s", response.Code, response.Body.String())
+	}
+	secondEntitlement, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondCredential, err := fixture.credentials.Get(
+		context.Background(),
+		metadata.LaunchReadySellerID,
+		firstCredential.CredentialID(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secondEntitlement.EntitlementEpoch() != firstEntitlement.EntitlementEpoch() ||
+		secondEntitlement.Version() != firstEntitlement.Version() ||
+		secondCredential.Version() != firstCredential.Version() ||
+		secondCredential.RevokedAt() == nil ||
+		firstCredential.RevokedAt() == nil ||
+		*secondCredential.RevokedAt() != *firstCredential.RevokedAt() {
+		t.Fatalf("idempotent retry mutated state: first=%#v/%#v second=%#v/%#v", firstEntitlement.Snapshot(), firstCredential.Snapshot(), secondEntitlement.Snapshot(), secondCredential.Snapshot())
+	}
+}
+
+func TestCancelEndpointMakesEntitlementAndCredentialDenialObservable(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSeedFixture(t)
+	metadata, err := fixture.seeder.ResetAndSeed(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response := performCancelRequest(t, fixture.seeder, metadata.LaunchReadySellerID.String()); response.Code != http.StatusOK {
+		t.Fatalf("cancel status = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	entitlement, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credential, err := fixture.credentials.Get(
+		context.Background(),
+		metadata.LaunchReadySellerID,
+		mustSeedID(t, launchReadyCredentialIDValue, domain.CredentialIDPrefix),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entitlement.AllowsNetworkAccess(fixedSeedTimestamp) {
+		t.Fatal("cancelled entitlement still allows storefront/discovery/commerce access")
+	}
+	if credential.EntitlementEpoch() == entitlement.EntitlementEpoch() {
+		t.Fatal("seeded credential was not invalidated by the entitlement epoch")
+	}
+	if err := credential.MarkUsed(fixedSeedTimestamp.Add(24 * time.Hour)); !errors.Is(err, integrations.ErrCredentialRevoked) {
+		t.Fatalf("revoked credential MarkUsed() error = %v, want ErrCredentialRevoked", err)
+	}
+}
+
 // TestNewRejectsAnyProductionShapedSeedConfiguration protects the build-tag boundary.
 func TestNewRejectsAnyProductionShapedSeedConfiguration(t *testing.T) {
 	t.Parallel()
@@ -317,6 +519,20 @@ func validSeedConfig() Config {
 		ProfileName:          ProfileLaunchReady,
 		WebhookSigningSecret: strings.Repeat("w", 32),
 	}
+}
+
+func performCancelRequest(t *testing.T, seeder *Seeder, sellerID string) *httptest.ResponseRecorder {
+	t.Helper()
+	mux := http.NewServeMux()
+	seeder.RegisterRoutes(mux)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/__dev/seed-profile/sellers/"+sellerID+"/cancel",
+		nil,
+	)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	return response
 }
 
 func assertSeedRoutePolicy(t *testing.T, routes []catalog.PaidRoute, metadata Metadata) {

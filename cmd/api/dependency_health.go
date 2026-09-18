@@ -15,14 +15,12 @@ import (
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/health"
 	"github.com/fourgeez/agentpay/internal/proxy"
-	"github.com/fourgeez/agentpay/internal/realtime"
 )
 
 const (
 	defaultDependencyHealthTimeout = 3 * time.Second
 	readinessSellerID              = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 	readinessTransactionID         = "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7"
-	readinessApprovalSessionID     = "aps_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 	readinessSigningSecretRef      = "local-readiness"
 	maximumReadinessResponseBytes  = 4 << 10
 )
@@ -38,16 +36,11 @@ type readinessCatalog interface {
 	ListRoutesBySeller(context.Context, domain.ID) ([]catalog.PaidRoute, error)
 }
 
-type readinessWebSocketRepository interface {
-	ListBySession(context.Context, domain.ID) ([]realtime.Connection, error)
-}
-
 type dependencyHealthDependencies struct {
 	Catalog             readinessCatalog
 	EvidenceSigner      evidence.Signer
 	SellerSigner        proxy.RequestSigner
 	SellerSigningSecret []byte
-	WebSocketRepository readinessWebSocketRepository
 	HTTPClient          *http.Client
 }
 
@@ -59,7 +52,7 @@ func newDependencyHealthController(
 		return nil, errors.New("dependency health requires configured memory persistence")
 	}
 	if dependencies.Catalog == nil || dependencies.EvidenceSigner == nil ||
-		dependencies.SellerSigner == nil || dependencies.WebSocketRepository == nil {
+		dependencies.SellerSigner == nil {
 		return nil, errors.New("dependency health requires all runtime dependencies")
 	}
 	paymentURL, err := parseReadinessURL(config.PaymentReadinessURL)
@@ -86,11 +79,6 @@ func newDependencyHealthController(
 	if err != nil {
 		return nil, err
 	}
-	approvalSessionID, err := domain.ParseID(readinessApprovalSessionID, domain.ApprovalIDPrefix)
-	if err != nil {
-		return nil, err
-	}
-
 	return health.NewController([]health.Dependency{
 		{
 			Name: "persistence",
@@ -115,13 +103,6 @@ func newDependencyHealthController(
 		{
 			Name:  "seller_forwarding",
 			Check: httpReadinessCheck(httpClient, sellerURL, `{}`),
-		},
-		{
-			Name: "websocket",
-			Check: func(ctx context.Context) error {
-				_, err := dependencies.WebSocketRepository.ListBySession(ctx, approvalSessionID)
-				return err
-			},
 		},
 	}, config.Timeout)
 }

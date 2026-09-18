@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
@@ -17,13 +18,18 @@ const (
 	paymentSignatureHeader = "PAYMENT-SIGNATURE"
 	paymentResponseHeader  = "PAYMENT-RESPONSE"
 	intentIDHeader         = "X-AgentPay-Intent-Id"
-	approvalHeader         = "X-AgentPay-Approval"
 	transactionIDHeader    = "X-AgentPay-Transaction-Id"
 )
 
 // HTTPController exposes the authenticated paid-route operations.
 type HTTPController struct {
-	service *CheckoutService
+	service           *CheckoutService
+	browserAuthorizer *browserpurchase.RequestAuthorizer
+}
+
+// SetBrowserPurchaseAuthorizer enables browser-cookie checkout requests.
+func (controller *HTTPController) SetBrowserPurchaseAuthorizer(authorizer *browserpurchase.RequestAuthorizer) {
+	controller.browserAuthorizer = authorizer
 }
 
 // NewHTTPController creates the paid-route HTTP controller.
@@ -33,13 +39,23 @@ func NewHTTPController(service *CheckoutService) *HTTPController {
 
 // RegisterRoutes registers GET and POST paid-resource operations.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
+	executeHandler := http.Handler(api.RequireAgent(http.HandlerFunc(controller.execute)))
+	if controller.browserAuthorizer != nil {
+		executeHandler = browserpurchase.RequireAgentOrBrowser(
+			controller.browserAuthorizer,
+			func(*http.Request) (browserpurchase.AuthorizationRequirement, error) {
+				return browserpurchase.AuthorizationRequirement{Authority: browserpurchase.AuthorityCommerce, Mutation: true}, nil
+			},
+			http.HandlerFunc(controller.execute),
+		)
+	}
 	mux.Handle(
 		"GET /pay/{slug}/{proxyPath...}",
-		api.RequireAgent(http.HandlerFunc(controller.execute)),
+		executeHandler,
 	)
 	mux.Handle(
 		"POST /pay/{slug}/{proxyPath...}",
-		api.RequireAgent(http.HandlerFunc(controller.execute)),
+		executeHandler,
 	)
 }
 
@@ -85,12 +101,11 @@ func (controller *HTTPController) execute(
 		request.Context(),
 		CheckoutRequest{
 			PaidRouteRequest: PaidRouteRequest{
-				Slug:          request.PathValue("slug"),
-				Method:        catalog.RouteMethod(request.Method),
-				ProxyPath:     "/" + strings.TrimLeft(request.PathValue("proxyPath"), "/"),
-				IntentID:      intentID,
-				BuyerID:       principal.Subject,
-				ApprovalToken: request.Header.Get(approvalHeader),
+				Slug:      request.PathValue("slug"),
+				Method:    catalog.RouteMethod(request.Method),
+				ProxyPath: "/" + strings.TrimLeft(request.PathValue("proxyPath"), "/"),
+				IntentID:  intentID,
+				BuyerID:   principal.Subject,
 			},
 			PaymentProof: request.Header.Get(paymentSignatureHeader),
 			Body:         body,
@@ -147,9 +162,6 @@ func (controller *HTTPController) writeError(
 	code := api.ErrorCodeInternal
 	message := err.Error()
 	switch {
-	case errors.Is(err, ErrApprovalRequired):
-		status = http.StatusPreconditionRequired
-		code = "approval_required"
 	case errors.Is(err, ErrIntentExpired):
 		status = http.StatusGone
 		code = api.ErrorCodeGone

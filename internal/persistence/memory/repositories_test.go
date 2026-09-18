@@ -229,6 +229,26 @@ func TestTransactionRepositoryAllowsOneConcurrentForwardingClaim(t *testing.T) {
 	}
 }
 
+func TestTransactionRepositoryRejectsConfirmedOnlyForwardingClaim(t *testing.T) {
+	t.Parallel()
+
+	repository := NewTransactionRepository()
+	transaction := testConfirmedTransaction(t, "txn_01K5D09YJ0C0M7RJM4FWQ0K9HA", "payment-confirmed")
+	if err := repository.Create(t.Context(), transaction); err != nil {
+		t.Fatal(err)
+	}
+
+	claimed, won, err := repository.ClaimForwarding(
+		t.Context(),
+		transaction.TransactionID(),
+		transaction.Version(),
+		transaction.UpdatedAt().Add(time.Second),
+	)
+	if err != nil || won || claimed.Status() != transactions.StatusPaymentVerified {
+		t.Fatalf("ClaimForwarding() = (%s, %v, %v)", claimed.Status(), won, err)
+	}
+}
+
 func TestEvidenceRepositoryIsAppendOnlyAndContiguous(t *testing.T) {
 	t.Parallel()
 	repository := NewEvidenceRepository()
@@ -393,6 +413,14 @@ func (generator *fixedTokenGenerator) NewToken() (string, error) {
 }
 
 func testVerifiedTransaction(t *testing.T, rawID, paymentIdentifier string) transactions.Transaction {
+	transaction := testConfirmedTransaction(t, rawID, paymentIdentifier)
+	if err := transaction.FinalizePayment(paymentIdentifier, "0xtestnettransaction", testTime().Add(3*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	return transaction
+}
+
+func testConfirmedTransaction(t *testing.T, rawID, paymentIdentifier string) transactions.Transaction {
 	t.Helper()
 	transaction, err := transactions.NewTransaction(transactions.TransactionParams{TransactionID: mustID(t, rawID, domain.TransactionIDPrefix), IntentID: mustID(t, "int_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.IntentIDPrefix), SellerID: mustID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix), RouteID: mustID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix), BuyerID: "agent-123", Amount: domain.MustParseAmount("35000000"), Asset: "test-usdc", Network: "test-network", CreatedAt: testTime()})
 	if err != nil {

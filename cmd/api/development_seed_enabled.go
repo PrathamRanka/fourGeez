@@ -29,6 +29,8 @@ func configureDevelopmentSeed(
 		Transactions:             repositories.Transactions,
 		Evidence:                 repositories.Evidence,
 		Disputes:                 repositories.Disputes,
+		ManualRefundRecords:      repositories.ManualRefundRecords,
+		BrowserPurchaseSessions:  repositories.BrowserPurchaseSessions,
 		PaymentDestinations:      repositories.PaymentDestinations,
 		WebhookSubscriptions:     repositories.WebhookSubscriptions,
 		WebhookDeliveries:        repositories.WebhookDeliveries,

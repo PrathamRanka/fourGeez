@@ -33,9 +33,15 @@ const (
 
 // Forwarder sends bounded requests only to validated public seller targets.
 type Forwarder struct {
-	resolver         Resolver
-	client           HTTPClient
-	maxResponseBytes int64
+	resolver               Resolver
+	client                 HTTPClient
+	maxResponseBytes       int64
+	localDevelopmentTarget *localDevelopmentTarget
+}
+
+type localDevelopmentTarget struct {
+	hostname string
+	port     string
 }
 
 // HMACSigner signs seller requests with secrets resolved by reference.
@@ -152,10 +158,13 @@ func (service *ExecutionService) Execute(
 		ctx,
 		request.Seller.SigningSecretRef,
 		SigningInput{
-			TransactionID: claimed.TransactionID(),
-			Method:        request.Method,
-			Path:          request.Path,
-			Body:          request.Body,
+			TransactionID:   claimed.TransactionID(),
+			SellerID:        claimed.SellerID(),
+			RouteID:         claimed.RouteID(),
+			Method:          request.Method,
+			Path:            request.Path,
+			Body:            request.Body,
+			PaymentFinality: claimed.PaymentFinality(),
 		},
 	)
 	if err != nil {
@@ -327,12 +336,27 @@ func VerifyHMACSignature(
 
 // NewForwarder creates a production forwarder with connect-time DNS checks.
 func NewForwarder(resolver Resolver) *Forwarder {
+	return newForwarder(resolver, nil)
+}
+
+// NewLocalDevelopmentForwarder creates a forwarder that additionally permits
+// one exact loopback origin. Production wiring must always use NewForwarder.
+func NewLocalDevelopmentForwarder(rawEndpoint string) (*Forwarder, error) {
+	target, err := parseLocalDevelopmentTarget(rawEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	return newForwarder(nil, target), nil
+}
+
+func newForwarder(resolver Resolver, localTarget *localDevelopmentTarget) *Forwarder {
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
 	dialer := &protectedDialer{
-		resolver: resolver,
-		dialer:   &net.Dialer{},
+		resolver:               resolver,
+		dialer:                 &net.Dialer{},
+		localDevelopmentTarget: localTarget,
 	}
 	transport := &http.Transport{
 		DialContext: dialer.DialContext,
@@ -347,7 +371,8 @@ func NewForwarder(resolver Resolver) *Forwarder {
 			Transport:     transport,
 			CheckRedirect: rejectRedirect,
 		},
-		maxResponseBytes: defaultMaximumResponseBytes,
+		maxResponseBytes:       defaultMaximumResponseBytes,
+		localDevelopmentTarget: localTarget,
 	}
 }
 
@@ -404,7 +429,16 @@ func (forwarder *Forwarder) Forward(
 		upstreamRequest.Header.Set("Content-Type", request.ContentType)
 	}
 	upstreamRequest.Header.Set("Accept", request.Route.MIMEType)
-	if request.Signature.Signature != "" {
+	if request.Signature.ExecutionCapability != "" {
+		upstreamRequest.Header.Set(
+			ExecutionCapabilityHeader,
+			request.Signature.ExecutionCapability,
+		)
+		upstreamRequest.Header.Set(
+			SellerTransactionHeader,
+			request.Signature.Transaction,
+		)
+	} else if request.Signature.Signature != "" {
 		upstreamRequest.Header.Set(
 			SellerSignatureHeader,
 			request.Signature.Signature,
@@ -469,9 +503,14 @@ func (forwarder *Forwarder) authorizeTarget(
 		return nil, ErrRouteNotAllowed
 	}
 	baseURL, err := url.Parse(request.Seller.UpstreamBaseURL)
-	if err != nil || baseURL.Scheme != "https" ||
+	if err != nil ||
 		baseURL.Host == "" || baseURL.User != nil ||
 		baseURL.RawQuery != "" || baseURL.Fragment != "" {
+		return nil, ErrForbiddenTarget
+	}
+	localDevelopmentTarget := forwarder.localDevelopmentTarget != nil &&
+		forwarder.localDevelopmentTarget.matchesURL(baseURL)
+	if baseURL.Scheme != "https" && !localDevelopmentTarget {
 		return nil, ErrForbiddenTarget
 	}
 	addresses, err := forwarder.resolver.LookupIP(
@@ -479,7 +518,8 @@ func (forwarder *Forwarder) authorizeTarget(
 		"ip",
 		baseURL.Hostname(),
 	)
-	if err != nil || !addressesArePublic(addresses) {
+	if err != nil || localDevelopmentTarget && !addressesAreLoopback(addresses) ||
+		!localDevelopmentTarget && !addressesArePublic(addresses) {
 		return nil, ErrForbiddenTarget
 	}
 	baseURL.Path = request.Route.PathPattern
@@ -489,8 +529,9 @@ func (forwarder *Forwarder) authorizeTarget(
 
 // protectedDialer re-resolves and pins the validated IP for each connection.
 type protectedDialer struct {
-	resolver Resolver
-	dialer   ContextDialer
+	resolver               Resolver
+	dialer                 ContextDialer
+	localDevelopmentTarget *localDevelopmentTarget
 }
 
 // DialContext blocks DNS rebinding before opening the socket.
@@ -504,7 +545,10 @@ func (dialer *protectedDialer) DialContext(
 		return nil, ErrForbiddenTarget
 	}
 	addresses, err := dialer.resolver.LookupIP(ctx, "ip", host)
-	if err != nil || !addressesArePublic(addresses) {
+	localDevelopmentTarget := dialer.localDevelopmentTarget != nil &&
+		dialer.localDevelopmentTarget.matchesAddress(host, port)
+	if err != nil || localDevelopmentTarget && !addressesAreLoopback(addresses) ||
+		!localDevelopmentTarget && !addressesArePublic(addresses) {
 		return nil, ErrForbiddenTarget
 	}
 	return dialer.dialer.DialContext(
@@ -512,6 +556,58 @@ func (dialer *protectedDialer) DialContext(
 		network,
 		net.JoinHostPort(addresses[0].String(), port),
 	)
+}
+
+func parseLocalDevelopmentTarget(rawEndpoint string) (*localDevelopmentTarget, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawEndpoint))
+	if err != nil || parsed.Scheme != "http" || parsed.Host == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" ||
+		!isLoopbackHost(parsed.Hostname()) {
+		return nil, ErrForbiddenTarget
+	}
+	port := parsed.Port()
+	if port == "" {
+		port = "80"
+	}
+	return &localDevelopmentTarget{
+		hostname: strings.ToLower(parsed.Hostname()),
+		port:     port,
+	}, nil
+}
+
+func (target *localDevelopmentTarget) matchesURL(candidate *url.URL) bool {
+	if target == nil || candidate == nil || candidate.Scheme != "http" {
+		return false
+	}
+	port := candidate.Port()
+	if port == "" {
+		port = "80"
+	}
+	return strings.EqualFold(candidate.Hostname(), target.hostname) && port == target.port
+}
+
+func (target *localDevelopmentTarget) matchesAddress(host, port string) bool {
+	return target != nil && strings.EqualFold(host, target.hostname) && port == target.port
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	address := net.ParseIP(host)
+	return address != nil && address.IsLoopback()
+}
+
+func addressesAreLoopback(addresses []net.IP) bool {
+	if len(addresses) == 0 {
+		return false
+	}
+	for _, address := range addresses {
+		if address == nil || !address.IsLoopback() {
+			return false
+		}
+	}
+	return true
 }
 
 // addressesArePublic rejects mixed or empty DNS responses fail-closed.

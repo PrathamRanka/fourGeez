@@ -5,13 +5,20 @@ import (
 	"net/http"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 // HTTPController exposes transaction and evidence read operations.
 type HTTPController struct {
-	service *Service
+	service           *Service
+	browserAuthorizer *browserpurchase.RequestAuthorizer
+}
+
+// SetBrowserPurchaseAuthorizer enables cookie-bound transaction and receipt reads.
+func (controller *HTTPController) SetBrowserPurchaseAuthorizer(authorizer *browserpurchase.RequestAuthorizer) {
+	controller.browserAuthorizer = authorizer
 }
 
 // NewHTTPController creates the transaction read controller.
@@ -21,13 +28,26 @@ func NewHTTPController(service *Service) *HTTPController {
 
 // RegisterRoutes registers transaction detail and seller-list endpoints.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
+	detailHandler := http.Handler(api.RequireAgentOrSeller(http.HandlerFunc(controller.get)))
+	receiptHandler := http.Handler(api.RequireAgentOrSeller(http.HandlerFunc(controller.receipt)))
+	if controller.browserAuthorizer != nil {
+		requirement := func(request *http.Request) (browserpurchase.AuthorizationRequirement, error) {
+			transactionID, err := domain.ParseID(request.PathValue("transactionId"), domain.TransactionIDPrefix)
+			if err != nil {
+				return browserpurchase.AuthorizationRequirement{}, persistence.ErrNotFound
+			}
+			return browserpurchase.AuthorizationRequirement{Authority: browserpurchase.AuthorityRead, TransactionID: transactionID}, nil
+		}
+		detailHandler = browserpurchase.RequireAgentSellerOrBrowser(controller.browserAuthorizer, requirement, http.HandlerFunc(controller.get))
+		receiptHandler = browserpurchase.RequireAgentSellerOrBrowser(controller.browserAuthorizer, requirement, http.HandlerFunc(controller.receipt))
+	}
 	mux.Handle(
 		"GET /v1/transactions/{transactionId}",
-		api.RequireAgentOrSeller(http.HandlerFunc(controller.get)),
+		detailHandler,
 	)
 	mux.Handle(
 		"GET /v1/transactions/{transactionId}/receipt",
-		api.RequireAgentOrSeller(http.HandlerFunc(controller.receipt)),
+		receiptHandler,
 	)
 	mux.Handle(
 		"GET /v1/sellers/{sellerId}/transactions",
