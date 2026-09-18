@@ -1,10 +1,27 @@
 .frame {
+  --chart-fulfilled: #19202d;
+  --chart-processing: #4b73e8;
+  --chart-failed: #ae5761;
+  --chart-disputed: #8776e8;
+  --chart-grid: #dce0e7;
   padding: clamp(1.25rem, 3vw, 2rem);
+  background:
+    linear-gradient(rgb(16 20 30 / 3%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(16 20 30 / 3%) 1px, transparent 1px),
+    #fafbfc;
+  background-size: 5rem 5rem;
+}
+
+:global(.dark) .frame {
+  --chart-fulfilled: #f2f2ef;
+  --chart-processing: #779fff;
+  --chart-failed: #bf727d;
+  --chart-disputed: #c69af2;
+  --chart-grid: #292d37;
   background:
     linear-gradient(rgb(255 255 255 / 1.5%) 1px, transparent 1px),
     linear-gradient(90deg, rgb(255 255 255 / 1.5%) 1px, transparent 1px),
-    #070707;
-  background-size: 5rem 5rem;
+    #090a0d;
 }
 
 .legend {
@@ -12,7 +29,7 @@
   flex-wrap: wrap;
   gap: 0.7rem 1.25rem;
   margin-bottom: 1.25rem;
-  color: #9999a2;
+  color: var(--muted-foreground);
   font-family: var(--font-mono);
   font-size: 0.58rem;
   text-transform: uppercase;
@@ -28,32 +45,32 @@
 .legend i {
   width: 0.55rem;
   height: 0.55rem;
-  background: #f2f2ef;
+  background: var(--chart-fulfilled);
 }
 
 .legend i[data-series="processing"] {
-  background: #779fff;
+  background: var(--chart-processing);
 }
 
 .legend i[data-series="failed"] {
-  background: #a46772;
+  background: var(--chart-failed);
 }
 
 .legend i[data-series="disputed"] {
-  background: #c69af2;
+  background: var(--chart-disputed);
 }
 
 .chart {
   width: 100%;
   min-height: 20rem;
-  color: #96969e;
+  color: var(--muted-foreground);
 }
 
 .tooltip {
   border-radius: 0;
-  border-color: #3a3a3f;
-  background: #090909;
-  color: #f5f5f2;
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--foreground);
   box-shadow: none;
 }
 

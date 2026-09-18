@@ -8,10 +8,10 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Scale,
-  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import styles from "./dashboard-shell.module.css";
 
 const dashboardLinks = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -27,17 +27,17 @@ export function DashboardNavigation() {
   const pathname = usePathname();
 
   return (
-    <>
-      <div className="dashboard-navigation">
-        <p className="dashboard-nav-label">Workspace</p>
-        <nav aria-label="Seller dashboard">
+    <nav
+      className={styles.navigation}
+      aria-label="Seller command navigation"
+    >
           {dashboardLinks.map((link) => {
             const Icon = link.icon;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className="dashboard-nav-link"
+                className={styles.navLink}
                 aria-current={
                   pathname === link.href ||
                   (link.href !== "/dashboard" &&
@@ -51,19 +51,10 @@ export function DashboardNavigation() {
               </Link>
             );
           })}
-        </nav>
-      </div>
-      <div className="dashboard-sidebar-footer">
-        <p className="dashboard-nav-label">Resources</p>
-        <Link href="/docs" className="dashboard-nav-link">
-          <LifeBuoy aria-hidden="true" />
-          <span>Documentation</span>
-        </Link>
-        <span className="dashboard-nav-link" aria-disabled="true">
-          <Settings aria-hidden="true" />
-          <span>Settings</span>
-        </span>
-      </div>
-    </>
+      <Link href="/docs" className={styles.navLink}>
+        <LifeBuoy aria-hidden="true" />
+        <span>Docs</span>
+      </Link>
+    </nav>
   );
 }

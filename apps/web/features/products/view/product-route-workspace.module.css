@@ -1,21 +1,20 @@
 .workspace {
-  color-scheme: dark;
-  --background: #050505;
-  --foreground: #f4f4f4;
-  --card: #0a0a0a;
-  --card-foreground: #f4f4f4;
-  --primary: #f4f4f4;
-  --primary-foreground: #050505;
-  --secondary: #121212;
-  --secondary-foreground: #f4f4f4;
-  --muted: #121212;
-  --muted-foreground: #929292;
-  --border: #292929;
-  --input: #343434;
-  --ring: #f4f4f4;
-  --surface: #050505;
-  --surface-raised: #0a0a0a;
-  --surface-muted: #101010;
+  --background: #f5f6f8;
+  --foreground: #12141a;
+  --card: #fff;
+  --card-foreground: #12141a;
+  --primary: #12141a;
+  --primary-foreground: #fff;
+  --secondary: #f0f2f6;
+  --secondary-foreground: #12141a;
+  --muted: #f0f2f6;
+  --muted-foreground: #697181;
+  --border: #dce0e7;
+  --input: #c8ced8;
+  --ring: #4b73e8;
+  --surface: #fff;
+  --surface-raised: #f8f9fb;
+  --surface-muted: #f0f2f6;
   --line: color-mix(in oklab, var(--foreground) 17%, transparent);
   --line-strong: color-mix(in oklab, var(--foreground) 29%, transparent);
   --copy-muted: color-mix(in oklab, var(--foreground) 58%, transparent);
@@ -28,13 +27,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+:global(.dark) .workspace {
+  color-scheme: dark;
+  --background: #050608;
+  --foreground: #f4f5f7;
+  --card: #090a0d;
+  --card-foreground: #f4f5f7;
+  --primary: #f4f5f7;
+  --primary-foreground: #050608;
+  --secondary: #101219;
+  --secondary-foreground: #f4f5f7;
+  --muted: #101219;
+  --muted-foreground: #9299a8;
+  --border: #272a34;
+  --input: #3d4250;
+  --ring: #7399ff;
+  --surface: #090a0d;
+  --surface-raised: #0e1015;
+  --surface-muted: #11141b;
+}
+
 .workspace :global(.product-page-header) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 2rem;
-  min-height: 18rem;
-  padding: clamp(2rem, 5vw, 5rem);
+  min-height: 13rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
   border-bottom: 1px solid var(--line);
   background:
     radial-gradient(circle at 78% 80%, color-mix(in oklab, #d9b7ff 17%, transparent), transparent 22%),

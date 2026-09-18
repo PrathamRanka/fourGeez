@@ -11,6 +11,9 @@ vi.mock("next/navigation", () => ({
 describe("authenticated seller dashboard", () => {
   it("does not carry seller identity in dashboard links", () => {
     render(<DashboardNavigation />);
+    expect(
+      screen.getByRole("navigation", { name: "Seller command navigation" }),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
       "/dashboard/products",
@@ -37,7 +40,7 @@ describe("authenticated seller dashboard", () => {
       </DashboardShell>,
     );
     expect(
-      screen.getByRole("complementary", { name: "AgentPay seller workspace" }),
+      screen.getByRole("banner", { name: "AgentPay seller workspace" }),
     ).toBeVisible();
     expect(
       screen.getByRole("status", { name: "Environment" }),

@@ -11,10 +11,10 @@ import type { DailyActivity } from "@/features/analytics/model";
 import styles from "./daily-activity-chart.module.css";
 
 const chartConfig = {
-  fulfilled: { label: "Fulfilled", color: "#f2f2ef" },
-  processing: { label: "Processing", color: "#779fff" },
-  failed: { label: "Failed", color: "#a46772" },
-  disputed: { label: "Disputed", color: "#c69af2" },
+  fulfilled: { label: "Fulfilled", color: "var(--chart-fulfilled)" },
+  processing: { label: "Processing", color: "var(--chart-processing)" },
+  failed: { label: "Failed", color: "var(--chart-failed)" },
+  disputed: { label: "Disputed", color: "var(--chart-disputed)" },
 } satisfies ChartConfig;
 
 const legendItems = [
@@ -81,7 +81,7 @@ export function DailyActivityChart({ activity }: DailyActivityChartProps) {
             </defs>
             <CartesianGrid
               vertical={false}
-              stroke="#292929"
+              stroke="var(--chart-grid)"
               strokeDasharray="2 5"
             />
             <XAxis

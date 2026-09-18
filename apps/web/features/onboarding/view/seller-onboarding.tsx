@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DashboardIntegrationMap } from "@/components/dashboard/dashboard-integration-map";
 import { OperationState } from "@/components/dashboard/operation-state";
 import type {
   CredentialCreated,
@@ -388,6 +389,9 @@ export function SellerOnboarding({
           description="Copy the MCP configuration and the setup prompt into Claude Code, Codex, or another MCP host."
           complete={credentialReady}
         >
+          <div className="onboarding-integration-visual">
+            <DashboardIntegrationMap connected={credentialReady} />
+          </div>
           {createdCredential ? (
             <div className="onboarding-copy-grid">
               <div className="onboarding-code-block">

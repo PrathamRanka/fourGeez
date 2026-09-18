@@ -1,9 +1,9 @@
 .workspace {
-  --analytics-bg: #050505;
-  --analytics-panel: #090909;
-  --analytics-line: #292929;
-  --analytics-text: #f5f5f2;
-  --analytics-muted: #96969e;
+  --analytics-bg: #fff;
+  --analytics-panel: #f7f8fa;
+  --analytics-line: #dce0e7;
+  --analytics-text: #12141a;
+  --analytics-muted: #697181;
   display: grid;
   min-height: calc(100vh - 8rem);
   overflow: hidden;
@@ -12,13 +12,22 @@
   color: var(--analytics-text);
 }
 
+:global(.dark) .workspace {
+  color-scheme: dark;
+  --analytics-bg: #090a0d;
+  --analytics-panel: #0e1015;
+  --analytics-line: #272a34;
+  --analytics-text: #f4f5f7;
+  --analytics-muted: #9299a8;
+}
+
 .hero {
   display: flex;
-  min-height: 19rem;
+  min-height: 14rem;
   align-items: flex-end;
   justify-content: space-between;
   gap: 3rem;
-  padding: clamp(2rem, 6vw, 5rem);
+  padding: clamp(1.5rem, 4vw, 3.5rem);
   border-bottom: 1px solid var(--analytics-line);
   background:
     radial-gradient(
@@ -382,7 +391,7 @@
   }
 
   .hero {
-    min-height: 23rem;
+    min-height: 15rem;
     align-items: flex-start;
     flex-direction: column;
     justify-content: flex-end;

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, Boxes, FileCheck2, Settings2 } from "lucide-react";
+import { ArrowUpRight, Boxes, FileCheck2, Radio, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DashboardIntegrationMap } from "@/components/dashboard/dashboard-integration-map";
+import { DashboardNetworkGlobe } from "@/components/dashboard/dashboard-network-globe";
 import { loadAnalyticsSnapshot } from "@/features/analytics/controller";
-import { buildPaymentPairSummaries } from "@/features/analytics/model";
+import { buildDailyActivity, buildPaymentPairSummaries } from "@/features/analytics/model";
+import { DailyActivityChart } from "@/features/analytics/view/daily-activity-chart";
 import { getSellerSession } from "@/features/auth/server/session";
 import { formatAtomicPrice } from "@/lib/money";
 import styles from "./overview.module.css";
@@ -43,12 +46,13 @@ export default async function DashboardPage() {
 
   const snapshot = await loadAnalyticsSnapshot();
   const paymentPairs = buildPaymentPairSummaries(snapshot.aggregates);
+  const dailyActivity = buildDailyActivity(snapshot.aggregates);
 
   return (
     <div className={styles.workspace}>
       <header className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Seller network / live operations</p>
+          <p className={styles.eyebrow}>Seller network / command rail</p>
           <h1>Commerce command center</h1>
           <div className={styles.intro}>
             <h2 className={styles.sellerName}>{session.principal.name}</h2>
@@ -61,6 +65,13 @@ export default async function DashboardPage() {
         </div>
       </header>
 
+      <section className={styles.signalRail} aria-label="Commerce overview">
+        <div><span>Transactions</span><strong>{snapshot.transactionCount}</strong></div>
+        <div><span>Settlement pairs</span><strong>{paymentPairs.length}</strong></div>
+        <div><span>Reporting</span><strong>{snapshot.error ? "Degraded" : "Online"}</strong></div>
+        <div><span>Accounting</span><strong>Pair separated</strong></div>
+      </section>
+
       {snapshot.error ? (
         <div className={styles.errorState} role="alert">
           <div>
@@ -71,10 +82,38 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
+      <section className={styles.bento} aria-label="Live commerce system">
+        <article className={styles.activityCard}>
+          <div className={styles.cardHeading}>
+            <div><p className={styles.sectionIndex}>01 / Activity</p><h2>Settlement velocity</h2></div>
+            <span>Daily stage count / UTC</span>
+          </div>
+          {dailyActivity.length > 0 ? (
+            <DailyActivityChart activity={dailyActivity} />
+          ) : (
+            <div className={styles.compactEmpty}>Activity appears after the first verified purchase.</div>
+          )}
+        </article>
+        <article className={styles.integrationCard}>
+          <div className={styles.cardHeading}>
+            <div><p className={styles.sectionIndex}>02 / Integration</p><h2>MCP control path</h2></div>
+            <Radio aria-hidden="true" />
+          </div>
+          <DashboardIntegrationMap connected />
+        </article>
+        <article className={styles.networkCard}>
+          <div className={styles.cardHeading}>
+            <div><p className={styles.sectionIndex}>03 / Channels</p><h2>Commerce network</h2></div>
+            <span>Shared transaction rail</span>
+          </div>
+          <DashboardNetworkGlobe />
+        </article>
+      </section>
+
       <section className={styles.pulsePanel} aria-labelledby="commerce-pulse">
         <div className={styles.pulseHeading}>
           <div>
-            <p className={styles.sectionIndex}>01 / Commerce pulse</p>
+            <p className={styles.sectionIndex}>04 / Commerce pulse</p>
             <h2 id="commerce-pulse">Every settlement pair. Kept separate.</h2>
           </div>
           <div
@@ -151,7 +190,7 @@ export default async function DashboardPage() {
       >
         <div className={styles.sectionHeading}>
           <div>
-            <p className={styles.sectionIndex}>02 / Operate</p>
+            <p className={styles.sectionIndex}>05 / Operate</p>
             <h2 id="seller-operations">Move the storefront forward.</h2>
           </div>
         </div>

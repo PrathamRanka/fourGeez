@@ -1,28 +1,26 @@
 .workspace {
-  color-scheme: dark;
-  --background: #050505;
-  --foreground: #f4f4f4;
-  --card: #0a0a0a;
-  --card-foreground: #f4f4f4;
-  --primary: #f4f4f4;
-  --primary-foreground: #050505;
-  --secondary: #121212;
-  --secondary-foreground: #f4f4f4;
-  --muted: #121212;
-  --muted-foreground: #929292;
-  --border: #292929;
-  --input: #343434;
-  --ring: #f4f4f4;
-  --surface: #050505;
-  --surface-raised: #0a0a0a;
-  --surface-muted: #101010;
+  --background: #f5f6f8;
+  --foreground: #12141a;
+  --card: #fff;
+  --card-foreground: #12141a;
+  --primary: #12141a;
+  --primary-foreground: #fff;
+  --secondary: #f0f2f6;
+  --secondary-foreground: #12141a;
+  --muted: #f0f2f6;
+  --muted-foreground: #697181;
+  --border: #dce0e7;
+  --input: #c8ced8;
+  --ring: #4b73e8;
+  --surface: #fff;
+  --surface-raised: #f8f9fb;
+  --surface-muted: #f0f2f6;
   --line: color-mix(in oklab, var(--foreground) 17%, transparent);
   --line-strong: color-mix(in oklab, var(--foreground) 28%, transparent);
   --copy-muted: color-mix(in oklab, var(--foreground) 58%, transparent);
   --copy-faint: color-mix(in oklab, var(--foreground) 54%, transparent);
   display: grid;
-  grid-template-columns: minmax(17rem, 0.72fr) minmax(0, 1.8fr);
-  min-height: calc(100vh - 5rem);
+  grid-template-columns: minmax(16rem, 0.62fr) minmax(0, 1.8fr);
   border-inline: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background: var(--surface);
@@ -30,16 +28,41 @@
   font-variant-numeric: tabular-nums;
 }
 
+:global(.dark) .workspace {
+  color-scheme: dark;
+  --background: #050608;
+  --foreground: #f4f5f7;
+  --card: #090a0d;
+  --card-foreground: #f4f5f7;
+  --primary: #f4f5f7;
+  --primary-foreground: #050608;
+  --secondary: #101219;
+  --secondary-foreground: #f4f5f7;
+  --muted: #101219;
+  --muted-foreground: #9299a8;
+  --border: #272a34;
+  --input: #3d4250;
+  --ring: #7399ff;
+  --surface: #090a0d;
+  --surface-raised: #0e1015;
+  --surface-muted: #11141b;
+}
+
 .workspace :global(.onboarding-summary) {
   position: sticky;
   top: 4.75rem;
   align-self: start;
-  min-height: calc(100vh - 5rem);
+  min-height: 34rem;
   padding: clamp(2rem, 4vw, 4.5rem) clamp(1.5rem, 3vw, 3.5rem);
   border-right: 1px solid var(--line);
   background:
     linear-gradient(180deg, color-mix(in oklab, #17355f 16%, transparent), transparent 34%),
     var(--surface);
+}
+
+.workspace :global(.onboarding-integration-visual) {
+  margin-bottom: 1rem;
+  border: 1px solid var(--line);
 }
 
 .workspace :global(.dashboard-eyebrow) {

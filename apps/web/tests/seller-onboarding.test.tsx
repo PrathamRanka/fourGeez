@@ -161,6 +161,11 @@ describe("seller onboarding", () => {
     expect(
       screen.getByRole("button", { name: "Copy setup prompt" }),
     ).toBeEnabled();
+    expect(
+      screen.getByRole("region", { name: "AgentPay MCP connection" }),
+    ).toBeVisible();
+    expect(screen.getByText("Seller repository")).toBeVisible();
+    expect(screen.getByText("AgentPay cloud")).toBeVisible();
     expect(screen.getByText(/ready for product validation/i)).toBeVisible();
 
     const checklist = screen.getByRole("list", {

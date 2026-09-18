@@ -58,6 +58,12 @@ describe("seller dashboard overview", () => {
     expect(
       screen.getByRole("heading", { name: "Commerce command center" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "AgentPay MCP connection" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("img", { name: "AgentPay commerce network" }),
+    ).toBeVisible();
     expect(screen.getByText("Northstar Research")).toBeVisible();
     expect(
       screen.getByRole("status", { name: "3 transactions" }),
