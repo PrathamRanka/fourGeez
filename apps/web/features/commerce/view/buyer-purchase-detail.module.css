@@ -1,0 +1,375 @@
+.page,
+.statePage {
+  min-height: 75svh;
+  background: var(--background);
+}
+.page {
+  width: min(100%, 96rem);
+  margin-inline: auto;
+  border-inline: 1px solid var(--border);
+}
+.statePage {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+.page > a {
+  display: inline-flex;
+  padding: 1.2rem clamp(1.25rem, 4vw, 3rem);
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+.workspace {
+  border-top: 1px solid var(--border);
+}
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: clamp(2.5rem, 7vw, 5.5rem) clamp(1.25rem, 5vw, 4.5rem);
+  background: radial-gradient(
+    circle at 86% 100%,
+    color-mix(in oklab, var(--blue-glow) 30%, transparent),
+    transparent 36%
+  );
+}
+.eyebrow {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.header h1 {
+  max-width: 12ch;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-weight: 520;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+}
+.header > div > span {
+  display: block;
+  margin-top: 0.8rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+.header > div > p:last-child {
+  max-width: 42rem;
+  margin-top: 1.4rem;
+  color: var(--muted-foreground);
+  line-height: 1.65;
+}
+.evidenceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.7rem;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+.evidenceBadge[data-valid="true"] {
+  border-color: color-mix(in oklab, var(--chart-3) 45%, var(--border));
+  color: color-mix(in oklab, var(--chart-3) 70%, var(--foreground));
+}
+.evidenceBadge svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.facts {
+  display: grid;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+.facts > div {
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 1.1rem clamp(1rem, 3vw, 1.5rem);
+}
+.facts span {
+  display: block;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.facts strong {
+  display: block;
+  margin-top: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 580;
+  overflow-wrap: anywhere;
+}
+.detailGrid {
+  display: grid;
+}
+.panel {
+  min-width: 0;
+  padding: clamp(1.4rem, 4vw, 3rem);
+  border-bottom: 1px solid var(--border);
+}
+.panelHeading > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.panelHeading svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.panelHeading h2,
+.disputePanel h2,
+.disputeOutcome h2 {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 560;
+  letter-spacing: -0.035em;
+}
+.panelHeading p,
+.disputePanel header p {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+}
+.warning,
+.errorBox {
+  border-left: 2px solid var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  padding: 0.85rem;
+  color: var(--destructive);
+  font-size: 0.78rem;
+}
+.warning {
+  margin-top: 1rem;
+}
+.evidenceList {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.evidenceList li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-block: 0.9rem;
+}
+.evidenceList > li > span {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+}
+.evidenceList strong {
+  font-size: 0.78rem;
+}
+.evidenceList p {
+  margin-top: 0.2rem;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+}
+.evidenceList code {
+  display: block;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.definitionList {
+  display: grid;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.definitionList > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.7fr) minmax(0, 1fr);
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-block: 0.8rem;
+}
+.definitionList dt {
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+}
+.definitionList dd {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+.action {
+  min-height: 2.65rem;
+  border-radius: 0 !important;
+}
+.emptyCopy {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.disputePanel,
+.disputeOutcome {
+  padding: clamp(1.4rem, 4vw, 3rem);
+}
+.disputePanel header,
+.disputeOutcome header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 0.75rem;
+}
+.disputePanel header > svg,
+.disputeOutcome header > svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.disputePanel header .evidenceBadge,
+.disputeOutcome header .evidenceBadge {
+  margin-left: auto;
+}
+.disputePanel form {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+  margin-top: 1.5rem;
+}
+.disputePanel label {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+.disputePanel select,
+.disputePanel textarea {
+  width: 100%;
+  border: 1px solid var(--input);
+  border-radius: 0;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0.85rem;
+}
+.disputePanel textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+.disabledCopy {
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+}
+.errorCopy {
+  color: var(--destructive);
+  font-size: 0.76rem;
+}
+.disputeExplanation {
+  max-width: 44rem;
+  margin-top: 1.5rem;
+  color: var(--muted-foreground);
+  line-height: 1.65;
+}
+.disputeOutcome dl {
+  display: grid;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+.disputeOutcome dl div {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0.9rem;
+}
+.disputeOutcome dt {
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+}
+.disputeOutcome dd {
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+.receiptStatus {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  padding: 0.8rem;
+}
+.receiptStatus svg {
+  width: 1rem;
+  height: 1rem;
+}
+.receiptStatus div {
+  display: grid;
+  gap: 0.2rem;
+}
+.receiptStatus strong {
+  font-size: 0.74rem;
+}
+.receiptStatus span {
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+}
+.receiptError {
+  border-color: color-mix(in oklab, var(--destructive) 45%, var(--border));
+}
+.receiptReady {
+  border-color: color-mix(in oklab, var(--chart-3) 45%, var(--border));
+}
+
+@media (min-width: 620px) {
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .disputeOutcome dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 940px) {
+  .facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .detailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .panel:first-child {
+    border-right: 1px solid var(--border);
+  }
+}
+@media (max-width: 560px) {
+  .header {
+    display: grid;
+  }
+  .evidenceBadge {
+    width: fit-content;
+  }
+  .disputePanel header .evidenceBadge,
+  .disputeOutcome header .evidenceBadge {
+    margin-left: 0;
+  }
+  .actions {
+    display: grid;
+  }
+  .action {
+    width: 100%;
+  }
+}

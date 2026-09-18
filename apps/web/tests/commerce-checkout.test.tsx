@@ -95,6 +95,7 @@ describe("commerce checkout", () => {
       />,
     );
 
+    expect(screen.getByText("Protected x402 settlement")).toBeVisible();
     expect(screen.getByLabelText("Maximum spend")).toHaveValue("35");
     expect(screen.queryByText(/manager approval/i)).not.toBeInTheDocument();
 

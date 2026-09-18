@@ -56,6 +56,9 @@ describe("seller storefront", () => {
     render(<StorefrontHome manifest={manifest} signature={signature} />);
 
     expect(
+      screen.getByRole("region", { name: "Verified catalog" }),
+    ).toBeVisible();
+    expect(
       screen.getByRole("heading", { name: "Northstar Research" }),
     ).toBeVisible();
     expect(screen.getByText("/store/northstar")).toBeVisible();
@@ -87,6 +90,7 @@ describe("seller storefront", () => {
       />,
     );
 
+    expect(screen.getByText("Exact-price checkout")).toBeVisible();
     expect(
       screen.getByRole("heading", { name: "Research Report" }),
     ).toBeVisible();

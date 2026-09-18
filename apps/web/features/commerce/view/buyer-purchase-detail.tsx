@@ -25,6 +25,7 @@ import {
 } from "@/features/disputes/model";
 import { transactionStatusLabel } from "@/features/transactions/model";
 import { formatAtomicPrice } from "@/lib/money";
+import styles from "./buyer-purchase-detail.module.css";
 
 const disputeReasons: DisputeReason[] = [
   "unauthorized",
@@ -119,8 +120,8 @@ export function BuyerPurchaseDetail({
 
   if (loading) {
     return (
-      <main id="main-content" className="storefront-product-detail">
-        <div className="transaction-empty-copy" role="status">
+      <main id="main-content" className={styles.statePage}>
+        <div className={styles.emptyCopy} role="status">
           Loading purchase record…
         </div>
       </main>
@@ -129,11 +130,12 @@ export function BuyerPurchaseDetail({
 
   if (error || !purchase) {
     return (
-      <main id="main-content" className="storefront-product-detail">
-        <div className="dashboard-error" role="alert">
+      <main id="main-content" className={styles.statePage}>
+        <div className={styles.errorBox} role="alert">
           {error ?? "Purchase record not found."}
         </div>
         <Button
+          className={styles.action}
           type="button"
           variant="outline"
           onClick={() => {
@@ -153,12 +155,12 @@ export function BuyerPurchaseDetail({
     evidence.valid && transaction.paymentFinality === "finalized";
 
   return (
-    <main id="main-content" className="storefront-product-detail">
+    <main id="main-content" className={styles.page}>
       <Link href="/">← AgentPay home</Link>
-      <div className="transaction-detail-workspace">
-        <header className="transaction-detail-header">
+      <div className={styles.workspace}>
+        <header className={styles.header}>
           <div>
-            <p className="dashboard-eyebrow">Purchase proof</p>
+            <p className={styles.eyebrow}>Purchase ledger</p>
             <h1>{transaction.productDisplayName ?? "Purchase details"}</h1>
             <span>{transaction.transactionId}</span>
             <p>
@@ -166,7 +168,7 @@ export function BuyerPurchaseDetail({
               receipt, and support records remain bound to this purchase.
             </p>
           </div>
-          <span className="dispute-evidence-badge" data-valid={evidence.valid}>
+          <span className={styles.evidenceBadge} data-valid={evidence.valid}>
             {evidence.valid ? (
               <CheckCircle2 aria-hidden="true" />
             ) : (
@@ -178,7 +180,7 @@ export function BuyerPurchaseDetail({
           </span>
         </header>
 
-        <section className="transaction-facts" aria-label="Purchase summary">
+        <section className={styles.facts} aria-label="Purchase summary">
           <Fact
             label="Outcome"
             value={transactionOutcomeLabel(transaction.status)}
@@ -198,9 +200,9 @@ export function BuyerPurchaseDetail({
           <Fact label="Network" value={transaction.network} />
         </section>
 
-        <div className="transaction-detail-grid">
-          <section className="transaction-panel" aria-labelledby="evidence-title">
-            <div className="transaction-panel-heading">
+        <div className={styles.detailGrid}>
+          <section className={styles.panel} aria-labelledby="evidence-title">
+            <div className={styles.panelHeading}>
               <div>
                 {evidence.valid ? (
                   <CheckCircle2 aria-hidden="true" />
@@ -214,20 +216,17 @@ export function BuyerPurchaseDetail({
               </div>
             </div>
             {!evidence.valid ? (
-              <div className="transaction-evidence-warning" role="alert">
+              <div className={styles.warning} role="alert">
                 Evidence verification failed. Receipt verification and dispute
                 classification may be unavailable.
               </div>
             ) : null}
             {evidence.events.length === 0 ? (
-              <p className="transaction-empty-copy">
+              <p className={styles.emptyCopy}>
                 No evidence events have been recorded yet.
               </p>
             ) : (
-              <ol
-                className="transaction-evidence-list"
-                aria-label="Evidence events"
-              >
+              <ol className={styles.evidenceList} aria-label="Evidence events">
                 {evidence.events.map((event) => (
                   <li key={event.eventId}>
                     <span>{event.sequence}</span>
@@ -244,8 +243,8 @@ export function BuyerPurchaseDetail({
             )}
           </section>
 
-          <section className="transaction-panel" aria-labelledby="receipt-title">
-            <div className="transaction-panel-heading">
+          <section className={styles.panel} aria-labelledby="receipt-title">
+            <div className={styles.panelHeading}>
               <div>
                 <FileCheck2 aria-hidden="true" />
                 <div>
@@ -254,7 +253,7 @@ export function BuyerPurchaseDetail({
                 </div>
               </div>
             </div>
-            <dl className="transaction-definition-list">
+            <dl className={styles.definitionList}>
               <Definition
                 label="Status"
                 value={receiptAvailable ? "Ready" : "Not available"}
@@ -268,24 +267,28 @@ export function BuyerPurchaseDetail({
                 value={transactionStatusLabel(transaction.status)}
               />
             </dl>
-            <div className="commerce-checkout-actions">
+            <div className={styles.actions}>
               {receiptAvailable ? (
                 <>
                   <a
-                    className={buttonVariants()}
+                    className={`${buttonVariants()} ${styles.action}`}
                     download
                     href={`/api/commerce/purchases/${encodeURIComponent(transactionId)}/receipt`}
                   >
                     <Download aria-hidden="true" /> Download receipt
                   </a>
                   <Button
+                    className={styles.action}
                     type="button"
                     variant="outline"
                     disabled={receiptState.status === "verifying"}
                     onClick={verifyReceipt}
                   >
                     {receiptState.status === "verifying" ? (
-                      <LoaderCircle className="animate-spin" aria-hidden="true" />
+                      <LoaderCircle
+                        className="animate-spin"
+                        aria-hidden="true"
+                      />
                     ) : (
                       <FileCheck2 aria-hidden="true" />
                     )}
@@ -293,7 +296,7 @@ export function BuyerPurchaseDetail({
                   </Button>
                 </>
               ) : (
-                <p className="transaction-empty-copy">
+                <p className={styles.emptyCopy}>
                   A receipt becomes available after finalized payment and valid
                   evidence.
                 </p>
@@ -363,7 +366,10 @@ function BuyerDisputePanel({
   if (dispute) {
     const disputePath = `/purchases/${transactionId}?dispute=${dispute.disputeId}`;
     return (
-      <section className="dispute-outcome" aria-labelledby="dispute-outcome-title">
+      <section
+        className={styles.disputeOutcome}
+        aria-labelledby="dispute-outcome-title"
+      >
         <header>
           <Scale aria-hidden="true" />
           <div>
@@ -372,7 +378,7 @@ function BuyerDisputePanel({
               {disputeStatusLabel(dispute.status)}
             </h2>
           </div>
-          <span className="dispute-evidence-badge" data-valid={evidenceValid}>
+          <span className={styles.evidenceBadge} data-valid={evidenceValid}>
             {evidenceValid ? (
               <CheckCircle2 aria-hidden="true" />
             ) : (
@@ -383,7 +389,7 @@ function BuyerDisputePanel({
               : "Evidence verification failed"}
           </span>
         </header>
-        <p className="dispute-explanation">{dispute.explanation}</p>
+        <p className={styles.disputeExplanation}>{dispute.explanation}</p>
         <dl>
           <div>
             <dt>Reason</dt>
@@ -402,9 +408,9 @@ function BuyerDisputePanel({
             <dd>{formatUTC(dispute.createdAt)}</dd>
           </div>
         </dl>
-        <div className="commerce-checkout-actions">
+        <div className={styles.actions}>
           <Link
-            className={buttonVariants({ variant: "outline" })}
+            className={`${buttonVariants({ variant: "outline" })} ${styles.action}`}
             href={disputePath}
           >
             Open saved dispute link
@@ -415,14 +421,17 @@ function BuyerDisputePanel({
   }
 
   return (
-    <section className="dispute-panel" aria-labelledby="buyer-dispute-title">
+    <section
+      className={styles.disputePanel}
+      aria-labelledby="buyer-dispute-title"
+    >
       <header>
         <FileWarning aria-hidden="true" />
         <div>
           <h2 id="buyer-dispute-title">Need help with this purchase?</h2>
           <p>Open a dispute using the verified transaction record.</p>
         </div>
-        <span className="dispute-evidence-badge" data-valid={evidenceValid}>
+        <span className={styles.evidenceBadge} data-valid={evidenceValid}>
           {evidenceValid ? (
             <CheckCircle2 aria-hidden="true" />
           ) : (
@@ -462,17 +471,21 @@ function BuyerDisputePanel({
           />
         </label>
         {!canDispute ? (
-          <p className="dispute-disabled-copy">
-            Disputes become available after fulfillment succeeds or fails with
-            a verified evidence chain.
+          <p className={styles.disabledCopy}>
+            Disputes become available after fulfillment succeeds or fails with a
+            verified evidence chain.
           </p>
         ) : null}
         {error ? (
-          <p className="dispute-error" role="alert">
+          <p className={styles.errorCopy} role="alert">
             {error}
           </p>
         ) : null}
-        <Button type="submit" disabled={!canDispute || pending}>
+        <Button
+          className={styles.action}
+          type="submit"
+          disabled={!canDispute || pending}
+        >
           {pending ? (
             <LoaderCircle className="animate-spin" aria-hidden="true" />
           ) : (
@@ -489,7 +502,10 @@ function ReceiptVerification({ state }: { state: ReceiptState }) {
   if (state.status === "idle" || state.status === "verifying") return null;
   if (state.status === "error") {
     return (
-      <div className="commerce-checkout-status error" role="alert">
+      <div
+        className={`${styles.receiptStatus} ${styles.receiptError}`}
+        role="alert"
+      >
         <ShieldAlert aria-hidden="true" />
         <div>
           <strong>Receipt verification failed</strong>
@@ -498,9 +514,13 @@ function ReceiptVerification({ state }: { state: ReceiptState }) {
       </div>
     );
   }
-  const eventLabel = state.receipt.evidence.eventCount === 1 ? "event" : "events";
+  const eventLabel =
+    state.receipt.evidence.eventCount === 1 ? "event" : "events";
   return (
-    <div className="commerce-checkout-status ready" role="status">
+    <div
+      className={`${styles.receiptStatus} ${styles.receiptReady}`}
+      role="status"
+    >
       <CheckCircle2 aria-hidden="true" />
       <div>
         <strong>Receipt verified</strong>
@@ -572,9 +592,7 @@ function receiptMatchesTransaction(
 async function requestCommerce<Value>(
   path: string,
   init: RequestInit,
-): Promise<
-  { ok: true; value: Value } | { ok: false; error: string }
-> {
+): Promise<{ ok: true; value: Value } | { ok: false; error: string }> {
   try {
     const response = await fetch(path, { ...init, cache: "no-store" });
     const responseBody: unknown = await response.json();

@@ -45,6 +45,7 @@ describe("buyer activity", () => {
     });
     render(<BuyerActivity run={run} />);
 
+    expect(screen.getByText("Agent trace")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Storefront slug"), {
       target: { value: "northstar" },
     });

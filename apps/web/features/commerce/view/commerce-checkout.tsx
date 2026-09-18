@@ -31,6 +31,7 @@ import {
   formatAtomicPrice,
   formatAtomicUnits,
 } from "@/lib/money";
+import styles from "./commerce-checkout.module.css";
 
 type CheckoutStage =
   | "ready"
@@ -203,9 +204,9 @@ export function CommerceCheckout({
   }
 
   return (
-    <section className="commerce-checkout" aria-labelledby="checkout-title">
+    <section className={styles.checkout} aria-labelledby="checkout-title">
       <header>
-        <div className="commerce-checkout-icon">
+        <div className={styles.icon}>
           {channel === "agent" ? (
             <Bot aria-hidden="true" />
           ) : (
@@ -217,12 +218,13 @@ export function CommerceCheckout({
             {channel === "agent" ? "Agent channel demo" : "Browser purchase"}
           </p>
           <h2 id="checkout-title">{heading}</h2>
+          <small className={styles.guardLabel}>Protected x402 settlement</small>
         </div>
         <span>{exactPrice}</span>
       </header>
 
       {stage === "fulfilled" && completeResult ? (
-        <div className="commerce-checkout-success" aria-live="polite">
+        <div className={styles.success} aria-live="polite">
           <span>
             <Check aria-hidden="true" />
           </span>
@@ -240,24 +242,24 @@ export function CommerceCheckout({
               </dd>
             </div>
           </dl>
-          <div className="commerce-fulfillment">
+          <div className={styles.fulfillment}>
             <ReceiptText aria-hidden="true" />
             <div>
               <strong>Fulfillment response</strong>
               <pre>{formatFulfillment(completeResult.fulfillment)}</pre>
             </div>
           </div>
-          <div className="commerce-checkout-actions">
+          <div className={styles.actions}>
             {channel === "browser" ? (
               <>
                 <Link
-                  className={buttonVariants()}
+                  className={`${buttonVariants()} ${styles.action}`}
                   href={`/purchases/${encodeURIComponent(completeResult.transactionId)}#receipt-title`}
                 >
                   <ReceiptText aria-hidden="true" /> View receipt
                 </Link>
                 <Link
-                  className={buttonVariants({ variant: "outline" })}
+                  className={`${buttonVariants({ variant: "outline" })} ${styles.action}`}
                   href={`/purchases/${encodeURIComponent(completeResult.transactionId)}#evidence-title`}
                 >
                   <ShieldCheck aria-hidden="true" /> View evidence
@@ -265,23 +267,32 @@ export function CommerceCheckout({
                 <form
                   action={`/purchases/${encodeURIComponent(completeResult.transactionId)}#buyer-dispute-title`}
                 >
-                  <Button type="submit" variant="outline">
+                  <Button
+                    className={styles.action}
+                    type="submit"
+                    variant="outline"
+                  >
                     <CircleAlert aria-hidden="true" /> Open dispute
                   </Button>
                 </form>
               </>
             ) : null}
-            <Button type="button" variant="outline" onClick={resetCheckout}>
+            <Button
+              className={styles.action}
+              type="button"
+              variant="outline"
+              onClick={resetCheckout}
+            >
               Start another purchase
             </Button>
           </div>
         </div>
       ) : (
         <>
-          <div className="commerce-checkout-fields">
+          <div className={styles.fields}>
             <label htmlFor={maximumSpendID}>
               <span>Maximum spend</span>
-              <div className="commerce-amount-input">
+              <div className={styles.amountInput}>
                 <input
                   aria-label="Maximum spend"
                   aria-describedby={maximumSpendHelpID}
@@ -313,7 +324,7 @@ export function CommerceCheckout({
               />
               <small>Leave empty for products that do not need input.</small>
             </label>
-            <label className="commerce-confirmation">
+            <label className={styles.confirmation}>
               <input
                 checked={confirmed}
                 disabled={stage !== "ready" && stage !== "error"}
@@ -334,9 +345,10 @@ export function CommerceCheckout({
             stage={stage}
           />
 
-          <div className="commerce-checkout-actions">
+          <div className={styles.actions}>
             {stage === "ready" ? (
               <Button
+                className={styles.action}
                 type="button"
                 disabled={!confirmed}
                 onClick={startCheckout}
@@ -345,13 +357,17 @@ export function CommerceCheckout({
               </Button>
             ) : null}
             {stage === "starting" ? (
-              <Button type="button" disabled>
+              <Button className={styles.action} type="button" disabled>
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
                 Freezing quote
               </Button>
             ) : null}
             {stage === "payment_ready" ? (
-              <Button type="button" onClick={completeCheckout}>
+              <Button
+                className={styles.action}
+                type="button"
+                onClick={completeCheckout}
+              >
                 <WalletCards aria-hidden="true" />
                 {startResult?.paymentMode === "mock"
                   ? "Complete local demo payment"
@@ -359,13 +375,14 @@ export function CommerceCheckout({
               </Button>
             ) : null}
             {stage === "signing" ? (
-              <Button type="button" disabled>
+              <Button className={styles.action} type="button" disabled>
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
                 Verifying and fulfilling
               </Button>
             ) : null}
             {stage === "wallet_missing" ? (
               <Button
+                className={styles.action}
                 type="button"
                 variant="outline"
                 onClick={checkWalletAgain}
@@ -374,13 +391,18 @@ export function CommerceCheckout({
               </Button>
             ) : null}
             {stage === "error" && checkoutError?.retryable ? (
-              <Button type="button" variant="outline" onClick={resetCheckout}>
+              <Button
+                className={styles.action}
+                type="button"
+                variant="outline"
+                onClick={resetCheckout}
+              >
                 <RotateCcw aria-hidden="true" /> Try again
               </Button>
             ) : null}
           </div>
 
-          <footer>
+          <footer className={styles.footer}>
             <ShieldCheck aria-hidden="true" />
             <span>
               Wallet confirmation is your consent. AgentPay rechecks the seller,
@@ -408,7 +430,7 @@ function CommerceStatus({
 }) {
   if (stage === "wallet_missing") {
     return (
-      <div className="commerce-checkout-status warning" role="status">
+      <div className={`${styles.status} ${styles.warning}`} role="status">
         <CircleAlert aria-hidden="true" />
         <div>
           <strong>Wallet required</strong>
@@ -425,7 +447,7 @@ function CommerceStatus({
   }
   if (stage === "error" && error) {
     return (
-      <div className="commerce-checkout-status error" role="alert">
+      <div className={`${styles.status} ${styles.error}`} role="alert">
         <CircleAlert aria-hidden="true" />
         <div>
           <strong>Checkout did not complete</strong>
@@ -436,7 +458,7 @@ function CommerceStatus({
   }
   if (stage === "payment_ready") {
     return (
-      <div className="commerce-checkout-status ready" role="status">
+      <div className={`${styles.status} ${styles.ready}`} role="status">
         <ShieldCheck aria-hidden="true" />
         <div>
           <strong>Payment ready</strong>
@@ -450,7 +472,7 @@ function CommerceStatus({
     );
   }
   return (
-    <div className="commerce-checkout-status" role="status" aria-live="polite">
+    <div className={styles.status} role="status" aria-live="polite">
       <LockKeyhole aria-hidden="true" />
       <div>
         <strong>

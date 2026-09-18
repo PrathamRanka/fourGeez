@@ -27,6 +27,7 @@ describe("seller account screens", () => {
 
   it("collects real seller registration and verification details", async () => {
     render(await SignUpPage());
+    expect(screen.getByText("Seller workspace preview")).toBeVisible();
     expect(screen.getByLabelText("Your name")).toBeVisible();
     expect(screen.getByLabelText("Work email")).toBeVisible();
     expect(screen.getByLabelText(/^Password/)).toHaveAttribute(
@@ -38,6 +39,7 @@ describe("seller account screens", () => {
     ).toBeVisible();
 
     render(await VerifyPage());
+    expect(screen.getByText("Identity checkpoint")).toBeVisible();
     expect(screen.getByLabelText("Verification code")).toBeVisible();
     expect(screen.getByRole("button", { name: "Verify email" })).toBeVisible();
   });
@@ -65,6 +67,7 @@ describe("seller account screens", () => {
         searchParams: Promise.resolve({ returnTo: "/dashboard/products" }),
       }),
     );
+    expect(screen.getByText("Protected seller access")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Work email"), {
       target: { value: "owner@example.com" },
     });
@@ -100,6 +103,7 @@ describe("seller account screens", () => {
 
   it("provides both recovery steps without exposing a credential in the URL", () => {
     render(<RecoveryPage />);
+    expect(screen.getByText("Two-step recovery")).toBeVisible();
     expect(screen.getByLabelText("Work email")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Send recovery code" }),

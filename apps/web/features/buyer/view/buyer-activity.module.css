@@ -1,0 +1,201 @@
+.page {
+  width: min(100%, 96rem);
+  min-height: 75svh;
+  margin-inline: auto;
+  border-inline: 1px solid var(--border);
+  background: var(--background);
+}
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  padding: clamp(3.5rem, 8vw, 7rem) clamp(1.25rem, 5vw, 5rem);
+}
+.hero::after {
+  position: absolute;
+  right: -12rem;
+  bottom: -15rem;
+  width: 38rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 210deg,
+    var(--blue-glow),
+    color-mix(in oklab, var(--chart-5) 45%, transparent),
+    transparent 65%
+  );
+  content: "";
+  filter: blur(6rem);
+  opacity: 0.34;
+}
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+.kicker {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.hero h1 {
+  max-width: 14ch;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 6.6rem);
+  font-weight: 520;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+}
+.hero > span {
+  display: block;
+  max-width: 42rem;
+  margin-top: 1.5rem;
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.workspace {
+  display: grid;
+}
+.request,
+.trace {
+  min-width: 0;
+  padding: clamp(1.4rem, 4vw, 3rem);
+}
+.request {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.trace {
+  min-height: 26rem;
+  background: color-mix(in oklab, var(--card) 94%, var(--blue-soft));
+}
+.panelLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.panelLabel span {
+  color: var(--foreground);
+}
+.request label {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+.request input,
+.request textarea {
+  width: 100%;
+  border: 1px solid var(--input);
+  border-radius: 0;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0.9rem;
+  font-size: 0.85rem;
+}
+.request textarea {
+  min-height: 8.5rem;
+  resize: vertical;
+}
+.request button {
+  min-height: 2.8rem;
+  border-radius: 0;
+}
+.error {
+  border-left: 2px solid var(--destructive);
+  padding-left: 0.75rem;
+  color: var(--destructive);
+  font-size: 0.78rem;
+}
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  padding: 0.55rem 0.7rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+.mode svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--chart-3);
+}
+.response {
+  max-width: 34rem;
+  margin-top: 2.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3vw, 2.25rem);
+  font-weight: 540;
+  line-height: 1.2;
+  letter-spacing: -0.045em;
+}
+.toolLog {
+  margin-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+.toolLog li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  border-bottom: 1px solid var(--border);
+  padding-block: 0.9rem;
+}
+.toolLog svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--chart-3);
+}
+.toolLog div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.toolLog strong {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.toolLog span {
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.placeholder {
+  display: grid;
+  min-height: 16rem;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.checkout {
+  border-top: 1px solid var(--border);
+  padding: clamp(1.25rem, 4vw, 3rem);
+}
+
+@media (min-width: 840px) {
+  .workspace {
+    grid-template-columns: minmax(22rem, 0.72fr) minmax(0, 1.28fr);
+  }
+  .request {
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+  }
+}

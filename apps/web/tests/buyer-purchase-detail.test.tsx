@@ -105,10 +105,11 @@ describe("buyer purchase detail", () => {
     expect(
       await screen.findByRole("heading", { name: "Market Snapshot" }),
     ).toBeVisible();
+    expect(screen.getByText("Purchase ledger")).toBeVisible();
     expect(
-      within(screen.getByRole("region", { name: "Purchase summary" })).getByText(
-        "Fulfilled",
-      ),
+      within(
+        screen.getByRole("region", { name: "Purchase summary" }),
+      ).getByText("Fulfilled"),
     ).toBeVisible();
     expect(screen.getByText("35 USDC")).toBeVisible();
     expect(screen.getAllByText("Evidence chain verified")).toHaveLength(2);
@@ -124,7 +125,9 @@ describe("buyer purchase detail", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Verify receipt" }));
     expect(await screen.findByText("Receipt verified")).toBeVisible();
-    expect(screen.getByText("Schema version 2 · 1 evidence event")).toBeVisible();
+    expect(
+      screen.getByText("Schema version 2 · 1 evidence event"),
+    ).toBeVisible();
 
     fireEvent.change(screen.getByLabelText("Dispute reason"), {
       target: { value: "not_delivered" },
@@ -182,7 +185,8 @@ describe("buyer purchase detail", () => {
           {
             error: {
               code: "purchase_session_expired",
-              message: "Purchase access expired. Recover it with the paying wallet.",
+              message:
+                "Purchase access expired. Recover it with the paying wallet.",
             },
           },
           401,

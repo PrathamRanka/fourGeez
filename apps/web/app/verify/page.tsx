@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { safeRelativeReturnPath } from "@/features/auth/policy";
 import { VerifyForm } from "@/features/auth/view/auth-forms";
-import { PublicInfoPage } from "@/features/marketing/view/public-info-page";
+import { AuthSurface } from "@/features/auth/view/auth-surface";
+import styles from "@/features/auth/view/auth-surface.module.css";
 
 export const metadata: Metadata = { title: "Verify email" };
 
@@ -13,22 +14,17 @@ export default async function VerifyPage({
 }: VerifyPageProps = {}) {
   const parameters = (await searchParams) ?? {};
   return (
-    <PublicInfoPage
+    <AuthSurface
       eyebrow="Account verification"
       title="Verify the inbox you control."
+      highlight="Email ownership check"
       summary="Verification completes registration but does not create a browser session until you sign in."
     >
-      <div className="auth-page-grid">
-        <VerifyForm returnTo={safeRelativeReturnPath(parameters.returnTo)} />
-        <aside className="auth-aside" aria-label="Verification help">
-          <h2>Code expired?</h2>
-          <p>
-            Start registration again to issue a new bounded verification
-            challenge.
-          </p>
-          <Link href="/sign-up">Return to registration</Link>
-        </aside>
+      <VerifyForm returnTo={safeRelativeReturnPath(parameters.returnTo)} />
+      <div className={styles.inlineLinks}>
+        <span>Code expired?</span>
+        <Link href="/sign-up">Return to registration</Link>
       </div>
-    </PublicInfoPage>
+    </AuthSurface>
   );
 }

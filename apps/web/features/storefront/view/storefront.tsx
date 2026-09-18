@@ -22,6 +22,7 @@ import type {
 } from "@/features/storefront/model";
 import { storefrontProductPath } from "@/features/storefront/model";
 import { formatAtomicPrice, formatAtomicUnits } from "@/lib/money";
+import styles from "./storefront.module.css";
 
 export function StorefrontHome({
   manifest,
@@ -31,63 +32,79 @@ export function StorefrontHome({
   signature: DiscoverySignature;
 }) {
   return (
-    <main id="main-content" className="seller-storefront">
-      <header className="storefront-hero">
-        <AuthoritativeStatus
-          expiresAt={manifest.expiresAt}
-          publicationRevision={manifest.publicationRevision}
-          signature={signature}
-        />
-        <h1>{manifest.seller.name}</h1>
-        <span>
-          Purchase published API-backed products through AgentPay’s shared x402
-          commerce flow.
-        </span>
-        <code>/store/{manifest.seller.slug}</code>
-        <nav aria-label="Agent discovery">
-          <Link href={`/store/${manifest.seller.slug}/manifest.json`}>
-            Signed manifest
-          </Link>
-          <Link href={`/store/${manifest.seller.slug}/llms.txt`}>llms.txt</Link>
-        </nav>
-      </header>
-      <section className="storefront-products" aria-labelledby="products-title">
-        <div>
-          <p>Available now</p>
-          <h2 id="products-title">Digital products</h2>
-        </div>
-        {manifest.products.length === 0 ? (
-          <div className="storefront-empty-state">
-            <h3>No products are published yet</h3>
-            <p>Check back after this seller publishes a product.</p>
+    <main id="main-content" className={styles.page}>
+      <div className={styles.rail}>
+        <header className={styles.hero}>
+          <AuthoritativeStatus
+            expiresAt={manifest.expiresAt}
+            publicationRevision={manifest.publicationRevision}
+            signature={signature}
+          />
+          <h1>{manifest.seller.name}</h1>
+          <p className={styles.heroCopy}>
+            Purchase published digital products through AgentPay&apos;s shared,
+            exact-price x402 commerce flow.
+          </p>
+          <div className={styles.heroMeta}>
+            <code>/store/{manifest.seller.slug}</code>
+            <Link href={`/store/${manifest.seller.slug}/manifest.json`}>
+              Signed manifest
+            </Link>
+            <Link href={`/store/${manifest.seller.slug}/llms.txt`}>
+              llms.txt
+            </Link>
           </div>
-        ) : (
-          <div className="storefront-product-grid">
-            {manifest.products.map((product) => (
-              <article key={product.routeId}>
-                <span>Published product</span>
-                <h3>{product.displayName}</h3>
-                <p>{product.description}</p>
-                <div>
-                  <strong>
-                    {formatAtomicPrice(product.amount, product.asset)}
-                  </strong>
-                  <small>Output: {outputFormatLabel(product.mimeType)}</small>
-                </div>
-                <Link
-                  className={buttonVariants()}
-                  href={storefrontProductPath(
-                    manifest.seller.slug,
-                    product.productSlug,
-                  )}
-                >
-                  View product <ArrowRight aria-hidden="true" />
-                </Link>
-              </article>
-            ))}
+        </header>
+        <section className={styles.catalog} aria-labelledby="catalog-title">
+          <div className={styles.catalogHeader}>
+            <div>
+              <p className={styles.kicker}>Available now</p>
+              <h2 id="catalog-title">Verified catalog</h2>
+            </div>
+            <span className={styles.catalogCount}>
+              {manifest.products.length.toString().padStart(2, "0")} published
+            </span>
           </div>
-        )}
-      </section>
+          {manifest.products.length === 0 ? (
+            <div className={styles.empty}>
+              <h3>No products are published yet</h3>
+              <p>Check back after this seller publishes a product.</p>
+            </div>
+          ) : (
+            <div className={styles.productGrid}>
+              {manifest.products.map((product, index) => (
+                <article className={styles.productCard} key={product.routeId}>
+                  <div className={styles.productTopline}>
+                    <span>Published product</span>
+                    <span>0{index + 1}</span>
+                  </div>
+                  <h3>{product.displayName}</h3>
+                  <p>{product.description}</p>
+                  <div className={styles.productFooter}>
+                    <div>
+                      <strong>
+                        {formatAtomicPrice(product.amount, product.asset)}
+                      </strong>
+                      <small>
+                        Output: {outputFormatLabel(product.mimeType)}
+                      </small>
+                    </div>
+                    <Link
+                      className={`${buttonVariants()} ${styles.action}`}
+                      href={storefrontProductPath(
+                        manifest.seller.slug,
+                        product.productSlug,
+                      )}
+                    >
+                      View product <ArrowRight aria-hidden="true" />
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
@@ -103,72 +120,79 @@ export function ProductDetail({
 }) {
   const productPath = storefrontProductPath(sellerSlug, product.productSlug);
   return (
-    <main id="main-content" className="storefront-product-detail">
-      <Link href={`/store/${sellerSlug}`}>← Back to storefront</Link>
-      <div className="storefront-product-layout">
-        <article>
-          <p>Active AgentPay product</p>
-          <h1>{product.displayName}</h1>
-          <span>{product.description}</span>
-          <dl>
-            <div>
-              <dt>Exact price</dt>
-              <dd>{formatAtomicPrice(product.amount, product.asset)}</dd>
+    <main id="main-content" className={styles.page}>
+      <div className={styles.rail}>
+        <Link className={styles.back} href={`/store/${sellerSlug}`}>
+          ← Back to storefront
+        </Link>
+        <div className={styles.productLayout}>
+          <article className={styles.productInfo}>
+            <p className={styles.kicker}>Active AgentPay product</p>
+            <h1>{product.displayName}</h1>
+            <span className={styles.productDescription}>
+              {product.description}
+            </span>
+            <dl className={styles.facts}>
+              <div>
+                <dt>Exact price</dt>
+                <dd>{formatAtomicPrice(product.amount, product.asset)}</dd>
+              </div>
+              <div>
+                <dt>Output format</dt>
+                <dd>{outputFormatLabel(product.mimeType)}</dd>
+              </div>
+              <div>
+                <dt>Trust status</dt>
+                <dd>Active on AgentPay</dd>
+              </div>
+            </dl>
+            <div className={styles.url}>
+              <span>Product URL</span>
+              <code>{productPath}</code>
             </div>
-            <div>
-              <dt>Output format</dt>
-              <dd>{outputFormatLabel(product.mimeType)}</dd>
-            </div>
-            <div>
-              <dt>Trust status</dt>
-              <dd>Active on AgentPay</dd>
-            </div>
-          </dl>
-          <div className="storefront-product-url">
-            <span>Product URL</span>
-            <code>{productPath}</code>
-          </div>
-          <Accordion className="storefront-technical-details">
-            <AccordionItem value="technical-details">
-              <AccordionTrigger>Advanced technical details</AccordionTrigger>
-              <AccordionContent>
-                <dl>
-                  <div>
-                    <dt>Route ID</dt>
-                    <dd>{product.routeId}</dd>
-                  </div>
-                  <div>
-                    <dt>Output MIME type</dt>
-                    <dd>{product.mimeType}</dd>
-                  </div>
-                  <div>
-                    <dt>Payment network</dt>
-                    <dd>{product.network}</dd>
-                  </div>
-                  <div>
-                    <dt>Atomic amount</dt>
-                    <dd>{product.amount}</dd>
-                  </div>
-                  <div>
-                    <dt>Purchase session endpoint</dt>
-                    <dd>{product.purchaseSessionEndpoint}</dd>
-                  </div>
-                  <div>
-                    <dt>Discovery signing key</dt>
-                    <dd>{signature.kid}</dd>
-                  </div>
-                </dl>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </article>
-        <aside>
-          <CommerceCheckout
-            channel="browser"
-            product={product}
-            sellerSlug={sellerSlug}
-          />
-        </aside>
+            <Accordion className={styles.technical}>
+              <AccordionItem value="technical-details">
+                <AccordionTrigger>Advanced technical details</AccordionTrigger>
+                <AccordionContent>
+                  <dl>
+                    <div>
+                      <dt>Route ID</dt>
+                      <dd>{product.routeId}</dd>
+                    </div>
+                    <div>
+                      <dt>Output MIME type</dt>
+                      <dd>{product.mimeType}</dd>
+                    </div>
+                    <div>
+                      <dt>Payment network</dt>
+                      <dd>{product.network}</dd>
+                    </div>
+                    <div>
+                      <dt>Atomic amount</dt>
+                      <dd>{product.amount}</dd>
+                    </div>
+                    <div>
+                      <dt>Purchase session endpoint</dt>
+                      <dd>{product.purchaseSessionEndpoint}</dd>
+                    </div>
+                    <div>
+                      <dt>Discovery signing key</dt>
+                      <dd>{signature.kid}</dd>
+                    </div>
+                  </dl>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </article>
+          <aside className={styles.checkoutAside}>
+            <p className={styles.checkoutLabel}>Exact-price checkout</p>
+            <CommerceCheckout
+              channel="browser"
+              product={product}
+              sellerSlug={sellerSlug}
+            />
+          </aside>
+        </div>
       </div>
     </main>
   );
@@ -196,24 +220,30 @@ export function StorefrontAvailability({
         ? Clock3
         : AlertTriangle;
   return (
-    <main id="main-content" className="storefront-availability">
-      <section aria-labelledby="availability-title">
-        <div className={`storefront-availability-mark ${state.status}`}>
+    <main id="main-content" className={styles.availability}>
+      <section
+        className={styles.availabilityCard}
+        aria-labelledby="availability-title"
+      >
+        <div className={styles.availabilityMark}>
           <Icon aria-hidden="true" />
         </div>
-        <p>AgentPay availability</p>
+        <p className={styles.kicker}>AgentPay availability</p>
         <h1 id="availability-title">{copy.heading}</h1>
         <span>{copy.description}</span>
-        <div className="storefront-availability-actions">
+        <div className={styles.availabilityActions}>
           {state.status === "unavailable" ? (
             <Link
-              className={buttonVariants()}
+              className={`${buttonVariants()} ${styles.action}`}
               href={`/store/${state.sellerSlug}`}
             >
               Try again
             </Link>
           ) : null}
-          <Link className={buttonVariants({ variant: "outline" })} href="/">
+          <Link
+            className={`${buttonVariants({ variant: "outline" })} ${styles.action}`}
+            href="/"
+          >
             Return to AgentPay
           </Link>
         </div>
@@ -236,10 +266,7 @@ function AuthoritativeStatus({
   signature: DiscoverySignature;
 }) {
   return (
-    <div
-      className="storefront-authority"
-      aria-label="AgentPay discovery status"
-    >
+    <div className={styles.status} aria-label="AgentPay discovery status">
       <BadgeCheck aria-hidden="true" />
       <div>
         <strong>Active on AgentPay</strong>
@@ -257,20 +284,18 @@ function availabilityCopy(
   status: "inactive" | "expired" | "unavailable",
   subject: "storefront" | "product",
 ) {
-  if (status === "inactive") {
+  if (status === "inactive")
     return {
       heading: `This ${subject} is not accepting new purchases`,
       description:
         "AgentPay has disabled discovery and checkout. Previously copied links or seller-hosted metadata cannot reactivate it.",
     };
-  }
-  if (status === "expired") {
+  if (status === "expired")
     return {
       heading: `This ${subject} status has expired`,
       description:
         "The last signed discovery document is no longer current, so AgentPay will not present it as purchasable.",
     };
-  }
   return {
     heading: `This ${subject} is temporarily unavailable`,
     description:
