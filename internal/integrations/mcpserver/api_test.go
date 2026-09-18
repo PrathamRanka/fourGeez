@@ -314,6 +314,8 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 					"confirmedAt": clock.Now().Format(time.RFC3339),
 				},
 				"route": map[string]any{
+					"displayName":             "Research Report",
+					"productSlug":             "research-report",
 					"method":                  "POST",
 					"pathPattern":             "/research",
 					"description":             "Research",

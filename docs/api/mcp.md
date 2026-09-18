@@ -86,7 +86,7 @@ action. Agent or repository text is not authorization.
 | Tool | Scope | Behavior |
 |---|---|---|
 | `configure_storefront` | `configure` | Updates the existing seller display name and upstream base URL using an expected version. Initial seller creation stays in the seller API/dashboard because credentials are seller-scoped. |
-| `configure_route` | `configure` | Creates a validated `enabled=false` paid-route draft. |
+| `configure_route` | `configure` | Creates a validated `enabled=false` paid-route draft with a seller-approved `displayName` and `productSlug`; the slug is normalized and reserved uniquely within the seller. |
 | `change_route_price` | `configure` | Updates the authoritative price for future intents using an expected version. |
 | `validate_route` | `validate` | Returns deterministic publication checks without persisting state. |
 | `sandbox_validate_route` | `validate` | Probes the dedicated seller sandbox endpoint for discovery, signature, payment-gating, and replay behavior without persisting success. |
@@ -117,3 +117,9 @@ path and method. Templated paths and unsupported methods are reported as
 rejections. Proposals include method, path, description, and response MIME type
 only. They never invent price, asset, network, payout address, approval policy,
 publication state, or deployment changes.
+
+The coding agent may propose a product display name and slug for seller review,
+but `configure_route` must carry both values explicitly inside the confirmed
+commercial change. AgentPay normalizes both fields and rejects a seller-scoped
+slug collision. `routeId` and `pathPattern` remain separate immutable technical
+identifiers and are never inferred from the public slug.

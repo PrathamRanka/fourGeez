@@ -5,8 +5,8 @@ export type StorefrontManifest = {
   routes: PaidRoute[];
 };
 
-export function storefrontProductPath(slug: string, routeId: string): string {
-  return `/store/${encodeURIComponent(slug)}/products/${encodeURIComponent(routeId)}`;
+export function storefrontProductPath(slug: string, productSlug: string): string {
+  return `/store/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`;
 }
 
 export function paidRouteUrl(

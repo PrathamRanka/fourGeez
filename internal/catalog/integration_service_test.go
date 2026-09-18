@@ -62,6 +62,8 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 		t.Context(),
 		seller.SellerID,
 		catalog.CreateRouteRequest{
+			DisplayName:            "Research Report",
+			ProductSlug:            "research-report",
 			Method:                 catalog.RouteMethodPost,
 			PathPattern:            "/research",
 			Description:            "Research",

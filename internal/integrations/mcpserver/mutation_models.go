@@ -31,6 +31,8 @@ type ConfigureRouteInput struct {
 
 // RouteConfiguration is the MCP wire model for atomic-unit route values.
 type RouteConfiguration struct {
+	DisplayName             string              `json:"displayName"`
+	ProductSlug             string              `json:"productSlug"`
 	Method                  catalog.RouteMethod `json:"method"`
 	PathPattern             string              `json:"pathPattern"`
 	Description             string              `json:"description"`

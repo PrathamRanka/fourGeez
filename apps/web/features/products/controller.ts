@@ -51,6 +51,8 @@ export async function createDraft(
     {
       method: "POST",
       body: {
+        displayName: input.displayName,
+        productSlug: input.productSlug,
         method: input.method,
         pathPattern: input.pathPattern,
         description: input.description,

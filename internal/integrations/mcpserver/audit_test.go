@@ -37,6 +37,8 @@ func TestMutationServiceAuditsCredentialBoundRouteChanges(t *testing.T) {
 		IdempotencyKey: "audit-route-create-001",
 		Confirmation:   validConfirmation(clock.Now()),
 		Route: RouteConfiguration{
+			DisplayName:            "Research Report",
+			ProductSlug:            "research-report",
 			Method:                 catalog.RouteMethodPost,
 			PathPattern:            "/research",
 			Description:            "Research",

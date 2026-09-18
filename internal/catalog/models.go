@@ -62,6 +62,8 @@ const (
 type PaidRouteParams struct {
 	RouteID                 domain.ID
 	SellerID                domain.ID
+	DisplayName             string
+	ProductSlug             string
 	Method                  RouteMethod
 	PathPattern             string
 	Description             string
@@ -79,6 +81,8 @@ type PaidRouteParams struct {
 type PaidRoute struct {
 	RouteID                 domain.ID            `json:"routeId"`
 	SellerID                domain.ID            `json:"sellerId"`
+	DisplayName             string               `json:"displayName"`
+	ProductSlug             string               `json:"productSlug"`
 	Method                  RouteMethod          `json:"method"`
 	PathPattern             string               `json:"pathPattern"`
 	Description             string               `json:"description"`
@@ -119,6 +123,8 @@ type CreateSellerRequest struct {
 
 // CreateRouteRequest is the paid-route creation HTTP request.
 type CreateRouteRequest struct {
+	DisplayName             string         `json:"displayName"`
+	ProductSlug             string         `json:"productSlug"`
 	Method                  RouteMethod    `json:"method"`
 	PathPattern             string         `json:"pathPattern"`
 	Description             string         `json:"description"`

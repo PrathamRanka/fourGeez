@@ -47,6 +47,11 @@ func routeSortKey(routeID string) string {
 	return "ROUTE#" + routeID
 }
 
+// productSlugClaimSortKey reserves one public product slug within a seller.
+func productSlugClaimSortKey(productSlug string) string {
+	return "PRODUCT_SLUG#" + productSlug
+}
+
 // credentialSortKey returns the documented integration-credential sort key.
 func credentialSortKey(credentialID string) string {
 	return "CREDENTIAL#" + credentialID

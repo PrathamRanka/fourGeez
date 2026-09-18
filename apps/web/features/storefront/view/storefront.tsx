@@ -41,7 +41,7 @@ export function StorefrontHome({ manifest }: { manifest: StorefrontManifest }) {
               </div>
               <Link
                 className={buttonVariants()}
-                href={storefrontProductPath(manifest.seller.slug, route.routeId)}
+                href={storefrontProductPath(manifest.seller.slug, route.productSlug)}
               >
                 View product <ArrowRight aria-hidden="true" />
               </Link>
@@ -103,7 +103,7 @@ export function buildProductStructuredData(
   return {
     "@context": "https://schema.org",
     "@type": "Service",
-    name: route.pathPattern,
+    name: route.displayName,
     description: route.description,
     url: canonicalUrl,
     provider: { "@type": "Organization", name: manifest.seller.name },

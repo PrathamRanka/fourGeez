@@ -101,6 +101,8 @@ export function ProductRouteWorkspace({
     const fields = new FormData(form);
     const result = await actions.createDraft({
       sellerId: initialSnapshot.sellerId,
+      displayName: String(fields.get("displayName") ?? "").trim(),
+      productSlug: String(fields.get("productSlug") ?? "").trim(),
       method: String(fields.get("method")) === "GET" ? "GET" : "POST",
       pathPattern: String(fields.get("pathPattern") ?? "").trim(),
       description: String(fields.get("description") ?? "").trim(),
@@ -258,6 +260,26 @@ export function ProductRouteWorkspace({
           className="product-create-form"
           onSubmit={submitDraft}
         >
+          <label>
+            <span>Product name</span>
+            <input
+              name="displayName"
+              required
+              maxLength={120}
+              placeholder="Board-ready market report"
+            />
+          </label>
+          <label>
+            <span>Product slug</span>
+            <input
+              name="productSlug"
+              required
+              minLength={3}
+              maxLength={80}
+              pattern="[A-Za-z0-9][A-Za-z0-9 _-]*[A-Za-z0-9]"
+              placeholder="board-ready-market-report"
+            />
+          </label>
           <label>
             <span>Method</span>
             <select name="method" defaultValue="POST">

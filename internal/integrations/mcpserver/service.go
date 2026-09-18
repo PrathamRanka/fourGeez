@@ -224,6 +224,7 @@ func (service *Service) readStorefront(
 	}
 	enabledRoutes := make([]catalog.PaidRoute, 0, len(routes))
 	for _, route := range routes {
+		route = catalog.NormalizePaidRouteForRead(route)
 		if route.SellerID == principal.SellerID && route.Enabled {
 			enabledRoutes = append(enabledRoutes, route)
 		}
@@ -249,6 +250,7 @@ func (service *Service) readRoutes(
 	}
 	sellerRoutes := make([]catalog.PaidRoute, 0, len(routes))
 	for _, route := range routes {
+		route = catalog.NormalizePaidRouteForRead(route)
 		if route.SellerID == principal.SellerID {
 			sellerRoutes = append(sellerRoutes, route)
 		}

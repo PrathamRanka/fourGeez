@@ -42,6 +42,8 @@ func TestCatalogServiceAuditsDirectRoutePublicationAndPricing(t *testing.T) {
 		"owner-123",
 		seller.SellerID,
 		catalog.CreateRouteRequest{
+			DisplayName:            "Research Report",
+			ProductSlug:            "research-report",
 			Method:                 catalog.RouteMethodPost,
 			PathPattern:            "/research",
 			Description:            "Research",

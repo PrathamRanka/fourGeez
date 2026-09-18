@@ -146,6 +146,8 @@ func (service *MutationService) ConfigureRoute(
 				TargetID:   route.RouteID.String(),
 				Outcome:    audit.OutcomeSucceeded,
 				ChangedFields: []string{
+					"displayName",
+					"productSlug",
 					"method",
 					"pathPattern",
 					"description",
@@ -236,6 +238,8 @@ func routeRequest(configuration RouteConfiguration) (catalog.CreateRouteRequest,
 		approvalThreshold = &parsedThreshold
 	}
 	return catalog.CreateRouteRequest{
+		DisplayName:             configuration.DisplayName,
+		ProductSlug:             configuration.ProductSlug,
 		Method:                  configuration.Method,
 		PathPattern:             configuration.PathPattern,
 		Description:             configuration.Description,

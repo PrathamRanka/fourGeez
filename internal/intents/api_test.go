@@ -110,6 +110,8 @@ func newIntentHandler(t *testing.T) (http.Handler, catalog.PaidRoute) {
 	route, err := catalog.NewPaidRoute(catalog.PaidRouteParams{
 		RouteID:                 mustIntentAPIID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
 		SellerID:                seller.SellerID,
+		DisplayName:             "Research Report",
+		ProductSlug:             "research-report",
 		Method:                  catalog.RouteMethodPost,
 		PathPattern:             "/research",
 		Description:             "Research",

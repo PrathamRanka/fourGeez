@@ -203,6 +203,8 @@ func newPaidRouteFixture(t *testing.T, requiresApproval bool) paidRouteFixture {
 	route, err := catalog.NewPaidRoute(catalog.PaidRouteParams{
 		RouteID:                routeID,
 		SellerID:               sellerID,
+		DisplayName:            "Weather Report",
+		ProductSlug:            "weather-report",
 		Method:                 catalog.RouteMethodGet,
 		PathPattern:            "/weather",
 		Description:            "Weather report",

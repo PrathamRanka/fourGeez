@@ -45,7 +45,7 @@ func TestSellerRoutesCreateAndUpdateCatalog(t *testing.T) {
 		http.MethodPost,
 		"/v1/sellers/"+seller.SellerID.String()+"/routes",
 		"route-create-1",
-		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+		`{"displayName":"Research Report","productSlug":"research-report","method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
 	)
 	if routeResponse.Code != http.StatusCreated {
 		t.Fatalf("route status = %d, body = %s", routeResponse.Code, routeResponse.Body.String())
@@ -53,6 +53,9 @@ func TestSellerRoutesCreateAndUpdateCatalog(t *testing.T) {
 
 	var route catalog.PaidRoute
 	decodeCatalogResponse(t, routeResponse, &route)
+	if route.DisplayName != "Research Report" || route.ProductSlug != "research-report" {
+		t.Fatalf("product identity = %q/%q", route.DisplayName, route.ProductSlug)
+	}
 	updateResponse := performCatalogRequest(
 		t,
 		handler,
@@ -63,6 +66,45 @@ func TestSellerRoutesCreateAndUpdateCatalog(t *testing.T) {
 	)
 	if updateResponse.Code != http.StatusOK {
 		t.Fatalf("update status = %d, body = %s", updateResponse.Code, updateResponse.Body.String())
+	}
+}
+
+func TestSellerRouteCreationRejectsNormalizedProductSlugCollision(t *testing.T) {
+	t.Parallel()
+
+	handler := newCatalogHandler(t)
+	sellerResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers",
+		"seller-product-slug-create",
+		`{"name":"Demo","slug":"product-slug-demo","upstreamBaseUrl":"https://seller.example"}`,
+	)
+	var seller catalog.SellerResponse
+	decodeCatalogResponse(t, sellerResponse, &seller)
+
+	first := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes",
+		"product-slug-first",
+		`{"displayName":"Market Report","productSlug":"Market_Report","method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+	)
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first status = %d, body = %s", first.Code, first.Body.String())
+	}
+	second := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes",
+		"product-slug-second",
+		`{"displayName":"Another Report","productSlug":"market--report","method":"POST","pathPattern":"/research/another","description":"Another report","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+	)
+	if second.Code != http.StatusConflict {
+		t.Fatalf("second status = %d, want %d, body = %s", second.Code, http.StatusConflict, second.Body.String())
 	}
 }
 
@@ -88,7 +130,7 @@ func TestSellerRouteManagementLifecycle(t *testing.T) {
 		http.MethodPost,
 		"/v1/sellers/"+seller.SellerID.String()+"/routes",
 		"route-draft-create",
-		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20,"publishImmediately":false}`,
+		`{"displayName":"Research Report","productSlug":"research-report","method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20,"publishImmediately":false}`,
 	)
 	if draftResponse.Code != http.StatusCreated {
 		t.Fatalf("draft status = %d, body = %s", draftResponse.Code, draftResponse.Body.String())
@@ -236,7 +278,7 @@ func TestSellerEmergencyDisableRoute(t *testing.T) {
 		http.MethodPost,
 		"/v1/sellers/"+seller.SellerID.String()+"/routes",
 		"route-emergency-create",
-		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+		`{"displayName":"Research Report","productSlug":"research-report","method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
 	)
 	var route catalog.PaidRoute
 	decodeCatalogResponse(t, routeResponse, &route)
@@ -327,7 +369,7 @@ func TestStorefrontDiscoveryReturnsManifestAndLLMSText(t *testing.T) {
 		http.MethodPost,
 		"/v1/sellers/"+seller.SellerID.String()+"/routes",
 		"route-create-1",
-		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+		`{"displayName":"Research Report","productSlug":"research-report","method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
 	)
 
 	manifestRequest := httptest.NewRequest(http.MethodGet, "/store/demo-shop/manifest.json", nil)

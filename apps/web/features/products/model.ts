@@ -10,6 +10,8 @@ export type RouteLifecycleStatus =
 export type PaidRoute = {
   routeId: string;
   sellerId: string;
+  displayName: string;
+  productSlug: string;
   method: "GET" | "POST";
   pathPattern: string;
   description: string;
@@ -64,6 +66,8 @@ export type ProductRouteSnapshot = {
 
 export type CreateRouteDraftInput = {
   sellerId: string;
+  displayName: string;
+  productSlug: string;
   method: "GET" | "POST";
   pathPattern: string;
   description: string;

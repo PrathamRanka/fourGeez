@@ -30,6 +30,8 @@ var actionDefinitions = map[Action]actionDefinition{
 	ActionPaymentDestinationRotated:  newActionDefinition(TargetTypePaymentDestination, "status"),
 	ActionRouteDraftCreated: newActionDefinition(
 		TargetTypePaidRoute,
+		"displayName",
+		"productSlug",
 		"method",
 		"pathPattern",
 		"description",
@@ -46,6 +48,8 @@ var actionDefinitions = map[Action]actionDefinition{
 	ActionRoutePriceChanged: newActionDefinition(TargetTypePaidRoute, "amount"),
 	ActionRoutePublished: newActionDefinition(
 		TargetTypePaidRoute,
+		"displayName",
+		"productSlug",
 		"method",
 		"pathPattern",
 		"description",

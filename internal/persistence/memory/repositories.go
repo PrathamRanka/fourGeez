@@ -18,19 +18,21 @@ import (
 var _ domain.IdempotencyStore = (*IdempotencyStore)(nil)
 
 type CatalogRepository struct {
-	mutex          sync.RWMutex
-	sellers        map[domain.ID]catalog.Seller
-	sellerBySlug   map[string]domain.ID
-	routes         map[domain.ID]catalog.PaidRoute
-	routesBySeller map[domain.ID][]domain.ID
+	mutex                sync.RWMutex
+	sellers              map[domain.ID]catalog.Seller
+	sellerBySlug         map[string]domain.ID
+	routes               map[domain.ID]catalog.PaidRoute
+	routesBySeller       map[domain.ID][]domain.ID
+	productSlugsBySeller map[domain.ID]map[string]domain.ID
 }
 
 func NewCatalogRepository() *CatalogRepository {
 	return &CatalogRepository{
-		sellers:        make(map[domain.ID]catalog.Seller),
-		sellerBySlug:   make(map[string]domain.ID),
-		routes:         make(map[domain.ID]catalog.PaidRoute),
-		routesBySeller: make(map[domain.ID][]domain.ID),
+		sellers:              make(map[domain.ID]catalog.Seller),
+		sellerBySlug:         make(map[string]domain.ID),
+		routes:               make(map[domain.ID]catalog.PaidRoute),
+		routesBySeller:       make(map[domain.ID][]domain.ID),
+		productSlugsBySeller: make(map[domain.ID]map[string]domain.ID),
 	}
 }
 
@@ -91,8 +93,17 @@ func (repository *CatalogRepository) CreateRoute(_ context.Context, route catalo
 	if _, exists := repository.sellers[route.SellerID]; !exists {
 		return persistence.ErrNotFound
 	}
+	productSlugs := repository.productSlugsBySeller[route.SellerID]
+	if productSlugs == nil {
+		productSlugs = make(map[string]domain.ID)
+		repository.productSlugsBySeller[route.SellerID] = productSlugs
+	}
+	if _, exists := productSlugs[route.ProductSlug]; exists {
+		return persistence.ErrAlreadyExists
+	}
 	repository.routes[route.RouteID] = cloneRoute(route)
 	repository.routesBySeller[route.SellerID] = append(repository.routesBySeller[route.SellerID], route.RouteID)
+	productSlugs[route.ProductSlug] = route.RouteID
 	return nil
 }
 
@@ -113,9 +124,21 @@ func (repository *CatalogRepository) UpdateRoute(_ context.Context, route catalo
 	if !exists {
 		return persistence.ErrNotFound
 	}
-	if stored.Version != expectedVersion || route.Version != expectedVersion+1 || stored.SellerID != route.SellerID {
+	if stored.Version != expectedVersion || route.Version != expectedVersion+1 ||
+		stored.SellerID != route.SellerID || stored.PathPattern != route.PathPattern ||
+		(stored.ProductSlug != "" && stored.ProductSlug != route.ProductSlug) ||
+		(stored.DisplayName != "" && stored.DisplayName != route.DisplayName) {
 		return persistence.ErrConditionFailed
 	}
+	productSlugs := repository.productSlugsBySeller[route.SellerID]
+	if productSlugs == nil {
+		productSlugs = make(map[string]domain.ID)
+		repository.productSlugsBySeller[route.SellerID] = productSlugs
+	}
+	if claimedRouteID, exists := productSlugs[route.ProductSlug]; exists && claimedRouteID != route.RouteID {
+		return persistence.ErrConditionFailed
+	}
+	productSlugs[route.ProductSlug] = route.RouteID
 	repository.routes[route.RouteID] = cloneRoute(route)
 	return nil
 }

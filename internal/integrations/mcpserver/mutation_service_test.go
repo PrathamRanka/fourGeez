@@ -38,6 +38,8 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 		IdempotencyKey: "route-create-001",
 		Confirmation:   validConfirmation(clock.Now()),
 		Route: RouteConfiguration{
+			DisplayName:            "Research Report",
+			ProductSlug:            "research-report",
 			Method:                 catalog.RouteMethodPost,
 			PathPattern:            "/research",
 			Description:            "Research",
@@ -60,6 +62,10 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 	}
 	if catalogMutator.createCalls != 1 {
 		t.Fatalf("create calls = %d, want 1", catalogMutator.createCalls)
+	}
+	if catalogMutator.lastCreateRequest.DisplayName != "Research Report" ||
+		catalogMutator.lastCreateRequest.ProductSlug != "research-report" {
+		t.Fatalf("product identity request = %#v", catalogMutator.lastCreateRequest)
 	}
 	if first.Route == nil || second.Route == nil ||
 		first.Route.RouteID != second.Route.RouteID || first.Route.Enabled {
@@ -219,8 +225,9 @@ func validConfirmation(now time.Time) Confirmation {
 }
 
 type testCatalogMutator struct {
-	createCalls  int
-	publishCalls int
+	createCalls       int
+	publishCalls      int
+	lastCreateRequest catalog.CreateRouteRequest
 }
 
 // ConfigureStorefrontForIntegration returns the configured seller fixture.
@@ -243,6 +250,7 @@ func (mutator *testCatalogMutator) CreateDraftRouteForIntegration(
 	request catalog.CreateRouteRequest,
 ) (catalog.PaidRoute, error) {
 	mutator.createCalls++
+	mutator.lastCreateRequest = request
 	return catalog.PaidRoute{
 		RouteID:  domain.ID(testRouteID),
 		SellerID: sellerID,

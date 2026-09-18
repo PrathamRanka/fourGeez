@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/billing"
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/integrations"
@@ -31,6 +32,7 @@ func TestDocumentedKeys(t *testing.T) {
 	}{
 		{name: "seller", got: sellerPartitionKey("sel_123"), want: "SELLER#sel_123"},
 		{name: "route", got: routeSortKey("rte_123"), want: "ROUTE#rte_123"},
+		{name: "product slug claim", got: productSlugClaimSortKey("research-report"), want: "PRODUCT_SLUG#research-report"},
 		{name: "credential", got: credentialSortKey("key_123"), want: "CREDENTIAL#key_123"},
 		{name: "webhook delivery", got: webhookDeliverySortKey("whd_123"), want: "WEBHOOK_DELIVERY#whd_123"},
 		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
@@ -55,6 +57,131 @@ func TestDocumentedKeys(t *testing.T) {
 				t.Fatalf("key = %q, want %q", test.got, test.want)
 			}
 		})
+	}
+}
+
+func TestCatalogRepositoryAtomicallyClaimsSellerProductSlug(t *testing.T) {
+	t.Parallel()
+
+	seller, err := catalog.NewSeller(catalog.SellerParams{
+		SellerID:        mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		OwnerSubject:    "owner-123",
+		Slug:            "demo-seller",
+		Name:            "Demo Seller",
+		UpstreamBaseURL: "https://seller.example",
+		CreatedAt:       testDynamoTime(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sellerRecord, err := newStoredRecord(
+		sellerPartitionKey(seller.SellerID.String()),
+		profileSortKey,
+		"seller",
+		seller,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sellerItem, err := marshalStoredRecord(sellerRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{getOutput: &awssdk.GetItemOutput{Item: sellerItem}}
+	repository := NewCatalogRepository(client, "agentpay-dev")
+	route, err := catalog.NewPaidRoute(catalog.PaidRouteParams{
+		RouteID:                mustDynamoID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
+		SellerID:               seller.SellerID,
+		DisplayName:            "Research Report",
+		ProductSlug:            "research-report",
+		Method:                 catalog.RouteMethodPost,
+		PathPattern:            "/research",
+		Description:            "Research",
+		MIMEType:               "application/json",
+		Amount:                 domain.MustParseAmount("35000000"),
+		Asset:                  "test-usdc",
+		Network:                "test-network",
+		PayTo:                  "0x123",
+		UpstreamTimeoutSeconds: 20,
+		CreatedAt:              testDynamoTime(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateRoute(t.Context(), route); err != nil {
+		t.Fatal(err)
+	}
+	transaction := client.transactWriteInput
+	if transaction == nil || len(transaction.TransactItems) != 2 {
+		t.Fatalf("route transaction = %#v", transaction)
+	}
+	claim := transaction.TransactItems[0].Put
+	if readStringAttribute(claim.Item["PK"]) != sellerPartitionKey(seller.SellerID.String()) ||
+		readStringAttribute(claim.Item["SK"]) != productSlugClaimSortKey(route.ProductSlug) ||
+		claim.ConditionExpression == nil || *claim.ConditionExpression != createItemCondition {
+		t.Fatalf("product slug claim = %#v", claim)
+	}
+
+	client.transactErr = &types.TransactionCanceledException{Message: stringPointer("duplicate")}
+	if err := repository.CreateRoute(t.Context(), route); !errors.Is(err, persistence.ErrAlreadyExists) {
+		t.Fatalf("duplicate product slug error = %v", err)
+	}
+}
+
+func TestCatalogRepositoryBackfillsLegacyProductIdentityAtomically(t *testing.T) {
+	t.Parallel()
+
+	legacyRoute := catalog.PaidRoute{
+		RouteID:                mustDynamoID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
+		SellerID:               mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		Method:                 catalog.RouteMethodPost,
+		PathPattern:            "/research",
+		Description:            "Research Report",
+		MIMEType:               "application/json",
+		Amount:                 domain.MustParseAmount("35000000"),
+		Asset:                  "test-usdc",
+		Network:                "test-network",
+		PayTo:                  "0x123",
+		UpstreamTimeoutSeconds: 20,
+		LifecycleStatus:        catalog.RouteLifecyclePublished,
+		Enabled:                true,
+		CreatedAt:              testDynamoTime(),
+		UpdatedAt:              testDynamoTime(),
+		Version:                1,
+	}
+	legacyRecord, err := newStoredRecord(
+		sellerPartitionKey(legacyRoute.SellerID.String()),
+		routeSortKey(legacyRoute.RouteID.String()),
+		"paidRoute",
+		legacyRoute,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyRecord.Version = legacyRoute.Version
+	legacyItem, err := marshalStoredRecord(legacyRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{queryOutput: &awssdk.QueryOutput{Items: []map[string]types.AttributeValue{legacyItem}}}
+	repository := NewCatalogRepository(client, "agentpay-dev")
+	updated := legacyRoute
+	updated.DisplayName = "Research Report"
+	updated.ProductSlug = "research-report-4fwq0k9h7"
+	updated.Amount = domain.MustParseAmount("36000000")
+	updated.Version = 2
+	updated.UpdatedAt = testDynamoTime().Add(time.Minute)
+
+	if err := repository.UpdateRoute(t.Context(), updated, 1); err != nil {
+		t.Fatal(err)
+	}
+	transaction := client.transactWriteInput
+	if transaction == nil || len(transaction.TransactItems) != 2 {
+		t.Fatalf("legacy migration transaction = %#v", transaction)
+	}
+	claim := transaction.TransactItems[0].Put
+	if readStringAttribute(claim.Item["SK"]) != productSlugClaimSortKey(updated.ProductSlug) {
+		t.Fatalf("legacy product slug claim = %#v", claim.Item)
 	}
 }
 

@@ -17,6 +17,8 @@ func TestNewPaidRoute(t *testing.T) {
 	paidRoute, err := NewPaidRoute(PaidRouteParams{
 		RouteID:                 mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
 		SellerID:                mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		DisplayName:             "Board-ready Market Report",
+		ProductSlug:             "board-ready-market-report",
 		Method:                  RouteMethodPost,
 		PathPattern:             "/research/board",
 		Description:             "Generate a board-ready market report",
@@ -47,6 +49,8 @@ func TestNewPaidRouteValidation(t *testing.T) {
 	valid := PaidRouteParams{
 		RouteID:                mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
 		SellerID:               mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		DisplayName:            "Market Research",
+		ProductSlug:            "market-research",
 		Method:                 RouteMethodPost,
 		PathPattern:            "/research",
 		Description:            "Generate market research",
@@ -102,6 +106,8 @@ func TestPaidRouteChangePrice(t *testing.T) {
 	paidRoute, err := NewPaidRoute(PaidRouteParams{
 		RouteID:                mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
 		SellerID:               mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		DisplayName:            "Market Research",
+		ProductSlug:            "market-research",
 		Method:                 RouteMethodPost,
 		PathPattern:            "/research",
 		Description:            "Generate market research",
@@ -141,6 +147,8 @@ func TestDraftPaidRoutePublication(t *testing.T) {
 	paidRoute, err := NewDraftPaidRoute(PaidRouteParams{
 		RouteID:                mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
 		SellerID:               mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		DisplayName:            "Market Research",
+		ProductSlug:            "market-research",
 		Method:                 RouteMethodPost,
 		PathPattern:            "/research",
 		Description:            "Generate market research",
@@ -356,6 +364,8 @@ func newLifecycleTestRoute(t *testing.T, status RouteLifecycleStatus) PaidRoute 
 	route, err := NewDraftPaidRoute(PaidRouteParams{
 		RouteID:                mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
 		SellerID:               mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		DisplayName:            "Market Research",
+		ProductSlug:            "market-research",
 		Method:                 RouteMethodPost,
 		PathPattern:            "/research",
 		Description:            "Generate market research",

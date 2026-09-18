@@ -50,6 +50,79 @@ func TestCatalogRepositoryEnforcesIDsAndSlugUniqueness(t *testing.T) {
 	}
 }
 
+func TestCatalogRepositoryEnforcesSellerScopedProductSlugUniqueness(t *testing.T) {
+	t.Parallel()
+
+	repository := NewCatalogRepository()
+	ctx := context.Background()
+	firstSeller := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", "first-seller")
+	secondSeller := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8", "second-seller")
+	if err := repository.CreateSeller(ctx, firstSeller); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateSeller(ctx, secondSeller); err != nil {
+		t.Fatal(err)
+	}
+
+	firstRoute := testRoute(t, firstSeller.SellerID)
+	if err := repository.CreateRoute(ctx, firstRoute); err != nil {
+		t.Fatal(err)
+	}
+	duplicateSlug := firstRoute
+	duplicateSlug.RouteID = mustID(
+		t,
+		"rte_01K5D09YJ0C0M7RJM4FWQ0K9H8",
+		domain.RouteIDPrefix,
+	)
+	if err := repository.CreateRoute(ctx, duplicateSlug); !errors.Is(err, persistence.ErrAlreadyExists) {
+		t.Fatalf("same-seller duplicate product slug error = %v", err)
+	}
+
+	sameSlugOtherSeller := firstRoute
+	sameSlugOtherSeller.RouteID = mustID(
+		t,
+		"rte_01K5D09YJ0C0M7RJM4FWQ0K9H9",
+		domain.RouteIDPrefix,
+	)
+	sameSlugOtherSeller.SellerID = secondSeller.SellerID
+	if err := repository.CreateRoute(ctx, sameSlugOtherSeller); err != nil {
+		t.Fatalf("cross-seller product slug error = %v", err)
+	}
+}
+
+func TestCatalogRepositoryPreservesProductAndTechnicalIdentity(t *testing.T) {
+	t.Parallel()
+
+	repository := NewCatalogRepository()
+	seller := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", "identity-seller")
+	if err := repository.CreateSeller(t.Context(), seller); err != nil {
+		t.Fatal(err)
+	}
+	route := testRoute(t, seller.SellerID)
+	if err := repository.CreateRoute(t.Context(), route); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*catalog.PaidRoute)
+	}{
+		{name: "product slug", mutate: func(updated *catalog.PaidRoute) { updated.ProductSlug = "replacement-report" }},
+		{name: "display name", mutate: func(updated *catalog.PaidRoute) { updated.DisplayName = "Replacement Report" }},
+		{name: "path pattern", mutate: func(updated *catalog.PaidRoute) { updated.PathPattern = "/replacement" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			updated := route
+			updated.Version++
+			test.mutate(&updated)
+			if err := repository.UpdateRoute(t.Context(), updated, route.Version); !errors.Is(err, persistence.ErrConditionFailed) {
+				t.Fatalf("UpdateRoute() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestPurchaseIntentRepositoryIsCreateOnly(t *testing.T) {
 	t.Parallel()
 	repository := NewPurchaseIntentRepository()
@@ -257,7 +330,7 @@ func testSeller(t *testing.T, rawID, slug string) catalog.Seller {
 
 func testRoute(t *testing.T, sellerID domain.ID) catalog.PaidRoute {
 	t.Helper()
-	route, err := catalog.NewPaidRoute(catalog.PaidRouteParams{RouteID: mustID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix), SellerID: sellerID, Method: catalog.RouteMethodPost, PathPattern: "/research", Description: "Research", MIMEType: "application/json", Amount: domain.MustParseAmount("35000000"), Asset: "test-usdc", Network: "test-network", PayTo: "0x123", UpstreamTimeoutSeconds: 20, CreatedAt: testTime()})
+	route, err := catalog.NewPaidRoute(catalog.PaidRouteParams{RouteID: mustID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix), SellerID: sellerID, DisplayName: "Research Report", ProductSlug: "research-report", Method: catalog.RouteMethodPost, PathPattern: "/research", Description: "Research", MIMEType: "application/json", Amount: domain.MustParseAmount("35000000"), Asset: "test-usdc", Network: "test-network", PayTo: "0x123", UpstreamTimeoutSeconds: 20, CreatedAt: testTime()})
 	if err != nil {
 		t.Fatalf("NewPaidRoute() error = %v", err)
 	}

@@ -199,12 +199,35 @@ func (repository *CatalogRepository) CreateRoute(ctx context.Context, route cata
 		return err
 	}
 
-	_, err = repository.client.PutItem(ctx, &awssdk.PutItemInput{
-		TableName:           &repository.tableName,
-		Item:                routeItem,
-		ConditionExpression: stringPointer(createItemCondition),
+	productSlugClaim, err := newStoredRecord(
+		sellerPartitionKey(route.SellerID.String()),
+		productSlugClaimSortKey(route.ProductSlug),
+		"productSlugClaim",
+		route.RouteID.String(),
+	)
+	if err != nil {
+		return err
+	}
+	productSlugClaimItem, err := marshalStoredRecord(productSlugClaim)
+	if err != nil {
+		return err
+	}
+
+	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{Put: &types.Put{
+				TableName:           &repository.tableName,
+				Item:                productSlugClaimItem,
+				ConditionExpression: stringPointer(createItemCondition),
+			}},
+			{Put: &types.Put{
+				TableName:           &repository.tableName,
+				Item:                routeItem,
+				ConditionExpression: stringPointer(createItemCondition),
+			}},
+		},
 	})
-	if isConditionalFailure(err) {
+	if isTransactionFailure(err) {
 		return persistence.ErrAlreadyExists
 	}
 
@@ -255,6 +278,11 @@ func (repository *CatalogRepository) UpdateRoute(
 	if storedRoute.SellerID != route.SellerID {
 		return persistence.ErrConditionFailed
 	}
+	if storedRoute.PathPattern != route.PathPattern ||
+		(storedRoute.ProductSlug != "" && storedRoute.ProductSlug != route.ProductSlug) ||
+		(storedRoute.DisplayName != "" && storedRoute.DisplayName != route.DisplayName) {
+		return persistence.ErrConditionFailed
+	}
 
 	routeRecord, err := newStoredRecord(
 		sellerPartitionKey(route.SellerID.String()),
@@ -274,7 +302,46 @@ func (repository *CatalogRepository) UpdateRoute(
 		return err
 	}
 
-	return repository.putWithExpectedVersion(ctx, routeItem, expectedVersion)
+	if storedRoute.ProductSlug != "" {
+		return repository.putWithExpectedVersion(ctx, routeItem, expectedVersion)
+	}
+
+	productSlugClaim, err := newStoredRecord(
+		sellerPartitionKey(route.SellerID.String()),
+		productSlugClaimSortKey(route.ProductSlug),
+		"productSlugClaim",
+		route.RouteID.String(),
+	)
+	if err != nil {
+		return err
+	}
+	productSlugClaimItem, err := marshalStoredRecord(productSlugClaim)
+	if err != nil {
+		return err
+	}
+	versionCondition := "#version = :expectedVersion"
+	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{Put: &types.Put{
+				TableName:           &repository.tableName,
+				Item:                productSlugClaimItem,
+				ConditionExpression: stringPointer(createItemCondition),
+			}},
+			{Put: &types.Put{
+				TableName:                &repository.tableName,
+				Item:                     routeItem,
+				ConditionExpression:      &versionCondition,
+				ExpressionAttributeNames: map[string]string{"#version": "version"},
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":expectedVersion": numberAttributeValue(expectedVersion),
+				},
+			}},
+		},
+	})
+	if isTransactionFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
 }
 
 // ListRoutesBySeller returns all route items in a seller partition.

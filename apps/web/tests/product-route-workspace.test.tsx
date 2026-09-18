@@ -12,6 +12,8 @@ const sellerId = "sel_01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const publishedRoute: PaidRoute = {
   routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
   sellerId,
+  displayName: "Research Report",
+  productSlug: "research-report",
   method: "POST",
   pathPattern: "/research",
   description: "Generate a source-backed market brief",
@@ -64,6 +66,8 @@ function createActions(): ProductRouteActions {
       value: {
         ...publishedRoute,
         routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAY",
+        displayName: "Executive Summaries",
+        productSlug: "executive-summaries",
         pathPattern: "/summaries",
         description: "Summarize a supplied document",
         amount: "12000000",
@@ -172,6 +176,12 @@ describe("product route workspace", () => {
       />,
     );
 
+    fireEvent.change(screen.getByLabelText("Product name"), {
+      target: { value: "Executive Summaries" },
+    });
+    fireEvent.change(screen.getByLabelText("Product slug"), {
+      target: { value: "executive-summaries" },
+    });
     fireEvent.change(screen.getByLabelText("Route path"), {
       target: { value: "/summaries" },
     });

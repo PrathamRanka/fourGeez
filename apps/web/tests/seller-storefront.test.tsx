@@ -13,6 +13,8 @@ const manifest: StorefrontManifest = {
     {
       routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
       sellerId: "sel_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      displayName: "Research Report",
+      productSlug: "research-report",
       method: "POST",
       pathPattern: "/research",
       description: "Generate a source-backed market brief for a defined topic.",
@@ -41,7 +43,7 @@ describe("seller storefront", () => {
     expect(screen.getByText("35 USDC")).toBeVisible();
     expect(screen.getByRole("link", { name: "View product" })).toHaveAttribute(
       "href",
-      "/store/northstar/products/rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+      "/store/northstar/products/research-report",
     );
     expect(screen.getByRole("link", { name: "Manifest" })).toHaveAttribute(
       "href",
@@ -74,13 +76,13 @@ describe("seller storefront", () => {
       buildProductStructuredData(
         manifest,
         manifest.routes[0],
-        "https://shop.agentpay.example/store/northstar/products/rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+        "https://shop.agentpay.example/store/northstar/products/research-report",
       ),
     ).toMatchObject({
       "@type": "Service",
-      name: "/research",
+      name: "Research Report",
       description: manifest.routes[0].description,
-      url: "https://shop.agentpay.example/store/northstar/products/rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+      url: "https://shop.agentpay.example/store/northstar/products/research-report",
     });
   });
 });

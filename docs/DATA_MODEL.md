@@ -113,6 +113,8 @@ authority without constant-time verification of the complete token hash.
 |---|---|---|
 | `routeId` | string | Primary identifier |
 | `sellerId` | string | Owning seller |
+| `displayName` | string | Seller-approved human product name; normalized whitespace; 1-120 visible characters |
+| `productSlug` | string | Seller-scoped immutable public slug; normalized to 3-80 lowercase ASCII letters, digits, and single hyphens |
 | `method` | enum | `GET`, `POST` for hackathon |
 | `pathPattern` | string | Literal path in v1; no arbitrary regex |
 | `description` | string | Published in manifest |
@@ -130,6 +132,28 @@ authority without constant-time verification of the complete token hash.
 | `version` | integer | Starts at 1 and increments on mutation |
 
 Price updates apply only to purchase intents created after the update. Existing intents retain their frozen amount until they expire or execute.
+
+`routeId`, `sellerId`, `productSlug`, `method`, and `pathPattern` are immutable.
+Product slugs are unique within a seller across every lifecycle state, including
+archived routes, so a historical public URL is never reassigned to a different
+product. The create boundary trims and collapses display-name whitespace and
+normalizes slug whitespace, underscores, repeated hyphens, and ASCII case to
+one lowercase hyphenated value before the uniqueness claim is written.
+
+Records written before LCH-003 may omit `displayName` and `productSlug`. Reads
+derive the display name from the existing seller-authored description and
+derive a collision-safe slug from that name plus the final nine characters of
+the immutable `routeId`. The next successful route mutation persists both
+derived values and atomically reserves the seller-scoped slug claim. This
+compatibility path never changes `routeId`, `method`, or `pathPattern`.
+
+Storefront manifests publish the normalized display name and product slug. The
+canonical browser URL is `/store/{sellerSlug}/products/{productSlug}`;
+`displayName` supplies the visible product and structured-data name while
+`description` remains the summary/meta description. Receipt schema version 1
+continues to identify historical purchases by immutable `routeId` and does not
+retroactively add or resolve catalog text, so existing receipt verification
+behavior remains stable.
 
 `lifecycleStatus` is the authoritative route lifecycle. Existing records that
 do not contain it are read as `published` when `enabled=true` and `draft` when
@@ -499,6 +523,7 @@ Examples:
 ```text
 PK=SELLER#sel_123       SK=PROFILE
 PK=SELLER#sel_123       SK=ROUTE#rte_123
+PK=SELLER#sel_123       SK=PRODUCT_SLUG#<productSlug>
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123
 PK=SELLER#sel_123       SK=DESTINATION#dst_123
 PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>
@@ -528,7 +553,7 @@ Integration credentials remain in the seller partition so listing and
 authorization use point/query operations. Production authentication must never
 scan by token hash.
 
-`PAYMENT#...` and `SLUG#...` claim items are created in the same DynamoDB transaction as their owning record with `attribute_not_exists(PK)` conditions. They enforce uniqueness; the corresponding GSIs remain the query paths for transaction and storefront lookup.
+`PAYMENT#...` and `SLUG#...` claim items are created in the same DynamoDB transaction as their owning record with `attribute_not_exists(PK)` conditions. `PRODUCT_SLUG#...` claims are created in the seller partition with `attribute_not_exists(PK) AND attribute_not_exists(SK)`. They enforce global payment/storefront uniqueness and seller-scoped product-slug uniqueness respectively; the corresponding GSIs remain the query paths for transaction and storefront lookup.
 
 Required secondary indexes:
 

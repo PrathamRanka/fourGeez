@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -15,16 +17,19 @@ import (
 )
 
 const (
-	maximumSellerNameLength       = 120
-	maximumOwnerSubjectLength     = 256
-	maximumSigningReferenceLength = 512
-	maximumRouteDescriptionLength = 500
-	maximumMIMETypeLength         = 120
-	maximumAssetLength            = 160
-	maximumNetworkLength          = 80
-	maximumPayToLength            = 160
-	minimumUpstreamTimeoutSeconds = 1
-	maximumUpstreamTimeoutSeconds = 30
+	maximumSellerNameLength         = 120
+	maximumOwnerSubjectLength       = 256
+	maximumSigningReferenceLength   = 512
+	maximumRouteDescriptionLength   = 500
+	maximumProductDisplayNameLength = 120
+	minimumProductSlugLength        = 3
+	maximumProductSlugLength        = 80
+	maximumMIMETypeLength           = 120
+	maximumAssetLength              = 160
+	maximumNetworkLength            = 80
+	maximumPayToLength              = 160
+	minimumUpstreamTimeoutSeconds   = 1
+	maximumUpstreamTimeoutSeconds   = 30
 )
 
 var (
@@ -137,6 +142,8 @@ func (service *Service) CreateRoute(
 	route, err := createRoute(PaidRouteParams{
 		RouteID:                 routeID,
 		SellerID:                sellerID,
+		DisplayName:             request.DisplayName,
+		ProductSlug:             request.ProductSlug,
 		Method:                  request.Method,
 		PathPattern:             request.PathPattern,
 		Description:             request.Description,
@@ -168,6 +175,8 @@ func (service *Service) CreateRoute(
 		TargetID:   route.RouteID.String(),
 		Outcome:    audit.OutcomeSucceeded,
 		ChangedFields: []string{
+			"displayName",
+			"productSlug",
 			"method",
 			"pathPattern",
 			"description",
@@ -246,7 +255,7 @@ func (service *Service) ListSellerRoutes(
 		return PaidRouteList{}, err
 	}
 	for index := range routes {
-		routes[index].normalizeLifecycleStatus()
+		routes[index].normalizeLegacyFields()
 	}
 	return PaidRouteList{Items: routes}, nil
 }
@@ -477,6 +486,8 @@ func (service *Service) CreateDraftRouteForIntegration(
 	route, err := NewDraftPaidRoute(PaidRouteParams{
 		RouteID:                 routeID,
 		SellerID:                sellerID,
+		DisplayName:             request.DisplayName,
+		ProductSlug:             request.ProductSlug,
 		Method:                  request.Method,
 		PathPattern:             request.PathPattern,
 		Description:             request.Description,
@@ -655,6 +666,8 @@ func routeParams(route PaidRoute) PaidRouteParams {
 	return PaidRouteParams{
 		RouteID:                 route.RouteID,
 		SellerID:                route.SellerID,
+		DisplayName:             route.DisplayName,
+		ProductSlug:             route.ProductSlug,
 		Method:                  route.Method,
 		PathPattern:             route.PathPattern,
 		Description:             route.Description,
@@ -685,7 +698,7 @@ func (service *Service) GetStorefrontManifest(
 
 	enabledRoutes := make([]PaidRoute, 0, len(routes))
 	for _, route := range routes {
-		route.normalizeLifecycleStatus()
+		route.normalizeLegacyFields()
 		if route.Enabled {
 			enabledRoutes = append(enabledRoutes, route)
 		}
@@ -798,6 +811,8 @@ func newPaidRoute(params PaidRouteParams, enabled bool) (PaidRoute, error) {
 	return PaidRoute{
 		RouteID:                 params.RouteID,
 		SellerID:                params.SellerID,
+		DisplayName:             normalizeProductDisplayName(params.DisplayName),
+		ProductSlug:             mustNormalizeProductSlug(params.ProductSlug),
 		Method:                  params.Method,
 		PathPattern:             params.PathPattern,
 		Description:             strings.TrimSpace(params.Description),
@@ -979,6 +994,25 @@ func (paidRoute *PaidRoute) normalizeLifecycleStatus() {
 	paidRoute.Enabled = paidRoute.LifecycleStatus == RouteLifecyclePublished
 }
 
+// normalizeLegacyFields provides deterministic compatibility values for routes
+// created before product names and public slugs were persisted.
+func (paidRoute *PaidRoute) normalizeLegacyFields() {
+	paidRoute.normalizeLifecycleStatus()
+	if paidRoute.DisplayName == "" {
+		paidRoute.DisplayName = legacyProductDisplayName(*paidRoute)
+	}
+	if paidRoute.ProductSlug == "" {
+		paidRoute.ProductSlug = legacyProductSlug(*paidRoute)
+	}
+}
+
+// NormalizePaidRouteForRead returns a compatibility-normalized route without
+// mutating the repository value supplied by the caller.
+func NormalizePaidRouteForRead(paidRoute PaidRoute) PaidRoute {
+	paidRoute.normalizeLegacyFields()
+	return paidRoute
+}
+
 // transitionLifecycle applies one validated lifecycle change atomically in memory.
 func (paidRoute *PaidRoute) transitionLifecycle(
 	status RouteLifecycleStatus,
@@ -1056,6 +1090,16 @@ func validatePaidRouteParams(params PaidRouteParams) domain.ValidationErrors {
 	if _, err := domain.ParseID(params.SellerID.String(), domain.SellerIDPrefix); err != nil {
 		validationErrors = append(validationErrors, domain.NewValidationError("sellerId", "format", "must be a seller identifier"))
 	}
+	displayName := normalizeProductDisplayName(params.DisplayName)
+	if displayName == "" ||
+		utf8.RuneCountInString(displayName) > maximumProductDisplayNameLength ||
+		strings.IndexFunc(displayName, unicode.IsControl) >= 0 {
+		validationErrors = append(validationErrors, domain.NewValidationError("displayName", "format", "must contain 1-120 visible characters"))
+	}
+	productSlug, validProductSlug := normalizeProductSlug(params.ProductSlug)
+	if !validProductSlug || len(productSlug) < minimumProductSlugLength || len(productSlug) > maximumProductSlugLength {
+		validationErrors = append(validationErrors, domain.NewValidationError("productSlug", "format", "must normalize to 3-80 lowercase letters, digits, or single hyphens"))
+	}
 	if params.Method != RouteMethodGet && params.Method != RouteMethodPost {
 		validationErrors = append(validationErrors, domain.NewValidationError("method", "supported", "must be GET or POST"))
 	}
@@ -1098,6 +1142,82 @@ func validatePaidRouteParams(params PaidRouteParams) domain.ValidationErrors {
 		validationErrors = append(validationErrors, domain.NewValidationError("createdAt", "required", "is required"))
 	}
 	return validationErrors
+}
+
+func normalizeProductDisplayName(value string) string {
+	return strings.Join(strings.Fields(value), " ")
+}
+
+func normalizeProductSlug(value string) (string, bool) {
+	var normalized strings.Builder
+	separatorPending := false
+	for _, character := range strings.TrimSpace(value) {
+		switch {
+		case character >= 'A' && character <= 'Z':
+			if separatorPending && normalized.Len() > 0 {
+				normalized.WriteByte('-')
+			}
+			separatorPending = false
+			normalized.WriteRune(character + ('a' - 'A'))
+		case character >= 'a' && character <= 'z', character >= '0' && character <= '9':
+			if separatorPending && normalized.Len() > 0 {
+				normalized.WriteByte('-')
+			}
+			separatorPending = false
+			normalized.WriteRune(character)
+		case character == '-' || character == '_' || unicode.IsSpace(character):
+			separatorPending = normalized.Len() > 0
+		default:
+			return "", false
+		}
+	}
+	return normalized.String(), true
+}
+
+func mustNormalizeProductSlug(value string) string {
+	normalized, _ := normalizeProductSlug(value)
+	return normalized
+}
+
+func legacyProductDisplayName(route PaidRoute) string {
+	if displayName := normalizeProductDisplayName(route.Description); displayName != "" {
+		return displayName
+	}
+	return string(route.Method) + " " + route.PathPattern
+}
+
+func legacyProductSlug(route PaidRoute) string {
+	base := legacySlugBase(legacyProductDisplayName(route))
+	suffix := strings.ToLower(route.RouteID.String())
+	if len(suffix) > 9 {
+		suffix = suffix[len(suffix)-9:]
+	}
+	maximumBaseLength := maximumProductSlugLength - len(suffix) - 1
+	if len(base) > maximumBaseLength {
+		base = strings.Trim(base[:maximumBaseLength], "-")
+	}
+	if len(base) < minimumProductSlugLength {
+		base = "product"
+	}
+	return base + "-" + suffix
+}
+
+func legacySlugBase(value string) string {
+	var base strings.Builder
+	separatorPending := false
+	for _, character := range strings.ToLower(value) {
+		if (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') {
+			if separatorPending && base.Len() > 0 {
+				base.WriteByte('-')
+			}
+			separatorPending = false
+			base.WriteRune(character)
+			continue
+		}
+		separatorPending = base.Len() > 0
+	}
+	return base.String()
 }
 
 // validateUpstreamBaseURL validates the seller service origin.

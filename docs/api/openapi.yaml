@@ -1129,8 +1129,19 @@ components:
     CreateRouteRequest:
       type: object
       additionalProperties: false
-      required: [method, pathPattern, description, mimeType, amount, asset, network, payTo]
+      required: [displayName, productSlug, method, pathPattern, description, mimeType, amount, asset, network, payTo]
       properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Seller-approved human product name; surrounding and repeated whitespace is normalized.
+        productSlug:
+          type: string
+          minLength: 3
+          maxLength: 80
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9 _-]*[A-Za-z0-9])?$'
+          description: Seller-approved public slug input normalized to lowercase single-hyphen form and unique within the seller.
         method: { type: string, enum: [GET, POST] }
         pathPattern: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
         description: { type: string, minLength: 1, maxLength: 500 }
@@ -1294,6 +1305,8 @@ components:
           properties:
             routeId: { type: string }
             sellerId: { type: string }
+            displayName: { type: string, minLength: 1, maxLength: 120 }
+            productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', minLength: 3, maxLength: 80 }
             lifecycleStatus: { type: string, enum: [draft, published, paused, archived, emergency_disabled] }
             enabled: { type: boolean }
             createdAt: { type: string, format: date-time }
