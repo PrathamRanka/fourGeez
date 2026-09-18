@@ -110,3 +110,39 @@ The generic MCP host is not a generic framework implementation. A stack moves
 to the maintained tier only after raw-body handling, middleware order, replay
 storage, sandbox behavior, metadata generation, and focused tests pass in a
 committed fixture.
+
+### Deterministic stack evidence
+
+Stack detection reads only committed dependency manifests and bounded source
+markers supplied by the coding agent. It does not read `.env` files, lockfile
+credentials, deployment secrets, or arbitrary repository contents. Package
+dependencies are stronger evidence than source markers and are matched by exact
+package name, never substring guessing.
+
+| Stack | Required evidence | Initial tier |
+|---|---|---|
+| Next.js | `package.json` dependency `next` | planned |
+| React/Vite | dependencies `react` and `vite`, without a stronger metaframework match | planned |
+| Remix | dependency `@remix-run/react` | planned |
+| Nuxt | dependency `nuxt` | planned |
+| SvelteKit | dependency `@sveltejs/kit` | planned |
+| Astro | dependency `astro` | planned |
+| Express | dependency `express` | maintained |
+| Fastify | dependency `fastify` | planned |
+| NestJS | dependency `@nestjs/core` | planned |
+| Go `net/http` | `go.mod` plus a `.go` source marker importing `net/http`, without a stronger Go framework match | maintained |
+| Gin | `go.mod` module `github.com/gin-gonic/gin` | planned |
+| Echo | `go.mod` module `github.com/labstack/echo` | planned |
+| Fiber | `go.mod` module `github.com/gofiber/fiber` | planned |
+| FastAPI | Python dependency `fastapi` | maintained |
+| Starlette | Python dependency `starlette`, without FastAPI | maintained |
+| Flask | Python dependency `flask` | planned |
+| Django | Python dependency `django` | planned |
+| ASP.NET Core | `.csproj` with `Microsoft.AspNetCore` evidence | unsupported until STK-003 |
+| Spring Boot | Maven or Gradle dependency containing `spring-boot` | unsupported until STK-003 |
+| Rails | `Gemfile` dependency `rails` | unsupported until STK-003 |
+| Laravel | `composer.json` dependency `laravel/framework` | unsupported until STK-003 |
+
+When multiple application layers are present, detection returns every evidenced
+stack in deterministic matrix order. Setup must select the stack that owns the
+paid route and reject a caller-provided stack absent from the detected set.

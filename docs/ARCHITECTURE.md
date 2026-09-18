@@ -74,6 +74,11 @@ M6 and M7 add package boundaries after their contracts are finalized:
 
 - `integrations`: project credentials, MCP operations, integration validation, and framework setup metadata.
 
+The `integrations/stacks` package owns deterministic, bounded repository
+evidence parsing and the explicit support matrix. It may identify multiple
+application layers but never upgrades a support tier based only on detection;
+maintained status requires the committed recipe and fixture gates.
+
 ### Feature package layout
 
 Backend feature packages separate responsibilities by file without adding wrapper layers:

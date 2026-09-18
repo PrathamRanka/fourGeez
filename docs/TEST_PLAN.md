@@ -56,6 +56,9 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - Dashboard aggregate projection retries cannot double count a transaction.
 - Seller webhooks preserve event identity across retries and never block the authoritative transaction write.
 - Every advertised stack fixture installs verification, preserves raw request bytes, exposes the sandbox route, and produces valid discovery metadata.
+- Stack detection fixtures cover exact dependency evidence, metaframework
+  precedence, malformed manifests, bounded input, and explicit unsupported
+  ecosystem labels.
 
 ### End-to-end tests
 
