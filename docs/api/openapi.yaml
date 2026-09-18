@@ -15,6 +15,9 @@ info:
     clients use the standards-compatible authorization metadata advertised for
     /mcp. Ordinary MCP requests use short-lived ES256 access tokens. Browser
     purchase sessions and buyer-agent keys are distinct from seller credentials.
+    Production MCP commercial mutations additionally require a one-time grant
+    issued through the authenticated seller browser/BFF boundary; caller-
+    asserted confirmation fields are development compatibility only.
   x-agentpay-contract-stage: target-state
   x-agentpay-runtime-baseline: m7-development-preview
   license:
@@ -109,6 +112,37 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/PermissionDenied' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/sellers/{sellerId}/mcp-confirmation-grants:
+    post:
+      summary: Confirm one exact seller-visible MCP commercial mutation
+      description: Seller browser/BFF operation only. Returns an opaque one-time grant bound to the authenticated seller, selected credential, exact tool, target, canonical arguments hash, expected resource version, and a maximum five-minute lifetime. Project keys and MCP bearer tokens cannot call this endpoint. Issuing the same binding again atomically revokes any earlier unconsumed grant for that binding.
+      tags: [Authorization, Integrations]
+      operationId: createMcpConfirmationGrant
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMcpConfirmationGrantRequest' }
+      responses:
+        '201':
+          description: One-time confirmation grant returned only in this response
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Pragma: { schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/McpConfirmationGrantCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/billing/providers/stripe/webhooks:
@@ -1587,6 +1621,53 @@ components:
         sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         credentialId: { type: string, pattern: '^key_[A-Za-z0-9]+$' }
         entitlementEpoch: { type: integer, minimum: 1 }
+    CreateMcpConfirmationGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [credentialId, tool, targetType, targetId, argumentsSha256, expectedResourceVersion, summary]
+      properties:
+        credentialId: { type: string, pattern: '^key_[A-Za-z0-9]+$' }
+        tool:
+          type: string
+          enum: [configure_storefront, configure_route, change_route_price, publish_route]
+        targetType: { type: string, enum: [seller, paid_route] }
+        targetId:
+          type: string
+          pattern: '^(?:sel|rte)_[A-Za-z0-9]+$'
+          description: Seller ID for storefront configuration or route creation; route ID for route mutation.
+        argumentsSha256:
+          allOf:
+            - { $ref: '#/components/schemas/Sha256' }
+          description: RFC 8785 canonical mutation arguments hashed with the agentpay.mcp-mutation.v1 domain separator, excluding the grant and idempotency key.
+        expectedResourceVersion: { type: integer, minimum: 1 }
+        summary:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Redacted text displayed to the seller; the binding fields, not this text alone, define authority.
+    McpConfirmationGrantCreated:
+      type: object
+      additionalProperties: false
+      required: [confirmationGrantId, confirmationGrant, sellerId, credentialId, tool, targetType, targetId, argumentsSha256, expectedResourceVersion, issuedAt, expiresAt]
+      properties:
+        confirmationGrantId: { type: string, pattern: '^mcg_[A-Za-z0-9]+$' }
+        confirmationGrant:
+          type: string
+          minLength: 43
+          maxLength: 512
+          pattern: '^mcg1\.mcg_[A-Za-z0-9]+\.[A-Za-z0-9_-]{43,}$'
+          description: Opaque 256-bit one-time secret. AgentPay stores only a keyed digest and never logs this value.
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        credentialId: { type: string, pattern: '^key_[A-Za-z0-9]+$' }
+        tool:
+          type: string
+          enum: [configure_storefront, configure_route, change_route_price, publish_route]
+        targetType: { type: string, enum: [seller, paid_route] }
+        targetId: { type: string, pattern: '^(?:sel|rte)_[A-Za-z0-9]+$' }
+        argumentsSha256: { $ref: '#/components/schemas/Sha256' }
+        expectedResourceVersion: { type: integer, minimum: 1 }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, description: Exclusive boundary no more than five minutes after issuedAt. }
     ApprovalInvitationExchangeRequest:
       type: object
       additionalProperties: false

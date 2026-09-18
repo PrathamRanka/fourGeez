@@ -45,6 +45,10 @@ Run without AWS or network access.
   rotation; fraud quarantine cannot be cleared by a Stripe payment event.
 - Atomic UTC-month API and MCP counters, retry-safe webhook-delivery claims,
   static route/subscription limits, suspended plans, and stable 403/429 codes.
+- MCP confirmation grants bind seller, credential, tool, target, canonical
+  arguments hash, expected resource version, and exclusive five-minute expiry;
+  wrong bindings, expiry, revocation, prior consumption, and caller-asserted
+  confirmation fields fail closed.
 - Audit action vocabulary, changed-field allowlists, append-only persistence,
   tenant-bound cursors, and seller authorization.
 - SEO/AEO validation for canonical URLs, structured data, visible-content
@@ -67,6 +71,9 @@ Run without AWS or network access.
 - Validate MCP protected-resource metadata and the `WWW-Authenticate`
   resource-metadata challenge independently from the proprietary project-key
   bootstrap endpoint.
+- Validate the seller-session-only confirmation-grant endpoint, its strict
+  request schema and `Cache-Control: no-store`, and prove project-key and MCP
+  bearer authentication cannot call it.
 
 ### Integration tests
 
@@ -84,6 +91,12 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - Seller timeout records delivery failure.
 - MCP credentials cannot cross seller boundaries or exceed their scopes.
 - MCP mutation retries return the original result and do not duplicate products.
+- MCP confirmation consumption is atomic with mutation idempotency: an exact
+  retry returns the stored redacted result, while changed arguments, target,
+  credential, seller, tool, resource version, expiry, or second use is denied.
+- A deliberately modified connector that self-asserts approval or removes local
+  checks cannot mint confirmation grants, publish, verify payments, create
+  official transactions, or obtain execution capabilities.
 - Generated seller middleware accepts valid AgentPay signatures and rejects modified bodies, stale timestamps, and replayed transaction identifiers.
 - Payment reconciliation never reports unconfirmed value as finalized and remains idempotent across repeated provider observations.
 - Dashboard aggregate projection retries cannot double count a transaction.
@@ -130,6 +143,10 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 15. Exchange multiple approval invitations in one browser, decide each with
     CSRF protection, and prove only each purchase owner can claim its completion
     token.
+16. Leave the official connector and a modified fork running, revoke or expire
+    the seller entitlement, and prove both lose MCP, publication, discovery,
+    intent, x402, and transaction authority while historical access follows the
+    subscription contract.
 
 ## Web quality checks
 

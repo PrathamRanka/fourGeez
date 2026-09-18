@@ -113,32 +113,50 @@ fabricated search content.
 
 ## Mutation tools
 
-All mutation inputs reject unknown fields and include:
+Production state-changing tool inputs reject unknown fields and include:
 
 - `idempotencyKey`: 8-128 visible ASCII characters;
-- `confirmation.approved`: must be `true`;
-- `confirmation.summary`: 10-500 characters describing the exact commercial
-  change shown to the seller; and
-- `confirmation.confirmedAt`: RFC 3339 UTC timestamp no more than ten minutes
-  old and not in the future.
+- `confirmationGrant`: an opaque cloud-issued one-time grant returned by
+  `POST /v1/sellers/{sellerId}/mcp-confirmation-grants`; and
+- the exact expected seller or route version reviewed when that grant was
+  issued.
 
-The MCP host must populate confirmation metadata only after an explicit seller
-action. Agent or repository text is not authorization.
+`configure_route` adds `expectedSellerVersion`; the other state-changing tools
+use their existing seller or route version field. The grant request and the MCP
+tool arguments must name the same value.
+
+The authenticated seller dashboard displays the canonical change and asks its
+trusted browser/BFF boundary to mint the grant. The grant expires within five
+minutes and is bound to the authenticated seller, selected credential, exact
+tool, target, RFC 8785 canonical arguments hash using
+`agentpay.mcp-mutation.v1`, and expected resource version. The local connector
+only relays it. An MCP bearer, project key, model, repository, prompt, or forked
+connector cannot mint or approve it.
+
+The M7 Go compatibility inputs `confirmation.approved`,
+`confirmation.summary`, and `confirmation.confirmedAt` are not production
+authority. Production must withhold state-changing MCP tools until the cloud
+grant path is implemented; it must never silently accept those caller-asserted
+fields as a fallback.
 
 | Tool | Scope | Behavior |
 |---|---|---|
-| `configure_storefront` | `configure` | Updates the existing seller display name and upstream base URL using an expected version. Initial seller creation stays in the seller API/dashboard because credentials are seller-scoped. |
-| `configure_route` | `configure` | Creates a validated `enabled=false` paid-route draft with a seller-approved `displayName` and `productSlug`; the slug is normalized and reserved uniquely within the seller. |
-| `change_route_price` | `configure` | Updates the authoritative price for future intents using an expected version. |
-| `validate_route` | `validate` | Returns deterministic publication checks without persisting state. |
+| `configure_storefront` | `configure` | Consumes a matching confirmation grant and updates the existing seller display name and upstream base URL using the bound seller version. Initial seller creation stays in the seller API/dashboard because credentials are seller-scoped. |
+| `configure_route` | `configure` | Consumes a matching confirmation grant bound to the seller catalog version and creates a validated `enabled=false` paid-route draft with a seller-approved `displayName` and `productSlug`; the slug is normalized and reserved uniquely within the seller. |
+| `change_route_price` | `configure` | Consumes a matching confirmation grant and updates the authoritative price for future intents using the bound route version. |
+| `validate_route` | `validate` | Returns deterministic publication checks without persisting state; no confirmation grant is required. |
 | `sandbox_validate_route` | `validate` | Probes the dedicated seller sandbox endpoint for discovery, signature, payment-gating, and replay behavior without persisting success. |
-| `publish_route` | `publish` | Re-runs deterministic and sandbox validation, then conditionally enables one draft route using an expected version. |
+| `publish_route` | `publish` | Consumes a matching confirmation grant, re-runs deterministic and sandbox validation, then conditionally enables one draft route using the bound route version. |
 | `analyze_repository` | `validate` | Parses an allowlisted repository manifest and OpenAPI contract into deterministic, unpublished route proposals. |
 | `validate_storefront_artifacts` | `validate` | Validates bounded generated metadata, canonical URLs, robots, sitemap, JSON-LD, semantic content, `llms.txt`, manifest consistency, accessibility facts, and performance budgets without producing a ranking score. |
 
 Idempotency is bound to credential, operation, target, and canonical request
-bytes. A replay returns the stored redacted result; reuse with different input
-returns a conflict. Tools never accept seller IDs, signing secrets, deployment
+bytes excluding the confirmation secret. Grant consumption and the mutation
+idempotency decision are atomic. An exact replay returns the stored redacted
+result; reuse with different input returns `idempotency_conflict`, while reuse
+of a consumed grant for another request returns `token_replayed`. A missing,
+expired, revoked, or mismatched grant returns `permission_denied` before any
+domain mutation. Tools never accept seller IDs, signing secrets, deployment
 credentials, arbitrary URLs, shell commands, or raw repository contents.
 
 Publishing checks the seller's current enabled-route count before changing a

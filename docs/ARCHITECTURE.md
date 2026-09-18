@@ -46,7 +46,15 @@ publication, entitlement, or signing authority. A host that connects directly
 to `/mcp` never receives or submits a project key and follows the protected
 resource metadata advertised at `/.well-known/oauth-protected-resource/mcp`.
 
-The MCP server exposes bounded AgentPay operations; it is not a general remote shell. Read operations may run without confirmation. Creating or changing products and publishing a storefront require explicit seller confirmation and an appropriately scoped MCP capability. Project-key rotation remains a seller-session operation in the dashboard/API and is never delegated to the MCP access-token audience; deployment authorization remains local to the seller environment.
+The MCP server exposes bounded AgentPay operations; it is not a general remote
+shell. Read operations may run without confirmation. Creating or changing
+products and publishing a storefront require an appropriately scoped MCP
+capability plus a cloud-issued one-time confirmation grant created through the
+authenticated seller browser/BFF boundary. Caller-supplied approval booleans,
+summaries, timestamps, model output, and repository text are not authority.
+Project-key rotation remains a seller-session operation in the dashboard/API
+and is never delegated to the MCP access-token audience; deployment
+authorization remains local to the seller environment.
 
 Generated integration code must use maintained AgentPay request-verification packages when available. Coding agents must not generate independent cryptographic protocols or place project credentials in browser code.
 
@@ -173,6 +181,10 @@ Shared primitives and storage adapters remain organized by their concrete respon
 10. **Seller-execution boundary:** only AgentPay holds the ES256 private key that
     can mint a transaction execution capability. Seller middleware receives
     public JWKS verification material and cannot mint AgentPay authority.
+11. **MCP-confirmation boundary:** a scoped MCP bearer can propose a mutation
+    but cannot approve it. Only the authenticated seller browser/BFF boundary
+    can mint an opaque, five-minute, one-time grant bound to the exact seller,
+    credential, tool, target, canonical arguments, and resource version.
 
 ## Seller launch lifecycle
 
@@ -188,7 +200,9 @@ Shared primitives and storage adapters remain organized by their concrete respon
    configuration, storefront code, technical SEO/AEO, agent discovery, and tests.
 6. The seller reviews prices, payment destinations, route publication, generated
    content, and deployment changes.
-7. Confirmed products are registered through idempotent control-plane operations.
+7. The dashboard creates a cloud confirmation grant for the exact reviewed
+   mutation; the MCP server atomically consumes it with the idempotent
+   control-plane operation.
 8. A sandbox purchase verifies discovery, payment gating, signed forwarding, and exactly-once fulfillment.
 9. The seller explicitly publishes the storefront and deploys the prepared application.
 
@@ -239,6 +253,10 @@ for ownership and persistence.
 - MCP uses short-lived ES256 bearer capabilities with
   `aud=urn:agentpay:mcp`, exact scopes, current credential state, and current
   entitlement epoch.
+- MCP commercial mutations additionally require an opaque one-time
+  confirmation grant issued through the authenticated seller browser/BFF
+  session. The grant is not an MCP access token and cannot be minted with a
+  project key or MCP bearer.
 - Buyer agents use buyer credentials that are separate from seller project
   keys.
 - Human product pages create a server-side browser purchase session bound to
@@ -306,6 +324,7 @@ or replay checks.
 | Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
 | Seller entitlement inactive or expired | Return `403 subscription_inactive` for authenticated seller/MCP operations, `410 seller_inactive` for public discovery, and reject new intent, challenge, verification, and settlement authorization. |
+| MCP confirmation missing, expired, replayed, or mismatched | Fail before domain mutation; never infer approval from caller fields. Exact idempotent replay returns the stored redacted result only after the original grant was validly consumed. |
 | Stripe renewal payment fails | Do not extend `accessEndsAt`; notify the seller, block network participation exactly at the existing boundary, permit only 72 hours of billing recovery/historical reads, then suspend. |
 | Stripe events arrive late, duplicated, or out of order | Verify and durably deduplicate the event, fetch current provider state, and conditionally replace the complete entitlement projection using a local monotonic reconciliation revision. |
 | Seller reactivates after access stopped | Require confirmed paid state, increment the entitlement epoch, invalidate caches/discovery, and require project-key rotation before credential-backed access resumes. |

@@ -154,6 +154,42 @@ directly to the remote `/mcp` resource discover its OAuth authorization servers
 through `/.well-known/oauth-protected-resource/mcp` and never submit a project
 key to the MCP endpoint.
 
+### MCPConfirmationGrant
+
+An `MCPConfirmationGrant` is an opaque, one-time authorization created only by
+the authenticated seller browser/BFF after the seller reviews one exact MCP
+commercial mutation. MCP access scope alone cannot create or replace it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `confirmationGrantId` | string | `mcg_` prefixed ULID and lookup hint |
+| `sellerId` | string | Derived from the authenticated seller session |
+| `credentialId` | string | Exact integration credential permitted to relay the mutation |
+| `tool` | enum | `configure_storefront`, `configure_route`, `change_route_price`, or `publish_route` |
+| `targetType` | enum | `seller` or `paid_route` |
+| `targetId` | string | Seller ID for seller configuration/new-route creation; route ID for route mutation |
+| `argumentsSha256` | string | Lowercase SHA-256 of RFC 8785 canonical arguments with `agentpay.mcp-mutation.v1`; excludes grant and idempotency key |
+| `expectedResourceVersion` | integer | Exact seller or route version reviewed by the seller |
+| `summary` | string | Seller-visible redacted description; never authority by itself |
+| `tokenDigest` | string | Keyed digest of the `mcg1.<confirmationGrantId>.<randomSecret>` opaque 256-bit secret; raw grant is never persisted |
+| `issuedBySellerPrincipal` | string | Authenticated seller-session subject used for audit only |
+| `issuedAt`, `expiresAt` | timestamp | UTC timestamps; expiry is exclusive and at most five minutes after issue |
+| `consumedAt` | timestamp/null | Set once in the same transaction as the mutation/idempotency decision |
+| `consumedByIdempotencyKeyHash` | string/null | Non-sensitive binding used to distinguish exact retry from replay |
+| `revokedAt` | timestamp/null | Optional pre-consumption revocation by seller or security controls |
+| `version` | integer | Conditional-write version |
+
+The creation response returns the raw grant once with `Cache-Control: no-store`.
+The record stores only its keyed digest and metadata. Reissuing the same binding
+atomically revokes any earlier unconsumed grant, so a browser retry leaves at
+most one usable grant. Consumption requires the same seller, credential, tool,
+target, arguments hash, and expected resource version, plus an unexpired,
+unrevoked, unconsumed record. The consume operation and MCP mutation
+idempotency decision are atomic. An exact idempotent replay returns the stored
+redacted mutation result; different input or a second use fails closed.
+Caller-provided confirmation booleans, summaries, and timestamps are not
+authorization fields.
+
 ### PaidRoute
 
 | Field | Type | Notes |
@@ -647,12 +683,15 @@ contents.
 
 Actor vocabulary is `seller_user`, `integration_credential`, `administrator`,
 and `system`. Target vocabulary is `integration_credential`,
-`payment_destination`, `paid_route`, `webhook_subscription`, and `seller`.
+`mcp_confirmation_grant`, `payment_destination`, `paid_route`,
+`webhook_subscription`, and `seller`.
 Outcome vocabulary is `succeeded`, `failed`, and `denied`.
 
 Action vocabulary is fixed to:
 
 - `credential.created` and `credential.revoked`;
+- `mcp_confirmation.issued`, `mcp_confirmation.consumed`, and
+  `mcp_confirmation.denied`;
 - `payment_destination.created`, `payment_destination.verified`,
   `payment_destination.disabled`, and `payment_destination.rotated`;
 - `route.draft_created`, `route.price_changed`, `route.published`,
@@ -663,9 +702,12 @@ Action vocabulary is fixed to:
 
 Each action has an allowlist of changed fields owned by that domain. Unknown
 actions, mismatched target types, duplicate field names, and fields outside the
-action allowlist are rejected before persistence. V1 appends audit events for
-successful committed mutations. Failed and denied attempts remain in security
-and operational logs until a durable attempt-audit transaction is introduced.
+action allowlist are rejected before persistence. The M7 runtime appends audit
+events for successful committed mutations. The M7.1 confirmation boundary also
+persists grant issuance, successful consumption, and denied validation without
+recording the raw grant or canonical arguments. Other failed and denied
+attempts remain in security and operational logs until their durable attempt-
+audit transaction is introduced.
 
 Seller history is queried newest-first from `PK=SELLER#<sellerId>` and
 `SK=AUDIT#<occurredAt>#<auditEventId>`. Pages default to 50 events and are
@@ -748,6 +790,7 @@ PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=SELLER#sel_123       SK=PRODUCT_SLUG#<productSlug>
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123
 PK=CREDENTIAL#key_123   SK=LOOKUP
+PK=MCP_CONFIRMATION#mcg_123 SK=PROFILE
 PK=SELLER#sel_123       SK=DESTINATION#dst_123
 PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>
 PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL

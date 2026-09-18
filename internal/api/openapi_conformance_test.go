@@ -47,6 +47,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"createBrowserPurchaseSession":           {"201", "400", "404", "409", "410", "422", "429", "503"},
 		"createDispute":                          {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
 		"createIntegrationCredential":            {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"createMcpConfirmationGrant":             {"201", "400", "401", "403", "404", "409", "422", "429", "503"},
 		"createPaidRoute":                        {"201", "400", "401", "403", "404", "409", "429", "503"},
 		"createPaymentDestination":               {"201", "400", "401", "403", "404", "409", "429", "503"},
 		"createPaymentDestinationChallenge":      {"201", "400", "401", "403", "404", "409", "429", "503"},

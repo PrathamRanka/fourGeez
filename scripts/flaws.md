@@ -737,6 +737,33 @@ key. Missing or invalid MCP bearer authentication returns `401` with a
 12. Raw API keys, access tokens, payment signatures, and execution tokens are
     never written to logs or audit records.
 
+### Production MCP confirmation cannot be caller asserted
+
+The implemented M7 Go MCP models currently accept
+`confirmation.approved`, `confirmation.summary`, and
+`confirmation.confirmedAt` from the same caller requesting the mutation. A
+modified connector can fabricate all three fields. This is a development-only
+compatibility shape and must be disabled in production rather than treated as
+seller authority.
+
+Production state-changing MCP tools require an opaque 256-bit
+`MCPConfirmationGrant` created only through the authenticated seller
+browser/BFF endpoint
+`POST /v1/sellers/{sellerId}/mcp-confirmation-grants`. The dashboard displays
+the exact canonical mutation before issuance. The grant is bound to seller,
+credential, tool, target, `agentpay.mcp-mutation.v1` canonical arguments hash,
+expected seller or route version, unique grant ID, issue time, and an exclusive
+expiry no more than five minutes later.
+
+AgentPay returns the raw grant once with `Cache-Control: no-store` and stores
+only a keyed digest plus binding metadata. Reissuing the same binding revokes
+the earlier unconsumed grant. The MCP server atomically consumes the grant with
+the mutation idempotency decision. Exact retry returns the stored redacted
+result; a missing, expired, revoked, consumed, wrong-seller, wrong-credential,
+wrong-tool, wrong-target, wrong-version, or wrong-arguments grant fails before
+mutation. A project key, MCP bearer, model, repository, connector, or fork
+cannot mint or approve a grant.
+
 ### Cloud and seller responsibility split
 
 | Capability | AgentPay cloud/control plane | Seller infrastructure |
@@ -834,6 +861,9 @@ Seller MCP host or local connector
   -> call AgentPay remote MCP with token
   -> cloud verifies signature, audience, scope, credential, entitlement epoch,
      current subscription, quota, and idempotency
+  -> for a state-changing tool, authenticated seller dashboard mints a one-time
+     grant bound to the exact credential, tool, target, arguments, and version
+  -> cloud atomically consumes that grant with the mutation decision
   -> cloud performs bounded read/mutation and appends audit decision
 
 Buyer agent or browser
@@ -1602,9 +1632,11 @@ export function registerCloudMcp(app: FastifyInstance, services: {
 }
 ```
 
-The dispatcher still enforces each tool's exact scope, confirmation,
-idempotency, target ownership, plan feature, quota, and domain validation. A
-top-level `read` scope is not permission to invoke mutation tools.
+The dispatcher still enforces each tool's exact scope, cloud-issued one-time
+confirmation grant for state-changing tools, idempotency, target ownership,
+plan feature, quota, and domain validation. A top-level `read` scope is not
+permission to invoke mutation tools. Caller-provided confirmation booleans,
+summaries, or timestamps are never production authority.
 
 ### x402 verification boundary
 

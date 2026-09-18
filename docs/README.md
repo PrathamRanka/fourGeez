@@ -21,6 +21,7 @@ baseline:
 | Surface | Current M7 development behavior | Required M7.1 production target |
 |---|---|---|
 | Seller project credential | `apc1` credential used directly by MCP | `apc2` bootstrap through `/v1/integration-access-tokens`; connector or OAuth access token at `/mcp` |
+| MCP mutation confirmation | Caller-supplied boolean, summary, and timestamp | Seller-session-issued one-time grant bound to the exact mutation |
 | Approval invitation | Query token | Fragment exchange into multi-session HttpOnly grant plus CSRF |
 | Browser purchase | Buyer-agent key only | Durable opaque purchase cookie, bounded commerce window, and payer-wallet recovery |
 | Seller forwarding | Per-seller HMAC | Finality-gated ES256 execution capability |
@@ -43,6 +44,7 @@ The complete gap analysis and reference security design are recorded in
 | [AWS_SETUP.md](AWS_SETUP.md) | AWS accounts, services, IAM, deployment order, configuration, and teardown |
 | [SECURITY.md](SECURITY.md) | Threat model, secrets, evidence integrity, privacy, and production gates |
 | [SUBSCRIPTION_LIFECYCLE.md](SUBSCRIPTION_LIFECYCLE.md) | Stripe Billing adapter, entitlement states, expiry, recovery, revocation, and historical access |
+| [MCP_SECURITY_BOUNDARY.md](MCP_SECURITY_BOUNDARY.md) | Cloud-authoritative MCP, one-time seller confirmation, discovery separation, and fork resistance |
 | [TEST_PLAN.md](TEST_PLAN.md) | Test levels, required scenarios, fixtures, and release gates |
 | [DECISIONS.md](DECISIONS.md) | Locked decisions, assumptions, deferred choices, and change procedure |
 | [SOURCES.md](SOURCES.md) | External protocol and platform sources that must be verified before implementation |

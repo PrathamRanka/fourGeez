@@ -95,8 +95,10 @@ The intended onboarding flow is:
    agent-discovery metadata, configuration, and tests.
 5. The seller reviews the proposed prices, routes, generated code, and deployment
    changes.
-6. Only after explicit confirmation may the integration publish products or
-   change AgentPay configuration.
+6. Only after the authenticated seller dashboard issues a short-lived,
+   one-time confirmation grant for the exact reviewed change may the cloud MCP
+   publish products or change AgentPay configuration. A coding agent cannot
+   confirm its own proposal.
 7. Buyers use the hosted storefront or machine-readable AgentPay endpoints.
 8. Every successful sale appears in one seller dashboard regardless of channel.
 
@@ -140,6 +142,13 @@ approval, claims the transaction exactly once, and forwards a signed request to
 that endpoint. Seller code verifies the AgentPay signature and returns the
 digital result.
 
+Seller-hosted integration code is not part of AgentPay's trust boundary. It may
+be modified or forked, but it receives no private signing material, payment
+verification authority, publication authority, subscription authority, or
+official transaction state. The official MCP endpoint and every commercial
+decision remain in AgentPay's cloud. A project key only bootstraps a short-lived
+MCP capability; it is not a transaction credential.
+
 ## Buyer channels
 
 ### Agent channel
@@ -147,6 +156,11 @@ digital result.
 Agents discover products through the storefront manifest or `llms.txt`, create
 an immutable purchase intent, satisfy approval when required, pay through the
 x402 adapter, and call the AgentPay paid URL.
+
+Discovery is candidate information only. Even an authentic, unexpired manifest
+does not authorize a purchase; the cloud rechecks current seller entitlement,
+route publication, destination, quote, approval, payment, and replay state at
+the relevant transaction checkpoints.
 
 ### Browser channel
 

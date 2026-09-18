@@ -33,6 +33,7 @@ M8, and M9 pass, cancellation-safe production access is not implemented.
 - Seller request/response content.
 - Evidence chain, signatures, and dispute decisions.
 - Seller project credentials and MCP authorization grants.
+- MCP confirmation-grant secrets, keyed digests, and exact mutation bindings.
 - Browser purchase-session capabilities and entitlement revision state.
 - Seller repository contents, deployment credentials, and generated configuration.
 
@@ -61,6 +62,7 @@ transaction authority.
 | WebSocket impersonation | Validate invitation token on connect, bind connection to session, authorize every callback, expire connections |
 | Denial of service | API throttles, body limits, route limits, Lambda concurrency, upstream timeout, Bedrock call budget |
 | Repository prompt injection | Treat repository text as untrusted, expose only allowlisted MCP tools, and require confirmation for commercial or deployment mutations |
+| Self-asserted MCP confirmation | Ignore caller approval booleans, summaries, and timestamps as authority; require a cloud-issued one-time grant bound to the authenticated seller, credential, exact tool, target, canonical arguments hash, expected resource version, and expiry |
 | Over-scoped integration credential | Bind each credential to one seller, use explicit scopes and expiration, hash it at rest, and support immediate revocation |
 | Forked or modified local MCP | Keep token issuance, entitlement, publication, payment, and transaction authority in AgentPay cloud; the local connector can only request short-lived capabilities and proxy bounded messages |
 | Stale access capability | Verify ES256, exact issuer/audience/type, expiry, current credential state, and current `entitlementEpoch` on every protected operation |
@@ -106,7 +108,11 @@ Canonicalization must be versioned. Version 1 uses:
 5. Arrays retain order.
 6. Hash input includes canonicalization version and domain separator.
 
-Use different domain separators for intent and evidence hashes, such as `agentpay.intent.v1` and `agentpay.evidence.v1`. Never hash an ambiguous string concatenation.
+Use different domain separators for intent, evidence, and MCP mutation hashes,
+such as `agentpay.intent.v1`, `agentpay.evidence.v1`, and
+`agentpay.mcp-mutation.v1`. The MCP mutation hash excludes the one-time grant
+and idempotency key but includes the exact tool, target, expected resource
+version, and canonical arguments. Never hash an ambiguous string concatenation.
 
 ## Capability classes and key publication
 
@@ -116,6 +122,7 @@ AgentPay uses separate capabilities for separate trust boundaries:
 |---|---|---:|---|---|
 | Project key | Seller-side connector | Until expiry/rotation/revocation | Bootstrap endpoint only | Request an MCP access token |
 | MCP access token | Connector process | 300 seconds | `urn:agentpay:mcp` | Exact seller MCP scopes only |
+| MCP confirmation grant | Selected MCP interaction | 5 minutes, one use | One exact cloud MCP mutation | Prove authenticated seller confirmation of exact bound arguments |
 | Browser purchase grant | Secure HttpOnly cookie backed by server-side state | Commerce: 10 minutes; read/remediation: 30 days after terminal outcome or dispute resolution | One browser grant containing bounded purchase sessions | Create/pay once during commerce window; read/recover/dispute afterward |
 | Approval grant set | Secure HttpOnly cookie backed by server-side state | Per-invitation approval expiry | Independently bound approval sessions | Read and decide once for each authorized approver grant |
 | Execution capability | AgentPay proxy and seller endpoint | 60 seconds | `urn:agentpay:seller:<sellerId>` | One exact finalized transaction request |
@@ -137,6 +144,21 @@ access tokens carrying exact issuer, audience, subject, seller, credential or
 delegated-client identity, scopes, `entitlementEpoch`, JTI, issued-at, and
 expiry claims. Middleware additionally loads current credential and entitlement
 state; a valid signature with a stale epoch or revoked credential is rejected.
+
+An MCP access token is permission to request a scoped tool, not confirmation of
+a commercial mutation. The seller dashboard's authenticated browser/BFF
+boundary displays the canonical change and creates an opaque 256-bit
+confirmation grant. Issuance requires seller ownership, current active
+entitlement, exact allowed Origin, double-submit CSRF, and any required recent
+reauthentication. The grant is returned with `Cache-Control: no-store`; only a
+keyed digest and binding metadata are persisted. Project keys, MCP bearers,
+buyer credentials, models, repositories, and connectors cannot mint grants.
+
+The MCP mutation atomically consumes the grant with its idempotency decision.
+Wrong seller, credential, tool, target, canonical arguments, expected resource
+version, expiry, revocation, or prior consumption fails before mutation.
+Caller-supplied `approved`, `summary`, and `confirmedAt` values are display
+metadata only during migration and are forbidden as production authority.
 
 Approval invitation tokens are the one deliberate URL-delivered secret. They
 appear only after `#invite=` in a generated approval URL, so browsers do not
@@ -232,6 +254,9 @@ Forbidden:
 - The AgentPay MCP server exposes bounded commerce operations, documentation resources, and setup prompts; it does not expose an arbitrary shell or unrestricted HTTP proxy.
 - Read-only tools are separated from mutating tools by scope.
 - Product creation, price updates, publication, credential rotation, and production deployment require explicit confirmation.
+- Production MCP product creation, storefront changes, price changes, and
+  publication require the cloud-issued one-time confirmation grant; caller-
+  asserted confirmation fields never satisfy this requirement.
 - Every mutation requires idempotency and records the seller, credential, operation, target, and outcome without recording secrets or repository contents.
 - Every authenticated MCP POST consumes one seller-scoped monthly operation
   unit; invalid credentials do not consume quota.
@@ -246,6 +271,11 @@ Forbidden:
 - Storefront validation accepts bounded artifact facts only, performs no remote
   fetches, rejects generated reviews or ratings, and never converts its checks
   into a search-ranking prediction.
+- A modified or forked connector receives no private signing key, facilitator
+  credential, publication authority, entitlement authority, or transaction
+  authority. If it bypasses AgentPay cloud, its traffic is not an AgentPay
+  transaction and cannot receive official receipts, evidence, signatures, or
+  discovery status.
 
 ## Human checkout requirements
 
