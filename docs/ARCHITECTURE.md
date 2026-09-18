@@ -79,6 +79,11 @@ evidence parsing and the explicit support matrix. It may identify multiple
 application layers but never upgrades a support tier based only on detection;
 maintained status requires the committed recipe and fixture gates.
 
+The `integrations/discovery` package validates generated storefront artifacts
+without network access or model judgment. It returns fixed named checks for
+SEO, AEO, manifest agreement, accessibility facts, and performance budgets and
+never emits a ranking score or guarantee.
+
 ### Feature package layout
 
 Backend feature packages separate responsibilities by file without adding wrapper layers:

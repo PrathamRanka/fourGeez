@@ -16,6 +16,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
+	"github.com/fourgeez/agentpay/internal/integrations/discovery"
 	"github.com/fourgeez/agentpay/internal/integrations/mcpserver"
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/intents"
@@ -184,6 +185,7 @@ func main() {
 		analyzer.NewService(),
 	)
 	mcpController.SetQuotaEnforcer(quotaService)
+	mcpController.SetDiscoveryValidator(discovery.NewService())
 	mcpController.RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,

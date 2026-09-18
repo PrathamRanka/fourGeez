@@ -14,6 +14,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
+	"github.com/fourgeez/agentpay/internal/integrations/discovery"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -467,6 +468,81 @@ func TestHTTPControllerRunsSandboxValidation(t *testing.T) {
 			Name: "sandbox_validate_route",
 			Arguments: map[string]any{
 				"routeId": testRouteID,
+			},
+		},
+	)
+	if err != nil || result.IsError {
+		t.Fatalf("CallTool() = (%#v, %v)", result, err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok || structured["valid"] != true {
+		t.Fatalf("structured result = %#v", result.StructuredContent)
+	}
+}
+
+// TestHTTPControllerValidatesStorefrontArtifacts verifies SEO-003 MCP access.
+func TestHTTPControllerValidatesStorefrontArtifacts(t *testing.T) {
+	t.Parallel()
+
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		nil,
+		nil,
+	)
+	controller.SetDiscoveryValidator(discovery.NewService())
+	server := httptest.NewServer(controller)
+	t.Cleanup(server.Close)
+	client := protocol.NewClient(
+		&protocol.Implementation{Name: "agentpay-discovery-test", Version: "1.0.0"},
+		nil,
+	)
+	session, err := client.Connect(
+		t.Context(),
+		&protocol.StreamableClientTransport{
+			Endpoint:             server.URL,
+			HTTPClient:           authenticatedHTTPClient("validate-token"),
+			DisableStandaloneSSE: true,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = session.Close()
+	})
+
+	result, err := session.CallTool(
+		t.Context(),
+		&protocol.CallToolParams{
+			Name: "validate_storefront_artifacts",
+			Arguments: map[string]any{
+				"baseUrl": "https://seller.example",
+				"pages": []any{map[string]any{
+					"url":                      "https://seller.example/products/research",
+					"routePath":                "/research",
+					"title":                    "Research report API product",
+					"description":              "Purchase a focused research report generated from the seller's published API route.",
+					"canonicalUrl":             "https://seller.example/products/research",
+					"robots":                   "index,follow",
+					"headingOne":               "Research report API product",
+					"visibleText":              strings.Repeat("Research report details and delivery terms. ", 4),
+					"language":                 "en",
+					"mainLandmarks":            1,
+					"missingImageAltCount":     0,
+					"unlabelledControls":       0,
+					"structuredDataJson":       `{"@context":"https://schema.org","@type":"Product","name":"Research report API product","description":"Purchase a focused research report generated from the seller's published API route.","url":"https://seller.example/products/research"}`,
+					"htmlBytes":                60000,
+					"javaScriptBytes":          120000,
+					"cssBytes":                 30000,
+					"blockingScriptCount":      1,
+					"largestContentfulPaintMs": 1800,
+				}},
+				"robotsTxt":    "User-agent: *\nAllow: /\nSitemap: https://seller.example/sitemap.xml\n",
+				"sitemapXml":   `<urlset><url><loc>https://seller.example/products/research</loc></url></urlset>`,
+				"llmsText":     "# Seller\n- [Research report API product](https://seller.example/products/research): Purchase a focused research report generated from the seller's published API route.\n",
+				"manifestJson": `{"routes":[{"pathPattern":"/research","description":"Purchase a focused research report generated from the seller's published API route.","enabled":true}]}`,
 			},
 		},
 	)

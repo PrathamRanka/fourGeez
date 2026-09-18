@@ -29,6 +29,8 @@ Run without AWS or network access.
   tenant-bound cursors, and seller authorization.
 - SEO/AEO validation for canonical URLs, structured data, visible-content
   consistency, sitemap, robots directives, `llms.txt`, and manifest output.
+- Storefront validation fails each named check independently and enforces the
+  documented HTML, JavaScript, CSS, blocking-script, and LCP budgets.
 
 ### API contract tests
 

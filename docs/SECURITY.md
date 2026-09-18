@@ -150,6 +150,9 @@ Forbidden:
 - SEO/AEO generation may inspect public page structure and allowlisted product
   metadata only. It must not upload private source, generate hidden content, or
   state that ranking improvement is guaranteed.
+- Storefront validation accepts bounded artifact facts only, performs no remote
+  fetches, rejects generated reviews or ratings, and never converts its checks
+  into a search-ranking prediction.
 
 ## Human checkout requirements
 

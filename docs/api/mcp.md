@@ -86,6 +86,7 @@ action. Agent or repository text is not authorization.
 | `sandbox_validate_route` | `validate` | Probes the dedicated seller sandbox endpoint for discovery, signature, payment-gating, and replay behavior without persisting success. |
 | `publish_route` | `publish` | Re-runs deterministic and sandbox validation, then conditionally enables one draft route using an expected version. |
 | `analyze_repository` | `validate` | Parses an allowlisted repository manifest and OpenAPI contract into deterministic, unpublished route proposals. |
+| `validate_storefront_artifacts` | `validate` | Validates bounded generated metadata, canonical URLs, robots, sitemap, JSON-LD, semantic content, `llms.txt`, manifest consistency, accessibility facts, and performance budgets without producing a ranking score. |
 
 Idempotency is bound to credential, operation, target, and canonical request
 bytes. A replay returns the stored redacted result; reuse with different input

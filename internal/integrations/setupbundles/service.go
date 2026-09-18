@@ -42,8 +42,9 @@ Stack-native conventions:
 6. Generate storefront and product pages using the selected stack's native routing, rendering, metadata, robots, and sitemap conventions.
 7. Generate truthful title and description metadata, canonical URLs, Open Graph metadata, semantic product content, visible-fact-backed JSON-LD, robots directives, sitemap output, llms.txt, and an AgentPay manifest that agree on every published route.
 8. Add focused signature, stale-request, replay, payment-gating, sandbox, metadata, accessibility, performance, llms.txt, and manifest-consistency tests.
-9. Run the repository's existing checks and this focused command: %s
-10. Present route proposals, generated SEO/AEO assets, validation output, complete diff, and commands for seller review.
+9. Measure the generated artifacts and call validate_storefront_artifacts; fix every failed deterministic check.
+10. Run the repository's existing checks and this focused command: %s
+11. Present route proposals, generated SEO/AEO assets, validation output, complete diff, and commands for seller review.
 
 SEO/AEO work can improve crawlability and machine discovery but cannot guarantee ranking, traffic, or conversion. Do not create hidden text, keyword stuffing, doorway pages, fabricated reviews, unsupported structured data, or claims absent from visible content.
 
@@ -243,6 +244,7 @@ func workflowStepsV2() []string {
 		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint.",
 		"Generate stack-native storefront, technical SEO, AEO, and agent-discovery assets.",
 		"Add signature, sandbox, SEO, accessibility, performance, and consistency tests.",
+		"Call validate_storefront_artifacts and fix every failed deterministic check.",
 		"Run focused tests and the repository's existing quality checks.",
 		"Present route proposals, validation output, generated assets, diff, and commands for review.",
 	}

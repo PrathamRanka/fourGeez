@@ -12,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
+	"github.com/fourgeez/agentpay/internal/integrations/discovery"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -30,12 +31,20 @@ type OperationQuota interface {
 
 // HTTPController authenticates and serves the remote MCP endpoint.
 type HTTPController struct {
-	authenticator   CredentialAuthenticator
-	resourceService *Service
-	mutationService *MutationService
-	analyzerService *analyzer.Service
-	streamHandler   http.Handler
-	quotaEnforcer   OperationQuota
+	authenticator    CredentialAuthenticator
+	resourceService  *Service
+	mutationService  *MutationService
+	analyzerService  *analyzer.Service
+	discoveryService *discovery.Service
+	streamHandler    http.Handler
+	quotaEnforcer    OperationQuota
+}
+
+// SetDiscoveryValidator configures deterministic storefront artifact checks.
+func (controller *HTTPController) SetDiscoveryValidator(
+	discoveryService *discovery.Service,
+) {
+	controller.discoveryService = discoveryService
 }
 
 // NewHTTPController creates an authenticated stateless MCP controller.
@@ -191,7 +200,39 @@ func (controller *HTTPController) serverForRequest(
 	if controller.analyzerService != nil {
 		controller.registerAnalyzerTool(server, principal)
 	}
+	if controller.discoveryService != nil {
+		controller.registerDiscoveryTool(server, principal)
+	}
 	return server
+}
+
+// registerDiscoveryTool adds deterministic storefront quality validation.
+func (controller *HTTPController) registerDiscoveryTool(
+	server *protocol.Server,
+	principal integrations.Principal,
+) {
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "validate_storefront_artifacts",
+			Description: "Validate generated SEO, AEO, discovery, accessibility, and performance artifacts",
+			Annotations: &protocol.ToolAnnotations{
+				IdempotentHint: true,
+				ReadOnlyHint:   true,
+			},
+		},
+		func(
+			_ context.Context,
+			_ *protocol.CallToolRequest,
+			input discovery.Request,
+		) (*protocol.CallToolResult, discovery.Result, error) {
+			if !principal.HasScope(integrations.ScopeValidate) {
+				return nil, discovery.Result{}, integrations.ErrScopeDenied
+			}
+			result, err := controller.discoveryService.Validate(input)
+			return nil, result, err
+		},
+	)
 }
 
 // registerSandboxTool adds the read-only pre-publication validation flow.

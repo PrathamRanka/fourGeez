@@ -227,6 +227,7 @@ func TestServiceSelectsVersionTwoStackPrompt(t *testing.T) {
 		"JSON-LD",
 		"llms.txt",
 		"manifest",
+		"validate_storefront_artifacts",
 		"cannot guarantee ranking",
 		"Do not publish",
 	} {

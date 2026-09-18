@@ -83,8 +83,10 @@ The prompt instructs the coding agent to:
    agent and answer-engine discovery;
 9. add focused signature, stale-request, replay, payment-gating, sandbox, SEO,
    accessibility, and metadata-consistency tests;
-10. run the repository's existing checks and the bundle's focused test; and
-11. present the diff, validation result, route proposals, SEO/AEO changes, and
+10. measure the generated artifacts, call `validate_storefront_artifacts`, and
+    fix every failed deterministic check;
+11. run the repository's existing checks and the bundle's focused test; and
+12. present the diff, validation result, route proposals, SEO/AEO changes, and
    commands for seller review.
 
 The prompt must state that the coding agent cannot invent prices, publish a
