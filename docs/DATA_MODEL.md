@@ -45,6 +45,9 @@ are complete.
 | `name` | string | Display name |
 | `upstreamBaseUrl` | string | HTTPS only outside local development |
 | `signingSecretRef` | string | Secrets Manager ARN/reference, never secret material |
+| `verifiedUpstreamBaseUrl` | string/null | Exact service origin last verified by the AgentPay sandbox; a configured-origin change invalidates it |
+| `verifiedSigningSecretRefHash` | string/null | Domain-separated SHA-256 of the signing-secret reference used by the successful sandbox probe |
+| `serviceEndpointVerifiedAt` | timestamp/null | Cloud-observed successful signed, replay-safe endpoint verification |
 | `status` | enum | `draft`, `active`, `suspended` |
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
@@ -75,6 +78,17 @@ destination, credential, product, sandbox transaction, or publication
 readiness as complete. Those checks are derived from the identity principal and
 the owning authoritative records. Publication fails closed when any required
 record is missing or unavailable.
+
+### StorefrontPublication
+
+The signed discovery revision is persisted separately from seller and route
+records at `PK=SELLER#<sellerId>`, `SK=STOREFRONT_PUBLICATION`. It stores the
+latest domain-separated state fingerprint, monotonically increasing
+`publicationRevision`, `updatedAt`, and optimistic `version`. A fresh discovery
+read strongly reloads seller, entitlement, routes, payment destinations, and
+publication prerequisites; when their public-authority fingerprint changes it
+conditionally advances the revision. Concurrent readers may retry but may
+never decrease or reuse a revision for different authority state.
 
 Lean V1 permits exactly one seller for each normalized identity-provider
 subject. Creation atomically reserves
@@ -736,6 +750,7 @@ Action vocabulary is fixed to:
 - `credential.created`, `credential.revoked`, `credential.rotated`,
   `credential.exchange_succeeded`, and `credential.exchange_denied`;
 - `entitlement.changed`;
+- `service_endpoint.verified`;
 - `mcp_confirmation.issued`, `mcp_confirmation.consumed`, and
   `mcp_confirmation.denied`;
 - `payment_destination.created`, `payment_destination.verified`,

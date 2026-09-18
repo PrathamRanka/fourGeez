@@ -2151,7 +2151,7 @@ components:
         actorId: { type: string, minLength: 1, maxLength: 256 }
         action:
           type: string
-          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
+          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, service_endpoint.verified, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
         targetType: { type: string, enum: [integration_credential, payment_destination, paid_route, webhook_subscription, seller] }
         targetId: { type: string, minLength: 1, maxLength: 64 }
         outcome: { type: string, enum: [succeeded, failed, denied] }
@@ -2201,7 +2201,7 @@ components:
         publishImmediately:
           type: boolean
           default: true
-          description: Set false to create a dashboard-managed draft without publishing it.
+          description: Publication is attempted only after the draft is persisted; all current publication checks run and failure leaves the route unpublished.
     CreatePaymentDestinationRequest:
       type: object
       additionalProperties: false
@@ -2795,7 +2795,7 @@ components:
         kid: { type: string, minLength: 1, maxLength: 128 }
         canonicalization: { type: string, const: RFC8785 }
         domainSeparator: { type: string, const: agentpay.discovery.v1 }
-        value: { type: string, minLength: 1, description: Base64url ES256 signature over the domain separator and canonical document bytes. }
+        value: { type: string, minLength: 86, maxLength: 86, description: 'Unpadded base64url encoding of the raw 64-byte ES256 signature over agentpay.discovery.v1, one NUL byte, and RFC 8785 canonical document bytes.' }
     SignedStorefrontManifest:
       type: object
       additionalProperties: false

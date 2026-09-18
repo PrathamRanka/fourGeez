@@ -22,6 +22,12 @@ export type ActionResult<Value> =
       retryAfterSeconds?: number;
     };
 
+export type PublicActionResult<Value> =
+  | { ok: true; value: Value }
+  | (Extract<ActionResult<never>, { ok: false }> & {
+      responseBody?: unknown;
+    });
+
 type AgentPayRequest = {
   body?: unknown;
   method: "GET" | "PATCH" | "POST";
@@ -230,7 +236,7 @@ export async function downloadAgentPayFile(
 // requestPublicAgentPay reads one bounded unauthenticated storefront response.
 export async function requestPublicAgentPay<Value>(
   path: string,
-): Promise<ActionResult<Value>> {
+): Promise<PublicActionResult<Value>> {
   const apiOrigin = process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080";
   try {
     const response = await fetch(`${apiOrigin}${path}`, {
@@ -241,11 +247,14 @@ export async function requestPublicAgentPay<Value>(
     const responseText = await readBoundedResponse(response);
     const responseBody: unknown = responseText ? JSON.parse(responseText) : {};
     if (!response.ok) {
-      return failureFromResponse(
-        response,
+      return {
+        ...failureFromResponse(
+          response,
+          responseBody,
+          "This storefront is unavailable.",
+        ),
         responseBody,
-        "This storefront is unavailable.",
-      );
+      };
     }
     return { ok: true, value: responseBody as Value };
   } catch {

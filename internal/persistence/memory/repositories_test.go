@@ -363,7 +363,7 @@ func testRoute(t *testing.T, sellerID domain.ID) catalog.PaidRoute {
 func testIntent(t *testing.T) intents.PurchaseIntent {
 	t.Helper()
 	bodyHash, _ := intents.HashRequestBody([]byte(`{"topic":"payments"}`), "application/json")
-	intent, err := intents.NewPurchaseIntent(intents.PurchaseIntentParams{IntentID: mustID(t, "int_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.IntentIDPrefix), SellerID: mustID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix), RouteID: mustID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix), BuyerID: "agent-123", RequestMethod: intents.RequestMethodPost, RequestPath: "/research", RequestBodyHash: bodyHash, Amount: domain.MustParseAmount("35000000"), Asset: "test-usdc", Network: "test-network", MaximumAmount: domain.MustParseAmount("40000000"), CreatedAt: testTime(), ExpiresAt: testTime().Add(10 * time.Minute)})
+	intent, err := intents.NewPurchaseIntent(intents.PurchaseIntentParams{IntentID: mustID(t, "int_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.IntentIDPrefix), SellerID: mustID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix), RouteID: mustID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix), BuyerID: "agent-123", ProductDisplayName: "Research Report", ProductSlug: "research-report", PaymentDestinationID: mustID(t, "dst_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.PaymentDestinationIDPrefix), PayTo: "0x123", RequestMethod: intents.RequestMethodPost, RequestPath: "/research", RequestBodyHash: bodyHash, Amount: domain.MustParseAmount("35000000"), Asset: "test-usdc", Network: "test-network", MaximumAmount: domain.MustParseAmount("40000000"), CreatedAt: testTime(), ExpiresAt: testTime().Add(10 * time.Minute)})
 	if err != nil {
 		t.Fatalf("NewPurchaseIntent() error = %v", err)
 	}

@@ -145,6 +145,7 @@ func (controller *HTTPController) writeError(
 	}
 	status := http.StatusInternalServerError
 	code := api.ErrorCodeInternal
+	message := err.Error()
 	switch {
 	case errors.Is(err, ErrApprovalRequired):
 		status = http.StatusPreconditionRequired
@@ -152,6 +153,10 @@ func (controller *HTTPController) writeError(
 	case errors.Is(err, ErrIntentExpired):
 		status = http.StatusGone
 		code = api.ErrorCodeGone
+	case errors.Is(err, domain.ErrCommerceUnavailable):
+		status = http.StatusGone
+		code = api.ErrorCodeGone
+		message = "seller commerce is unavailable"
 	case errors.Is(err, ErrPaidRouteMismatch),
 		errors.Is(err, persistence.ErrNotFound):
 		status = http.StatusNotFound
@@ -159,9 +164,17 @@ func (controller *HTTPController) writeError(
 	case errors.Is(err, ErrPaymentReplay):
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
+	case errors.Is(err, ErrSubscriptionInactive):
+		status = http.StatusForbidden
+		code = "subscription_inactive"
+		message = "seller subscription is inactive"
+	case errors.Is(err, ErrCommerceAuthorizationUnavailable):
+		status = http.StatusServiceUnavailable
+		code = api.ErrorCodeDependencyUnavailable
+		message = "commerce authorization is unavailable"
 	case IsRetryable(err):
 		status = http.StatusServiceUnavailable
 		code = "payment_unavailable"
 	}
-	api.WriteError(response, request, status, code, err.Error(), nil)
+	api.WriteError(response, request, status, code, message, nil)
 }

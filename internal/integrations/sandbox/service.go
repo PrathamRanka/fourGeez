@@ -16,11 +16,16 @@ const sandboxResponseMIMEType = "application/json"
 
 // Service probes the no-op seller endpoint before route publication.
 type Service struct {
-	catalogReader CatalogReader
-	idGenerator   domain.IDGenerator
-	signer        proxy.RequestSigner
-	forwarder     proxy.SellerForwarder
-	clock         domain.Clock
+	catalogReader        CatalogReader
+	idGenerator          domain.IDGenerator
+	signer               proxy.RequestSigner
+	forwarder            proxy.SellerForwarder
+	clock                domain.Clock
+	verificationRecorder EndpointVerificationRecorder
+}
+
+func (service *Service) SetEndpointVerificationRecorder(recorder EndpointVerificationRecorder) {
+	service.verificationRecorder = recorder
 }
 
 // NewService creates a sandbox validator with explicit external boundaries.
@@ -140,14 +145,20 @@ func (service *Service) Validate(
 			Message: "an accepted transaction identifier must reject replay",
 		},
 	}
-	return Result{
+	result := Result{
 		SchemaVersion: SchemaVersion,
 		SellerID:      sellerID,
 		RouteID:       routeID,
 		RouteVersion:  route.Version,
 		Valid:         allChecksPassed(checks),
 		Checks:        checks,
-	}, nil
+	}
+	if result.Valid && service.verificationRecorder != nil {
+		if err := service.verificationRecorder.RecordServiceEndpointVerification(ctx, sellerID, "sandbox-validation"); err != nil {
+			return Result{}, err
+		}
+	}
+	return result, nil
 }
 
 // sandboxForwardRequest builds a temporary no-op route without mutating storage.

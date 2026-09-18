@@ -15,9 +15,11 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
+	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -107,6 +109,20 @@ func TestLaunchReadyProfileSeedsEveryRequiredLocalScenario(t *testing.T) {
 	if err != nil || incompleteEntitlement.Status() != billing.EntitlementStatusSuspended {
 		t.Fatalf("incomplete entitlement = (%#v, %v)", incompleteEntitlement.Snapshot(), err)
 	}
+	workspace, err := fixture.workspaces.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workspace.ConnectorVerifiedAt == nil || workspace.SandboxPurchaseTransactionID == nil || workspace.StorefrontPreviewedAt == nil {
+		t.Fatalf("launch-ready workspace = %#v", workspace)
+	}
+	credentials, err := fixture.credentials.ListBySeller(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(credentials) != 1 || !credentials[0].HasScope(integrations.ScopePublish) || credentials[0].EntitlementEpoch() == 0 {
+		t.Fatalf("launch-ready credentials = %#v", credentials)
+	}
 }
 
 // TestResetEndpointClearsRuntimeChangesAndReappliesTheNamedProfile verifies disposal.
@@ -193,6 +209,8 @@ type seedFixture struct {
 	entitlements        *memory.SellerEntitlementRepository
 	paymentDestinations *memory.PaymentDestinationRepository
 	webhookDeliveries   *memory.WebhookDeliveryRepository
+	workspaces          *memory.SellerWorkspaceRepository
+	credentials         *memory.IntegrationCredentialRepository
 	signer              evidence.Signer
 }
 
@@ -220,6 +238,8 @@ func newSeedFixture(t *testing.T) seedFixture {
 		entitlements:        repositories.entitlements,
 		paymentDestinations: repositories.repositories.PaymentDestinations.(*memory.PaymentDestinationRepository),
 		webhookDeliveries:   repositories.repositories.WebhookDeliveries.(*memory.WebhookDeliveryRepository),
+		workspaces:          repositories.repositories.SellerWorkspaces.(*memory.SellerWorkspaceRepository),
+		credentials:         repositories.repositories.IntegrationCredentials.(*memory.IntegrationCredentialRepository),
 		signer:              repositories.signer,
 	}
 }
@@ -237,20 +257,24 @@ func newSeedRepositories(t *testing.T) seedRepositoriesFixture {
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
+	sellerWorkspaceRepository := memory.NewSellerWorkspaceRepository()
+	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	resetter := memory.NewDevelopmentResetter(memory.DevelopmentRepositories{
-		Catalog:              catalogRepository,
-		PurchaseIntents:      intentRepository,
-		Approvals:            approvalRepository,
-		Transactions:         transactionRepository,
-		Evidence:             evidenceRepository,
-		SellerEntitlements:   entitlementRepository,
-		Disputes:             disputeRepository,
-		PaymentDestinations:  paymentDestinationRepository,
-		WebhookSubscriptions: webhookSubscriptionRepository,
-		WebhookDeliveries:    webhookDeliveryRepository,
-		WebhookSecrets:       webhookSecretStore,
-		Idempotency:          idempotencyStore,
+		Catalog:                catalogRepository,
+		PurchaseIntents:        intentRepository,
+		Approvals:              approvalRepository,
+		Transactions:           transactionRepository,
+		Evidence:               evidenceRepository,
+		SellerEntitlements:     entitlementRepository,
+		Disputes:               disputeRepository,
+		PaymentDestinations:    paymentDestinationRepository,
+		WebhookSubscriptions:   webhookSubscriptionRepository,
+		WebhookDeliveries:      webhookDeliveryRepository,
+		WebhookSecrets:         webhookSecretStore,
+		SellerWorkspaces:       sellerWorkspaceRepository,
+		IntegrationCredentials: integrationCredentialRepository,
+		Idempotency:            idempotencyStore,
 	})
 	signer, err := evidence.NewLocalHMACSigner(
 		"local-seed-evidence-v1",
@@ -261,17 +285,19 @@ func newSeedRepositories(t *testing.T) seedRepositoriesFixture {
 	}
 	return seedRepositoriesFixture{
 		repositories: Repositories{
-			Catalog:              catalogRepository,
-			PurchaseIntents:      intentRepository,
-			Transactions:         transactionRepository,
-			Evidence:             evidenceRepository,
-			Disputes:             disputeRepository,
-			PaymentDestinations:  paymentDestinationRepository,
-			WebhookSubscriptions: webhookSubscriptionRepository,
-			WebhookDeliveries:    webhookDeliveryRepository,
-			WebhookSecrets:       webhookSecretStore,
-			SellerEntitlements:   entitlementRepository,
-			Reset:                resetter.Reset,
+			Catalog:                catalogRepository,
+			PurchaseIntents:        intentRepository,
+			Transactions:           transactionRepository,
+			Evidence:               evidenceRepository,
+			Disputes:               disputeRepository,
+			PaymentDestinations:    paymentDestinationRepository,
+			WebhookSubscriptions:   webhookSubscriptionRepository,
+			WebhookDeliveries:      webhookDeliveryRepository,
+			WebhookSecrets:         webhookSecretStore,
+			SellerWorkspaces:       sellerWorkspaceRepository,
+			IntegrationCredentials: integrationCredentialRepository,
+			SellerEntitlements:     entitlementRepository,
+			Reset:                  resetter.Reset,
 		},
 		catalog:      catalogRepository,
 		transactions: transactionRepository,
@@ -280,6 +306,8 @@ func newSeedRepositories(t *testing.T) seedRepositoriesFixture {
 		signer:       signer,
 	}
 }
+
+var _ sellerworkspace.Repository = (*memory.SellerWorkspaceRepository)(nil)
 
 func validSeedConfig() Config {
 	return Config{

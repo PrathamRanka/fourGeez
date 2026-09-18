@@ -10,6 +10,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -90,6 +91,23 @@ type Adapter interface {
 	Settle(context.Context, string, Requirements) (SettlementResult, error)
 }
 
+// CommerceOperation identifies a transaction-critical entitlement boundary.
+type CommerceOperation string
+
+const (
+	CommerceOperationChallenge    CommerceOperation = "challenge"
+	CommerceOperationVerification CommerceOperation = "verification"
+	CommerceOperationSettlement   CommerceOperation = "settlement"
+	// CommerceOperationExecution is intentionally not called after finality:
+	// a payment finalized before ordinary cancellation remains fulfillable.
+	CommerceOperationExecution CommerceOperation = "execution"
+)
+
+// CommerceAuthorizer performs a fresh authoritative seller-entitlement check.
+type CommerceAuthorizer interface {
+	AuthorizeCommerce(context.Context, domain.ID, CommerceOperation) error
+}
+
 // PaidRouteRequest identifies the frozen purchase requested by an agent.
 type PaidRouteRequest struct {
 	Slug          string
@@ -128,6 +146,11 @@ type CheckoutResult struct {
 type PaidRouteCatalogRepository interface {
 	ResolveSellerBySlug(context.Context, string) (catalog.Seller, error)
 	GetRoute(context.Context, domain.ID) (catalog.PaidRoute, error)
+}
+
+// PaidRouteAuthorizer reloads the current product and verified destination.
+type PaidRouteAuthorizer interface {
+	AuthorizePaidRoute(context.Context, domain.ID) (catalog.Seller, catalog.PaidRoute, settlement.PaymentDestination, error)
 }
 
 // PaidRouteIntentRepository loads immutable purchase intents.

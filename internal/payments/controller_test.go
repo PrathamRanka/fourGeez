@@ -96,6 +96,18 @@ func TestPaidRouteControllerReturnsChallengeAndDelivery(t *testing.T) {
 	}
 }
 
+func TestPaidRouteControllerMapsInactiveCommerceToGone(t *testing.T) {
+	t.Parallel()
+
+	controller := &HTTPController{}
+	request := httptest.NewRequest(http.MethodGet, "/pay/demo-seller/weather", nil)
+	response := httptest.NewRecorder()
+	controller.writeError(response, request, CheckoutResult{}, domain.ErrCommerceUnavailable)
+	if response.Code != http.StatusGone {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
 type checkoutAuthenticator struct{}
 
 // AuthenticateSeller rejects seller credentials in this agent-only test.

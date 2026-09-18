@@ -17,7 +17,9 @@ type storedRecord struct {
 	Entity              string `dynamodbav:"entity"`
 	Payload             []byte `dynamodbav:"payload"`
 	Version             uint64 `dynamodbav:"version,omitempty"`
+	PublicationRevision uint64 `dynamodbav:"publicationRevision,omitempty"`
 	Status              string `dynamodbav:"status,omitempty"`
+	PaymentFinality     string `dynamodbav:"paymentFinality,omitempty"`
 	EventHash           string `dynamodbav:"eventHash,omitempty"`
 	DestinationID       string `dynamodbav:"destinationId,omitempty"`
 	ConfirmationGrantID string `dynamodbav:"confirmationGrantId,omitempty"`

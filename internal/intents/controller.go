@@ -109,6 +109,9 @@ func writeIntentError(response http.ResponseWriter, request *http.Request, err e
 	} else if errors.Is(err, persistence.ErrAlreadyExists) {
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
+	} else if errors.Is(err, domain.ErrCommerceUnavailable) {
+		status = http.StatusGone
+		code = api.ErrorCodeGone
 	}
 	api.WriteError(response, request, status, code, err.Error(), nil)
 }

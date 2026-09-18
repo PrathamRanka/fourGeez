@@ -40,6 +40,8 @@ func configureDevelopmentSeed(
 		AuditEvents:              repositories.AuditEvents,
 		Idempotency:              repositories.Idempotency,
 		SellerSessionRevocations: repositories.SellerSessionRevocations,
+		SellerWorkspaces:         repositories.SellerWorkspaces,
+		StorefrontPublications:   repositories.StorefrontPublications,
 	})
 	seeder, err := devseed.New(devseed.Config{
 		Environment:          config.Environment,
@@ -48,17 +50,19 @@ func configureDevelopmentSeed(
 		ProfileName:          config.ProfileName,
 		WebhookSigningSecret: config.WebhookSigningSecret,
 	}, devseed.Repositories{
-		Catalog:              repositories.Catalog,
-		PurchaseIntents:      repositories.PurchaseIntents,
-		Transactions:         repositories.Transactions,
-		Evidence:             repositories.Evidence,
-		Disputes:             repositories.Disputes,
-		PaymentDestinations:  repositories.PaymentDestinations,
-		WebhookSubscriptions: repositories.WebhookSubscriptions,
-		WebhookDeliveries:    repositories.WebhookDeliveries,
-		WebhookSecrets:       repositories.WebhookSecrets,
-		SellerEntitlements:   repositories.SellerEntitlements,
-		Reset:                resetter.Reset,
+		Catalog:                repositories.Catalog,
+		PurchaseIntents:        repositories.PurchaseIntents,
+		Transactions:           repositories.Transactions,
+		Evidence:               repositories.Evidence,
+		Disputes:               repositories.Disputes,
+		PaymentDestinations:    repositories.PaymentDestinations,
+		WebhookSubscriptions:   repositories.WebhookSubscriptions,
+		WebhookDeliveries:      repositories.WebhookDeliveries,
+		WebhookSecrets:         repositories.WebhookSecrets,
+		SellerEntitlements:     repositories.SellerEntitlements,
+		IntegrationCredentials: repositories.IntegrationCredentials,
+		SellerWorkspaces:       repositories.SellerWorkspaces,
+		Reset:                  resetter.Reset,
 	}, signer)
 	if err != nil {
 		return err

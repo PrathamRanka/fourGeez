@@ -1,40 +1,58 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/store/[slug]/[artifact]/route";
 import { generateMetadata } from "@/app/store/[slug]/products/[productSlug]/page";
-import { loadStorefrontManifest } from "@/features/storefront/controller";
+import {
+  loadPublicProduct,
+  loadStorefrontDiscovery,
+} from "@/features/storefront/controller";
 
 vi.mock("@/features/storefront/controller", () => ({
-  loadStorefrontManifest: vi.fn(),
+  loadPublicProduct: vi.fn(),
+  loadStorefrontDiscovery: vi.fn(),
 }));
+
+const signature = {
+  alg: "ES256" as const,
+  kid: "discovery-2026-09",
+  canonicalization: "RFC8785" as const,
+  domainSeparator: "agentpay.discovery.v1" as const,
+  value: "signed-value",
+};
+
+const product = {
+  sellerId: "sel_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  displayName: "Research Report",
+  productSlug: "research-report",
+  description: "Generate a source-backed market brief.",
+  mimeType: "application/json",
+  amount: "35000000",
+  asset: "USDC",
+  network: "eip155:84532",
+  availability: "active" as const,
+  canonicalUrl:
+    "https://shop.agentpay.example/store/northstar/products/research-report",
+  purchaseSessionEndpoint:
+    "https://api.agentpay.example/v1/storefronts/northstar/products/research-report/purchase-sessions",
+};
 
 describe("storefront sitemap", () => {
   beforeEach(() => {
     vi.stubEnv("AGENTPAY_WEB_ORIGIN", "https://shop.agentpay.example");
-    vi.mocked(loadStorefrontManifest).mockResolvedValue({
-      seller: { name: "Northstar Research", slug: "northstar" },
-      routes: [
-        {
-          routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
-          sellerId: "sel_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-          displayName: "Research Report",
-          productSlug: "research-report",
-          method: "POST",
-          pathPattern: "/research",
-          description: "Generate a source-backed market brief.",
-          mimeType: "application/json",
-          amount: "35000000",
-          asset: "USDC",
-          network: "eip155:84532",
-          payTo: "0x1111111111111111111111111111111111111111",
-          approvalThresholdAmount: null,
-          upstreamTimeoutSeconds: 20,
-          lifecycleStatus: "published",
-          enabled: true,
-          createdAt: "2026-09-18T09:00:00Z",
-          updatedAt: "2026-09-18T09:05:00Z",
-          version: 2,
-        },
-      ],
+    vi.mocked(loadStorefrontDiscovery).mockResolvedValue({
+      status: "active",
+      manifest: {
+        schemaVersion: "agentpay.discovery.v1",
+        sellerId: product.sellerId,
+        seller: { name: "Northstar Research", slug: "northstar" },
+        availability: "active",
+        publicationRevision: 4,
+        issuedAt: "2026-09-18T11:59:00Z",
+        expiresAt: "2026-09-18T12:05:00Z",
+        canonicalOrigin: "https://shop.agentpay.example",
+        products: [product],
+      },
+      signature,
     });
   });
 
@@ -55,6 +73,12 @@ describe("storefront sitemap", () => {
   });
 
   it("does not resolve an internal route ID as a public product URL", async () => {
+    vi.mocked(loadPublicProduct).mockResolvedValue({
+      status: "unavailable",
+      sellerSlug: "northstar",
+      reason: "not_found",
+    });
+
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: "northstar",
@@ -62,6 +86,10 @@ describe("storefront sitemap", () => {
       }),
     });
 
-    expect(metadata).toEqual({});
+    expect(metadata).toEqual({ robots: { index: false, follow: false } });
+    expect(loadPublicProduct).toHaveBeenCalledWith(
+      "northstar",
+      "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+    );
   });
 });

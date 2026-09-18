@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/policy"
+	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
 )
 
@@ -32,10 +34,24 @@ var (
 
 // Service coordinates intent rules with catalog and persistence boundaries.
 type Service struct {
-	repository      Repository
-	routeRepository RouteRepository
-	idGenerator     domain.IDGenerator
-	clock           domain.Clock
+	repository         Repository
+	routeRepository    RouteRepository
+	idGenerator        domain.IDGenerator
+	clock              domain.Clock
+	commerceAuthorizer CommerceAuthorizer
+}
+
+// NewServiceWithCommerceAuthorizer requires fresh publication and destination checks.
+func NewServiceWithCommerceAuthorizer(
+	repository Repository,
+	routeRepository RouteRepository,
+	commerceAuthorizer CommerceAuthorizer,
+	idGenerator domain.IDGenerator,
+	clock domain.Clock,
+) *Service {
+	service := NewService(repository, routeRepository, idGenerator, clock)
+	service.commerceAuthorizer = commerceAuthorizer
+	return service
 }
 
 // NewService creates the purchase-intent application service.
@@ -59,7 +75,14 @@ func (service *Service) Create(
 	buyerID string,
 	request CreateIntentRequest,
 ) (PurchaseIntent, error) {
-	route, err := service.routeRepository.GetRoute(ctx, request.RouteID)
+	var route catalog.PaidRoute
+	var destination settlement.PaymentDestination
+	var err error
+	if service.commerceAuthorizer != nil {
+		route, destination, err = service.commerceAuthorizer.AuthorizeIntent(ctx, request.RouteID)
+	} else {
+		route, err = service.routeRepository.GetRoute(ctx, request.RouteID)
+	}
 	if err != nil {
 		return PurchaseIntent{}, err
 	}
@@ -76,20 +99,24 @@ func (service *Service) Create(
 	}
 	createdAt := domain.NewTimestamp(service.clock.Now())
 	purchaseIntent, err := NewPurchaseIntent(PurchaseIntentParams{
-		IntentID:         intentID,
-		SellerID:         route.SellerID,
-		RouteID:          route.RouteID,
-		BuyerID:          buyerID,
-		RequestMethod:    RequestMethod(route.Method),
-		RequestPath:      route.PathPattern,
-		RequestBodyHash:  request.RequestBodyHash,
-		Amount:           route.Amount,
-		Asset:            route.Asset,
-		Network:          route.Network,
-		MaximumAmount:    request.MaximumAmount,
-		RequiresApproval: decision.RequiresApproval(),
-		CreatedAt:        createdAt,
-		ExpiresAt:        createdAt.Add(defaultIntentLifetime),
+		IntentID:             intentID,
+		SellerID:             route.SellerID,
+		RouteID:              route.RouteID,
+		BuyerID:              buyerID,
+		ProductDisplayName:   route.DisplayName,
+		ProductSlug:          route.ProductSlug,
+		PaymentDestinationID: destination.DestinationID,
+		PayTo:                choosePayTo(destination.Address, route.PayTo),
+		RequestMethod:        RequestMethod(route.Method),
+		RequestPath:          route.PathPattern,
+		RequestBodyHash:      request.RequestBodyHash,
+		Amount:               route.Amount,
+		Asset:                route.Asset,
+		Network:              route.Network,
+		MaximumAmount:        request.MaximumAmount,
+		RequiresApproval:     decision.RequiresApproval(),
+		CreatedAt:            createdAt,
+		ExpiresAt:            createdAt.Add(defaultIntentLifetime),
 	})
 	if err != nil {
 		return PurchaseIntent{}, err
@@ -98,6 +125,13 @@ func (service *Service) Create(
 		return PurchaseIntent{}, err
 	}
 	return purchaseIntent, nil
+}
+
+func choosePayTo(verifiedAddress, legacyAddress string) string {
+	if strings.TrimSpace(verifiedAddress) != "" {
+		return strings.TrimSpace(verifiedAddress)
+	}
+	return strings.TrimSpace(legacyAddress)
 }
 
 // Get returns a persisted immutable purchase intent.
@@ -121,43 +155,51 @@ func createPurchaseIntent(params PurchaseIntentParams) (PurchaseIntent, error) {
 	}
 
 	intentHash, err := hashCanonicalValue(intentHashDomain, intentHashPayload{
-		SchemaVersion:    intentSchemaVersion,
-		IntentID:         params.IntentID.String(),
-		SellerID:         params.SellerID.String(),
-		RouteID:          params.RouteID.String(),
-		BuyerID:          strings.TrimSpace(params.BuyerID),
-		RequestMethod:    params.RequestMethod,
-		RequestPath:      params.RequestPath,
-		RequestBodyHash:  params.RequestBodyHash.String(),
-		Amount:           params.Amount.String(),
-		Asset:            strings.TrimSpace(params.Asset),
-		Network:          strings.TrimSpace(params.Network),
-		MaximumAmount:    params.MaximumAmount.String(),
-		RequiresApproval: params.RequiresApproval,
-		CreatedAt:        params.CreatedAt.String(),
-		ExpiresAt:        params.ExpiresAt.String(),
+		SchemaVersion:        intentSchemaVersion,
+		IntentID:             params.IntentID.String(),
+		SellerID:             params.SellerID.String(),
+		RouteID:              params.RouteID.String(),
+		BuyerID:              strings.TrimSpace(params.BuyerID),
+		ProductDisplayName:   strings.TrimSpace(params.ProductDisplayName),
+		ProductSlug:          strings.TrimSpace(params.ProductSlug),
+		PaymentDestinationID: params.PaymentDestinationID.String(),
+		PayTo:                strings.TrimSpace(params.PayTo),
+		RequestMethod:        params.RequestMethod,
+		RequestPath:          params.RequestPath,
+		RequestBodyHash:      params.RequestBodyHash.String(),
+		Amount:               params.Amount.String(),
+		Asset:                strings.TrimSpace(params.Asset),
+		Network:              strings.TrimSpace(params.Network),
+		MaximumAmount:        params.MaximumAmount.String(),
+		RequiresApproval:     params.RequiresApproval,
+		CreatedAt:            params.CreatedAt.String(),
+		ExpiresAt:            params.ExpiresAt.String(),
 	})
 	if err != nil {
 		return PurchaseIntent{}, err
 	}
 
 	return PurchaseIntent{
-		intentID:         params.IntentID,
-		sellerID:         params.SellerID,
-		routeID:          params.RouteID,
-		buyerID:          strings.TrimSpace(params.BuyerID),
-		requestMethod:    params.RequestMethod,
-		requestPath:      params.RequestPath,
-		requestBodyHash:  params.RequestBodyHash,
-		amount:           params.Amount,
-		asset:            strings.TrimSpace(params.Asset),
-		network:          strings.TrimSpace(params.Network),
-		maximumAmount:    params.MaximumAmount,
-		requiresApproval: params.RequiresApproval,
-		intentHash:       intentHash,
-		status:           status,
-		createdAt:        params.CreatedAt,
-		expiresAt:        params.ExpiresAt,
+		intentID:             params.IntentID,
+		sellerID:             params.SellerID,
+		routeID:              params.RouteID,
+		buyerID:              strings.TrimSpace(params.BuyerID),
+		productDisplayName:   strings.TrimSpace(params.ProductDisplayName),
+		productSlug:          strings.TrimSpace(params.ProductSlug),
+		paymentDestinationID: params.PaymentDestinationID,
+		payTo:                strings.TrimSpace(params.PayTo),
+		requestMethod:        params.RequestMethod,
+		requestPath:          params.RequestPath,
+		requestBodyHash:      params.RequestBodyHash,
+		amount:               params.Amount,
+		asset:                strings.TrimSpace(params.Asset),
+		network:              strings.TrimSpace(params.Network),
+		maximumAmount:        params.MaximumAmount,
+		requiresApproval:     params.RequiresApproval,
+		intentHash:           intentHash,
+		status:               status,
+		createdAt:            params.CreatedAt,
+		expiresAt:            params.ExpiresAt,
 	}, nil
 }
 
@@ -234,6 +276,20 @@ func validatePurchaseIntentParams(params PurchaseIntentParams) domain.Validation
 	}
 	if _, err := domain.ParseID(params.RouteID.String(), domain.RouteIDPrefix); err != nil {
 		validationErrors = append(validationErrors, domain.NewValidationError("routeId", "format", "must be a route identifier"))
+	}
+	if strings.TrimSpace(params.ProductDisplayName) == "" {
+		validationErrors = append(validationErrors, domain.NewValidationError("productDisplayName", "required", "is required"))
+	}
+	if strings.TrimSpace(params.ProductSlug) == "" {
+		validationErrors = append(validationErrors, domain.NewValidationError("productSlug", "required", "is required"))
+	}
+	if params.PaymentDestinationID != "" {
+		if _, err := domain.ParseID(params.PaymentDestinationID.String(), domain.PaymentDestinationIDPrefix); err != nil {
+			validationErrors = append(validationErrors, domain.NewValidationError("paymentDestinationId", "format", "must be a payment-destination identifier"))
+		}
+	}
+	if strings.TrimSpace(params.PayTo) == "" {
+		validationErrors = append(validationErrors, domain.NewValidationError("payTo", "required", "is required"))
 	}
 
 	buyerID := strings.TrimSpace(params.BuyerID)

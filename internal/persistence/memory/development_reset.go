@@ -17,7 +17,9 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/notifications"
+	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
+	"github.com/fourgeez/agentpay/internal/storefront"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -40,6 +42,8 @@ type DevelopmentRepositories struct {
 	AuditEvents              *AuditEventRepository
 	Idempotency              *IdempotencyStore
 	SellerSessionRevocations *SellerSessionRevocationRepository
+	SellerWorkspaces         *SellerWorkspaceRepository
+	StorefrontPublications   *StorefrontPublicationRepository
 }
 
 // DevelopmentResetter clears process-local state without exposing production stores.
@@ -71,7 +75,27 @@ func (resetter *DevelopmentResetter) Reset(_ context.Context) error {
 	resetAuditEvents(resetter.repositories.AuditEvents)
 	resetIdempotency(resetter.repositories.Idempotency)
 	resetSellerSessionRevocations(resetter.repositories.SellerSessionRevocations)
+	resetSellerWorkspaces(resetter.repositories.SellerWorkspaces)
+	resetStorefrontPublications(resetter.repositories.StorefrontPublications)
 	return nil
+}
+
+func resetSellerWorkspaces(repository *SellerWorkspaceRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.states = make(map[domain.ID]sellerworkspace.WorkspaceState)
+}
+
+func resetStorefrontPublications(repository *StorefrontPublicationRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.states = make(map[domain.ID]storefront.PublicationState)
 }
 
 func resetSellerEntitlements(repository *SellerEntitlementRepository) {

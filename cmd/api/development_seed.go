@@ -30,4 +30,6 @@ type developmentSeedRepositories struct {
 	AuditEvents              *memory.AuditEventRepository
 	Idempotency              *memory.IdempotencyStore
 	SellerSessionRevocations *memory.SellerSessionRevocationRepository
+	SellerWorkspaces         *memory.SellerWorkspaceRepository
+	StorefrontPublications   *memory.StorefrontPublicationRepository
 }

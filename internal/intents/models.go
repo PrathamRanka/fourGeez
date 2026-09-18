@@ -6,6 +6,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/settlement"
 )
 
 // SHA256Digest is a lowercase SHA-256 digest encoded as hexadecimal.
@@ -58,40 +59,48 @@ const (
 
 // PurchaseIntentParams contains every execution-relevant field frozen at creation.
 type PurchaseIntentParams struct {
-	IntentID         domain.ID
-	SellerID         domain.ID
-	RouteID          domain.ID
-	BuyerID          string
-	RequestMethod    RequestMethod
-	RequestPath      string
-	RequestBodyHash  SHA256Digest
-	Amount           domain.Amount
-	Asset            string
-	Network          string
-	MaximumAmount    domain.Amount
-	RequiresApproval bool
-	CreatedAt        domain.Timestamp
-	ExpiresAt        domain.Timestamp
+	IntentID             domain.ID
+	SellerID             domain.ID
+	RouteID              domain.ID
+	BuyerID              string
+	ProductDisplayName   string
+	ProductSlug          string
+	PaymentDestinationID domain.ID
+	PayTo                string
+	RequestMethod        RequestMethod
+	RequestPath          string
+	RequestBodyHash      SHA256Digest
+	Amount               domain.Amount
+	Asset                string
+	Network              string
+	MaximumAmount        domain.Amount
+	RequiresApproval     bool
+	CreatedAt            domain.Timestamp
+	ExpiresAt            domain.Timestamp
 }
 
 // PurchaseIntent protects execution-relevant values from mutation after creation.
 type PurchaseIntent struct {
-	intentID         domain.ID
-	sellerID         domain.ID
-	routeID          domain.ID
-	buyerID          string
-	requestMethod    RequestMethod
-	requestPath      string
-	requestBodyHash  SHA256Digest
-	amount           domain.Amount
-	asset            string
-	network          string
-	maximumAmount    domain.Amount
-	requiresApproval bool
-	intentHash       SHA256Digest
-	status           PurchaseIntentStatus
-	createdAt        domain.Timestamp
-	expiresAt        domain.Timestamp
+	intentID             domain.ID
+	sellerID             domain.ID
+	routeID              domain.ID
+	buyerID              string
+	productDisplayName   string
+	productSlug          string
+	paymentDestinationID domain.ID
+	payTo                string
+	requestMethod        RequestMethod
+	requestPath          string
+	requestBodyHash      SHA256Digest
+	amount               domain.Amount
+	asset                string
+	network              string
+	maximumAmount        domain.Amount
+	requiresApproval     bool
+	intentHash           SHA256Digest
+	status               PurchaseIntentStatus
+	createdAt            domain.Timestamp
+	expiresAt            domain.Timestamp
 }
 
 // CreateIntentRequest is the purchase-intent HTTP request.
@@ -110,6 +119,11 @@ type Repository interface {
 // RouteRepository resolves the authoritative seller quote for an intent.
 type RouteRepository interface {
 	GetRoute(ctx context.Context, routeID domain.ID) (catalog.PaidRoute, error)
+}
+
+// CommerceAuthorizer resolves a fresh published offer and verified destination.
+type CommerceAuthorizer interface {
+	AuthorizeIntent(context.Context, domain.ID) (catalog.PaidRoute, settlement.PaymentDestination, error)
 }
 
 // IntentID returns the immutable intent identifier.
@@ -131,6 +145,15 @@ func (purchaseIntent PurchaseIntent) RouteID() domain.ID {
 func (purchaseIntent PurchaseIntent) BuyerID() string {
 	return purchaseIntent.buyerID
 }
+
+func (purchaseIntent PurchaseIntent) ProductDisplayName() string {
+	return purchaseIntent.productDisplayName
+}
+func (purchaseIntent PurchaseIntent) ProductSlug() string { return purchaseIntent.productSlug }
+func (purchaseIntent PurchaseIntent) PaymentDestinationID() domain.ID {
+	return purchaseIntent.paymentDestinationID
+}
+func (purchaseIntent PurchaseIntent) PayTo() string { return purchaseIntent.payTo }
 
 // RequestMethod returns the frozen HTTP method.
 func (purchaseIntent PurchaseIntent) RequestMethod() RequestMethod {
@@ -194,19 +217,23 @@ func (purchaseIntent PurchaseIntent) ExpiresAt() domain.Timestamp {
 
 // intentHashPayload is the versioned canonical intent hashing shape.
 type intentHashPayload struct {
-	SchemaVersion    string        `json:"schemaVersion"`
-	IntentID         string        `json:"intentId"`
-	SellerID         string        `json:"sellerId"`
-	RouteID          string        `json:"routeId"`
-	BuyerID          string        `json:"buyerId"`
-	RequestMethod    RequestMethod `json:"requestMethod"`
-	RequestPath      string        `json:"requestPath"`
-	RequestBodyHash  string        `json:"requestBodyHash"`
-	Amount           string        `json:"amount"`
-	Asset            string        `json:"asset"`
-	Network          string        `json:"network"`
-	MaximumAmount    string        `json:"maximumAmount"`
-	RequiresApproval bool          `json:"requiresApproval"`
-	CreatedAt        string        `json:"createdAt"`
-	ExpiresAt        string        `json:"expiresAt"`
+	SchemaVersion        string        `json:"schemaVersion"`
+	IntentID             string        `json:"intentId"`
+	SellerID             string        `json:"sellerId"`
+	RouteID              string        `json:"routeId"`
+	BuyerID              string        `json:"buyerId"`
+	ProductDisplayName   string        `json:"productDisplayName"`
+	ProductSlug          string        `json:"productSlug"`
+	PaymentDestinationID string        `json:"paymentDestinationId"`
+	PayTo                string        `json:"payTo"`
+	RequestMethod        RequestMethod `json:"requestMethod"`
+	RequestPath          string        `json:"requestPath"`
+	RequestBodyHash      string        `json:"requestBodyHash"`
+	Amount               string        `json:"amount"`
+	Asset                string        `json:"asset"`
+	Network              string        `json:"network"`
+	MaximumAmount        string        `json:"maximumAmount"`
+	RequiresApproval     bool          `json:"requiresApproval"`
+	CreatedAt            string        `json:"createdAt"`
+	ExpiresAt            string        `json:"expiresAt"`
 }

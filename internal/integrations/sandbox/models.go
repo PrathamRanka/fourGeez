@@ -42,3 +42,8 @@ type CatalogReader interface {
 	GetSeller(context.Context, domain.ID) (catalog.Seller, error)
 	GetRoute(context.Context, domain.ID) (catalog.PaidRoute, error)
 }
+
+// EndpointVerificationRecorder persists only a complete successful sandbox proof.
+type EndpointVerificationRecorder interface {
+	RecordServiceEndpointVerification(context.Context, domain.ID, string) error
+}

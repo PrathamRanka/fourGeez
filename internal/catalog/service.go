@@ -2,6 +2,8 @@ package catalog
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"mime"
 	"net"
@@ -46,7 +48,7 @@ type PublishedRouteQuota interface {
 }
 
 type PublicationAuthorizer interface {
-	AuthorizePublication(context.Context, domain.ID) error
+	AuthorizePublication(context.Context, domain.ID, domain.ID) error
 }
 
 // Service coordinates catalog domain rules with persistence boundaries.
@@ -161,9 +163,10 @@ func (service *Service) CreateRoute(
 	if err != nil {
 		return PaidRoute{}, err
 	}
-	createRoute := NewPaidRoute
-	if request.PublishImmediately != nil && !*request.PublishImmediately {
-		createRoute = NewDraftPaidRoute
+	publishRequested := request.PublishImmediately == nil || *request.PublishImmediately
+	createRoute := NewDraftPaidRoute
+	if publishRequested && service.publicationAuthorizer == nil {
+		createRoute = NewPaidRoute
 	}
 	route, err := createRoute(PaidRouteParams{
 		RouteID:                 routeID,
@@ -188,9 +191,16 @@ func (service *Service) CreateRoute(
 	if err := service.repository.CreateRoute(ctx, route); err != nil {
 		return PaidRoute{}, err
 	}
-	action := audit.ActionRoutePublished
-	if route.LifecycleStatus == RouteLifecycleDraft {
-		action = audit.ActionRouteDraftCreated
+	action := audit.ActionRouteDraftCreated
+	if route.LifecycleStatus == RouteLifecyclePublished {
+		action = audit.ActionRoutePublished
+	}
+	if publishRequested && service.publicationAuthorizer != nil {
+		route, err = service.PublishRouteForIntegration(ctx, sellerID, route.RouteID, route.Version)
+		if err != nil {
+			return PaidRoute{}, err
+		}
+		action = audit.ActionRoutePublished
 	}
 	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
 		SellerID:   sellerID,
@@ -630,7 +640,7 @@ func (service *Service) PublishRouteForIntegration(
 	expectedVersion uint64,
 ) (PaidRoute, error) {
 	if service.publicationAuthorizer != nil {
-		if err := service.publicationAuthorizer.AuthorizePublication(ctx, sellerID); err != nil {
+		if err := service.publicationAuthorizer.AuthorizePublication(ctx, sellerID, routeID); err != nil {
 			return PaidRoute{}, err
 		}
 	}
@@ -896,8 +906,14 @@ func (seller *Seller) Configure(
 			"cannot occur before the previous update",
 		)
 	}
+	normalizedOrigin := normalizeUpstreamBaseURL(upstreamBaseURL)
 	seller.Name = strings.TrimSpace(name)
-	seller.UpstreamBaseURL = normalizeUpstreamBaseURL(upstreamBaseURL)
+	if seller.UpstreamBaseURL != normalizedOrigin {
+		seller.VerifiedUpstreamBaseURL = ""
+		seller.VerifiedSigningSecretRefHash = ""
+		seller.ServiceEndpointVerifiedAt = nil
+	}
+	seller.UpstreamBaseURL = normalizedOrigin
 	seller.UpdatedAt = changedAt
 	seller.Version++
 	return nil
@@ -924,10 +940,41 @@ func (seller *Seller) Activate(
 		)
 	}
 	seller.SigningSecretRef = trimmedReference
+	seller.VerifiedSigningSecretRefHash = ""
+	seller.ServiceEndpointVerifiedAt = nil
 	seller.Status = SellerStatusActive
 	seller.UpdatedAt = changedAt
 	seller.Version++
 	return nil
+}
+
+// VerifyServiceEndpoint records a cloud-observed signed sandbox success.
+func (seller *Seller) VerifyServiceEndpoint(verifiedAt domain.Timestamp) error {
+	if seller.Status != SellerStatusActive || strings.TrimSpace(seller.SigningSecretRef) == "" {
+		return domain.NewValidationError("serviceEndpoint", "state", "seller must be active with request signing configured")
+	}
+	if verifiedAt.Before(seller.UpdatedAt) {
+		return domain.NewValidationError("verifiedAt", "chronology", "cannot occur before seller configuration")
+	}
+	seller.VerifiedUpstreamBaseURL = seller.UpstreamBaseURL
+	seller.VerifiedSigningSecretRefHash = signingReferenceHash(seller.SigningSecretRef)
+	verifiedAtCopy := verifiedAt
+	seller.ServiceEndpointVerifiedAt = &verifiedAtCopy
+	seller.UpdatedAt = verifiedAt
+	seller.Version++
+	return nil
+}
+
+// HasCurrentServiceEndpointVerification reports whether the current endpoint and signer were probed.
+func (seller Seller) HasCurrentServiceEndpointVerification() bool {
+	return seller.ServiceEndpointVerifiedAt != nil &&
+		seller.VerifiedUpstreamBaseURL == seller.UpstreamBaseURL &&
+		seller.VerifiedSigningSecretRefHash == signingReferenceHash(seller.SigningSecretRef)
+}
+
+func signingReferenceHash(reference string) string {
+	digest := sha256.Sum256(append([]byte("agentpay.service-endpoint.v1\x00"), []byte(strings.TrimSpace(reference))...))
+	return hex.EncodeToString(digest[:])
 }
 
 // Suspend prevents the seller from issuing new payment challenges.

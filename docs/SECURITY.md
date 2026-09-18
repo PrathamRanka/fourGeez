@@ -117,6 +117,12 @@ such as `agentpay.intent.v1`, `agentpay.evidence.v1`, and
 and idempotency key but includes the exact tool, target, expected resource
 version, and canonical arguments. Never hash an ambiguous string concatenation.
 
+Signed discovery uses `agentpay.discovery.v1`, followed by one NUL byte and the
+RFC 8785 canonical JSON bytes of the unsigned manifest, product document, or
+tombstone. The signature is raw 64-byte ES256 `(r || s)` encoded with base64url
+without padding. Discovery expires after five minutes and never substitutes
+for fresh commerce authorization.
+
 ## Capability classes and key publication
 
 AgentPay uses separate capabilities for separate trust boundaries:

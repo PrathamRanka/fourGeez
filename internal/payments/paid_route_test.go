@@ -12,6 +12,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence"
+	"github.com/fourgeez/agentpay/internal/settlement"
 )
 
 // TestPaidRouteServiceResolvesFrozenIntent verifies authoritative route binding.
@@ -147,6 +148,29 @@ func TestPaidRouteServiceRejectsExpiredIntent(t *testing.T) {
 	}
 }
 
+func TestPaidRouteServiceRejectsChangedAuthoritativeQuoteBeforeChallenge(t *testing.T) {
+	t.Parallel()
+	fixture := newPaidRouteFixture(t, false)
+	changed := fixture.route
+	changed.Amount = domain.MustParseAmount("10001")
+	destination := settlement.PaymentDestination{DestinationID: fixture.purchaseIntent.PaymentDestinationID(), SellerID: fixture.seller.SellerID, Asset: fixture.route.Asset, Network: fixture.route.Network, Address: fixture.purchaseIntent.PayTo(), Status: settlement.PaymentDestinationStatusActive}
+	fixture.service = NewAuthorizedPaidRouteService(&paidRouteCatalogRepository{seller: fixture.seller, route: fixture.route}, &paidRouteIntentRepository{purchaseIntent: fixture.purchaseIntent}, &paidRouteApprovalRepository{}, nil, &paidRouteAuthorizer{seller: fixture.seller, route: changed, destination: destination}, fixture.clock, "https://api.example")
+	_, err := fixture.service.Resolve(t.Context(), PaidRouteRequest{Slug: fixture.seller.Slug, Method: fixture.route.Method, ProxyPath: fixture.route.PathPattern, IntentID: fixture.purchaseIntent.IntentID(), BuyerID: fixture.purchaseIntent.BuyerID()})
+	if !errors.Is(err, ErrPaidRouteMismatch) {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
+type paidRouteAuthorizer struct {
+	seller      catalog.Seller
+	route       catalog.PaidRoute
+	destination settlement.PaymentDestination
+}
+
+func (authorizer *paidRouteAuthorizer) AuthorizePaidRoute(context.Context, domain.ID) (catalog.Seller, catalog.PaidRoute, settlement.PaymentDestination, error) {
+	return authorizer.seller, authorizer.route, authorizer.destination, nil
+}
+
 type paidRouteFixture struct {
 	service        *PaidRouteService
 	clock          *mutableClock
@@ -176,6 +200,11 @@ func newPaidRouteFixture(t *testing.T, requiresApproval bool) paidRouteFixture {
 		t,
 		"int_01K5D09YJ0C0M7RJM4FWQ0K9H7",
 		domain.IntentIDPrefix,
+	)
+	destinationID := mustPaymentID(
+		t,
+		"dst_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+		domain.PaymentDestinationIDPrefix,
 	)
 	sessionID := mustPaymentID(
 		t,
@@ -224,20 +253,14 @@ func newPaidRouteFixture(t *testing.T, requiresApproval bool) paidRouteFixture {
 		t.Fatal(err)
 	}
 	purchaseIntent, err := intents.NewPurchaseIntent(intents.PurchaseIntentParams{
-		IntentID:         intentID,
-		SellerID:         sellerID,
-		RouteID:          routeID,
-		BuyerID:          "agent-123",
-		RequestMethod:    intents.RequestMethodGet,
-		RequestPath:      route.PathPattern,
-		RequestBodyHash:  bodyHash,
-		Amount:           route.Amount,
-		Asset:            route.Asset,
-		Network:          route.Network,
-		MaximumAmount:    route.Amount,
-		RequiresApproval: requiresApproval,
-		CreatedAt:        createdAt,
-		ExpiresAt:        createdAt.Add(10 * time.Minute),
+		IntentID: intentID, SellerID: sellerID, RouteID: routeID, BuyerID: "agent-123",
+		ProductDisplayName: route.DisplayName, ProductSlug: route.ProductSlug,
+		PaymentDestinationID: destinationID, PayTo: route.PayTo,
+		RequestMethod: intents.RequestMethodGet, RequestPath: route.PathPattern,
+		RequestBodyHash: bodyHash, Amount: route.Amount, Asset: route.Asset,
+		Network: route.Network, MaximumAmount: route.Amount,
+		RequiresApproval: requiresApproval, CreatedAt: createdAt,
+		ExpiresAt: createdAt.Add(10 * time.Minute),
 	})
 	if err != nil {
 		t.Fatal(err)

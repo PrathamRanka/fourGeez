@@ -167,3 +167,27 @@ func TestSellerConfigurationUpdatesMutableStorefrontFields(t *testing.T) {
 		t.Fatalf("configured seller = %#v", seller)
 	}
 }
+
+func TestSellerEndpointVerificationIsBoundToCurrentOriginAndSigner(t *testing.T) {
+	t.Parallel()
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC))
+	seller, err := NewSeller(SellerParams{SellerID: mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix), OwnerSubject: "owner", Slug: "verified-seller", Name: "Verified Seller", UpstreamBaseURL: "https://seller.example", CreatedAt: createdAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seller.Activate("secret/seller/verified", createdAt.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := seller.VerifyServiceEndpoint(createdAt.Add(2 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if !seller.HasCurrentServiceEndpointVerification() {
+		t.Fatal("current endpoint verification was not accepted")
+	}
+	if err := seller.Configure(seller.Name, "https://seller.example/v2", createdAt.Add(3*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if seller.HasCurrentServiceEndpointVerification() {
+		t.Fatal("endpoint change retained stale verification")
+	}
+}

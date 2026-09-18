@@ -14,6 +14,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
 	x402 "github.com/x402-foundation/x402/go"
 	x402http "github.com/x402-foundation/x402/go/http"
@@ -41,8 +42,24 @@ type PaidRouteService struct {
 	intentRepository   PaidRouteIntentRepository
 	approvalRepository PaidRouteApprovalRepository
 	approvalSigner     *approvals.ApprovalTokenSigner
+	commerceAuthorizer PaidRouteAuthorizer
 	clock              domain.Clock
 	publicBaseURL      string
+}
+
+// NewAuthorizedPaidRouteService requires current publication and destination checks.
+func NewAuthorizedPaidRouteService(
+	catalogRepository PaidRouteCatalogRepository,
+	intentRepository PaidRouteIntentRepository,
+	approvalRepository PaidRouteApprovalRepository,
+	approvalSigner *approvals.ApprovalTokenSigner,
+	commerceAuthorizer PaidRouteAuthorizer,
+	clock domain.Clock,
+	publicBaseURL string,
+) *PaidRouteService {
+	service := NewPaidRouteService(catalogRepository, intentRepository, approvalRepository, approvalSigner, clock, publicBaseURL)
+	service.commerceAuthorizer = commerceAuthorizer
+	return service
 }
 
 var _ Adapter = (*X402Adapter)(nil)
@@ -110,19 +127,26 @@ func (service *PaidRouteService) Resolve(
 	if !service.clock.Now().Before(purchaseIntent.ExpiresAt().Time()) {
 		return ResolvedPaidRoute{}, ErrIntentExpired
 	}
-	seller, err := service.catalogRepository.ResolveSellerBySlug(
-		ctx,
-		request.Slug,
-	)
-	if err != nil {
-		return ResolvedPaidRoute{}, ErrPaidRouteMismatch
-	}
-	route, err := service.catalogRepository.GetRoute(
-		ctx,
-		purchaseIntent.RouteID(),
-	)
-	if err != nil {
-		return ResolvedPaidRoute{}, err
+	var seller catalog.Seller
+	var route catalog.PaidRoute
+	if service.commerceAuthorizer != nil {
+		var destination settlement.PaymentDestination
+		seller, route, destination, err = service.commerceAuthorizer.AuthorizePaidRoute(ctx, purchaseIntent.RouteID())
+		if err != nil {
+			return ResolvedPaidRoute{}, err
+		}
+		if destination.DestinationID != purchaseIntent.PaymentDestinationID() || destination.Address != purchaseIntent.PayTo() {
+			return ResolvedPaidRoute{}, ErrPaidRouteMismatch
+		}
+	} else {
+		seller, err = service.catalogRepository.ResolveSellerBySlug(ctx, request.Slug)
+		if err != nil {
+			return ResolvedPaidRoute{}, ErrPaidRouteMismatch
+		}
+		route, err = service.catalogRepository.GetRoute(ctx, purchaseIntent.RouteID())
+		if err != nil {
+			return ResolvedPaidRoute{}, err
+		}
 	}
 	if !paidRouteMatches(request, seller, route, purchaseIntent) {
 		return ResolvedPaidRoute{}, ErrPaidRouteMismatch
@@ -149,7 +173,7 @@ func (service *PaidRouteService) Resolve(
 			Network: purchaseIntent.Network(),
 			Asset:   purchaseIntent.Asset(),
 			Amount:  purchaseIntent.Amount(),
-			PayTo:   route.PayTo,
+			PayTo:   purchaseIntent.PayTo(),
 			ResourceURL: service.publicBaseURL +
 				"/pay/" + seller.Slug + route.PathPattern,
 			Description:       route.Description,
@@ -206,7 +230,13 @@ func paidRouteMatches(
 		request.Method == route.Method &&
 		string(request.Method) == string(purchaseIntent.RequestMethod()) &&
 		request.ProxyPath == route.PathPattern &&
-		request.ProxyPath == purchaseIntent.RequestPath()
+		request.ProxyPath == purchaseIntent.RequestPath() &&
+		route.DisplayName == purchaseIntent.ProductDisplayName() &&
+		route.ProductSlug == purchaseIntent.ProductSlug() &&
+		route.Amount == purchaseIntent.Amount() &&
+		route.Asset == purchaseIntent.Asset() &&
+		route.Network == purchaseIntent.Network() &&
+		route.PayTo == purchaseIntent.PayTo()
 }
 
 // CreateChallenge creates a base64-encoded x402 v2 payment requirement.

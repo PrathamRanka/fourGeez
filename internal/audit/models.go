@@ -48,6 +48,7 @@ const (
 	ActionWebhookSubscriptionUpdated  Action = "webhook_subscription.updated"
 	ActionWebhookSubscriptionDisabled Action = "webhook_subscription.disabled"
 	ActionSellerSuspended             Action = "seller.suspended"
+	ActionServiceEndpointVerified     Action = "service_endpoint.verified"
 )
 
 // TargetType identifies the domain record changed by an action.

@@ -27,16 +27,19 @@ type SellerParams struct {
 
 // Seller is an API provider that publishes paid routes through AgentPay.
 type Seller struct {
-	SellerID         domain.ID        `json:"sellerId"`
-	OwnerSubject     string           `json:"ownerSubject"`
-	Slug             string           `json:"slug"`
-	Name             string           `json:"name"`
-	UpstreamBaseURL  string           `json:"upstreamBaseUrl"`
-	SigningSecretRef string           `json:"signingSecretRef,omitempty"`
-	Status           SellerStatus     `json:"status"`
-	CreatedAt        domain.Timestamp `json:"createdAt"`
-	UpdatedAt        domain.Timestamp `json:"updatedAt"`
-	Version          uint64           `json:"version"`
+	SellerID                     domain.ID         `json:"sellerId"`
+	OwnerSubject                 string            `json:"ownerSubject"`
+	Slug                         string            `json:"slug"`
+	Name                         string            `json:"name"`
+	UpstreamBaseURL              string            `json:"upstreamBaseUrl"`
+	SigningSecretRef             string            `json:"signingSecretRef,omitempty"`
+	VerifiedUpstreamBaseURL      string            `json:"verifiedUpstreamBaseUrl,omitempty"`
+	VerifiedSigningSecretRefHash string            `json:"verifiedSigningSecretRefHash,omitempty"`
+	ServiceEndpointVerifiedAt    *domain.Timestamp `json:"serviceEndpointVerifiedAt,omitempty"`
+	Status                       SellerStatus      `json:"status"`
+	CreatedAt                    domain.Timestamp  `json:"createdAt"`
+	UpdatedAt                    domain.Timestamp  `json:"updatedAt"`
+	Version                      uint64            `json:"version"`
 }
 
 // RouteMethod is an HTTP method supported by a paid route.

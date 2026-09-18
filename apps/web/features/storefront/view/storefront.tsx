@@ -1,4 +1,12 @@
-import { ArrowRight, Bot, ShieldCheck, WalletCards } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  BadgeCheck,
+  Bot,
+  Clock3,
+  ShieldCheck,
+  WalletCards,
+} from "lucide-react";
 import Link from "next/link";
 import {
   Accordion,
@@ -7,19 +15,30 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
-import type { PaidRoute } from "@/features/products/model";
-import {
-  paidRouteUrl,
-  storefrontProductPath,
-  type StorefrontManifest,
+import type {
+  DiscoverySignature,
+  PublicProduct,
+  StorefrontAvailabilityState,
+  StorefrontManifest,
 } from "@/features/storefront/model";
+import { storefrontProductPath } from "@/features/storefront/model";
 import { formatAtomicPrice, formatAtomicUnits } from "@/lib/money";
 
-export function StorefrontHome({ manifest }: { manifest: StorefrontManifest }) {
+export function StorefrontHome({
+  manifest,
+  signature,
+}: {
+  manifest: StorefrontManifest;
+  signature: DiscoverySignature;
+}) {
   return (
     <main id="main-content" className="seller-storefront">
       <header className="storefront-hero">
-        <p>Verified digital services</p>
+        <AuthoritativeStatus
+          expiresAt={manifest.expiresAt}
+          publicationRevision={manifest.publicationRevision}
+          signature={signature}
+        />
         <h1>{manifest.seller.name}</h1>
         <span>
           Purchase published API-backed products through AgentPay’s shared x402
@@ -28,7 +47,7 @@ export function StorefrontHome({ manifest }: { manifest: StorefrontManifest }) {
         <code>/store/{manifest.seller.slug}</code>
         <nav aria-label="Agent discovery">
           <Link href={`/store/${manifest.seller.slug}/manifest.json`}>
-            Manifest
+            Signed manifest
           </Link>
           <Link href={`/store/${manifest.seller.slug}/llms.txt`}>llms.txt</Link>
         </nav>
@@ -38,73 +57,72 @@ export function StorefrontHome({ manifest }: { manifest: StorefrontManifest }) {
           <p>Available now</p>
           <h2 id="products-title">Digital products</h2>
         </div>
-        <div className="storefront-product-grid">
-          {manifest.routes.map((route) => (
-            <article key={route.routeId}>
-              <span>Published product</span>
-              <h3>{route.displayName}</h3>
-              <p>{route.description}</p>
-              <div>
-                <strong>{formatAtomicPrice(route.amount, route.asset)}</strong>
-                <small>Output: {outputFormatLabel(route.mimeType)}</small>
-              </div>
-              <Link
-                className={buttonVariants()}
-                href={storefrontProductPath(
-                  manifest.seller.slug,
-                  route.productSlug,
-                )}
-              >
-                View product <ArrowRight aria-hidden="true" />
-              </Link>
-            </article>
-          ))}
-        </div>
+        {manifest.products.length === 0 ? (
+          <div className="storefront-empty-state">
+            <h3>No products are published yet</h3>
+            <p>Check back after this seller publishes a product.</p>
+          </div>
+        ) : (
+          <div className="storefront-product-grid">
+            {manifest.products.map((product) => (
+              <article key={product.routeId}>
+                <span>Published product</span>
+                <h3>{product.displayName}</h3>
+                <p>{product.description}</p>
+                <div>
+                  <strong>
+                    {formatAtomicPrice(product.amount, product.asset)}
+                  </strong>
+                  <small>Output: {outputFormatLabel(product.mimeType)}</small>
+                </div>
+                <Link
+                  className={buttonVariants()}
+                  href={storefrontProductPath(
+                    manifest.seller.slug,
+                    product.productSlug,
+                  )}
+                >
+                  View product <ArrowRight aria-hidden="true" />
+                </Link>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
 }
 
 export function ProductDetail({
-  manifest,
-  route,
-  apiOrigin,
+  sellerSlug,
+  product,
+  signature,
 }: {
-  manifest: StorefrontManifest;
-  route: PaidRoute;
-  apiOrigin: string;
+  sellerSlug: string;
+  product: PublicProduct;
+  signature: DiscoverySignature;
 }) {
-  const paidUrl = paidRouteUrl(
-    apiOrigin,
-    manifest.seller.slug,
-    route.pathPattern,
-  );
-  const productPath = storefrontProductPath(
-    manifest.seller.slug,
-    route.productSlug,
-  );
+  const productPath = storefrontProductPath(sellerSlug, product.productSlug);
   return (
     <main id="main-content" className="storefront-product-detail">
-      <Link href={`/store/${manifest.seller.slug}`}>
-        ← {manifest.seller.name}
-      </Link>
+      <Link href={`/store/${sellerSlug}`}>← Back to storefront</Link>
       <div className="storefront-product-layout">
         <article>
-          <p>Digital product</p>
-          <h1>{route.displayName}</h1>
-          <span>{route.description}</span>
+          <p>Active AgentPay product</p>
+          <h1>{product.displayName}</h1>
+          <span>{product.description}</span>
           <dl>
             <div>
               <dt>Exact price</dt>
-              <dd>{formatAtomicPrice(route.amount, route.asset)}</dd>
+              <dd>{formatAtomicPrice(product.amount, product.asset)}</dd>
             </div>
             <div>
               <dt>Output format</dt>
-              <dd>{outputFormatLabel(route.mimeType)}</dd>
+              <dd>{outputFormatLabel(product.mimeType)}</dd>
             </div>
             <div>
               <dt>Trust status</dt>
-              <dd>Payment verified before delivery</dd>
+              <dd>Active on AgentPay</dd>
             </div>
           </dl>
           <div className="storefront-product-url">
@@ -118,35 +136,27 @@ export function ProductDetail({
                 <dl>
                   <div>
                     <dt>Route ID</dt>
-                    <dd>{route.routeId}</dd>
-                  </div>
-                  <div>
-                    <dt>API path</dt>
-                    <dd>{route.pathPattern}</dd>
-                  </div>
-                  <div>
-                    <dt>HTTP method</dt>
-                    <dd>{route.method}</dd>
+                    <dd>{product.routeId}</dd>
                   </div>
                   <div>
                     <dt>Output MIME type</dt>
-                    <dd>{route.mimeType}</dd>
+                    <dd>{product.mimeType}</dd>
                   </div>
                   <div>
                     <dt>Payment network</dt>
-                    <dd>{route.network}</dd>
-                  </div>
-                  <div>
-                    <dt>Service timeout</dt>
-                    <dd>{route.upstreamTimeoutSeconds} seconds</dd>
+                    <dd>{product.network}</dd>
                   </div>
                   <div>
                     <dt>Atomic amount</dt>
-                    <dd>{route.amount}</dd>
+                    <dd>{product.amount}</dd>
                   </div>
                   <div>
-                    <dt>Paid API URL</dt>
-                    <dd>{paidUrl}</dd>
+                    <dt>Purchase session endpoint</dt>
+                    <dd>{product.purchaseSessionEndpoint}</dd>
+                  </div>
+                  <div>
+                    <dt>Discovery signing key</dt>
+                    <dd>{signature.kid}</dd>
                   </div>
                 </dl>
               </AccordionContent>
@@ -157,7 +167,7 @@ export function ProductDetail({
           <WalletCards aria-hidden="true" />
           <p>Agent Checkout</p>
           <h2 id="checkout-title">
-            Pay exactly {formatAtomicPrice(route.amount, route.asset)}
+            Pay exactly {formatAtomicPrice(product.amount, product.asset)}
           </h2>
           <ol>
             <li>Create a fixed purchase request for this product.</li>
@@ -169,13 +179,125 @@ export function ProductDetail({
             verified before fulfillment.
           </div>
           <div>
-            <Bot aria-hidden="true" /> Agents can discover the same product
-            through the storefront manifest.
+            <Bot aria-hidden="true" /> Discovery describes this product;
+            AgentPay rechecks availability before every purchase.
           </div>
         </aside>
       </div>
     </main>
   );
+}
+
+export function StorefrontAvailability({
+  state,
+  subject = "storefront",
+}: {
+  state:
+    | StorefrontAvailabilityState
+    | {
+        status: "inactive" | "expired" | "unavailable";
+        sellerSlug: string;
+        reason?: string;
+        expiresAt?: string;
+      };
+  subject?: "storefront" | "product";
+}) {
+  const copy = availabilityCopy(state.status, subject);
+  const Icon =
+    state.status === "inactive"
+      ? ShieldCheck
+      : state.status === "expired"
+        ? Clock3
+        : AlertTriangle;
+  return (
+    <main id="main-content" className="storefront-availability">
+      <section aria-labelledby="availability-title">
+        <div className={`storefront-availability-mark ${state.status}`}>
+          <Icon aria-hidden="true" />
+        </div>
+        <p>AgentPay availability</p>
+        <h1 id="availability-title">{copy.heading}</h1>
+        <span>{copy.description}</span>
+        <div className="storefront-availability-actions">
+          {state.status === "unavailable" ? (
+            <Link
+              className={buttonVariants()}
+              href={`/store/${state.sellerSlug}`}
+            >
+              Try again
+            </Link>
+          ) : null}
+          <Link className={buttonVariants({ variant: "outline" })} href="/">
+            Return to AgentPay
+          </Link>
+        </div>
+        <small>
+          No purchase can start from this page until AgentPay reports an active,
+          current product.
+        </small>
+      </section>
+    </main>
+  );
+}
+
+function AuthoritativeStatus({
+  expiresAt,
+  publicationRevision,
+  signature,
+}: {
+  expiresAt: string;
+  publicationRevision: number;
+  signature: DiscoverySignature;
+}) {
+  return (
+    <div
+      className="storefront-authority"
+      aria-label="AgentPay discovery status"
+    >
+      <BadgeCheck aria-hidden="true" />
+      <div>
+        <strong>Active on AgentPay</strong>
+        <span>
+          Signed revision {publicationRevision} · current until{" "}
+          <time dateTime={expiresAt}>{formatDiscoveryTime(expiresAt)}</time>
+        </span>
+      </div>
+      <code>{signature.alg}</code>
+    </div>
+  );
+}
+
+function availabilityCopy(
+  status: "inactive" | "expired" | "unavailable",
+  subject: "storefront" | "product",
+) {
+  if (status === "inactive") {
+    return {
+      heading: `This ${subject} is not accepting new purchases`,
+      description:
+        "AgentPay has disabled discovery and checkout. Previously copied links or seller-hosted metadata cannot reactivate it.",
+    };
+  }
+  if (status === "expired") {
+    return {
+      heading: `This ${subject} status has expired`,
+      description:
+        "The last signed discovery document is no longer current, so AgentPay will not present it as purchasable.",
+    };
+  }
+  return {
+    heading: `This ${subject} is temporarily unavailable`,
+    description:
+      "AgentPay could not confirm a current signed status. Try again before starting a purchase.",
+  };
+}
+
+function formatDiscoveryTime(timestamp: string): string {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(timestamp));
 }
 
 function outputFormatLabel(mimeType: string): string {
@@ -187,22 +309,17 @@ function outputFormatLabel(mimeType: string): string {
   return labels[mimeType] ?? mimeType;
 }
 
-export function buildProductStructuredData(
-  manifest: StorefrontManifest,
-  route: PaidRoute,
-  canonicalUrl: string,
-) {
+export function buildProductStructuredData(product: PublicProduct) {
   return {
     "@context": "https://schema.org",
     "@type": "Service",
-    name: route.displayName,
-    description: route.description,
-    url: canonicalUrl,
-    provider: { "@type": "Organization", name: manifest.seller.name },
+    name: product.displayName,
+    description: product.description,
+    url: product.canonicalUrl,
     offers: {
       "@type": "Offer",
-      price: formatAtomicUnits(route.amount),
-      priceCurrency: route.asset,
+      price: formatAtomicUnits(product.amount),
+      priceCurrency: product.asset,
       availability: "https://schema.org/InStock",
     },
   };

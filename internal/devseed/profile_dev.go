@@ -21,8 +21,10 @@ import (
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/notifications"
+	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
@@ -44,6 +46,7 @@ const (
 	failedTransactionID           = "txn_01K5D09YJ0C0M7RJM4FWQ0K9H9"
 	disputedTransactionID         = "txn_01K5D09YJ0C0M7RJM4FWQ0K9HA"
 	localSellerSigningReference   = "local/demo-seller-signing"
+	launchReadyCredentialIDValue  = "key_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 	localWebhookSigningReference  = "local/demo-webhook-signing"
 	localWebhookMinimumSecretSize = 32
 )
@@ -77,17 +80,19 @@ type TransactionRepository interface {
 
 // Repositories are the existing process-local persistence boundaries used by the API.
 type Repositories struct {
-	Catalog              catalog.Repository
-	PurchaseIntents      intents.Repository
-	Transactions         TransactionRepository
-	Evidence             evidence.Repository
-	Disputes             disputes.Repository
-	PaymentDestinations  settlement.Repository
-	WebhookSubscriptions notifications.Repository
-	WebhookDeliveries    notifications.DeliveryRepository
-	WebhookSecrets       notifications.SecretStore
-	SellerEntitlements   billing.Repository
-	Reset                func(context.Context) error
+	Catalog                catalog.Repository
+	PurchaseIntents        intents.Repository
+	Transactions           TransactionRepository
+	Evidence               evidence.Repository
+	Disputes               disputes.Repository
+	PaymentDestinations    settlement.Repository
+	WebhookSubscriptions   notifications.Repository
+	WebhookDeliveries      notifications.DeliveryRepository
+	WebhookSecrets         notifications.SecretStore
+	SellerEntitlements     billing.Repository
+	IntegrationCredentials integrations.Repository
+	SellerWorkspaces       sellerworkspace.Repository
+	Reset                  func(context.Context) error
 }
 
 // Metadata contains stable non-secret identifiers used by the local web runtime.
@@ -199,7 +204,57 @@ func (seeder *Seeder) seed(ctx context.Context) error {
 	if err := seeder.seedWebhookHistory(ctx, launchReadySeller, transactionFixtures); err != nil {
 		return err
 	}
+	if err := seeder.seedLaunchReadiness(ctx, launchReadySeller, transactionFixtures.fulfilled); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (seeder *Seeder) seedLaunchReadiness(
+	ctx context.Context,
+	seller catalog.Seller,
+	fulfilledTransaction transactions.Transaction,
+) error {
+	readyAt := fixedSeedTimestamp.Add(3 * time.Minute)
+	credential, err := integrations.NewCredential(integrations.CredentialParams{
+		CredentialID:     mustProfileID(launchReadyCredentialIDValue, domain.CredentialIDPrefix),
+		SellerID:         seller.SellerID,
+		TokenHash:        strings.Repeat("a", 64),
+		Label:            "Local launch connector",
+		Scopes:           []integrations.Scope{integrations.ScopeRead, integrations.ScopeConfigure, integrations.ScopePublish, integrations.ScopeValidate, integrations.ScopeRotate},
+		EntitlementEpoch: 1,
+		CreatedAt:        readyAt,
+	})
+	if err != nil {
+		return err
+	}
+	if err := seeder.repositories.IntegrationCredentials.Create(ctx, credential); err != nil {
+		return err
+	}
+	transactionID := fulfilledTransaction.TransactionID()
+	state := sellerworkspace.WorkspaceState{
+		SellerID:                     seller.SellerID,
+		OwnerSubjectHash:             subjectHash(seller.OwnerSubject),
+		ConnectorVerifiedAt:          &readyAt,
+		SandboxPurchaseTransactionID: &transactionID,
+		StorefrontPreviewedAt:        &readyAt,
+		Settings: sellerworkspace.SellerSettings{
+			SupportEmail:                "support@northstar.local",
+			SecurityNotificationEmail:   "security@northstar.local",
+			WebhookFailureNotifications: true,
+			Version:                     1,
+			UpdatedAt:                   readyAt,
+		},
+		CreatedAt: readyAt,
+		UpdatedAt: readyAt,
+		Version:   1,
+	}
+	return seeder.repositories.SellerWorkspaces.Put(ctx, state, 0)
+}
+
+func subjectHash(subject string) string {
+	digest := sha256.Sum256([]byte(subject))
+	return hex.EncodeToString(digest[:])
 }
 
 func (seeder *Seeder) seedEntitlements(ctx context.Context) error {
@@ -246,6 +301,9 @@ func (seeder *Seeder) seedSellers(ctx context.Context) (catalog.Seller, error) {
 		localSellerSigningReference,
 		fixedSeedTimestamp.Add(time.Minute),
 	); err != nil {
+		return catalog.Seller{}, err
+	}
+	if err := launchReadySeller.VerifyServiceEndpoint(fixedSeedTimestamp.Add(2 * time.Minute)); err != nil {
 		return catalog.Seller{}, err
 	}
 	incompleteSeller, err := catalog.NewSeller(catalog.SellerParams{
@@ -399,20 +457,24 @@ func (seeder *Seeder) seedTransactions(
 		createdAt := fixedSeedTimestamp.Add(time.Duration(10+index*10) * time.Minute)
 		intentID := mustProfileID(specification.intentID, domain.IntentIDPrefix)
 		purchaseIntent, err := intents.NewPurchaseIntent(intents.PurchaseIntentParams{
-			IntentID:         intentID,
-			SellerID:         seller.SellerID,
-			RouteID:          specification.route.RouteID,
-			BuyerID:          specification.buyerID,
-			RequestMethod:    intents.RequestMethodPost,
-			RequestPath:      specification.route.PathPattern,
-			RequestBodyHash:  mustDigest(strings.Repeat("0", 64)),
-			Amount:           specification.route.Amount,
-			Asset:            specification.route.Asset,
-			Network:          specification.route.Network,
-			MaximumAmount:    specification.route.Amount,
-			RequiresApproval: specification.route.RouteID == routes.approvalRequired.RouteID,
-			CreatedAt:        createdAt,
-			ExpiresAt:        createdAt.Add(15 * time.Minute),
+			IntentID:             intentID,
+			SellerID:             seller.SellerID,
+			RouteID:              specification.route.RouteID,
+			BuyerID:              specification.buyerID,
+			ProductDisplayName:   specification.route.DisplayName,
+			ProductSlug:          specification.route.ProductSlug,
+			PaymentDestinationID: seededDestinationIDForRoute(specification.route),
+			PayTo:                specification.route.PayTo,
+			RequestMethod:        intents.RequestMethodPost,
+			RequestPath:          specification.route.PathPattern,
+			RequestBodyHash:      mustDigest(strings.Repeat("0", 64)),
+			Amount:               specification.route.Amount,
+			Asset:                specification.route.Asset,
+			Network:              specification.route.Network,
+			MaximumAmount:        specification.route.Amount,
+			RequiresApproval:     specification.route.RouteID == routes.approvalRequired.RouteID,
+			CreatedAt:            createdAt,
+			ExpiresAt:            createdAt.Add(15 * time.Minute),
 		})
 		if err != nil {
 			return transactionFixtures{}, err
@@ -448,6 +510,13 @@ func (seeder *Seeder) seedTransactions(
 		failed:         created[2],
 		disputed:       created[3],
 	}, nil
+}
+
+func seededDestinationIDForRoute(route catalog.PaidRoute) domain.ID {
+	if route.Asset == "EURC" {
+		return mustProfileID("dst_01K5D09YJ0C0M7RJM4FWQ0K9H8", domain.PaymentDestinationIDPrefix)
+	}
+	return mustProfileID("dst_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.PaymentDestinationIDPrefix)
 }
 
 func advancePaymentPending(transaction *transactions.Transaction, createdAt domain.Timestamp) error {
@@ -757,6 +826,8 @@ func validateRepositories(repositories Repositories, signer evidence.Signer) err
 		repositories.WebhookDeliveries == nil ||
 		repositories.WebhookSecrets == nil ||
 		repositories.SellerEntitlements == nil ||
+		repositories.IntegrationCredentials == nil ||
+		repositories.SellerWorkspaces == nil ||
 		repositories.Reset == nil ||
 		signer == nil {
 		return errors.New("development seed repositories and signer are required")

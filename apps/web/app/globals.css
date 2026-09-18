@@ -2941,6 +2941,53 @@
     border-bottom: 1px solid var(--border);
   }
 
+  .storefront-authority {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--blue-soft);
+    padding: 0.55rem 0.7rem;
+  }
+
+  .storefront-authority > svg {
+    width: 1rem;
+    height: 1rem;
+    color: var(--accent-foreground);
+  }
+
+  .storefront-authority > div {
+    display: grid;
+    gap: 0.08rem;
+  }
+
+  .storefront-authority strong,
+  .storefront-authority span,
+  .storefront-authority code {
+    font-family: var(--font-mono);
+  }
+
+  .storefront-authority strong {
+    font-size: 0.68rem;
+    font-weight: 500;
+  }
+
+  .storefront-authority span {
+    color: var(--muted-foreground);
+    font-size: 0.58rem;
+  }
+
+  .storefront-authority code {
+    border-left: 1px solid var(--border);
+    padding-left: 0.65rem;
+    color: var(--muted-foreground);
+    font-size: 0.58rem;
+  }
+
   .storefront-hero > p,
   .storefront-products > div:first-child > p,
   .storefront-product-detail article > p,
@@ -3045,6 +3092,102 @@
   .storefront-product-grid article > div small {
     color: var(--muted-foreground);
     font-family: var(--font-mono);
+  }
+
+  .storefront-empty-state {
+    margin-top: 2rem;
+    border: 1px dashed var(--border);
+    border-radius: 1rem;
+    padding: clamp(2rem, 6vw, 4rem);
+  }
+
+  .storefront-empty-state h3 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    letter-spacing: -0.04em;
+  }
+
+  .storefront-empty-state p {
+    margin-top: 0.5rem;
+    color: var(--muted-foreground);
+  }
+
+  .storefront-availability {
+    display: grid;
+    min-height: min(42rem, calc(100vh - 5rem));
+    place-items: center;
+    padding: clamp(3rem, 8vw, 7rem) var(--page-gutter);
+  }
+
+  .storefront-availability > section {
+    width: min(100%, 42rem);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    background: var(--card);
+    padding: clamp(1.5rem, 5vw, 3rem);
+  }
+
+  .storefront-availability-mark {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+
+  .storefront-availability-mark.unavailable {
+    color: var(--destructive);
+  }
+
+  .storefront-availability-mark > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .storefront-availability > section > p {
+    margin-top: 1.4rem;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .storefront-availability h1 {
+    max-width: 18ch;
+    margin-top: 0.6rem;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 6vw, 4rem);
+    line-height: 1;
+    letter-spacing: -0.06em;
+  }
+
+  .storefront-availability > section > span {
+    display: block;
+    max-width: 36rem;
+    margin-top: 1rem;
+    color: var(--muted-foreground);
+    line-height: 1.7;
+  }
+
+  .storefront-availability-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 1.5rem;
+  }
+
+  .storefront-availability small {
+    display: block;
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    line-height: 1.6;
   }
 
   .storefront-product-detail > a {

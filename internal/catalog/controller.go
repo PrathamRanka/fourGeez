@@ -32,6 +32,13 @@ func NewHTTPController(
 
 // RegisterRoutes registers seller and paid-route mutation endpoints.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
+	controller.RegisterControlRoutes(mux)
+	mux.HandleFunc("GET /store/{slug}/manifest.json", controller.getStorefrontManifest)
+	mux.HandleFunc("GET /store/{slug}/llms.txt", controller.getStorefrontLLMSText)
+}
+
+// RegisterControlRoutes omits legacy unsigned discovery for production wiring.
+func (controller *HTTPController) RegisterControlRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sellers", api.RequireSeller(http.HandlerFunc(controller.createSeller)))
 	mux.Handle("GET /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.listRoutes)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.createRoute)))
@@ -42,8 +49,6 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/pause", api.RequireSeller(http.HandlerFunc(controller.pauseRoute)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/archive", api.RequireSeller(http.HandlerFunc(controller.archiveRoute)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/emergency-disable", api.RequireSeller(http.HandlerFunc(controller.emergencyDisableRoute)))
-	mux.HandleFunc("GET /store/{slug}/manifest.json", controller.getStorefrontManifest)
-	mux.HandleFunc("GET /store/{slug}/llms.txt", controller.getStorefrontLLMSText)
 }
 
 // listRoutes returns every paid route owned by the authenticated seller.

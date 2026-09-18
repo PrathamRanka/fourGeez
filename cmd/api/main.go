@@ -31,6 +31,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/realtime"
 	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
+	"github.com/fourgeez/agentpay/internal/storefront"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -60,6 +61,7 @@ func main() {
 	quotaCounterRepository := memory.NewQuotaCounterRepository()
 	sellerSessionRevocationRepository := memory.NewSellerSessionRevocationRepository()
 	sellerWorkspaceRepository := memory.NewSellerWorkspaceRepository()
+	storefrontPublicationRepository := memory.NewStorefrontPublicationRepository()
 	auditEventRepository := memory.NewAuditEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
@@ -104,7 +106,7 @@ func main() {
 		auditAppender,
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
-	catalogController.RegisterRoutes(mux)
+	catalogController.RegisterControlRoutes(mux)
 	identity.NewHTTPController(sellerIdentityService, catalogService).RegisterRoutes(mux)
 	audit.NewHTTPController(
 		audit.NewService(
@@ -196,6 +198,10 @@ func main() {
 	if apiOrigin == "" {
 		apiOrigin = "http://localhost:8080"
 	}
+	webOrigin := os.Getenv("AGENTPAY_WEB_ORIGIN")
+	if webOrigin == "" {
+		webOrigin = "http://localhost:3000"
+	}
 	accessTokenService := authorization.NewAccessTokenService(
 		authorization.AccessTokenConfig{
 			Issuer: apiOrigin, Audience: authorization.MCPAudience,
@@ -262,7 +268,15 @@ func main() {
 		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
 		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{}, Clock: clock,
 	})
-	catalogService.SetPublicationAuthorizer(workspaceService)
+	storefrontService := storefront.NewService(storefront.Dependencies{
+		Catalog: catalogRepository, Destinations: paymentDestinationRepository,
+		Entitlements: billingService, PublicationReadiness: workspaceService,
+		Publications: storefrontPublicationRepository, Signer: capabilityKeys,
+		Clock: clock, CanonicalOrigin: webOrigin, APIOrigin: apiOrigin, AuditRecorder: auditAppender,
+	})
+	catalogService.SetPublicationAuthorizer(storefrontService)
+	sandboxService.SetEndpointVerificationRecorder(storefrontService)
+	storefront.NewHTTPController(storefrontService).RegisterRoutes(mux)
 	sellerworkspace.NewHTTPController(
 		workspaceService,
 		sellerworkspace.NewContextPrincipalSource(
@@ -289,9 +303,10 @@ func main() {
 	mcpController.SetQuotaEnforcer(quotaService)
 	mcpController.SetDiscoveryValidator(discovery.NewService())
 	mcpController.RegisterRoutes(mux)
-	intentService := intents.NewService(
+	intentService := intents.NewServiceWithCommerceAuthorizer(
 		intentRepository,
 		catalogRepository,
+		storefrontService,
 		idGenerator,
 		clock,
 	)
@@ -368,6 +383,8 @@ func main() {
 			AuditEvents:              auditEventRepository,
 			Idempotency:              idempotencyStore,
 			SellerSessionRevocations: sellerSessionRevocationRepository,
+			SellerWorkspaces:         sellerWorkspaceRepository,
+			StorefrontPublications:   storefrontPublicationRepository,
 		},
 		evidenceSigner,
 	); err != nil {
@@ -400,11 +417,12 @@ func main() {
 		evidenceSigner,
 		clock,
 	)
-	paidRouteService := payments.NewPaidRouteService(
+	paidRouteService := payments.NewAuthorizedPaidRouteService(
 		catalogRepository,
 		intentRepository,
 		approvalRepository,
 		approvalTokenSigner,
+		storefrontService,
 		clock,
 		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
 	)

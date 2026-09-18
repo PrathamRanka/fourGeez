@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { loadStorefrontManifest } from "@/features/storefront/controller";
+import { loadPublicProduct } from "@/features/storefront/controller";
 import {
   buildProductStructuredData,
   ProductDetail,
+  StorefrontAvailability,
 } from "@/features/storefront/view/storefront";
 
 type ProductPageProps = {
@@ -14,46 +14,37 @@ export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { slug, productSlug } = await params;
-  const manifest = await loadStorefrontManifest(slug);
-  const route = manifest?.routes.find(
-    (candidate) => candidate.productSlug === productSlug,
-  );
-  if (!manifest || !route) return {};
-  const origin = process.env.AGENTPAY_WEB_ORIGIN ?? "http://localhost:3000";
+  const state = await loadPublicProduct(slug, productSlug);
+  if (state.status !== "active") {
+    return { robots: { index: false, follow: false } };
+  }
   return {
-    title: `${route.displayName} by ${manifest.seller.name}`,
-    description: route.description,
-    alternates: {
-      canonical: `${origin.replace(/\/$/, "")}/store/${slug}/products/${route.productSlug}`,
-    },
+    title: `${state.document.product.displayName} | AgentPay`,
+    description: state.document.product.description,
+    alternates: { canonical: state.document.product.canonicalUrl },
     robots: { index: true, follow: true },
   };
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug, productSlug } = await params;
-  const manifest = await loadStorefrontManifest(slug);
-  const route = manifest?.routes.find(
-    (candidate) => candidate.productSlug === productSlug,
-  );
-  if (!manifest || !route) notFound();
-  const webOrigin = process.env.AGENTPAY_WEB_ORIGIN ?? "http://localhost:3000";
-  const canonicalUrl = `${webOrigin.replace(/\/$/, "")}/store/${slug}/products/${route.productSlug}`;
-  const structuredData = buildProductStructuredData(
-    manifest,
-    route,
-    canonicalUrl,
-  );
+  const state = await loadPublicProduct(slug, productSlug);
+  if (state.status !== "active") {
+    return <StorefrontAvailability state={state} subject="product" />;
+  }
+  const structuredData = buildProductStructuredData(state.document.product);
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
       />
       <ProductDetail
-        manifest={manifest}
-        route={route}
-        apiOrigin={process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080"}
+        sellerSlug={state.document.sellerSlug}
+        product={state.document.product}
+        signature={state.signature}
       />
     </>
   );

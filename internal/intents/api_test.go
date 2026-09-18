@@ -2,6 +2,7 @@ package intents_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,8 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
+	"github.com/fourgeez/agentpay/internal/settlement"
+	"github.com/fourgeez/agentpay/internal/storefront"
 )
 
 // TestPurchaseIntentRoutesCreateAndRetrieveImmutableIntent verifies API-004.
@@ -82,8 +85,30 @@ func TestPurchaseIntentRejectsMaximumBelowQuote(t *testing.T) {
 	}
 }
 
+func TestPurchaseIntentMapsInactiveCommerceToGone(t *testing.T) {
+	t.Parallel()
+
+	handler, route := newIntentHandlerWithAuthorizer(t, unavailableIntentAuthorizer{})
+	requestBody := "{\"routeId\":\"" + route.RouteID.String() +
+		"\",\"requestBodyHash\":\"" + strings.Repeat("a", 64) +
+		"\",\"maximumAmount\":\"40000000\"}"
+	request := httptest.NewRequest(http.MethodPost, "/v1/intents", bytes.NewBufferString(requestBody))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(api.AgentKeyHeader, "agent-secret")
+	request.Header.Set("Idempotency-Key", "inactive-commerce")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusGone {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
 // newIntentHandler creates a seeded API-004 test server.
 func newIntentHandler(t *testing.T) (http.Handler, catalog.PaidRoute) {
+	return newIntentHandlerWithAuthorizer(t, nil)
+}
+
+func newIntentHandlerWithAuthorizer(t *testing.T, authorizer intents.CommerceAuthorizer) (http.Handler, catalog.PaidRoute) {
 	t.Helper()
 
 	catalogRepository := memory.NewCatalogRepository()
@@ -131,12 +156,11 @@ func newIntentHandler(t *testing.T) (http.Handler, catalog.PaidRoute) {
 		t.Fatal(err)
 	}
 
-	service := intents.NewService(
-		intentRepository,
-		catalogRepository,
-		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("b", 256))),
-		clock,
-	)
+	identifierGenerator := domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("b", 256)))
+	service := intents.NewService(intentRepository, catalogRepository, identifierGenerator, clock)
+	if authorizer != nil {
+		service = intents.NewServiceWithCommerceAuthorizer(intentRepository, catalogRepository, authorizer, identifierGenerator, clock)
+	}
 	controller := intents.NewHTTPController(service, idempotencyStore)
 	mux := http.NewServeMux()
 	controller.RegisterRoutes(mux)
@@ -144,6 +168,12 @@ func newIntentHandler(t *testing.T) (http.Handler, catalog.PaidRoute) {
 		api.Config{Authenticator: api.NewStaticAuthenticator("seller-secret", "agent-secret")},
 		mux,
 	), route
+}
+
+type unavailableIntentAuthorizer struct{}
+
+func (unavailableIntentAuthorizer) AuthorizeIntent(_ context.Context, _ domain.ID) (catalog.PaidRoute, settlement.PaymentDestination, error) {
+	return catalog.PaidRoute{}, settlement.PaymentDestination{}, storefront.ErrCommerceUnavailable
 }
 
 // mustIntentAPIID parses a test identifier.

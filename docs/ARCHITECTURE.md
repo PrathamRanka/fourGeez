@@ -68,6 +68,8 @@ deceptive or invisible search content.
 One deployable Go binary owns all authoritative business rules through isolated packages:
 
 - `catalog`: sellers, routes, manifests, and pricing.
+- `storefront`: authoritative publication readiness, signed AgentPay-hosted
+  discovery, persisted publication revisions, and fresh commerce eligibility.
 - `intents`: immutable purchase proposals and request hashes.
 - `policy`: budget and approval evaluation.
 - `approvals`: sessions, invitations, decisions, and approval tokens.
@@ -292,6 +294,13 @@ their own type, audience/domain, and claim sets. Browser purchase and approval
 authority are opaque server-side grants rather than JWTs. A valid signature or
 cookie never replaces current entitlement, credential, ownership, state, CSRF,
 or replay checks.
+
+Discovery signatures cover `agentpay.discovery.v1`, one NUL byte, and the RFC
+8785 canonical JSON bytes of the unsigned document. They use the current ES256
+key published by the shared AgentPay JWKS. Active discovery expires five
+minutes after issue. A public read strongly re-evaluates the seller,
+entitlement, endpoint verification, route lifecycle, exact active payment
+destination, and workspace publication prerequisites before signing.
 
 ## Purchase lifecycle
 
