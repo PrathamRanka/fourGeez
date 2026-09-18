@@ -5,13 +5,20 @@ const requestTimeoutMilliseconds = 10_000;
 
 type APIErrorResponse = {
   error?: {
+    code?: string;
     message?: string;
   };
 };
 
 export type ActionResult<Value> =
   | { ok: true; value: Value }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      code?: string;
+      status?: number;
+      retryAfterSeconds?: number;
+    };
 
 type AgentPayRequest = {
   body?: unknown;
@@ -38,6 +45,32 @@ function getAPIErrorMessage(responseBody: unknown): string | null {
   return typeof apiError.error?.message === "string"
     ? apiError.error.message
     : null;
+}
+
+function getAPIErrorCode(responseBody: unknown): string | undefined {
+  if (typeof responseBody !== "object" || responseBody === null) {
+    return undefined;
+  }
+  const apiError = responseBody as APIErrorResponse;
+  return typeof apiError.error?.code === "string"
+    ? apiError.error.code
+    : undefined;
+}
+
+function failureFromResponse(
+  response: Response,
+  responseBody: unknown,
+  fallback: string,
+): Extract<ActionResult<never>, { ok: false }> {
+  const retryAfter = Number(response.headers.get("Retry-After"));
+  return {
+    ok: false,
+    error: getAPIErrorMessage(responseBody) ?? fallback,
+    code: getAPIErrorCode(responseBody),
+    status: response.status,
+    retryAfterSeconds:
+      Number.isInteger(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+  };
 }
 
 // getAPIConfiguration returns server-only credentials without serializing them to React.
@@ -121,12 +154,11 @@ export async function requestAgentPay<Value>(
     const responseBody: unknown = responseText ? JSON.parse(responseText) : {};
 
     if (!response.ok) {
-      return {
-        ok: false,
-        error:
-          getAPIErrorMessage(responseBody) ??
-          "AgentPay could not complete this request.",
-      };
+      return failureFromResponse(
+        response,
+        responseBody,
+        "AgentPay could not complete this request.",
+      );
     }
 
     return { ok: true, value: responseBody as Value };
@@ -134,6 +166,8 @@ export async function requestAgentPay<Value>(
     return {
       ok: false,
       error: "AgentPay API is unavailable. Check the API and try again.",
+      code: "dependency_unavailable",
+      status: 503,
     };
   }
 }
@@ -163,12 +197,11 @@ export async function downloadAgentPayFile(
       } catch {
         responseBody = {};
       }
-      return {
-        ok: false,
-        error:
-          getAPIErrorMessage(responseBody) ??
-          "AgentPay could not prepare this download.",
-      };
+      return failureFromResponse(
+        response,
+        responseBody,
+        "AgentPay could not prepare this download.",
+      );
     }
     return {
       ok: true,
@@ -182,6 +215,8 @@ export async function downloadAgentPayFile(
     return {
       ok: false,
       error: "AgentPay API is unavailable. Check the API and try again.",
+      code: "dependency_unavailable",
+      status: 503,
     };
   }
 }
@@ -200,15 +235,20 @@ export async function requestPublicAgentPay<Value>(
     const responseText = await readBoundedResponse(response);
     const responseBody: unknown = responseText ? JSON.parse(responseText) : {};
     if (!response.ok) {
-      return {
-        ok: false,
-        error:
-          getAPIErrorMessage(responseBody) ?? "This storefront is unavailable.",
-      };
+      return failureFromResponse(
+        response,
+        responseBody,
+        "This storefront is unavailable.",
+      );
     }
     return { ok: true, value: responseBody as Value };
   } catch {
-    return { ok: false, error: "This storefront is unavailable." };
+    return {
+      ok: false,
+      error: "This storefront is unavailable.",
+      code: "dependency_unavailable",
+      status: 503,
+    };
   }
 }
 
@@ -226,9 +266,18 @@ export async function requestPublicAgentPayText(
     const body = await readBoundedResponse(response);
     return response.ok
       ? { ok: true, value: body }
-      : { ok: false, error: "This discovery document is unavailable." };
+      : failureFromResponse(
+          response,
+          {},
+          "This discovery document is unavailable.",
+        );
   } catch {
-    return { ok: false, error: "This discovery document is unavailable." };
+    return {
+      ok: false,
+      error: "This discovery document is unavailable.",
+      code: "dependency_unavailable",
+      status: 503,
+    };
   }
 }
 
@@ -260,18 +309,19 @@ export async function requestApprovalInvitation<Value>(
     const responseText = await readBoundedResponse(response);
     const responseBody: unknown = responseText ? JSON.parse(responseText) : {};
     if (!response.ok) {
-      return {
-        ok: false,
-        error:
-          getAPIErrorMessage(responseBody) ??
-          "This approval invitation is unavailable.",
-      };
+      return failureFromResponse(
+        response,
+        responseBody,
+        "This approval invitation is unavailable.",
+      );
     }
     return { ok: true, value: responseBody as Value };
   } catch {
     return {
       ok: false,
       error: "Approval service is unavailable. Check the connection and retry.",
+      code: "dependency_unavailable",
+      status: 503,
     };
   }
 }

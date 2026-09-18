@@ -76,6 +76,24 @@ function createActions(): OnboardingActions {
 }
 
 describe("seller onboarding", () => {
+  it("blocks setup controls for a suspended seller", () => {
+    render(
+      <SellerOnboarding
+        initialSnapshot={{
+          seller: { ...seller, status: "suspended" },
+          paymentDestinations: [],
+          credentials: [],
+        }}
+        actions={createActions()}
+      />,
+    );
+
+    expect(screen.getByText("Seller account suspended")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Connect browser wallet" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("creates a storefront before exposing wallet and agent setup", async () => {
     const actions = createActions();
     render(

@@ -20,6 +20,13 @@ export async function loadTransactionList(
     sellerId,
     transactions: result.ok ? result.value.items : [],
     error: result.ok ? undefined : result.error,
+    failure: result.ok
+      ? undefined
+      : {
+          code: result.code,
+          status: result.status,
+          retryAfterSeconds: result.retryAfterSeconds,
+        },
   };
 }
 

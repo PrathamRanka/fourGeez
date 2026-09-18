@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { OperationState } from "@/components/dashboard/operation-state";
 import type {
   CredentialCreated,
   OnboardingActions,
@@ -81,6 +82,10 @@ export function SellerOnboarding({
         : "",
     [apiOrigin, createdCredential],
   );
+
+  if (seller?.status === "suspended") {
+    return <OperationState kind="seller_suspended" />;
+  }
 
   // submitStorefront creates the first seller-owned resource through the server controller.
   async function submitStorefront(event: React.FormEvent<HTMLFormElement>) {

@@ -1,3 +1,5 @@
+import type { OperationFailure } from "@/features/operations/model";
+
 export type TransactionStatus =
   | "PROPOSED"
   | "APPROVAL_PENDING"
@@ -89,6 +91,7 @@ export type TransactionListSnapshot = {
   sellerId: string;
   transactions: Transaction[];
   error?: string;
+  failure?: OperationFailure;
 };
 
 export function transactionStatusLabel(status: TransactionStatus): string {

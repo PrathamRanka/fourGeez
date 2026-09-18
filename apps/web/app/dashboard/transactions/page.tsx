@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { OperationState } from "@/components/dashboard/operation-state";
+import { operationStateFromFailure } from "@/features/operations/model";
 import { loadTransactionList } from "@/features/transactions/controller";
 import { transactionStatusLabel } from "@/features/transactions/model";
 import { formatAtomicPrice } from "@/lib/money";
@@ -15,9 +17,23 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const parameters = await searchParams;
   const sellerId = parameters.sellerId ?? process.env.AGENTPAY_DEMO_SELLER_ID;
   if (!sellerId) {
-    return <p className="dashboard-error">Choose a storefront in onboarding first.</p>;
+    return <OperationState kind="disabled" title="Choose a storefront first" description="Complete onboarding before opening transaction history." />;
   }
   const snapshot = await loadTransactionList(sellerId);
+  if (snapshot.failure) {
+    const state = operationStateFromFailure(snapshot.failure);
+    return (
+      <OperationState
+        kind={state}
+        description={
+          state === "retryable_error" || state === "terminal_error"
+            ? snapshot.error
+            : undefined
+        }
+        retryAfterSeconds={snapshot.failure.retryAfterSeconds}
+      />
+    );
+  }
   return (
     <div className="transaction-list-workspace">
       <header className="transaction-list-header">
@@ -25,9 +41,8 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         <h1>Transactions</h1>
         <p>Open a purchase to verify its payment, fulfillment, and evidence chain.</p>
       </header>
-      {snapshot.error ? <div className="dashboard-error" role="alert">{snapshot.error}</div> : null}
       {snapshot.transactions.length === 0 ? (
-        <div className="transaction-panel transaction-empty-copy">No transactions recorded yet.</div>
+        <OperationState kind="empty" title="No transactions recorded yet" description="Completed buyer and agent purchases will appear here with their evidence history." />
       ) : (
         <div className="transaction-list">
           {snapshot.transactions.map((transaction) => (

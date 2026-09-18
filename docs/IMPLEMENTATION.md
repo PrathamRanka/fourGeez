@@ -144,7 +144,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **WEB-007** Implement buyer chat/tool activity view with deterministic fallback indicator.
 - [x] **WEB-008** Implement live approval page, decision controls, REST fallback, and expiration state.
 - [x] **WEB-009** Implement evidence verification and dispute creation/resolution views.
-- [ ] **WEB-010** Add loading, empty, retryable error, terminal error, disabled, permission-denied, quota, and suspended-seller states.
+- [x] **WEB-010** Add loading, empty, retryable error, terminal error, disabled, permission-denied, quota, and suspended-seller states.
 
 M7 acceptance: a seller can verify a payment destination, connect a supported coding agent, publish and pause products, receive x402 funds directly, reconcile every payment, receive signed notifications, and view asset-separated sales and evidence in an accessible dashboard. Generated storefronts expose validated technical SEO, AEO, manifest, and `llms.txt` output without making ranking guarantees.
 
