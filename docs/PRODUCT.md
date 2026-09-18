@@ -3,11 +3,12 @@
 Status: **Locked for the AgentPay MVP direction**.
 
 Implementation status: the M0–M7 development preview exists, but the product
-is not launch-ready. M7.1 must complete real seller authentication,
-subscription enforcement, cloud-authoritative MCP capabilities, integrated
-browser and agent checkout, operational tooling, and full-system verification.
-M8 deployment and M9 release gates remain incomplete. Current payment support
-is mock or x402 testnet only.
+is not launch-ready. The reduced M7.1 Lean V1 contains fourteen launch tasks
+covering seller authentication, subscription enforcement, cloud-authoritative
+MCP access, the existing x402 commerce path, exactly-once fulfillment, the
+essential seller dashboard, and full-system verification. M8 deployment and M9
+release gates remain incomplete. Current payment support is mock or x402
+testnet only.
 
 ## Product promise
 
@@ -127,8 +128,8 @@ V1 does not require a large seller SDK. AgentPay provides:
 
 - a seller control API and minimal dashboard;
 - a remote MCP server with scoped tools, resources, and setup prompts;
-- an AgentPay local connector for project-key installations and direct OAuth
-  interoperability for compatible remote MCP hosts;
+- a required AgentPay local connector that exchanges project keys for
+  short-lived cloud MCP capabilities; direct remote OAuth is deferred;
 - coding-agent setup instructions for Claude Code, Codex, and generic MCP hosts;
 - maintained request-verification middleware or small packages for supported
   server frameworks;

@@ -3,11 +3,13 @@
 Status: **Required for every implementation task**.
 
 Implementation status: the existing controls cover the M0–M7 development
-preview. M7.1 adds the production subscription and seller-controlled-MCP threat
-model, short-lived capabilities, entitlement epochs, Redis/outbox revocation,
-signed discovery status, execution capabilities, authenticated seller
-sessions, operator controls, and their required failure tests. Until M7.1,
-M8, and M9 pass, cancellation-safe production access is not implemented.
+preview. The reduced M7.1 Lean V1 adds production subscription enforcement,
+short-lived MCP capabilities, authoritative entitlement and credential checks,
+signed discovery status, execution capabilities, authenticated seller sessions,
+and their required failure tests. Redis/outbox scaling and a full operator UI
+are deferred; transaction-critical authorization reads authoritative persistence
+and fails closed. Until M7.1, M8, and M9 pass, cancellation-safe production
+access is not implemented.
 
 ## Security goals
 
@@ -40,7 +42,7 @@ M8, and M9 pass, cancellation-safe production access is not implemented.
 The per-seller HMAC request-signing contract is the implemented M7 mechanism,
 not the final fork-resistant execution authorization. Because a seller holding
 the shared HMAC secret can generate the same MAC locally, LCH-004, LCH-006, and
-LCH-024–LCH-026 must replace fulfillment authorization with a cloud-only
+LCH-013 must replace fulfillment authorization with a cloud-only
 asymmetric execution capability before production launch. Webhook HMAC remains
 a separate receiver-authentication mechanism and does not grant cloud
 transaction authority.
@@ -136,14 +138,12 @@ repositories.
 
 The project-key exchange is proprietary AgentPay bootstrap, not OAuth. It uses
 `POST /v1/integration-access-tokens` and returns `Cache-Control: no-store`.
-Project-key installations must use the AgentPay connector; project keys are
-never accepted by `/mcp` or commerce routes. Direct standards-compatible MCP
-clients use the OAuth authorization servers published by
-`/.well-known/oauth-protected-resource/mcp`. Both paths produce short-lived MCP
-access tokens carrying exact issuer, audience, subject, seller, credential or
-delegated-client identity, scopes, `entitlementEpoch`, JTI, issued-at, and
-expiry claims. Middleware additionally loads current credential and entitlement
-state; a valid signature with a stale epoch or revoked credential is rejected.
+Lean V1 project-key installations must use the AgentPay connector; project keys
+are never accepted by `/mcp` or commerce routes. Direct remote OAuth MCP clients
+are deferred. Connector access tokens carry exact issuer, audience, subject,
+seller, credential, scopes, `entitlementEpoch`, JTI, issued-at, and expiry
+claims. Middleware additionally loads current credential and entitlement state;
+a valid signature with a stale epoch or revoked credential is rejected.
 
 An MCP access token is permission to request a scoped tool, not confirmation of
 a commercial mutation. The seller dashboard's authenticated browser/BFF

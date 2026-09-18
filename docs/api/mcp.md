@@ -3,7 +3,7 @@
 Status: **M7.1 production target contract locked by LCH-004; not yet served by the M7 runtime**.
 
 Implementation status: M0–M7 still uses direct integration credentials at
-runtime. LCH-012 through LCH-018 must implement the short-lived contract below
+runtime. Lean V1 LCH-010 must implement the short-lived connector contract below
 before production use. The contract is authoritative while runtime work remains
 incomplete.
 
@@ -25,14 +25,10 @@ narrows requested scopes to `read`, `configure`, `publish`, or `validate`, and r
 proxies local MCP traffic; a project key is never configured directly as the
 remote `/mcp` bearer token.
 
-Standards-compatible clients that connect directly to the remote `/mcp`
-resource use OAuth authorization and discover the protected resource metadata
-at `/.well-known/oauth-protected-resource/mcp`. That document identifies the
-exact MCP resource URL, authorization server metadata, supported bearer method,
-and scopes. OAuth authorization creates or references a revocable AgentPay
-integration-credential identity, so direct-client access tokens retain the same
-seller, credential, scope, entitlement-epoch, and revocation checks as connector
-tokens. Direct clients never receive the seller project key.
+Lean V1 supports the AgentPay local connector as the only production MCP client
+path. Direct remote OAuth clients and protected-resource metadata are deferred.
+This does not weaken the boundary: the project key is accepted only by the
+bootstrap exchange, and `/mcp` accepts only short-lived access capabilities.
 
 Every `POST /mcp` request requires
 `Authorization: Bearer <mcpAccessToken>`. The JWT header requires
@@ -41,11 +37,8 @@ Every `POST /mcp` request requires
 `sub=credentialId`, `sellerId`, `credentialId`, space-delimited `scope`,
 `entitlementEpoch`, unique `jti`, `iat`, and `exp`.
 
-A missing or invalid bearer token returns `401` with
-`WWW-Authenticate: Bearer resource_metadata="<absolute metadata URL>"` and the
-stable JSON error envelope. The resource metadata URL must use HTTPS in
-production, match the configured MCP origin, and is never derived from an
-untrusted forwarding header.
+A missing or invalid bearer token returns `401` with a Bearer challenge and the
+stable JSON error envelope.
 
 Before dispatch, AgentPay verifies the signature and claims, current credential
 revocation, current entitlement epoch and access boundary, target ownership,

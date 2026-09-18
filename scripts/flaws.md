@@ -1,6 +1,6 @@
 # AgentPay launch remediation plan
 
-Status: Proposed for review before implementation
+Status: Reference backlog; Lean V1 scope is controlled by LCH-001 through LCH-014 in `docs/IMPLEMENTATION.md`
 Last updated: 2026-09-18
 
 ## Purpose
@@ -10,6 +10,14 @@ the work required before AgentPay can be treated as a launch-ready startup
 product. It includes the original review notes plus additional product,
 frontend, backend, security, integration, testing, documentation, and
 operational gaps discovered while tracing the implementation.
+
+The detailed controls in this document remain valid design input, but not every
+item is a Lean V1 launch blocker. The active launch scope deliberately defers
+Redis/distributed invalidation, direct remote MCP OAuth, a global discovery
+directory, a full operator console, automated reimbursement, advanced product
+analytics, multi-owner accounts, and nonessential notification automation.
+Lean V1 preserves the critical boundary by reading authoritative entitlement
+and credential state for every protected MCP and commerce operation.
 
 No task in this plan should be marked complete because its screen exists. A
 task is complete only when the user-visible flow works against the real Go

@@ -63,7 +63,6 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"getCapabilityJwks":                      {"200", "429", "503"},
 		"getDispute":                             {"200", "401", "403", "404", "429", "503"},
 		"getHealth":                              {"200", "429", "503"},
-		"getMcpProtectedResourceMetadata":        {"200", "429", "503"},
 		"getPaidResource":                        {"200", "400", "401", "402", "403", "404", "409", "410", "422", "428", "429", "503"},
 		"getPaidRoute":                           {"200", "400", "401", "403", "404", "429", "503"},
 		"getPaymentDestination":                  {"200", "400", "401", "403", "404", "429", "503"},

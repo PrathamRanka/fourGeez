@@ -2,12 +2,13 @@
 
 Status: **Implemented M7 fields remain the development compatibility baseline; sections explicitly introduced by LCH-003/LCH-004 are the locked M7.1 production target and require the named implementation/migration tasks before activation**.
 
-The current schema does not yet contain the complete launch-hardening model for
-subscription lifecycle, execution-token replay, operator actions, remediation,
-or data-lifecycle requests. LCH-003 and LCH-004 lock product identity,
-capability, discovery, browser purchase-session, and execution-authorization
-contracts. Subscription transitions, provider mapping, persistence migrations,
-and retention effects remain owned by LCH-005, LCH-010, and their dependents.
+The current schema does not yet contain the complete Lean V1 model for
+subscription lifecycle, execution-token replay, or buyer remediation. LCH-003
+and LCH-004 lock product identity, capability, discovery, browser
+purchase-session, and execution-authorization contracts. The reduced launch
+tasks LCH-008 through LCH-014 own all remaining persistence changes. Lean V1
+uses authoritative database reads for transaction-critical entitlement and
+credential checks; Redis and distributed invalidation records are deferred.
 
 ## Conventions
 

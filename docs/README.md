@@ -5,12 +5,13 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 ## Current delivery status
 
 Milestones M0 through M7 are implemented as a development preview. Milestone
-M7.1 is the mandatory launch-hardening program for production authentication,
-subscription enforcement, cloud-authoritative MCP access, complete frontend and
-backend integration, buyer checkout, operational readiness, and E2E coverage.
-M8 infrastructure and M9 release verification have not started. Until those
-milestones pass, AgentPay supports local mock and x402 testnet use only and must
-not be represented as a production-ready paid service.
+M7.1 is now a fourteen-task Lean V1 launch program focused on production seller
+authentication, subscription enforcement, cloud-authoritative MCP access, the
+existing x402 commerce path, exactly-once fulfillment, the essential seller
+dashboard, and full-system verification. M8 infrastructure and M9 release
+verification have not started. Until those milestones pass, AgentPay supports
+local mock and x402 testnet use only and must not be represented as a
+production-ready paid service.
 
 OpenAPI 0.4 and the LCH-004 companion contracts are the locked M7.1 production
 target, not a claim about the current binary. They are marked target-state and
@@ -20,7 +21,7 @@ baseline:
 
 | Surface | Current M7 development behavior | Required M7.1 production target |
 |---|---|---|
-| Seller project credential | `apc1` credential used directly by MCP | `apc2` bootstrap through `/v1/integration-access-tokens`; connector or OAuth access token at `/mcp` |
+| Seller project credential | `apc1` credential used directly by MCP | `apc2` bootstrap through `/v1/integration-access-tokens`; required local connector and short-lived access token at `/mcp` |
 | MCP mutation confirmation | Caller-supplied boolean, summary, and timestamp | Seller-session-issued one-time grant bound to the exact mutation |
 | Approval invitation | Query token | Fragment exchange into multi-session HttpOnly grant plus CSRF |
 | Browser purchase | Buyer-agent key only | Durable opaque purchase cookie, bounded commerce window, and payer-wallet recovery |

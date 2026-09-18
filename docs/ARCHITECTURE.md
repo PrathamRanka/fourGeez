@@ -2,12 +2,13 @@
 
 Status: **Locked for the implemented M0–M7 backend and approved MVP direction**.
 
-Implementation status: M7.1 is required before production launch. The current
-local API uses in-memory persistence and static development credentials, and
-the current web authentication entry points are previews. Short-lived MCP
-capabilities, subscription-expiry enforcement, Redis invalidation, integrated
-local services, complete browser checkout, operator tooling, and production
-identity are planned in M7.1 and must not be represented as already deployed.
+Implementation status: the reduced M7.1 Lean V1 is required before production
+launch. The current local API uses in-memory persistence and development
+credentials, and the current web authentication entry points are previews.
+Short-lived MCP capabilities, subscription-expiry enforcement, integrated
+local services, complete x402 checkout, and production identity are not yet
+fully deployed. Redis, direct remote MCP OAuth, a global directory, and a full
+operator console are post-launch scaling features rather than V1 blockers.
 
 ## Purpose
 
@@ -35,16 +36,13 @@ truthful product explanation.
 
 ### Seller automation
 
-The seller automation surface consists of a cloud-hosted remote MCP server,
-the AgentPay local connector for project-key installations, standards-compatible
-direct OAuth access for capable remote MCP hosts, coding-agent setup
-instructions, maintained verification middleware, and sandbox validation
-commands. The connector holds the project key, exchanges it through the
-proprietary AgentPay bootstrap endpoint, keeps a short-lived MCP access token
-in process memory, and proxies bounded JSON-RPC. It contains no payment,
-publication, entitlement, or signing authority. A host that connects directly
-to `/mcp` never receives or submits a project key and follows the protected
-resource metadata advertised at `/.well-known/oauth-protected-resource/mcp`.
+The Lean V1 seller automation surface consists of a cloud-hosted remote MCP
+server, the required AgentPay local connector, coding-agent setup instructions,
+maintained verification middleware, and sandbox validation commands. The
+connector holds the project key, exchanges it through the proprietary AgentPay
+bootstrap endpoint, keeps a short-lived MCP access token in process memory, and
+proxies bounded JSON-RPC. It contains no payment, publication, entitlement, or
+signing authority. Direct remote OAuth MCP clients are deferred.
 
 The MCP server exposes bounded AgentPay operations; it is not a general remote
 shell. Read operations may run without confirmation. Creating or changing
@@ -331,7 +329,7 @@ or replay checks.
 | Fraud quarantine | Suspend immediately regardless of Stripe state; Stripe events cannot clear it, and finalized unfulfilled buyer payments enter the explicit incident/refund path. |
 | Project key revoked or rotated | Deny bootstrap exchange; reject access tokens naming the revoked predecessor credential. |
 | Stale capability epoch | Return `401 token_revoked`; do not consume quota or perform the operation. |
-| Redis unavailable on a transaction-critical check | Fail closed with `503 dependency_unavailable`; public discovery may return only an unexpired signed document or inactive result. |
+| Authoritative entitlement or credential persistence unavailable | Fail closed with `503 dependency_unavailable`; public discovery may return only an unexpired signed document or inactive result. Lean V1 does not use Redis for transaction-critical authorization. |
 | Monthly seller quota exhausted | Return `429 rate_limited`; do not execute the requested operation. |
 | Static route or webhook limit exhausted | Return `403 permission_denied`; do not create or publish the resource. |
 | Search metadata validation fails | Keep the storefront publishable only after the seller fixes or explicitly removes the invalid generated metadata. |
