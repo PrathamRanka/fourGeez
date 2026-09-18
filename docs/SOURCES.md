@@ -47,6 +47,7 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 |---|---|---|
 | MCP protocol | https://modelcontextprotocol.io/specification/2026-07-28 | Pin the protocol version and expose only declared resources, prompts, and tools. |
 | MCP authorization | https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization | Remote seller integrations use standards-based authorization, seller scope, and least privilege. |
+| OAuth protected resource metadata | https://www.rfc-editor.org/rfc/rfc9728.html | Publish the canonical `/mcp` resource and authorization-server locations; reverified 2026-09-18. |
 | MCP Streamable HTTP transport | https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http | Generic setup describes one authenticated Streamable HTTP endpoint without inventing a client-specific configuration schema. Verified 2026-09-17. |
 | Codex MCP configuration | https://developers.openai.com/codex/mcp | Use project-scoped `.codex/config.toml`, `url`, `bearer_token_env_var`, `required`, and write-tool approval mode; do not write bearer values into the file. Reverified 2026-09-18. |
 | Claude Code MCP configuration | https://code.claude.com/docs/en/mcp | Use project-scoped `.mcp.json`, explicit `type: "http"`, and environment expansion for URL and authorization header values. Reverified 2026-09-18. |

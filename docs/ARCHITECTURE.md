@@ -35,9 +35,18 @@ truthful product explanation.
 
 ### Seller automation
 
-The seller automation surface consists of a remote MCP server, coding-agent setup instructions, maintained verification middleware, and sandbox validation commands. Claude Code, Codex, and other compatible coding agents use this surface to inspect a seller repository and propose integration changes.
+The seller automation surface consists of a cloud-hosted remote MCP server,
+the AgentPay local connector for project-key installations, standards-compatible
+direct OAuth access for capable remote MCP hosts, coding-agent setup
+instructions, maintained verification middleware, and sandbox validation
+commands. The connector holds the project key, exchanges it through the
+proprietary AgentPay bootstrap endpoint, keeps a short-lived MCP access token
+in process memory, and proxies bounded JSON-RPC. It contains no payment,
+publication, entitlement, or signing authority. A host that connects directly
+to `/mcp` never receives or submits a project key and follows the protected
+resource metadata advertised at `/.well-known/oauth-protected-resource/mcp`.
 
-The MCP server exposes bounded AgentPay operations; it is not a general remote shell. Read operations may run without confirmation. Creating or changing products, rotating credentials, publishing a storefront, or initiating deployment requires explicit seller confirmation and an appropriately scoped credential.
+The MCP server exposes bounded AgentPay operations; it is not a general remote shell. Read operations may run without confirmation. Creating or changing products and publishing a storefront require explicit seller confirmation and an appropriately scoped MCP capability. Project-key rotation remains a seller-session operation in the dashboard/API and is never delegated to the MCP access-token audience; deployment authorization remains local to the seller environment.
 
 Generated integration code must use maintained AgentPay request-verification packages when available. Coding agents must not generate independent cryptographic protocols or place project credentials in browser code.
 
@@ -88,6 +97,9 @@ Packages may call each other through explicit interfaces. They must not write an
 M6 and M7 add package boundaries after their contracts are finalized:
 
 - `integrations`: project credentials, MCP operations, integration validation, and framework setup metadata.
+- `authorization`: project-key bootstrap exchange, capability verification,
+  current credential and entitlement checks, browser purchase sessions, and
+  JWKS publication.
 
 The `integrations/stacks` package owns deterministic, bounded repository
 evidence parsing and the explicit support matrix. It may identify multiple
@@ -137,18 +149,29 @@ Shared primitives and storage adapters remain organized by their concrete respon
 3. **Payment boundary:** only the payments package can access the test wallet or facilitator credentials.
 4. **Seller boundary:** forwarded requests are allowlisted by configured method and route, protected against SSRF, and signed for the seller.
 5. **Evidence boundary:** evidence writers may append but cannot update or delete objects; verification uses a separate read role.
-6. **Coding-agent boundary:** repository files, prompts, generated code, and MCP arguments are untrusted; write operations are scoped, validated, audited, and confirmed by the seller.
+6. **Coding-agent boundary:** repository files, prompts, generated code, local
+   MCP connectors, and MCP arguments are untrusted; project keys only bootstrap
+   short-lived cloud capabilities, and all operations are reauthorized in the
+   AgentPay control plane.
 7. **Browser-wallet boundary:** browser input and wallet responses are untrusted;
    only server-side x402 verification may advance payment state.
 8. **Webhook boundary:** subscriptions use validated public HTTPS destinations;
    deliveries are signed, bounded, retried, and protected against SSRF.
+9. **Discovery boundary:** signed manifests and seller-hosted discovery identify
+   candidate products but never authorize an intent, payment, or fulfillment.
+10. **Seller-execution boundary:** only AgentPay holds the ES256 private key that
+    can mint a transaction execution capability. Seller middleware receives
+    public JWKS verification material and cannot mint AgentPay authority.
 
 ## Seller launch lifecycle
 
-1. The seller creates a storefront and receives a project-scoped integration credential.
+1. The seller creates a storefront and receives a project-scoped bootstrap
+   credential, displayed once.
 2. The seller configures an asset-and-network-specific payment destination and
    proves control without disclosing a private key.
-3. The seller connects the AgentPay MCP server to a supported coding agent.
+3. The seller connects the AgentPay MCP server to a supported coding agent. A
+   local connector exchanges the project key for a 120-300 second MCP access
+   token; ordinary MCP requests never carry the project key.
 4. The coding agent inspects the local API contract and proposes products backed by concrete HTTPS routes.
 5. The agent adds maintained signature-verification middleware, server-only
    configuration, storefront code, technical SEO/AEO, agent discovery, and tests.
@@ -195,19 +218,59 @@ redirect until the product-slug API contract is implemented. Public navigation
 uses seller and product slugs; internal services continue to use immutable IDs
 for ownership and persistence.
 
+### Authorization surfaces
+
+- Seller browser sessions use Cognito-backed secure cookies and derive seller
+  ownership from claims.
+- Seller project keys are accepted only by
+  `POST /v1/integration-access-tokens`, which is a proprietary bootstrap
+  exchange and not an OAuth token endpoint.
+- MCP uses short-lived ES256 bearer capabilities with
+  `aud=urn:agentpay:mcp`, exact scopes, current credential state, and current
+  entitlement epoch.
+- Buyer agents use buyer credentials that are separate from seller project
+  keys.
+- Human product pages create a server-side browser purchase session bound to
+  seller, product, request hash, maximum amount, and browser channel. An opaque
+  HttpOnly cookie survives reloads; ten-minute commerce authority is separated
+  from longer-lived receipt/dispute access and can be recovered after payment
+  through proof from the bound payer wallet.
+- Approval invitation fragments are exchanged once into a browser grant set
+  represented by a Secure, HttpOnly, SameSite=Strict cookie. State-changing
+  approval and browser-purchase requests additionally require a double-submit
+  CSRF token and exact allowed Origin. One browser grant can hold multiple
+  independently scoped approval sessions.
+- Seller fulfillment uses a 30-60 second ES256 execution capability in
+  `X-AgentPay-Execution-Capability`; it is minted only after finalized payment
+  and the exactly-once forwarding claim.
+
+AgentPay publishes overlapping ES256 public keys at
+`/.well-known/jwks.json`. MCP access, discovery, and execution signatures pin
+their own type, audience/domain, and claim sets. Browser purchase and approval
+authority are opaque server-side grants rather than JWTs. A valid signature or
+cookie never replaces current entitlement, credential, ownership, state, CSRF,
+or replay checks.
+
 ## Purchase lifecycle
 
-1. The buyer reads the seller manifest.
-2. The buyer creates a purchase intent containing route, normalized input hash, quoted amount, currency, and expiration.
+1. The buyer reads a short-lived signed AgentPay manifest or product document.
+2. A buyer agent authenticates with its buyer credential; a browser creates a
+   bounded server-side purchase session for the selected product. Either channel creates a
+   purchase intent containing the immutable route, product snapshot, request
+   hash, destination, quote, channel, and expiration.
 3. The policy engine evaluates the immutable intent.
 4. If approval is required, the API creates a session and returns HTTP `428` with invitation metadata. No x402 challenge is issued yet.
-5. When all required users approve, the backend issues a short-lived approval token bound to the complete intent hash.
+5. When all required users approve, the purchase owner—not either approver—claims a short-lived approval token bound to the complete intent hash.
 6. The buyer requests the paid route with the intent identifier and optional approval token.
 7. The gateway returns an x402 challenge when payment is absent.
 8. The buyer retries with payment proof.
-9. The gateway verifies payment and atomically claims the intent for execution.
-10. Evidence is appended for verification, forwarding, response, and final outcome.
-11. The proxy forwards exactly once and returns the upstream response.
+9. The gateway rechecks current entitlement, verifies and settles payment, and
+   records finality.
+10. One conditional-write winner claims the finalized transaction for
+    forwarding and receives a one-time execution capability.
+11. Evidence is appended for verification, forwarding, response, and final outcome.
+12. The proxy forwards exactly once with the execution capability and returns
+    the upstream response.
 
 ## Consistency and idempotency
 
@@ -215,7 +278,7 @@ for ownership and persistence.
 - Purchase intents are immutable after creation.
 - Approval is bound to the intent hash, not only the intent ID.
 - Payment identifiers are globally unique in the transaction table.
-- A DynamoDB conditional write changes a transaction from `PAYMENT_VERIFIED` to `FORWARDED`; only the winner calls the seller.
+- A DynamoDB conditional write changes a transaction from `PAYMENT_VERIFIED` to `FORWARDED` only when `paymentFinality=finalized`, the expected version matches, and no forwarding owner exists; only the winner calls the seller.
 - Retried requests return the stored response metadata when replay is safe.
 
 ## Failure behavior
@@ -231,7 +294,10 @@ for ownership and persistence.
 | Expired approval | Require a new approval session before issuing another challenge. |
 | Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
-| Seller plan suspended | Return `403 permission_denied` before the control-plane or MCP operation mutates state. |
+| Seller entitlement inactive or expired | Return `403 subscription_inactive` for authenticated seller/MCP operations, `410 seller_inactive` for public discovery, and reject new intent, challenge, verification, and settlement authorization. |
+| Project key revoked or rotated | Deny bootstrap exchange; reject access tokens naming the revoked predecessor credential. |
+| Stale capability epoch | Return `401 token_revoked`; do not consume quota or perform the operation. |
+| Redis unavailable on a transaction-critical check | Fail closed with `503 dependency_unavailable`; public discovery may return only an unexpired signed document or inactive result. |
 | Monthly seller quota exhausted | Return `429 rate_limited`; do not execute the requested operation. |
 | Static route or webhook limit exhausted | Return `403 permission_denied`; do not create or publish the resource. |
 | Search metadata validation fails | Keep the storefront publishable only after the seller fixes or explicitly removes the invalid generated metadata. |

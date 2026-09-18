@@ -1,6 +1,6 @@
 # Seller webhook contract
 
-Status: **Locked for schema version 1**.
+Status: **Schema version 1 is the implemented M7 compatibility contract; version 2 is the locked M7.1 launch target**.
 
 AgentPay sends canonical JSON with these required fields:
 
@@ -19,6 +19,19 @@ Allowed event types are `payment.verified`, `fulfillment.succeeded`,
 `fulfillment.failed`, and `dispute.changed`. Payload fields are event-specific,
 allowlisted facts and never contain raw payment proofs, authorization headers,
 cookies, wallet material, or seller secrets.
+
+Schema version `2` keeps the same envelope and adds immutable purchase snapshot
+fields where relevant: `transactionId`, `intentId`, `routeId`,
+`productDisplayName`, `productSlug`, `purchaseChannel`, `paymentRail`, `amount`,
+`asset`, `network`, `paymentDestinationId`, transaction status, payment
+finality, and safe payment reference. Version `1` remains readable during the
+compatibility window. No webhook contains a project key, MCP access token,
+browser purchase cookie, approval invitation/cookie/token, execution capability,
+payment identifier, raw proof, payout address, or unrestricted seller response.
+
+Webhook HMAC authenticates delivery to a configured receiver only. It does not
+authorize MCP use, discovery publication, payment, transaction execution, or
+seller fulfillment, and it is independent of the ES256 capability JWKS.
 
 Each request includes `X-AgentPay-Webhook-Id`, `X-AgentPay-Webhook-Timestamp`,
 and `X-AgentPay-Webhook-Signature`. The signature is base64 HMAC-SHA256 over:

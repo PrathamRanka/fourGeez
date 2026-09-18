@@ -19,6 +19,12 @@ Run without AWS or network access.
 - Purchase-intent validation and expiration.
 - Policy threshold boundary: below, equal, and above.
 - Approval approve/approve, approve/veto, duplicate decision, wrong invitation, expiration, and changed intent.
+- Approval fragment exchange, concurrent grant-set bindings, CSRF/Origin
+  rejection, WebSocket Origin checks, and purchase-owner-only completion-token
+  issuance/reissuance.
+- Browser purchase commerce/access expiry boundaries, reload persistence,
+  single-intent consumption, payer-wallet binding, one-time recovery challenge,
+  and recovery that cannot restore payment authority.
 - Every legal and illegal transaction state transition.
 - Evidence chain construction and tamper detection.
 - Every dispute rule and fallback to seller review.
@@ -46,13 +52,24 @@ Run without AWS or network access.
 - Reject undocumented fields on control-plane JSON requests.
 - Verify required authentication and idempotency headers.
 - Snapshot machine error codes, not prose-only messages.
+- Validate receipt schemas 1 and 2 independently and reject a version-1
+  document containing required version-2 semantics.
+- Assert every authenticated commerce/approval operation documents its
+  applicable 401, 403, 404, 409, 410, 422, 428, 429, and 503 outcomes.
+- Validate MCP protected-resource metadata and the `WWW-Authenticate`
+  resource-metadata challenge independently from the proprietary project-key
+  bootstrap endpoint.
 
 ### Integration tests
 
 Run against local in-memory repositories first, then DynamoDB/S3/KMS in a disposable AWS development environment.
 
 - Idempotency records return the original result for the same request hash and reject key reuse with a different hash.
-- DynamoDB conditional writes permit one forwarding claimant.
+- Credential rotation retries recover the same KMS envelope-encrypted response
+  during the replay window; after expiry they identify the committed successor
+  without reviving the predecessor.
+- DynamoDB conditional writes permit one forwarding claimant only when status
+  is `PAYMENT_VERIFIED` and `paymentFinality=finalized`.
 - S3 event objects are append-only and verify against KMS signatures.
 - WebSocket reconnect receives a complete session snapshot.
 - Facilitator timeout and rejection never call the seller.
@@ -99,6 +116,12 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     evidence remain authoritative.
 13. Generate a supported-stack storefront and validate canonical metadata,
     structured data, sitemap, robots, manifest, and `llms.txt` consistency.
+14. Reload during browser checkout, complete payment, later recover receipt and
+    dispute access with the finalized payer wallet, and prove recovery cannot
+    create a second intent or payment.
+15. Exchange multiple approval invitations in one browser, decide each with
+    CSRF protection, and prove only each purchase owner can claim its completion
+    token.
 
 ## Web quality checks
 

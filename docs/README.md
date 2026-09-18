@@ -12,9 +12,24 @@ M8 infrastructure and M9 release verification have not started. Until those
 milestones pass, AgentPay supports local mock and x402 testnet use only and must
 not be represented as a production-ready paid service.
 
-The API contracts describe the currently implemented pre-M7.1 wire behavior
-until their numbered M7.1 contract tasks update them. The complete gap analysis
-and reference security design are recorded in
+OpenAPI 0.4 and the LCH-004 companion contracts are the locked M7.1 production
+target, not a claim about the current binary. They are marked target-state and
+must be enabled only after their dependent implementation and migration tests
+pass. The current Go runtime remains a development-only M7 compatibility
+baseline:
+
+| Surface | Current M7 development behavior | Required M7.1 production target |
+|---|---|---|
+| Seller project credential | `apc1` credential used directly by MCP | `apc2` bootstrap through `/v1/integration-access-tokens`; connector or OAuth access token at `/mcp` |
+| Approval invitation | Query token | Fragment exchange into multi-session HttpOnly grant plus CSRF |
+| Browser purchase | Buyer-agent key only | Durable opaque purchase cookie, bounded commerce window, and payer-wallet recovery |
+| Seller forwarding | Per-seller HMAC | Finality-gated ES256 execution capability |
+| Seller entitlement | `active`/`suspended` plan projection | Full entitlement projection and epoch checks |
+| Receipts and invoice exports | Schema version 1 | Version-aware readers with launch writers on schema version 2 |
+
+No production environment may expose a mixed mode in which a target endpoint
+accepts a legacy credential or a legacy endpoint bypasses target authorization.
+The complete gap analysis and reference security design are recorded in
 [`../scripts/flaws.md`](../scripts/flaws.md).
 
 ## Authoritative documents
@@ -34,6 +49,7 @@ and reference security design are recorded in
 | [api/asyncapi.yaml](api/asyncapi.yaml) | WebSocket event contract |
 | [api/mcp.md](api/mcp.md) | Remote MCP transport, authentication, and resource contract |
 | [api/webhooks.md](api/webhooks.md) | Seller webhook event envelope and signature contract |
+| [api/receipts.md](api/receipts.md) | Versioned buyer and seller purchase receipt contract |
 | [SELLER_VERIFICATION.md](SELLER_VERIFICATION.md) | Versioned seller-request verification package contract |
 | [SETUP_BUNDLES.md](SETUP_BUNDLES.md) | Versioned coding-agent setup resources and prompt contract |
 | [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md) | Pre-publication seller integration validation contract |

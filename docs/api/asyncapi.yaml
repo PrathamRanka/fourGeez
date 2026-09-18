@@ -1,13 +1,24 @@
 asyncapi: 3.1.0
 info:
   title: AgentPay approval events
-  version: 0.1.0
-  description: WebSocket updates for a single approval session. REST remains the source of truth.
+  version: 0.2.0
+  description: |
+    This is the locked M7.1 production target; the M7 development runtime still
+    uses query-token authentication until its approval migration task lands.
+    WebSocket updates for one approval session. REST remains the source of truth.
+    Invitation secrets are delivered in URL fragments and exchanged once over
+    REST into a server-side grant set represented by a Secure, HttpOnly,
+    SameSite=Strict cookie. Query-string tokens are forbidden. The WebSocket
+    upgrade authenticates that cookie, requires the exact configured approval
+    Origin, and selects the grant bound to the sessionId in the channel path.
 servers:
   local:
     host: localhost:8080
     protocol: ws
     pathname: /ws
+    security:
+      - $ref: '#/components/securitySchemes/approvalCookie'
+    description: Local development server. Production uses WSS on the approval web origin.
 channels:
   approvalSession:
     address: /approval-sessions/{sessionId}
@@ -23,8 +34,27 @@ operations:
   receiveApprovalEvents:
     action: receive
     channel: { $ref: '#/channels/approvalSession' }
-    summary: Receive approval session updates after authenticating with an invitation token.
+    summary: Receive approval updates after authenticating with the exchanged invitation cookie.
+    description: |
+      Before upgrade, the server validates the cookie, session binding,
+      approver binding, invitation expiry, session expiry, and exact Origin. It returns 401
+      invalid_credential for a missing or invalid cookie, 403 permission_denied
+      for a session mismatch, 410 invitation_expired for expired authority, 429
+      rate_limited when connection limits are exceeded, and 503
+      dependency_unavailable when authorization state cannot be established.
+      After upgrade, authorization expiry closes the connection with code 4401;
+      a session mismatch closes with 4403; normal session completion closes with
+      1000. Reconnect repeats authorization and receives a full snapshot.
+      A session.resolved event never contains an approval token. The buyer agent
+      or browser purchase owner observes the resolved state and claims its
+      short-lived token through the REST completion-token endpoint.
 components:
+  securitySchemes:
+    approvalCookie:
+      type: httpApiKey
+      in: cookie
+      name: __Host-agentpay_approvals
+      description: Opaque browser grant set containing independently bounded approval grants established by one-time REST invitation exchanges.
   messages:
     SessionSnapshot:
       name: session.snapshot

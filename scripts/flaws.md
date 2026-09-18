@@ -38,6 +38,9 @@ tests pass.
 - `README.md` and the authoritative documentation now identify M0–M7 as a
   development preview and M7.1 as mandatory launch hardening. Remaining
   contract and implementation work must preserve that distinction.
+- OpenAPI 0.4 and its LCH-004 companion documents are the M7.1 target contract,
+  not the behavior of the current M7 binary. The legacy and target modes must
+  never be partially mixed in production.
 - AWS infrastructure, Cognito, deployment, and the M9 release gates are still
   incomplete.
 
@@ -687,24 +690,33 @@ seller-hosted service. The preferred installation consists of:
 
 1. project configuration that points the seller's coding agent to AgentPay's
    remote cloud MCP endpoint;
-2. a project API key or OAuth client credential stored in a server-side secret
-   store or environment variable;
+2. either a project API key stored in a server-side secret store for the
+   mandatory AgentPay connector, or a direct standards-compatible OAuth grant
+   that never exposes a project key to the MCP host;
 3. repository-local generated integration files and public discovery metadata;
 4. a small AgentPay request-verification package in the seller's application;
    and
-5. an optional local MCP connector that only proxies bounded tool calls to the
-   cloud MCP and caches non-authoritative documentation.
+5. the AgentPay local MCP connector when project-key bootstrap is used; direct
+   OAuth-capable MCP clients may omit it.
 
-The optional connector must not contain subscription policy, signing keys,
-payment verification authority, publication authority, or transaction state.
-Every privileged operation still calls AgentPay's cloud control plane.
+The connector must not contain subscription policy, signing keys, payment
+verification authority, publication authority, or transaction state. Every
+privileged operation still calls AgentPay's cloud control plane.
+
+Project-key bootstrap makes the connector mandatory for that installation
+mode. A standards-compatible host may instead connect directly to `/mcp` using
+OAuth authorization discovered through
+`/.well-known/oauth-protected-resource/mcp`; it never receives a seller project
+key. Missing or invalid MCP bearer authentication returns `401` with a
+`WWW-Authenticate` challenge naming that protected-resource metadata URL.
 
 ### Non-negotiable invariants
 
 1. The seller API key is a bootstrap credential, not a permanent transaction
    capability.
-2. The API key is accepted only by the cloud token-exchange endpoint and
-   explicit key-management endpoints.
+2. The API key is accepted only by the cloud
+   `/v1/integration-access-tokens` bootstrap endpoint; key-management endpoints
+   require the authenticated seller session.
 3. MCP and control-plane requests use short-lived signed access tokens.
 4. Every privileged request validates the current seller entitlement, not only
    the token signature and expiry.
@@ -824,9 +836,12 @@ Seller MCP host or local connector
 
 Buyer agent or browser
   -> read public discovery
+  -> buyer agent authenticates with its own key, or browser receives an opaque
+     HttpOnly purchase grant plus double-submit CSRF cookie
   -> create immutable intent in AgentPay cloud
   -> cloud checks active seller, published route, frozen quote, wallet, policy
-  -> optional approval completes
+  -> optional approval completes; approvers receive no payment authority
+  -> the authenticated purchase owner claims the short-lived approval token
   -> AgentPay paid URL returns the x402 payment requirement
   -> buyer retries with PAYMENT-SIGNATURE
   -> cloud rechecks seller entitlement and frozen intent
@@ -852,8 +867,10 @@ Use distinct tokens for distinct purposes:
 | Token | Audience | Lifetime | Purpose |
 |---|---|---:|---|
 | Project API key | Token endpoint only | Long-lived until rotation/revocation | Bootstrap machine identity |
-| MCP access token | `agentpay-mcp` | 2-5 minutes | Scoped MCP/control API access |
+| MCP access token | `urn:agentpay:mcp` | 2-5 minutes | Scoped MCP/control API access |
 | Seller web session | `agentpay-dashboard` | Short access plus managed refresh | Human dashboard access |
+| Browser purchase grant | Server-side opaque cookie | 10-minute commerce window; read access until 30 days after terminal outcome or dispute resolution | One browser purchase with reload-safe receipt/dispute access |
+| Approval grant set | Server-side opaque cookie | Per invitation/session expiry | Concurrent approval sessions with CSRF-protected decisions |
 | Discovery signature | Public verifiers | 1-5 minutes for availability | Authentic but non-authoritative catalog hint |
 | Execution capability | Exact seller service | 30-60 seconds, one use | Fulfill one finalized transaction |
 | Webhook signature | Seller webhook endpoint | Timestamp-bounded | Authenticate one event payload |
@@ -863,13 +880,13 @@ An MCP access token should contain only bounded claims:
 ```json
 {
   "iss": "https://api.agentpay.example",
-  "aud": "agentpay-mcp",
-  "sub": "credential:key_...",
+  "aud": "urn:agentpay:mcp",
+  "sub": "key_...",
   "sellerId": "sel_...",
   "credentialId": "key_...",
-  "scopes": ["read", "configure"],
+  "scope": "read configure",
   "entitlementEpoch": 42,
-  "jti": "tok_...",
+  "jti": "cap_...",
   "iat": 1789728000,
   "exp": 1789728300
 }
@@ -880,16 +897,30 @@ Middleware must compare `entitlementEpoch` with the current cloud value. API-key
 revocation, subscription suspension, account closure, and administrator lock
 increment that epoch, causing already-issued access tokens to fail immediately.
 
+Browser and approval authorization are not JavaScript-readable JWTs. They use
+opaque Secure, HttpOnly, SameSite=Strict cookies backed by server-side grants,
+plus separate non-HttpOnly CSRF cookies whose values must match
+`X-AgentPay-CSRF` and an exact allowlisted Origin on every state-changing
+request. A browser grant may contain multiple approval sessions. Finalized x402
+payment binds the payer wallet to the purchase session, allowing a one-time
+wallet-signature challenge to recover only receipt/evidence/dispute access after
+cookie loss; recovery never restores intent or payment authority.
+
 ### API-key design
 
 - Generate at least 256 bits of random secret material.
-- Format keys so the public lookup identifier is separate from the secret. The
-  current format is `apc1.<sellerId>.<credentialId>.<randomSecret>`; LCH-004
-  and LCH-011 must either retain it or document a versioned migration before
-  implementation.
+- Format keys so the public lookup identifier is separate from the secret. New
+  production keys use `apc2.<credentialId>.<randomSecret>`; existing
+  `apc1.<sellerId>.<credentialId>.<randomSecret>` keys are migration-only and
+  must be replaced by explicit rotation before production activation.
 - Show the raw key once.
 - Store only a keyed digest of the secret and metadata such as seller, scopes,
   status, expiry, created time, last-used time, and version.
+- Make rotation retry-safe: atomically create the successor and revoke the
+  predecessor, then retain the committed response secret only as seller- and
+  request-bound KMS envelope-encrypted idempotency data for at most ten minutes.
+  After that window, a lost-response retry returns the successor ID and requires
+  rotating that successor; it never revives the predecessor.
 - Use a server-side pepper from KMS/Secrets Manager and constant-time digest
   comparison.
 - Do not accept the API key directly as a transaction or execution credential.
@@ -1005,6 +1036,8 @@ export type IntegrationScope =
   | "publish"
   | "rotate";
 
+export type McpScope = Exclude<IntegrationScope, "rotate">;
+
 export type Entitlement = {
   sellerId: string;
   status: SubscriptionStatus;
@@ -1025,7 +1058,7 @@ export type ApiCredential = {
 export type CapabilityClaims = {
   sellerId: string;
   credentialId: string;
-  scopes: IntegrationScope[];
+  scope: string;
   entitlementEpoch: number;
   jti: string;
 };
@@ -1067,10 +1100,9 @@ export interface CredentialRepository {
   touchLastUsed(credentialId: string, usedAt: string): Promise<void>;
 }
 
-const prefix = "apc1.";
+const prefix = "apc2.";
 
 export function generateApiKey(
-  sellerId: string,
   credentialId: string,
 ): {
   rawKey: string;
@@ -1078,7 +1110,7 @@ export function generateApiKey(
 } {
   const secret = randomBytes(32).toString("base64url");
   return {
-    rawKey: `${prefix}${sellerId}.${credentialId}.${secret}`,
+    rawKey: `${prefix}${credentialId}.${secret}`,
     secretDigestInput: secret,
   };
 }
@@ -1095,27 +1127,24 @@ function constantTimeEqualHex(left: string, right: string): boolean {
 }
 
 function parseApiKey(rawKey: string): {
-  sellerId: string;
   credentialId: string;
   secret: string;
 } {
   if (!rawKey.startsWith(prefix)) {
     throw new AuthorizationError("invalid_credential", "Invalid API key.");
   }
-  const [version, sellerId, credentialId, secret, ...remainder] =
-    rawKey.split(".");
+  const [version, credentialId, secret, ...remainder] = rawKey.split(".");
   if (
-    version !== "apc1" ||
-    !sellerId?.startsWith("sel_") ||
+    version !== "apc2" ||
     !credentialId?.startsWith("key_") ||
     remainder.length > 0
   ) {
     throw new AuthorizationError("invalid_credential", "Invalid API key.");
   }
-  if (!credentialId || secret.length < 40) {
+  if (!credentialId || !secret || secret.length < 40) {
     throw new AuthorizationError("invalid_credential", "Invalid API key.");
   }
-  return { sellerId, credentialId, secret };
+  return { credentialId, secret };
 }
 
 export class ApiKeyService {
@@ -1267,7 +1296,7 @@ import type {
 } from "../domain/types.js";
 
 const issuer = "https://api.agentpay.example";
-const audience = "agentpay-mcp";
+const audience = "urn:agentpay:mcp";
 const accessLifetimeSeconds = 300;
 
 export class CapabilityTokenService {
@@ -1285,14 +1314,20 @@ export class CapabilityTokenService {
     return new SignJWT({
       sellerId: credential.sellerId,
       credentialId: credential.credentialId,
-      scopes: credential.scopes,
+      scope: credential.scopes
+        .filter((scope) => scope !== "rotate")
+        .join(" "),
       entitlementEpoch,
     })
-      .setProtectedHeader({ alg: "ES256", kid: this.keyId, typ: "at+jwt" })
+      .setProtectedHeader({
+        alg: "ES256",
+        kid: this.keyId,
+        typ: "agentpay-access+jwt",
+      })
       .setIssuer(issuer)
       .setAudience(audience)
-      .setSubject(`credential:${credential.credentialId}`)
-      .setJti(randomUUID())
+      .setSubject(credential.credentialId)
+      .setJti(`cap_${randomUUID().replaceAll("-", "")}`)
       .setIssuedAt(now)
       .setExpirationTime(now + accessLifetimeSeconds)
       .sign(this.signingKey);
@@ -1318,8 +1353,7 @@ function parseClaims(payload: JWTPayload): CapabilityClaims & {
     typeof payload.sellerId !== "string" ||
     typeof payload.credentialId !== "string" ||
     typeof payload.entitlementEpoch !== "number" ||
-    !Array.isArray(payload.scopes) ||
-    !payload.scopes.every((scope) => typeof scope === "string")
+    typeof payload.scope !== "string"
   ) {
     throw new Error("Invalid capability claims.");
   }
@@ -1329,7 +1363,7 @@ function parseClaims(payload: JWTPayload): CapabilityClaims & {
     sellerId: payload.sellerId,
     credentialId: payload.credentialId,
     entitlementEpoch: payload.entitlementEpoch,
-    scopes: payload.scopes as CapabilityClaims["scopes"],
+    scope: payload.scope,
   };
 }
 ```
@@ -1418,7 +1452,7 @@ export function requireCapability(
     }
 
     const claims = await dependencies.tokens.verify(authorization.slice(7));
-    if (!claims.scopes.includes(requiredScope)) {
+    if (!claims.scope.split(" ").includes(requiredScope)) {
       return reply.code(403).send({
         error: { code: "permission_denied", message: "Scope is not allowed." },
       });
@@ -1463,14 +1497,17 @@ export class AgentPayTokenClient {
     }
 
     const response = await fetch(
-      `${this.cloudOrigin}/v1/integration-token-exchanges`,
+      `${this.cloudOrigin}/v1/integration-access-tokens`,
       {
       method: "POST",
       headers: {
-        "X-AgentPay-API-Key": this.apiKey,
+        "X-AgentPay-Project-Key": this.apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ grantType: "client_credentials" }),
+      body: JSON.stringify({
+        audience: "urn:agentpay:mcp",
+        scopes: ["read", "configure", "publish", "validate"],
+      }),
         signal: AbortSignal.timeout(8_000),
       },
     );
@@ -2020,7 +2057,8 @@ Before implementation, update the authoritative documents and code contracts:
 - update OpenAPI, MCP, data model, architecture, security, test plan, runbooks,
   and implementation order together; and
 - implement the authoritative services in Go, then align the Node verification
-  package and optional local connector with the same wire contracts.
+  package and the project-key connector with the same wire contracts, while
+  preserving direct OAuth interoperability for standards-compatible MCP hosts.
 
 ### Why a fork cannot bypass AgentPay
 

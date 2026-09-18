@@ -1,12 +1,22 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.3.6
+  version: 0.4.0
   description: |
     Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
-    Authenticated seller-scoped control-plane operations may return 403 permission_denied
-    when the assigned plan is suspended or a static entitlement is exhausted, and 429
-    rate_limited when a monthly API quota is exhausted.
+    Version 0.4.0 is the locked production target contract for M7.1. The current
+    M7 Go runtime remains on the documented development compatibility baseline
+    until the dependent LCH implementation tasks land. Production deployment
+    must not advertise or partially enable this target contract before every
+    authorization and persistence precondition is implemented.
+    Seller project keys are proprietary bootstrap credentials accepted only by
+    POST /v1/integration-access-tokens; this is not an OAuth token endpoint.
+    Project-key installations use the AgentPay connector. Direct remote MCP
+    clients use the standards-compatible authorization metadata advertised for
+    /mcp. Ordinary MCP requests use short-lived ES256 access tokens. Browser
+    purchase sessions and buyer-agent keys are distinct from seller credentials.
+  x-agentpay-contract-stage: target-state
+  x-agentpay-runtime-baseline: m7-development-preview
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -22,6 +32,8 @@ tags:
     description: Seller onboarding, route configuration, and transaction views.
   - name: Integrations
     description: Seller-scoped credentials used by MCP and coding-agent integrations.
+  - name: Authorization
+    description: Project-key bootstrap, public keys, browser purchase sessions, and approval invitation exchange.
   - name: Settlement
     description: Seller payment destinations and reconciliation configuration.
   - name: Storefront
@@ -41,6 +53,88 @@ tags:
   - name: Proxy
     description: x402-protected forwarding to configured seller APIs.
 paths:
+  /.well-known/oauth-protected-resource/mcp:
+    get:
+      summary: Get OAuth protected-resource metadata for the remote MCP server
+      tags: [Authorization]
+      operationId: getMcpProtectedResourceMetadata
+      security: []
+      responses:
+        '200':
+          description: RFC 9728 metadata used by standards-compatible remote MCP clients
+          headers:
+            Cache-Control: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthProtectedResourceMetadata' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /.well-known/jwks.json:
+    get:
+      summary: Get AgentPay capability verification keys
+      tags: [Authorization]
+      operationId: getCapabilityJwks
+      security: []
+      responses:
+        '200':
+          description: Current and overlapping-rotation ES256 public keys
+          headers:
+            Cache-Control: { schema: { type: string } }
+          content:
+            application/jwk-set+json:
+              schema: { $ref: '#/components/schemas/JsonWebKeySet' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/integration-access-tokens:
+    post:
+      summary: Exchange a seller project key for a short-lived MCP access token
+      description: Proprietary AgentPay bootstrap exchange; this endpoint is not OAuth and accepts no OAuth grant type.
+      tags: [Authorization, Integrations]
+      operationId: exchangeProjectKey
+      security: [{ projectKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IntegrationAccessTokenRequest' }
+      responses:
+        '200':
+          description: Short-lived seller-scoped MCP access capability
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Pragma: { schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrationAccessTokenResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/approval-invitations/exchange:
+    post:
+      summary: Exchange one approval invitation fragment token for an approval cookie
+      tags: [Authorization, Approvals]
+      operationId: exchangeApprovalInvitation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalInvitationExchangeRequest' }
+      responses:
+        '204':
+          description: Invitation accepted and added to the browser's server-side approval grant set
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: Repeated header setting the opaque __Host-agentpay_approvals authorization cookie and non-HttpOnly __Host-agentpay_approval_csrf double-submit cookie; both use Secure, SameSite=Strict, Path=/, and no Domain.
+            Cache-Control: { schema: { type: string, const: no-store } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /health:
     get:
       summary: Check service health
@@ -81,7 +175,11 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/SellerCreated' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/plans:
     get:
       summary: List versioned seller plans and operational entitlements
@@ -106,6 +204,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/plan:
     get:
       summary: Get the authenticated seller plan assignment
@@ -121,9 +220,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SellerPlanResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/invoice-export:
     get:
       summary: Export immutable AgentPay usage for external invoicing
@@ -147,8 +248,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/InvoiceExport' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/audit-events:
     get:
       summary: List immutable seller audit history
@@ -166,7 +271,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AuditEventPage' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes:
     get:
       summary: List paid routes owned by a seller
@@ -189,7 +298,11 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
     post:
       summary: Add a paid route to a seller
       tags: [Sellers]
@@ -210,10 +323,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/payment-destinations:
     get:
       summary: List seller payment destinations
@@ -236,7 +351,11 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/PaymentDestination' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
     post:
       summary: Create a pending seller payment destination
       tags: [Sellers, Settlement]
@@ -257,8 +376,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentDestination' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/payment-destinations/{destinationId}:
     get:
       summary: Get one seller payment destination
@@ -275,7 +398,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentDestination' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/payment-destinations/{destinationId}/ownership-challenges:
     post:
       summary: Create a one-time payment-destination ownership challenge
@@ -295,8 +422,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OwnershipChallenge' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/payment-destinations/{destinationId}/verify:
     post:
       summary: Verify ownership and activate a payment destination
@@ -320,10 +451,14 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentDestination' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '410': { $ref: '#/components/responses/Gone' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/webhook-subscriptions:
     get:
       summary: List seller webhook subscriptions
@@ -346,7 +481,11 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/WebhookSubscription' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
     post:
       summary: Create a seller webhook subscription
       tags: [Sellers]
@@ -369,8 +508,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WebhookSubscriptionCreated' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/webhook-deliveries:
     get:
       summary: List seller webhook delivery history
@@ -396,7 +539,11 @@ paths:
                     items: { $ref: '#/components/schemas/WebhookDelivery' }
                   nextCursor: { type: [string, 'null'] }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/webhook-deliveries/{deliveryId}/redeliver:
     post:
       summary: Redeliver one dead-letter webhook with its original event identity
@@ -414,8 +561,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WebhookDelivery' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/integration-credentials:
     get:
       summary: List redacted seller integration credentials
@@ -437,7 +588,11 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/IntegrationCredential' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
     post:
       summary: Create a seller-scoped integration credential
       tags: [Integrations]
@@ -460,8 +615,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/IntegrationCredentialCreated' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/integration-credentials/{credentialId}/revoke:
     post:
       summary: Revoke a seller integration credential
@@ -489,8 +648,47 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/IntegrationCredential' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/sellers/{sellerId}/integration-credentials/{credentialId}/rotate:
+    post:
+      summary: Atomically replace and revoke a seller project credential
+      description: Creates one successor, revokes the predecessor, and returns the successor secret once. Exact idempotent retries can recover the same response for ten minutes from KMS envelope-encrypted response material. A failure before commit leaves the predecessor valid; after the replay window, a lost response requires rotating the committed successor.
+      tags: [Integrations]
+      operationId: rotateIntegrationCredential
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/CredentialId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RotateIntegrationCredentialRequest' }
+      responses:
+        '201':
+          description: Successor credential and one-time raw project key
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrationCredentialRotation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: State or idempotency conflict. When a committed rotation response has expired, error.details includes successorCredentialId and recoveryAction=rotate_successor; the predecessor remains revoked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes/{routeId}:
     get:
       summary: Get one seller-owned paid route
@@ -507,7 +705,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
     patch:
       summary: Update the price used by future purchase intents
       tags: [Sellers]
@@ -529,8 +731,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes/{routeId}/validation:
     get:
       summary: Validate one paid route against current publication requirements
@@ -547,7 +753,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/RouteValidationResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes/{routeId}/publish:
     post:
       summary: Publish or resume a validated paid route
@@ -570,9 +780,13 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes/{routeId}/pause:
     post:
       summary: Pause a published paid route
@@ -595,8 +809,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes/{routeId}/archive:
     post:
       summary: Permanently archive a non-published paid route
@@ -619,8 +837,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/routes/{routeId}/emergency-disable:
     post:
       summary: Immediately disable a published paid route
@@ -643,8 +865,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/transactions:
     get:
       summary: List transactions for a seller
@@ -679,7 +905,11 @@ paths:
                     items: { $ref: '#/components/schemas/Transaction' }
                   nextCursor: { type: [string, 'null'] }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/dashboard-summary:
     get:
       summary: Get bounded seller sales aggregates
@@ -701,15 +931,21 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DashboardSummary' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/intents:
     post:
       summary: Create an immutable purchase intent
       tags: [Intents]
       operationId: createPurchaseIntent
-      security: [{ agentApiKey: [] }]
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/PurchaseCsrfToken' }
       requestBody:
         required: true
         content:
@@ -722,13 +958,20 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PurchaseIntent' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/intents/{intentId}:
     get:
       summary: Get a purchase intent
       tags: [Intents]
       operationId: getPurchaseIntent
-      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }, { sellerBearer: [] }]
       parameters: [{ $ref: '#/components/parameters/IntentId' }]
       responses:
         '200':
@@ -736,16 +979,21 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PurchaseIntent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/intents/{intentId}/approval-sessions:
     post:
       summary: Start a two-person approval session
       tags: [Approvals]
       operationId: createApprovalSession
-      security: [{ agentApiKey: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
       parameters:
         - { $ref: '#/components/parameters/IntentId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/PurchaseCsrfToken' }
       requestBody:
         required: true
         content:
@@ -769,14 +1017,21 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApprovalSessionCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/approval-sessions/{sessionId}:
     get:
       summary: Get the current approval snapshot
       tags: [Approvals]
       operationId: getApprovalSession
-      security: [{ agentApiKey: [] }, { approvalInvite: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }, { approvalCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/SessionId' }]
       responses:
         '200':
@@ -784,16 +1039,22 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApprovalSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/approval-sessions/{sessionId}/decisions:
     post:
       summary: Approve or veto a purchase
       tags: [Approvals]
       operationId: decideApproval
-      security: [{ approvalInvite: [] }]
+      security: [{ approvalCookie: [] }]
       parameters:
         - { $ref: '#/components/parameters/SessionId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/ApprovalCsrfToken' }
       requestBody:
         required: true
         content:
@@ -805,23 +1066,52 @@ paths:
                 decision: { type: string, enum: [approve, veto] }
       responses:
         '200':
-          description: Updated approval snapshot; approvalToken is returned only when the session first resolves approved
+          description: Updated approval snapshot; approval authority is never returned to an approver
           content:
             application/json:
-              schema:
-                allOf:
-                  - { $ref: '#/components/schemas/ApprovalSession' }
-                  - type: object
-                    properties:
-                      approvalToken: { type: string }
+              schema: { $ref: '#/components/schemas/ApprovalSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/approval-sessions/{sessionId}/completion-tokens:
+    post:
+      summary: Claim approval authority after the approval session resolves
+      description: Only the buyer agent or browser purchase session that owns the intent may claim this short-lived token. Approvers never receive it. Exact idempotent retries return the same token from short-lived KMS envelope-encrypted response material; a new issuance invalidates the prior unconsumed token.
+      tags: [Authorization, Approvals]
+      operationId: createApprovalCompletionToken
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SessionId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/PurchaseCsrfToken' }
+      responses:
+        '201':
+          description: Short-lived approval token bound to the complete intent hash
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalCompletionToken' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/transactions/{transactionId}:
     get:
       summary: Get a transaction and its evidence chain
       tags: [Transactions]
       operationId: getTransaction
-      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }, { sellerBearer: [] }]
       parameters: [{ $ref: '#/components/parameters/TransactionId' }]
       responses:
         '200':
@@ -841,13 +1131,17 @@ paths:
                       events:
                         type: array
                         items: { $ref: '#/components/schemas/EvidenceEvent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/transactions/{transactionId}/receipt:
     get:
       summary: Download a verified machine-readable purchase receipt
       tags: [Transactions]
       operationId: downloadPurchaseReceipt
-      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }, { sellerBearer: [] }]
       parameters: [{ $ref: '#/components/parameters/TransactionId' }]
       responses:
         '200':
@@ -858,15 +1152,21 @@ paths:
           content:
             application/vnd.agentpay.receipt+json:
               schema: { $ref: '#/components/schemas/PurchaseReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/disputes:
     post:
       summary: Open and classify a dispute
       tags: [Disputes]
       operationId: createDispute
-      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }, { sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/PurchaseCsrfToken' }
       requestBody:
         required: true
         content:
@@ -878,14 +1178,21 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dispute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/disputes/{disputeId}:
     get:
       summary: Get a dispute
       tags: [Disputes]
       operationId: getDispute
-      security: [{ agentApiKey: [] }, { sellerBearer: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }, { sellerBearer: [] }]
       parameters:
         - name: disputeId
           in: path
@@ -897,7 +1204,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dispute' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /store/{slug}/manifest.json:
     get:
       summary: Get a storefront manifest
@@ -911,11 +1222,18 @@ paths:
           schema: { type: string, pattern: '^[a-z0-9-]+$' }
       responses:
         '200':
-          description: Machine-readable paid route manifest
+          description: Short-lived signed active storefront discovery document
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/StorefrontManifest' }
+              schema: { $ref: '#/components/schemas/SignedStorefrontManifest' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: Known storefront is inactive; the signed tombstone contains no products
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignedStorefrontTombstone' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /store/{slug}/llms.txt:
     get:
       summary: Get the storefront agent-discovery document
@@ -934,6 +1252,121 @@ paths:
             text/plain:
               schema: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/storefronts/{sellerSlug}/products/{productSlug}:
+    get:
+      summary: Resolve one active public product by seller and product slug
+      tags: [Storefront]
+      operationId: getPublicProduct
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/SellerSlug' }
+        - { $ref: '#/components/parameters/ProductSlug' }
+      responses:
+        '200':
+          description: Signed public product document; discovery does not authorize a purchase
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignedPublicProductDocument' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/storefronts/{sellerSlug}/products/{productSlug}/purchase-sessions:
+    post:
+      summary: Create a bounded browser purchase session for one public product
+      description: Creates an opaque server-side browser grant distinct from seller sessions, project keys, and buyer-agent keys. Its commerce authority expires within ten minutes. After finalized payment, read/recovery authority lasts until 30 days after terminal fulfillment/failure or a timely dispute's resolution.
+      tags: [Authorization, Storefront]
+      operationId: createBrowserPurchaseSession
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/SellerSlug' }
+        - { $ref: '#/components/parameters/ProductSlug' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBrowserPurchaseSessionRequest' }
+      responses:
+        '201':
+          description: Browser purchase session with durable same-origin authorization cookies
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Set-Cookie:
+              schema: { type: string }
+              description: Repeated header setting opaque __Host-agentpay_purchase authorization and non-HttpOnly __Host-agentpay_purchase_csrf double-submit cookies; both use Secure, SameSite=Strict, Path=/, and no Domain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserPurchaseSessionCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/browser-purchases/{purchaseSessionId}/recovery-challenges:
+    post:
+      summary: Create a wallet-bound browser purchase recovery challenge
+      description: Available only after a verified payer wallet has been bound to the purchase session. It grants no commerce authority.
+      tags: [Authorization]
+      operationId: createBrowserPurchaseRecoveryChallenge
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/PurchaseSessionId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrowserPurchaseRecoveryChallengeRequest' }
+      responses:
+        '201':
+          description: Short-lived wallet-signature challenge
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserPurchaseRecoveryChallenge' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/browser-purchases/{purchaseSessionId}/recover:
+    post:
+      summary: Restore read and remediation access to a browser purchase
+      description: Verifies a one-time challenge against the wallet bound by finalized payment and restores only transaction, receipt, evidence, and dispute authority. It cannot create another intent or payment.
+      tags: [Authorization]
+      operationId: recoverBrowserPurchase
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/PurchaseSessionId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecoverBrowserPurchaseRequest' }
+      responses:
+        '204':
+          description: Browser purchase authorization restored
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Set-Cookie:
+              schema: { type: string }
+              description: Repeated header restoring opaque __Host-agentpay_purchase authorization and __Host-agentpay_purchase_csrf cookies.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /pay/{slug}/{proxyPath}:
     parameters:
       - name: slug
@@ -957,28 +1390,75 @@ paths:
         in: header
         required: false
         schema: { type: string }
+      - { $ref: '#/components/parameters/PurchaseCsrfToken' }
     get:
       summary: Purchase a configured GET resource
       tags: [Proxy]
       operationId: getPaidResource
-      security: [{ agentApiKey: [] }]
-      responses: { '200': { $ref: '#/components/responses/ProxiedResponse' }, '402': { $ref: '#/components/responses/PaymentRequired' }, '428': { $ref: '#/components/responses/ApprovalRequired' } }
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/ProxiedResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '428': { $ref: '#/components/responses/ApprovalRequired' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
     post:
       summary: Purchase a configured POST resource
       tags: [Proxy]
       operationId: postPaidResource
-      security: [{ agentApiKey: [] }]
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
       requestBody:
         required: false
         content:
           application/json:
             schema: {}
-      responses: { '200': { $ref: '#/components/responses/ProxiedResponse' }, '402': { $ref: '#/components/responses/PaymentRequired' }, '428': { $ref: '#/components/responses/ApprovalRequired' } }
+      responses:
+        '200': { $ref: '#/components/responses/ProxiedResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/SellerInactive' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '428': { $ref: '#/components/responses/ApprovalRequired' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
 components:
   securitySchemes:
-    sellerBearer: { type: http, scheme: bearer, bearerFormat: JWT }
-    agentApiKey: { type: apiKey, in: header, name: X-AgentPay-Agent-Key }
-    approvalInvite: { type: apiKey, in: query, name: token }
+    sellerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Seller-scoped service credential derived from the authenticated web session by the trusted web/BFF boundary; it is never stored in browser JavaScript or accepted as a substitute for ownership checks.
+    projectKey:
+      type: apiKey
+      in: header
+      name: X-AgentPay-Project-Key
+      description: Proprietary seller project bootstrap credential accepted only by the integration access-token exchange.
+    buyerAgentKey:
+      type: apiKey
+      in: header
+      name: X-AgentPay-Agent-Key
+      description: Buyer-agent credential; never a seller project key.
+    browserPurchaseCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-agentpay_purchase
+      description: Opaque server-side browser grant. Commerce authority expires separately from longer-lived read and remediation access.
+    approvalCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-agentpay_approvals
+      description: Opaque browser grant set created by exchanging one or more approval invitation fragment tokens.
   parameters:
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
     SellerId: { name: sellerId, in: path, required: true, schema: { type: string, pattern: '^sel_[A-Za-z0-9]+$' } }
@@ -989,6 +1469,21 @@ components:
     CredentialId: { name: credentialId, in: path, required: true, schema: { type: string, pattern: '^key_[A-Za-z0-9]+$' } }
     DestinationId: { name: destinationId, in: path, required: true, schema: { type: string, pattern: '^dst_[A-Za-z0-9]+$' } }
     DeliveryId: { name: deliveryId, in: path, required: true, schema: { type: string, pattern: '^whd_[A-Za-z0-9]+$' } }
+    SellerSlug: { name: sellerSlug, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', minLength: 3, maxLength: 48 } }
+    ProductSlug: { name: productSlug, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', minLength: 3, maxLength: 80 } }
+    PurchaseSessionId: { name: purchaseSessionId, in: path, required: true, schema: { type: string, pattern: '^bps_[A-Za-z0-9]+$' } }
+    PurchaseCsrfToken:
+      name: X-AgentPay-CSRF
+      in: header
+      required: false
+      description: Required for every state-changing request, including paid GET execution, when browserPurchaseCookie is used; ignored for buyer-agent key authentication. It must match the __Host-agentpay_purchase_csrf double-submit cookie and the request Origin must be allowlisted.
+      schema: { type: string, minLength: 32, maxLength: 256 }
+    ApprovalCsrfToken:
+      name: X-AgentPay-CSRF
+      in: header
+      required: true
+      description: Must match the __Host-agentpay_approval_csrf double-submit cookie; the request Origin must also match the configured approval origin.
+      schema: { type: string, minLength: 32, maxLength: 256 }
     DeliveryLimit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
     DeliveryCursor: { name: cursor, in: query, required: false, schema: { type: string, pattern: '^whd_[A-Za-z0-9]+$' } }
     AuditLimit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -1000,6 +1495,129 @@ components:
     TransactionAsset: { name: asset, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 160 } }
     TransactionNetwork: { name: network, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 80 } }
   schemas:
+    OAuthProtectedResourceMetadata:
+      type: object
+      additionalProperties: false
+      required: [resource, authorization_servers, bearer_methods_supported, resource_documentation]
+      properties:
+        resource: { type: string, format: uri, description: Exact canonical HTTPS URL of the /mcp protected resource. }
+        authorization_servers:
+          type: array
+          minItems: 1
+          items: { type: string, format: uri }
+        bearer_methods_supported:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [header] }
+        scopes_supported:
+          type: array
+          items: { type: string, enum: [read, configure, publish, validate] }
+        resource_documentation: { type: string, format: uri }
+    JsonWebKeySet:
+      type: object
+      additionalProperties: false
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [kty, use, key_ops, alg, kid, crv, x, y]
+            properties:
+              kty: { type: string, const: EC }
+              use: { type: string, const: sig }
+              key_ops:
+                type: array
+                items: { type: string, const: verify }
+                minItems: 1
+                maxItems: 1
+              alg: { type: string, const: ES256 }
+              kid: { type: string, minLength: 1, maxLength: 128 }
+              crv: { type: string, const: P-256 }
+              x: { type: string, minLength: 43, maxLength: 43 }
+              y: { type: string, minLength: 43, maxLength: 43 }
+    IntegrationAccessTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [audience, scopes]
+      properties:
+        audience: { type: string, const: 'urn:agentpay:mcp' }
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [read, configure, publish, validate] }
+    IntegrationAccessTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresIn, scope, sellerId, credentialId, entitlementEpoch]
+      properties:
+        accessToken:
+          type: string
+          description: ES256 JWT with typ agentpay-access+jwt; never persist or log it.
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, minimum: 120, maximum: 300 }
+        scope: { type: string, pattern: '^[a-z]+(?: [a-z]+)*$' }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        credentialId: { type: string, pattern: '^key_[A-Za-z0-9]+$' }
+        entitlementEpoch: { type: integer, minimum: 1 }
+    ApprovalInvitationExchangeRequest:
+      type: object
+      additionalProperties: false
+      required: [invitationToken]
+      properties:
+        invitationToken:
+          type: string
+          minLength: 43
+          maxLength: 512
+          description: Raw one-time fragment token; accepted only in this request body and never in a query parameter.
+    CreateBrowserPurchaseSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [requestBodyHash, maximumAmount]
+      properties:
+        requestBodyHash: { $ref: '#/components/schemas/Sha256' }
+        maximumAmount: { $ref: '#/components/schemas/AtomicAmount' }
+    BrowserPurchaseSessionCreated:
+      type: object
+      additionalProperties: false
+      required: [purchaseSessionId, sellerId, routeId, productSlug, purchaseChannel, commerceExpiresAt, accessExpiresAt]
+      properties:
+        purchaseSessionId: { type: string, pattern: '^bps_[A-Za-z0-9]+$' }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+        productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        purchaseChannel: { type: string, const: browser }
+        commerceExpiresAt: { type: string, format: date-time, description: 'Exclusive boundary for intent creation, approval initiation, challenge issuance, verification, and settlement.' }
+        accessExpiresAt: { type: string, format: date-time, description: 'Exclusive boundary for transaction, receipt, evidence, and dispute access; initially commerce expiry and extended after finalized payment according to the 30-day remediation rule.' }
+    BrowserPurchaseRecoveryChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [network, address]
+      properties:
+        network: { type: string, minLength: 1, maxLength: 80 }
+        address: { type: string, minLength: 1, maxLength: 256 }
+    BrowserPurchaseRecoveryChallenge:
+      type: object
+      additionalProperties: false
+      required: [challengeId, network, address, message, expiresAt]
+      properties:
+        challengeId: { type: string, pattern: '^bpr_[A-Za-z0-9]+$' }
+        network: { type: string, minLength: 1, maxLength: 80 }
+        address: { type: string, minLength: 1, maxLength: 256 }
+        message: { type: string, minLength: 1, maxLength: 2048 }
+        expiresAt: { type: string, format: date-time }
+    RecoverBrowserPurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, network, address, proof]
+      properties:
+        challengeId: { type: string, pattern: '^bpr_[A-Za-z0-9]+$' }
+        network: { type: string, minLength: 1, maxLength: 80 }
+        address: { type: string, minLength: 1, maxLength: 256 }
+        proof: { type: string, minLength: 1, maxLength: 4096 }
     CreateSellerRequest:
       type: object
       additionalProperties: false
@@ -1051,17 +1669,26 @@ components:
         displayName: { type: string }
         limits: { $ref: '#/components/schemas/PlanLimits' }
         features: { $ref: '#/components/schemas/PlanFeatures' }
-    SellerPlan:
+    SellerEntitlement:
       type: object
       additionalProperties: false
-      required: [sellerId, planId, planVersion, status, billingPeriodStart, billingPeriodEnd, assignedAt, updatedAt, version]
+      required: [sellerId, planId, planVersion, status, billingPeriodStart, billingPeriodEnd, accessEndsAt, cancelAtPeriodEnd, entitlementEpoch, source, sourceRevision, assignedAt, updatedAt, version]
       properties:
         sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         planId: { type: string, enum: [starter, growth, scale] }
         planVersion: { type: integer, const: 1 }
-        status: { type: string, enum: [active, suspended] }
+        status: { type: string, enum: [active, grace, suspended, cancelled, closed] }
         billingPeriodStart: { type: string, format: date-time }
         billingPeriodEnd: { type: string, format: date-time }
+        accessEndsAt: { type: string, format: date-time, description: Exclusive UTC authorization boundary. }
+        graceEndsAt: { type: [string, 'null'], format: date-time }
+        cancelAtPeriodEnd: { type: boolean }
+        entitlementEpoch: { type: integer, minimum: 1 }
+        source: { type: string, enum: [billing_provider, operator, local] }
+        sourceRevision: { type: string, minLength: 1, maxLength: 256 }
+        suspensionReason:
+          type: [string, 'null']
+          enum: [payment_failed, cancelled, administrative, fraud_quarantine, account_closed, null]
         assignedAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 1 }
@@ -1070,7 +1697,7 @@ components:
       additionalProperties: false
       required: [assignment, plan]
       properties:
-        assignment: { $ref: '#/components/schemas/SellerPlan' }
+        assignment: { $ref: '#/components/schemas/SellerEntitlement' }
         plan: { $ref: '#/components/schemas/PlanDefinition' }
     InvoiceLineItem:
       type: object
@@ -1086,7 +1713,10 @@ components:
       additionalProperties: false
       required: [schemaVersion, sellerId, periodStart, periodEnd, generatedAt, lineItems]
       properties:
-        schemaVersion: { type: string, const: '1' }
+        schemaVersion:
+          type: string
+          enum: ['1', '2']
+          description: Current M7 exports use version 1; M7.1 launch writers use version 2 and readers accept both during migration.
         sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         periodStart: { type: string, format: date-time }
         periodEnd: { type: string, format: date-time }
@@ -1285,6 +1915,10 @@ components:
           items: { type: string, enum: [read, configure, publish, validate, rotate] }
         expiresAt: { type: [string, 'null'], format: date-time }
         revokedAt: { type: [string, 'null'], format: date-time }
+        lastUsedAt: { type: [string, 'null'], format: date-time }
+        replacedByCredentialId:
+          type: [string, 'null']
+          pattern: '^key_[A-Za-z0-9]+$'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 1 }
@@ -1296,7 +1930,36 @@ components:
           properties:
             token:
               type: string
-              description: Raw project credential returned once and never persisted
+              pattern: '^apc2\.key_[A-Za-z0-9]+\.[A-Za-z0-9_-]{43,}$'
+              description: Raw project bootstrap credential returned once and never persisted
+    RotateIntegrationCredentialRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        label: { type: string, minLength: 1, maxLength: 80 }
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [read, configure, publish, validate, rotate] }
+        expiresAt: { type: [string, 'null'], format: date-time }
+    IntegrationCredentialRotation:
+      type: object
+      additionalProperties: false
+      required: [predecessor, successor, token, secretReplayExpiresAt]
+      properties:
+        predecessor: { $ref: '#/components/schemas/IntegrationCredential' }
+        successor: { $ref: '#/components/schemas/IntegrationCredential' }
+        token:
+          type: string
+          pattern: '^apc2\.key_[A-Za-z0-9]+\.[A-Za-z0-9_-]{43,}$'
+          description: One successor project-key value, repeated only for an exact idempotent retry before secretReplayExpiresAt; the predecessor is already revoked.
+        secretReplayExpiresAt:
+          type: string
+          format: date-time
+          description: Exclusive boundary for recovering the same KMS envelope-encrypted one-time response.
     PaidRoute:
       allOf:
         - { $ref: '#/components/schemas/CreateRouteRequest' }
@@ -1354,12 +2017,19 @@ components:
         maximumAmount: { $ref: '#/components/schemas/AtomicAmount' }
     PurchaseIntent:
       type: object
-      required: [intentId, routeId, sellerId, buyerId, requestMethod, requestPath, amount, asset, network, requestBodyHash, intentHash, maximumAmount, requiresApproval, status, expiresAt, createdAt]
+      additionalProperties: false
+      required: [intentId, routeId, sellerId, buyerId, purchaseChannel, productDisplayName, productSlug, paymentDestinationId, payTo, requestMethod, requestPath, amount, asset, network, requestBodyHash, intentHash, maximumAmount, requiresApproval, status, expiresAt, createdAt]
       properties:
         intentId: { type: string }
         routeId: { type: string }
         sellerId: { type: string }
-        buyerId: { type: string }
+        buyerId: { type: string, description: Buyer-agent subject for agent purchases; browser:<purchaseSessionId> for browser purchases. }
+        purchaseSessionId: { type: [string, 'null'], pattern: '^bps_[A-Za-z0-9]+$' }
+        purchaseChannel: { type: string, enum: [agent, browser] }
+        productDisplayName: { type: string, minLength: 1, maxLength: 120 }
+        productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        paymentDestinationId: { type: string, pattern: '^dst_[A-Za-z0-9]+$' }
+        payTo: { type: string, minLength: 1, maxLength: 256 }
         requestMethod: { type: string, enum: [GET, POST] }
         requestPath: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
         amount: { $ref: '#/components/schemas/AtomicAmount' }
@@ -1372,6 +2042,21 @@ components:
         status: { type: string, enum: [ready, approval_pending, approved, expired, executed] }
         expiresAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
+      allOf:
+        - if:
+            properties: { purchaseChannel: { const: browser } }
+            required: [purchaseChannel]
+          then:
+            required: [purchaseSessionId]
+            properties:
+              purchaseSessionId: { type: string, pattern: '^bps_[A-Za-z0-9]+$' }
+              buyerId: { type: string, pattern: '^browser:bps_[A-Za-z0-9]+$' }
+        - if:
+            properties: { purchaseChannel: { const: agent } }
+            required: [purchaseChannel]
+          then:
+            properties:
+              purchaseSessionId: { type: 'null' }
     ApprovalSessionCreated:
       allOf:
         - { $ref: '#/components/schemas/ApprovalSession' }
@@ -1385,7 +2070,7 @@ components:
                 required: [label, url]
                 properties:
                   label: { type: string }
-                  url: { type: string, format: uri }
+                  url: { type: string, format: uri, description: 'HTTPS approval URL carrying the raw invitation only in the #invite= fragment.' }
     ApprovalSession:
       type: object
       required: [sessionId, intentId, intentHash, requiredApprovals, decisions, status, expiresAt, createdAt, updatedAt, version]
@@ -1408,15 +2093,34 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 1 }
+    ApprovalCompletionToken:
+      type: object
+      additionalProperties: false
+      required: [approvalToken, tokenType, expiresAt]
+      properties:
+        approvalToken:
+          type: string
+          minLength: 43
+          maxLength: 4096
+          description: Short-lived one-time token bound to the session, intent, complete intent hash, and purchase owner.
+        tokenType: { type: string, const: AgentPayApproval }
+        expiresAt: { type: string, format: date-time }
     Transaction:
       type: object
-      required: [transactionId, intentId, sellerId, routeId, buyerId, status, amount, asset, network, createdAt, updatedAt]
+      additionalProperties: false
+      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, createdAt, updatedAt]
       properties:
         transactionId: { type: string }
         intentId: { type: string }
         sellerId: { type: string }
         routeId: { type: string }
-        buyerId: { type: string }
+        buyerId: { type: string, description: Buyer-agent subject for agent purchases; browser:<purchaseSessionId> for browser purchases. }
+        purchaseSessionId: { type: [string, 'null'], pattern: '^bps_[A-Za-z0-9]+$' }
+        purchaseChannel: { type: string, enum: [agent, browser] }
+        paymentRail: { type: string, const: x402 }
+        productDisplayName: { type: string, minLength: 1, maxLength: 120 }
+        productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        paymentDestinationId: { type: string, pattern: '^dst_[A-Za-z0-9]+$' }
         status: { type: string, enum: [PROPOSED, APPROVAL_PENDING, APPROVED, PAYMENT_REQUIRED, PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] }
         amount: { $ref: '#/components/schemas/AtomicAmount' }
         asset: { type: string }
@@ -1430,7 +2134,31 @@ components:
         failureCode: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+      allOf:
+        - if:
+            properties: { purchaseChannel: { const: browser } }
+            required: [purchaseChannel]
+          then:
+            required: [purchaseSessionId]
+            properties:
+              purchaseSessionId: { type: string, pattern: '^bps_[A-Za-z0-9]+$' }
+              buyerId: { type: string, pattern: '^browser:bps_[A-Za-z0-9]+$' }
+        - if:
+            properties: { purchaseChannel: { const: agent } }
+            required: [purchaseChannel]
+          then:
+            properties:
+              purchaseSessionId: { type: 'null' }
     PurchaseReceipt:
+      oneOf:
+        - { $ref: '#/components/schemas/PurchaseReceiptV1' }
+        - { $ref: '#/components/schemas/PurchaseReceiptV2' }
+      discriminator:
+        propertyName: schemaVersion
+        mapping:
+          '1': '#/components/schemas/PurchaseReceiptV1'
+          '2': '#/components/schemas/PurchaseReceiptV2'
+    PurchaseReceiptV1:
       type: object
       additionalProperties: false
       required: [schemaVersion, transaction, evidence]
@@ -1458,19 +2186,54 @@ components:
             failureCode: { type: [string, 'null'] }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
-        evidence:
+        evidence: { $ref: '#/components/schemas/ReceiptEvidence' }
+    PurchaseReceiptV2:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, transaction, evidence]
+      properties:
+        schemaVersion: { type: string, const: '2' }
+        transaction:
           type: object
           additionalProperties: false
-          required: [verified, eventCount, rootEventHash, headEventHash, events]
+          required: [transactionId, intentId, sellerId, routeId, buyerId, productDisplayName, productSlug, purchaseChannel, paymentRail, paymentDestinationId, status, amount, asset, network, paymentFinality, paymentReference, createdAt, updatedAt]
           properties:
-            verified: { type: boolean, const: true }
-            eventCount: { type: integer, minimum: 1 }
-            rootEventHash: { $ref: '#/components/schemas/Sha256' }
-            headEventHash: { $ref: '#/components/schemas/Sha256' }
-            events:
-              type: array
-              minItems: 1
-              items: { $ref: '#/components/schemas/EvidenceEvent' }
+            transactionId: { type: string, pattern: '^txn_[A-Za-z0-9]+$' }
+            intentId: { type: string, pattern: '^int_[A-Za-z0-9]+$' }
+            sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+            routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+            buyerId: { type: string, description: Buyer-agent subject or browser:<purchaseSessionId>. }
+            productDisplayName: { type: string, minLength: 1, maxLength: 120 }
+            productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+            purchaseChannel: { type: string, enum: [agent, browser] }
+            paymentRail: { type: string, const: x402 }
+            paymentDestinationId: { type: string, pattern: '^dst_[A-Za-z0-9]+$' }
+            status: { type: string, enum: [PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] }
+            amount: { $ref: '#/components/schemas/AtomicAmount' }
+            asset: { type: string }
+            network: { type: string }
+            paymentFinality: { type: string, const: finalized }
+            paymentReference: { type: string, minLength: 1, maxLength: 512 }
+            reconciledAt: { type: [string, 'null'], format: date-time }
+            upstreamStatus: { type: [integer, 'null'] }
+            responseHash: { oneOf: [{ $ref: '#/components/schemas/Sha256' }, { type: 'null' }] }
+            failureCode: { type: [string, 'null'] }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+        evidence: { $ref: '#/components/schemas/ReceiptEvidence' }
+    ReceiptEvidence:
+      type: object
+      additionalProperties: false
+      required: [verified, eventCount, rootEventHash, headEventHash, events]
+      properties:
+        verified: { type: boolean, const: true }
+        eventCount: { type: integer, minimum: 1 }
+        rootEventHash: { $ref: '#/components/schemas/Sha256' }
+        headEventHash: { $ref: '#/components/schemas/Sha256' }
+        events:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/EvidenceEvent' }
     PaymentReconciliation:
       type: object
       additionalProperties: false
@@ -1543,29 +2306,157 @@ components:
         createdAt: { type: string, format: date-time }
     StorefrontManifest:
       type: object
-      required: [seller, routes]
+      additionalProperties: false
+      required: [schemaVersion, sellerId, seller, availability, publicationRevision, issuedAt, expiresAt, canonicalOrigin, products]
       properties:
+        schemaVersion: { type: string, const: agentpay.discovery.v1 }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         seller:
           type: object
+          additionalProperties: false
           required: [name, slug]
           properties:
             name: { type: string }
             slug: { type: string }
-        routes:
+        availability: { type: string, const: active }
+        publicationRevision: { type: integer, minimum: 1 }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        canonicalOrigin: { type: string, format: uri }
+        products:
           type: array
-          items: { $ref: '#/components/schemas/PaidRoute' }
+          items: { $ref: '#/components/schemas/PublicProduct' }
+    PublicProduct:
+      type: object
+      additionalProperties: false
+      required: [sellerId, routeId, displayName, productSlug, description, mimeType, amount, asset, network, availability, canonicalUrl, purchaseSessionEndpoint]
+      properties:
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        description: { type: string, minLength: 1, maxLength: 1000 }
+        mimeType: { type: string, minLength: 1, maxLength: 160 }
+        amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
+        asset: { type: string, minLength: 1, maxLength: 160 }
+        network: { type: string, minLength: 1, maxLength: 80 }
+        availability: { type: string, const: active }
+        canonicalUrl: { type: string, format: uri }
+        purchaseSessionEndpoint: { type: string, format: uri }
+    PublicProductDocument:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, sellerId, sellerSlug, publicationRevision, issuedAt, expiresAt, canonicalOrigin, product]
+      properties:
+        schemaVersion: { type: string, const: agentpay.discovery.v1 }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        sellerSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        publicationRevision: { type: integer, minimum: 1 }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        canonicalOrigin: { type: string, format: uri }
+        product: { $ref: '#/components/schemas/PublicProduct' }
+    StorefrontTombstone:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, sellerId, sellerSlug, availability, reason, publicationRevision, issuedAt, expiresAt, canonicalOrigin]
+      properties:
+        schemaVersion: { type: string, const: agentpay.discovery.v1 }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        sellerSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        availability: { type: string, const: inactive }
+        reason: { type: string, enum: [suspended, cancelled, closed] }
+        publicationRevision: { type: integer, minimum: 1 }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        canonicalOrigin: { type: string, format: uri }
+    DiscoverySignature:
+      type: object
+      additionalProperties: false
+      required: [alg, kid, canonicalization, domainSeparator, value]
+      properties:
+        alg: { type: string, const: ES256 }
+        kid: { type: string, minLength: 1, maxLength: 128 }
+        canonicalization: { type: string, const: RFC8785 }
+        domainSeparator: { type: string, const: agentpay.discovery.v1 }
+        value: { type: string, minLength: 1, description: Base64url ES256 signature over the domain separator and canonical document bytes. }
+    SignedStorefrontManifest:
+      type: object
+      additionalProperties: false
+      required: [document, signature]
+      properties:
+        document: { $ref: '#/components/schemas/StorefrontManifest' }
+        signature: { $ref: '#/components/schemas/DiscoverySignature' }
+    SignedStorefrontTombstone:
+      type: object
+      additionalProperties: false
+      required: [document, signature]
+      properties:
+        document: { $ref: '#/components/schemas/StorefrontTombstone' }
+        signature: { $ref: '#/components/schemas/DiscoverySignature' }
+    SignedPublicProductDocument:
+      type: object
+      additionalProperties: false
+      required: [document, signature]
+      properties:
+        document: { $ref: '#/components/schemas/PublicProductDocument' }
+        signature: { $ref: '#/components/schemas/DiscoverySignature' }
+    ErrorCode:
+      type: string
+      enum:
+        - invalid_request
+        - invalid_credential
+        - token_expired
+        - token_revoked
+        - subscription_inactive
+        - insufficient_scope
+        - permission_denied
+        - not_found
+        - seller_inactive
+        - invitation_expired
+        - state_conflict
+        - idempotency_conflict
+        - payment_required
+        - payment_rejected
+        - payment_replayed
+        - token_replayed
+        - approval_required
+        - validation_failed
+        - rate_limited
+        - dependency_unavailable
     Error:
       type: object
+      additionalProperties: false
       required: [error]
       properties:
         error:
           type: object
+          additionalProperties: false
           required: [code, message, requestId]
           properties:
-            code: { type: string }
+            code: { $ref: '#/components/schemas/ErrorCode' }
             message: { type: string }
             requestId: { type: string }
             details: { type: object }
+    ApprovalRequiredError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId, details]
+          properties:
+            code: { type: string, const: approval_required }
+            message: { type: string }
+            requestId: { type: string }
+            details:
+              type: object
+              additionalProperties: false
+              required: [approvalSessionId]
+              properties:
+                approvalSessionId: { type: string, pattern: '^aps_[A-Za-z0-9]+$' }
     AtomicAmount: { type: string, pattern: '^[0-9]+$', example: '10000' }
     PositiveAtomicAmount: { type: string, pattern: '^[1-9][0-9]*$', example: '35000000' }
     Sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
@@ -1589,20 +2480,27 @@ components:
       description: Purchase requires approval before a payment challenge can be issued
       content:
         application/json:
-          schema:
-            allOf:
-              - { $ref: '#/components/schemas/Error' }
-              - type: object
-                properties:
-                  approvalSessionId: { type: string }
-    BadRequest: { description: Invalid request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    NotFound: { description: Resource not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Conflict: { description: Idempotency or state conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Gone: { description: Invitation or session expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Unprocessable: { description: Request is valid JSON but violates a business rule, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    PermissionDenied: { description: Seller plan is suspended or the requested operation exceeds a static entitlement, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+          schema: { $ref: '#/components/schemas/ApprovalRequiredError' }
+    BadRequest: { description: 400 invalid_request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized:
+      description: 401 invalid_credential, token_expired, or token_revoked
+      headers:
+        WWW-Authenticate: { schema: { type: string } }
+        Cache-Control: { schema: { type: string, const: no-store } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound: { description: '404 not_found, including concealed cross-tenant resources', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: '409 state_conflict, idempotency_conflict, payment_replayed, or token_replayed', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Gone: { description: 410 invitation_expired or another expired one-time resource, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    SellerInactive: { description: 410 seller_inactive; known seller cannot participate in discovery or new commerce, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unprocessable: { description: 422 validation_failed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    PermissionDenied: { description: '403 subscription_inactive, insufficient_scope, or permission_denied', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     RateLimited:
-      description: Seller monthly operation quota is exhausted
+      description: Caller, credential, browser session, seller quota, or public endpoint rate limit is exhausted
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    DependencyUnavailable:
+      description: 503 dependency_unavailable; authoritative authorization or transaction state cannot be established
       headers:
         Retry-After: { schema: { type: integer, minimum: 1 } }
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

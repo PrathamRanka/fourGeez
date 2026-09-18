@@ -32,62 +32,75 @@ import (
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
-// TestOpenAPIM3OperationAndResponseCoverage locks every M3 contract response.
-func TestOpenAPIM3OperationAndResponseCoverage(t *testing.T) {
+// TestOpenAPILaunchTargetOperationAndResponseCoverage locks the complete M7.1
+// target contract independently from the routes implemented by the M7 runtime.
+func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 	t.Parallel()
 
 	operations := readOpenAPIOperations(t)
 	expected := map[string][]string{
-		"getHealth":                         {"200", "429", "503"},
-		"createSeller":                      {"201", "400", "409"},
-		"listSellerPlans":                   {"200", "429"},
-		"getSellerPlan":                     {"200", "400", "403", "404", "429"},
-		"getSellerInvoiceExport":            {"200", "400", "404", "422"},
-		"listSellerAuditEvents":             {"200", "400", "404"},
-		"createPaidRoute":                   {"201", "400", "403", "404", "409", "429"},
-		"listPaidRoutes":                    {"200", "400", "404"},
-		"getPaidRoute":                      {"200", "400", "404"},
-		"updatePaidRoutePrice":              {"200", "400", "404", "409"},
-		"validatePaidRoute":                 {"200", "400", "404"},
-		"publishPaidRoute":                  {"200", "400", "404", "409", "422"},
-		"pausePaidRoute":                    {"200", "400", "404", "409"},
-		"archivePaidRoute":                  {"200", "400", "404", "409"},
-		"emergencyDisablePaidRoute":         {"200", "400", "404", "409"},
-		"listPaymentDestinations":           {"200", "400", "404"},
-		"createPaymentDestination":          {"201", "400", "404", "409"},
-		"getPaymentDestination":             {"200", "400", "404"},
-		"createPaymentDestinationChallenge": {"201", "400", "404", "409"},
-		"verifyPaymentDestination":          {"200", "400", "404", "409", "410", "422"},
-		"listWebhookSubscriptions":          {"200", "400", "404"},
-		"createWebhookSubscription":         {"201", "400", "404", "409"},
-		"listWebhookDeliveries":             {"200", "400", "404"},
-		"redeliverWebhookDelivery":          {"200", "400", "404", "409"},
-		"listSellerTransactions":            {"200", "400", "404"},
-		"getSellerDashboardSummary":         {"200", "400", "404", "422"},
-		"listIntegrationCredentials":        {"200", "400", "404"},
-		"createIntegrationCredential":       {"201", "400", "404", "409"},
-		"revokeIntegrationCredential":       {"200", "400", "404", "409"},
-		"createPurchaseIntent":              {"201", "400", "409"},
-		"getPurchaseIntent":                 {"200", "404"},
-		"createApprovalSession":             {"201", "409", "422"},
-		"getApprovalSession":                {"200", "404"},
-		"decideApproval":                    {"200", "409", "410"},
-		"getTransaction":                    {"200", "404"},
-		"downloadPurchaseReceipt":           {"200", "404", "409"},
-		"createDispute":                     {"201", "404", "409"},
-		"getDispute":                        {"200", "404"},
-		"getStorefrontManifest":             {"200", "404"},
-		"getStorefrontLlmsText":             {"200", "404"},
+		"archivePaidRoute":                       {"200", "400", "401", "403", "404", "409", "429", "503"},
+		"createApprovalCompletionToken":          {"201", "400", "401", "403", "404", "409", "410", "429", "503"},
+		"createApprovalSession":                  {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
+		"createBrowserPurchaseRecoveryChallenge": {"201", "400", "404", "409", "410", "422", "429", "503"},
+		"createBrowserPurchaseSession":           {"201", "400", "404", "409", "410", "422", "429", "503"},
+		"createDispute":                          {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
+		"createIntegrationCredential":            {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"createPaidRoute":                        {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"createPaymentDestination":               {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"createPaymentDestinationChallenge":      {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"createPurchaseIntent":                   {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
+		"createSeller":                           {"201", "400", "401", "403", "409", "429", "503"},
+		"createWebhookSubscription":              {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"decideApproval":                         {"200", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
+		"downloadPurchaseReceipt":                {"200", "401", "403", "404", "409", "429", "503"},
+		"emergencyDisablePaidRoute":              {"200", "400", "401", "403", "404", "409", "429", "503"},
+		"exchangeApprovalInvitation":             {"204", "400", "401", "410", "429", "503"},
+		"exchangeProjectKey":                     {"200", "400", "401", "403", "429", "503"},
+		"getApprovalSession":                     {"200", "401", "403", "404", "410", "429", "503"},
+		"getCapabilityJwks":                      {"200", "429", "503"},
+		"getDispute":                             {"200", "401", "403", "404", "429", "503"},
+		"getHealth":                              {"200", "429", "503"},
+		"getMcpProtectedResourceMetadata":        {"200", "429", "503"},
+		"getPaidResource":                        {"200", "400", "401", "402", "403", "404", "409", "410", "422", "428", "429", "503"},
+		"getPaidRoute":                           {"200", "400", "401", "403", "404", "429", "503"},
+		"getPaymentDestination":                  {"200", "400", "401", "403", "404", "429", "503"},
+		"getPublicProduct":                       {"200", "404", "410", "429", "503"},
+		"getPurchaseIntent":                      {"200", "401", "403", "404", "429", "503"},
+		"getSellerDashboardSummary":              {"200", "400", "401", "403", "404", "422", "429", "503"},
+		"getSellerInvoiceExport":                 {"200", "400", "401", "403", "404", "422", "429", "503"},
+		"getSellerPlan":                          {"200", "400", "401", "403", "404", "429", "503"},
+		"getStorefrontLlmsText":                  {"200", "404", "410", "429", "503"},
+		"getStorefrontManifest":                  {"200", "404", "410", "429", "503"},
+		"getTransaction":                         {"200", "401", "403", "404", "429", "503"},
+		"listIntegrationCredentials":             {"200", "400", "401", "403", "404", "429", "503"},
+		"listPaidRoutes":                         {"200", "400", "401", "403", "404", "429", "503"},
+		"listPaymentDestinations":                {"200", "400", "401", "403", "404", "429", "503"},
+		"listSellerAuditEvents":                  {"200", "400", "401", "403", "404", "429", "503"},
+		"listSellerPlans":                        {"200", "429", "503"},
+		"listSellerTransactions":                 {"200", "400", "401", "403", "404", "429", "503"},
+		"listWebhookDeliveries":                  {"200", "400", "401", "403", "404", "429", "503"},
+		"listWebhookSubscriptions":               {"200", "400", "401", "403", "404", "429", "503"},
+		"pausePaidRoute":                         {"200", "400", "401", "403", "404", "409", "429", "503"},
+		"postPaidResource":                       {"200", "400", "401", "402", "403", "404", "409", "410", "422", "428", "429", "503"},
+		"publishPaidRoute":                       {"200", "400", "401", "403", "404", "409", "422", "429", "503"},
+		"recoverBrowserPurchase":                 {"204", "400", "401", "404", "409", "410", "422", "429", "503"},
+		"redeliverWebhookDelivery":               {"200", "400", "401", "403", "404", "409", "429", "503"},
+		"revokeIntegrationCredential":            {"200", "400", "401", "403", "404", "409", "429", "503"},
+		"rotateIntegrationCredential":            {"201", "400", "401", "403", "404", "409", "429", "503"},
+		"updatePaidRoutePrice":                   {"200", "400", "401", "403", "404", "409", "429", "503"},
+		"validatePaidRoute":                      {"200", "400", "401", "403", "404", "429", "503"},
+		"verifyPaymentDestination":               {"200", "400", "401", "403", "404", "409", "410", "422", "429", "503"},
 	}
-	delete(operations, "getPaidResource")
-	delete(operations, "postPaidResource")
 	if !reflect.DeepEqual(operations, expected) {
-		t.Fatalf("M3 OpenAPI operation coverage = %#v, want %#v", operations, expected)
+		t.Fatalf("launch target OpenAPI operation coverage = %#v, want %#v", operations, expected)
 	}
 }
 
-// TestM3OpenAPIRoutesAreRegistered verifies every documented M3 route exists.
-func TestM3OpenAPIRoutesAreRegistered(t *testing.T) {
+// TestImplementedM7OpenAPIRoutesAreRegistered verifies that routes in the
+// development compatibility baseline remain registered while M7.1 target
+// operations are implemented by their dependent LCH tasks.
+func TestImplementedM7OpenAPIRoutesAreRegistered(t *testing.T) {
 	t.Parallel()
 
 	handler := newConformanceHandler(t)

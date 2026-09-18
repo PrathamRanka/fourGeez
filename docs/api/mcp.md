@@ -1,12 +1,11 @@
 # AgentPay MCP contract
 
-Status: **Locked through SEO-002**.
+Status: **M7.1 production target contract locked by LCH-004; not yet served by the M7 runtime**.
 
-Implementation status: this document describes the currently implemented
-M0–M7 direct integration-credential transport. It is not the production
-cancellation-enforcement design. LCH-012 through LCH-018 will replace ordinary
-MCP use of permanent credentials with short-lived, seller-scoped access tokens
-and current entitlement checks while preserving the official MCP transport.
+Implementation status: M0–M7 still uses direct integration credentials at
+runtime. LCH-012 through LCH-018 must implement the short-lived contract below
+before production use. The contract is authoritative while runtime work remains
+incomplete.
 
 AgentPay exposes the official Model Context Protocol `2026-07-28` over
 stateless Streamable HTTP at `POST /mcp`. Requests and responses use the
@@ -15,21 +14,64 @@ limits each request body to 1 MiB.
 
 ## Authentication
 
-Every request requires `Authorization: Bearer <integrationCredential>`. The
-credential is authenticated through the same seller-scoped credential service
-used by the control API and must include the `read` scope. Missing, malformed,
-expired, revoked, or unknown credentials return `401`. Valid credentials
-without `read` return `403`. Repository failures return a generic `500` without
-exposing internal details.
+Project-key installations must use the AgentPay local connector. The seller
+project key is accepted only by the proprietary
+`POST /v1/integration-access-tokens` bootstrap exchange. This endpoint is not
+OAuth and clients must not send OAuth grant parameters. It authenticates
+`X-AgentPay-Project-Key`, checks current credential and entitlement state,
+narrows requested scopes to `read`, `configure`, `publish`, or `validate`, and returns an ES256 access token for
+`aud=urn:agentpay:mcp` with a 120–300 second lifetime and
+`Cache-Control: no-store`. The connector keeps that token in process memory and
+proxies local MCP traffic; a project key is never configured directly as the
+remote `/mcp` bearer token.
 
-Every authenticated `POST /mcp` request consumes one `mcp_operation` unit from
-the seller's UTC-month plan quota before JSON-RPC dispatch. A suspended plan
-returns HTTP `403` with `permission_denied`; an exhausted monthly quota returns
-HTTP `429` with `rate_limited` and `Retry-After`. Authentication failures do not
-consume quota. Retried webhook delivery quota is separate and does not affect
-MCP usage.
+Standards-compatible clients that connect directly to the remote `/mcp`
+resource use OAuth authorization and discover the protected resource metadata
+at `/.well-known/oauth-protected-resource/mcp`. That document identifies the
+exact MCP resource URL, authorization server metadata, supported bearer method,
+and scopes. OAuth authorization creates or references a revocable AgentPay
+integration-credential identity, so direct-client access tokens retain the same
+seller, credential, scope, entitlement-epoch, and revocation checks as connector
+tokens. Direct clients never receive the seller project key.
 
-Resource identity is derived only from the authenticated credential. Resource
+Every `POST /mcp` request requires
+`Authorization: Bearer <mcpAccessToken>`. The JWT header requires
+`typ=agentpay-access+jwt`, `alg=ES256`, and a known `kid` from
+`/.well-known/jwks.json`. Claims are exact `iss`, exact `aud`,
+`sub=credentialId`, `sellerId`, `credentialId`, space-delimited `scope`,
+`entitlementEpoch`, unique `jti`, `iat`, and `exp`.
+
+A missing or invalid bearer token returns `401` with
+`WWW-Authenticate: Bearer resource_metadata="<absolute metadata URL>"` and the
+stable JSON error envelope. The resource metadata URL must use HTTPS in
+production, match the configured MCP origin, and is never derived from an
+untrusted forwarding header.
+
+Before dispatch, AgentPay verifies the signature and claims, current credential
+revocation, current entitlement epoch and access boundary, target ownership,
+exact operation scope, and quota. A top-level `read` scope never authorizes a
+mutation. A modified local connector cannot bypass these cloud checks or obtain
+signing material.
+
+Every authorized request consumes one `mcp_operation` unit before JSON-RPC
+dispatch. Authentication and authorization failures do not consume quota.
+
+| HTTP | Code | Meaning |
+|---:|---|---|
+| 401 | `invalid_credential` | Missing, malformed, unknown, or invalid signature |
+| 401 | `token_expired` | Capability is outside its accepted time window |
+| 401 | `token_revoked` | Credential is revoked or entitlement epoch is stale |
+| 403 | `subscription_inactive` | Seller access is not currently entitled |
+| 403 | `insufficient_scope` | Token lacks the exact resource/tool scope |
+| 403 | `permission_denied` | Ownership, feature, confirmation, or static entitlement denied |
+| 409 | `idempotency_conflict` | Mutation key was reused with different canonical input |
+| 429 | `rate_limited` | Operation quota exceeded; includes `Retry-After` |
+| 503 | `dependency_unavailable` | Current authorization state cannot be established |
+
+JSON-RPC method and parameter errors are returned only after HTTP authorization
+succeeds. Internal repository details are never returned.
+
+Resource identity is derived only from the authenticated capability. Resource
 URIs never accept a caller-supplied seller identifier.
 
 ## Read-only resources

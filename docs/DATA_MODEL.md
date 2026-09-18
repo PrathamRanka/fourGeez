@@ -1,13 +1,13 @@
 # Data model and state machines
 
-Status: **Locked through the implemented M7 backend; M7.1 additions are planned and must be documented here before persistence changes**.
+Status: **Implemented M7 fields remain the development compatibility baseline; sections explicitly introduced by LCH-003/LCH-004 are the locked M7.1 production target and require the named implementation/migration tasks before activation**.
 
 The current schema does not yet contain the complete launch-hardening model for
-subscription lifecycle, entitlement epochs, short-lived capabilities, signed
-discovery revisions, execution-token replay, operator actions, remediation,
-or data-lifecycle requests. Those fields, states, keys, indexes, migration
-rules, and retention effects are introduced only through LCH-003, LCH-005,
-LCH-010, and the dependent contract tasks.
+subscription lifecycle, execution-token replay, operator actions, remediation,
+or data-lifecycle requests. LCH-003 and LCH-004 lock product identity,
+capability, discovery, browser purchase-session, and execution-authorization
+contracts. Subscription transitions, provider mapping, persistence migrations,
+and retention effects remain owned by LCH-005, LCH-010, and their dependents.
 
 ## Conventions
 
@@ -96,6 +96,7 @@ never persisted.
 | `scopes` | string array | Explicit read, configure, publish, validate, or rotate permissions |
 | `expiresAt` | timestamp/null | Required for temporary setup credentials |
 | `revokedAt` | timestamp/null | Revocation makes the credential unusable immediately |
+| `lastUsedAt` | timestamp/null | Last successful bootstrap exchange; ordinary MCP use does not update it |
 | `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
 | `version` | integer | Used for guarded rotation and revocation |
 
@@ -103,9 +104,55 @@ Credential scope never implies permission to deploy a seller repository or
 access seller infrastructure. Deployment authorization remains local to the
 seller's coding-agent environment.
 
-Raw credentials use `apc1.<sellerId>.<credentialId>.<randomSecret>`. The
-seller and credential identifiers permit a point read, but they grant no
-authority without constant-time verification of the complete token hash.
+New production credentials use `apc2.<credentialId>.<randomSecret>`.
+`credentialId` is a globally unique lookup hint and grants no authority without
+constant-time verification of the complete keyed digest. Existing
+`apc1.<sellerId>.<credentialId>.<randomSecret>` credentials are migration-only
+bootstrap credentials and must be replaced by the next explicit rotation.
+Neither format is accepted as an ordinary MCP, purchase, control-plane, or
+seller-execution bearer token.
+
+Rotation is atomic: create a successor with a new ID and secret, mark the
+predecessor revoked, preserve the approved scopes unless explicitly narrowed,
+and return one successor secret value. Failure leaves the predecessor valid and
+creates no successor. Success denies future bootstrap exchanges for the
+predecessor and invalidates access tokens that name its `credentialId`.
+
+Rotation is idempotent without storing plaintext credentials. The idempotency
+record stores the committed response secret only as KMS envelope-encrypted
+ciphertext for at most ten minutes, scoped to the authenticated seller,
+operation, predecessor, and request hash. An exact retry within that window
+returns the same successor and secret. After the encrypted response expires,
+the predecessor remains revoked and the API returns `409 state_conflict` with
+the successor credential ID; the seller must rotate that successor. A timeout
+before the atomic database commit leaves the predecessor valid, while a lost
+response after commit follows this recovery rule.
+
+### IntegrationAccessCapability
+
+The proprietary project-key bootstrap exchange returns a non-persisted ES256
+JWT. It is not OAuth and does not use an OAuth grant type. Required claims are:
+
+| Claim | Rule |
+|---|---|
+| `iss` | Exact environment API origin |
+| `aud` | Exact AgentPay audience, initially `urn:agentpay:mcp` |
+| `sub` | The authenticated `credentialId` |
+| `sellerId`, `credentialId` | Match the current credential record |
+| `scope` | Space-delimited subset of current credential scopes and MCP-supported scopes (`read`, `configure`, `publish`, `validate`); `rotate` is never issued to the MCP audience |
+| `entitlementEpoch` | Current seller entitlement epoch |
+| `jti` | Unique `cap_` identifier |
+| `iat`, `exp` | Numeric dates with a 120-300 second lifetime |
+
+The protected header is `typ=agentpay-access+jwt`, `alg=ES256`, and a known
+AgentPay JWKS `kid`. Authorization checks current credential revocation and
+entitlement epoch; signature validity alone never authorizes a request.
+
+This proprietary capability is used only by the mandatory AgentPay connector
+for project-key installations. Standards-compatible clients connecting
+directly to the remote `/mcp` resource discover its OAuth authorization servers
+through `/.well-known/oauth-protected-resource/mcp` and never submit a project
+key to the MCP endpoint.
 
 ### PaidRoute
 
@@ -191,8 +238,11 @@ An intent becomes immutable after creation.
 |---|---|---|
 | `intentId` | string | Primary identifier |
 | `sellerId`, `routeId` | string | Resolved offer |
-| `buyerId` | string | Demo agent/API-key identity |
-| `purchaseChannel` | enum | Planned M7 field: `agent` or `browser` |
+| `buyerId` | string | Buyer-agent subject, or `browser:<purchaseSessionId>` for a browser purchase |
+| `purchaseSessionId` | string/null | Browser session owner; null for agent purchases |
+| `purchaseChannel` | enum | `agent` or `browser` |
+| `productDisplayName`, `productSlug` | string | Immutable public identity snapshot |
+| `paymentDestinationId`, `payTo` | string | Immutable verified destination snapshot |
 | `requestMethod`, `requestPath` | string | Canonical target |
 | `requestBodyHash` | string | Hash of canonical request bytes |
 | `amount`, `asset`, `network` | string | Frozen quote |
@@ -203,6 +253,54 @@ An intent becomes immutable after creation.
 | `status` | enum | `ready`, `approval_pending`, `approved`, `expired`, `executed` |
 
 The price and commercial fields of an intent never change after creation. Seller price updates affect only newly created intents.
+
+### BrowserPurchaseSession
+
+A public product page creates a bounded browser purchase session before it may
+create an intent or call a paid route. It is distinct from seller sessions,
+seller project credentials, and buyer-agent credentials.
+
+| Field | Type | Notes |
+|---|---|---|
+| `purchaseSessionId` | string | `bps_` prefixed ULID |
+| `sellerId`, `routeId` | string | Resolved from seller and product slugs |
+| `productSlug` | string | Immutable public product identity |
+| `requestBodyHash` | string | Exact request authorization binding |
+| `maximumAmount` | string | Browser safety ceiling in atomic units |
+| `browserGrantHash` | string | Hash of the opaque cookie grant; the raw cookie is never persisted or logged |
+| `csrfTokenHash` | string | Hash of the double-submit CSRF token |
+| `walletBindingHash` | string/null | Verified payer network/address hash recorded no later than finalized payment |
+| `transactionId` | string/null | The one transaction created from this session |
+| `status` | enum | `active`, `completed`, `expired`, or `revoked` |
+| `commerceExpiresAt` | timestamp | Exclusive boundary, at most ten minutes after creation, for intent creation, approval initiation, challenge issuance, verification, and settlement |
+| `accessExpiresAt` | timestamp | Exclusive browser-access boundary: initially commerce expiry, extended after finalized payment to 30 days after terminal fulfillment/failure, or 30 days after a timely dispute resolves |
+| `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
+
+Creation returns no JavaScript-readable bearer token. It sets an opaque Secure,
+HttpOnly, SameSite=Strict `__Host-agentpay_purchase` cookie and a separate
+Secure, SameSite=Strict, non-HttpOnly `__Host-agentpay_purchase_csrf` cookie.
+State-changing requests authenticated by the purchase cookie require the CSRF
+value in `X-AgentPay-CSRF`, exact allowlisted `Origin`, and compatible
+`Sec-Fetch-Site`; buyer-agent-key requests do not use this CSRF mechanism. The
+server may associate multiple purchase sessions with one browser grant.
+
+`active` may create exactly one intent and proceed through payment until
+`commerceExpiresAt`. Finalized payment binds the verified payer wallet and
+moves the session to `completed`; completed sessions cannot create or pay again
+but retain read and dispute authority for 30 days after terminal fulfillment or
+failure. A dispute opened during that period extends access until 30 days after
+resolution. A reload retains
+the HttpOnly cookie. If the cookie is lost after finalized payment, a short,
+single-use server nonce signed by the bound payer wallet may restore only
+transaction, receipt, evidence, and dispute access. Losing the cookie before
+payment requires creating a new purchase session.
+
+Each recovery challenge is a child record containing `challengeId`,
+`purchaseSessionId`, the expected wallet-binding hash, a random nonce, canonical
+message hash, `expiresAt`, and nullable `usedAt`. The raw signature is validated
+and discarded. Recovery consumes the challenge conditionally, compares the
+recovered signer to the finalized payer binding, rotates the browser grant and
+CSRF values, and never extends `accessExpiresAt`.
 
 ### ApprovalSession
 
@@ -217,9 +315,42 @@ The price and commercial fields of an intent never change after creation. Seller
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest state change |
 | `version` | integer | Starts at 1 and increments on every decision or expiration |
 
-Each invitation is stored as a child item containing approver label, token hash, expiration, use timestamp, and decision. An invitation can produce one decision only.
+Each invitation is stored as a child item containing approver label, token hash,
+expiration, exchange timestamp, browser-grant binding, decision timestamp, and
+decision. An invitation can be exchanged once and can produce one decision
+only.
 
-Raw invitation tokens are returned only when the session is created. When the second approval resolves a session, a short-lived HMAC-signed approval token is returned once and only its SHA-256 hash is persisted. The token is bound to the session ID, intent ID, complete intent hash, and session expiration.
+Raw invitation tokens are returned only in invitation URL fragments and are
+exchanged once into a server-side grant set represented by the opaque Secure,
+HttpOnly, SameSite=Strict `__Host-agentpay_approvals` cookie. A browser grant
+may contain multiple independently bounded approval invitations, so concurrent
+sessions do not overwrite one another. The companion
+`__Host-agentpay_approval_csrf` cookie is non-HttpOnly; approval decisions
+require its value in `X-AgentPay-CSRF`, exact approval-page `Origin`, strict
+JSON content type, and the matching session/approver grant. Query-parameter
+invitation tokens are not accepted.
+
+Approvers never receive purchase authority. After the session resolves, only
+the buyer agent or browser purchase session that owns the intent may call the
+completion-token endpoint. That endpoint issues a short-lived approval token
+bound to the session ID, intent ID, complete intent hash, purchase owner, and
+session expiration; only its SHA-256 hash is stored on the approval session.
+The idempotency record may retain the response token as KMS envelope-encrypted
+ciphertext no longer than the token expiry so an exact retry returns the same
+response without persisting plaintext. A new idempotency key may issue a
+replacement only after atomically invalidating any prior unconsumed token,
+preventing a lost response from blocking the purchase owner.
+
+### ApprovalBrowserGrant
+
+The approval cookie identifies one browser grant by an opaque random value; only
+its keyed hash is stored. Each exchanged invitation creates a separate child
+binding containing `sessionId`, approver identity, invitation hash,
+`csrfTokenHash`, `expiresAt`, and nullable decision timestamp. Adding one
+binding never replaces another session's binding. Revoking, expiring, or using
+one invitation affects only that child binding. WebSocket authorization selects
+the exact child binding named by the channel `sessionId` and also verifies the
+configured approval Origin.
 
 ### Transaction
 
@@ -227,9 +358,12 @@ Raw invitation tokens are returned only when the session is created. When the se
 |---|---|---|
 | `transactionId` | string | Primary identifier |
 | `intentId` | string | Unique; an intent executes once |
-| `sellerId`, `routeId`, `buyerId` | string | Query dimensions |
-| `purchaseChannel` | enum | Planned M7 field: `agent` or `browser` |
-| `paymentRail` | enum | Planned M7 field: `x402`; future rails require a migration |
+| `sellerId`, `routeId`, `buyerId` | string | Query dimensions; browser buyer ID is `browser:<purchaseSessionId>` |
+| `purchaseSessionId` | string/null | Browser session owner; null for buyer-agent purchases |
+| `productDisplayName`, `productSlug` | string | Immutable purchase-time product snapshot |
+| `paymentDestinationId` | string | Immutable verified destination identifier snapshot |
+| `purchaseChannel` | enum | `agent` or `browser` |
+| `paymentRail` | enum | `x402`; future rails require a migration |
 | `status` | enum | State machine below |
 | `paymentIdentifier` | string/null | Unique replay-protection value supplied by payment adapter |
 | `paymentProofHash` | string/null | Never store raw proof |
@@ -267,6 +401,13 @@ to `FAILED`; timeout or unavailable responses remain `confirmed` because final
 network outcome is unknown. Records written before this migration that contain
 a payment identifier but no finality are interpreted conservatively as
 `confirmed`, never `finalized`.
+
+The forwarding claim is one conditional mutation requiring all of
+`status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the expected transaction
+version, and no prior forwarding owner. Only that winner changes the status to
+`FORWARDED` and may request an execution capability. A merely confirmed
+transaction can never be claimed, even though it shares the
+`PAYMENT_VERIFIED` business status while reconciliation is pending.
 
 The API derives one reconciliation bucket without mutating persisted state:
 `challenged`, `verified`, `finalized`, `fulfilled`, `failed`, or `disputed`.
@@ -345,17 +486,22 @@ HMAC-SHA256 over the event ID, delivery timestamp, and body hash.
 
 `PurchaseReceipt` is generated on demand and is not a second persisted payment
 record. It is available only after the transaction has a `finalized` payment
-observation and the complete evidence chain verifies. Schema version `1`
-contains the public transaction fields, safe payment reference, fulfillment
-result, the complete signed evidence chain, event count, root event hash, and
-head event hash. It never contains a payment identifier, payment proof hash,
-raw payment proof, authorization value, approval token, wallet material, or
-seller secret.
+observation and the complete evidence chain verifies. Schema version `2` adds
+the immutable product display-name, product-slug, purchase-channel,
+payment-rail, and frozen payment-destination identifier snapshots. Readers must
+continue to accept schema version `1`, which identifies a historical product by
+`routeId`. Both versions contain the safe payment reference, fulfillment
+result, complete signed evidence chain, event count, root event hash, and head
+event hash. Neither contains a payment identifier, payment proof hash, raw
+payment proof, authorization value, approval token, wallet material, execution
+capability, or seller secret.
 
 The receipt uses the transaction ID as its stable identity. Repeated downloads
 for unchanged transaction and evidence state produce the same JSON fields.
 Sellers may download receipts for their own transactions; authenticated agent
-buyers may download only receipts whose `buyerId` matches their subject.
+buyers may download only receipts whose `buyerId` matches their subject;
+browser grants may download only receipts whose `purchaseSessionId` is one of
+their active or recovered read-authority bindings.
 
 ### SellerPlan
 
@@ -379,12 +525,60 @@ Growth enables approvals, webhooks, and advanced analytics. Scale adds priority
 support. These flags describe entitlement only; enforcement belongs to
 `OPS-001`.
 
-Each seller has one `SellerPlan` record at `PK=SELLER#<sellerId>`,
-`SK=BILLING_PLAN`. It stores `sellerId`, `planId`, `planVersion`, `status`, UTC
-period start/end, assignment timestamps, and optimistic `version`. Status is
-`active` or `suspended`. A missing record is initialized to Starter version 1;
-changing plans requires an explicit trusted billing operation and never changes
-buyer settlement state.
+Each seller has one authoritative entitlement projection at
+`PK=SELLER#<sellerId>`, `SK=BILLING_PLAN`. The wire record is named
+`SellerEntitlement` and stores `sellerId`, `planId`, `planVersion`, `status`,
+UTC period start/end, exact `accessEndsAt`, nullable `graceEndsAt`,
+`cancelAtPeriodEnd`, monotonically increasing `entitlementEpoch`, provider
+`source`, opaque ordered `sourceRevision`, nullable `suspensionReason`,
+assignment timestamps, and optimistic `version`. Status vocabulary is
+`active`, `grace`, `suspended`, `cancelled`, or `closed`; LCH-005 owns the
+transition matrix and provider-event mapping. A missing production record is
+not auto-created and transaction-critical authorization fails closed. Buyer
+settlement state remains independent.
+
+`entitlementEpoch` increments whenever all existing seller capabilities must be
+invalidated, including suspension, closure, administrative quarantine, and a
+reactivation that requires credential rotation. `sourceRevision` orders
+authenticated provider or operator events so stale events cannot overwrite
+newer entitlement state. Redis may cache this projection, but the database is
+authoritative.
+
+### StorefrontDiscoveryDocument
+
+AgentPay-hosted discovery is a signed read model, not transaction authority. An
+active document contains schema version, immutable seller ID, seller name and
+slug, `availability=active`, monotonically increasing `publicationRevision`,
+`issuedAt`, short `expiresAt`, canonical origin, and explicit public product
+projections. Public products expose route ID, display name, product slug,
+description, output MIME type, exact amount/asset/network, canonical product
+URL, and purchase-session endpoint. They never expose upstream URLs, payout
+addresses, project credentials, or policy secrets.
+
+An inactive seller resolves to a signed tombstone with
+`availability=inactive`, seller identity, publication revision, issue/expiry
+times, canonical origin, and an allowlisted reason of `suspended`, `cancelled`,
+or `closed`; it contains no products. Unknown slugs return `404`, while known
+inactive slugs return `410`. The cloud ES256 signature covers the
+`agentpay.discovery.v1` domain separator and RFC 8785 canonical JSON. Cached or
+seller-hosted discovery cannot authorize intent creation or payment.
+
+### ExecutionCapability
+
+An execution capability is a non-persisted cloud-signed JWT issued only after
+payment finality and the authoritative exactly-once forwarding claim. Required
+claims are exact issuer, `aud=urn:agentpay:seller:<sellerId>`,
+`sub=transactionId`, `sellerId`, `routeId`, `transactionId`, HTTP `method`,
+literal `path`, lowercase raw-body `bodySha256`,
+`paymentFinality=finalized`, unique `jti`, `iat`, and `exp`. Lifetime is 30-60
+seconds. Its protected header is `typ=agentpay-execution+jwt`, `alg=ES256`, and
+a current or overlapping-rotation `kid`.
+
+AgentPay sends it in `X-AgentPay-Execution-Capability`; the separate
+`X-AgentPay-Transaction-Id` header must equal the claim. Seller middleware
+verifies JWKS, exact audience and bindings, consumes the JTI once, and uses
+`transactionId` as its fulfillment idempotency key. Execution capabilities are
+never returned to buyers or stored in receipts, evidence, webhooks, or logs.
 
 ### QuotaCounter
 
@@ -463,11 +657,16 @@ Approval WebSocket connections are ephemeral registrations used only for event d
 | Field | Type | Notes |
 |---|---|---|
 | `connectionId` | string | API Gateway or local WebSocket connection identifier |
-| `sessionId` | string | Approval session authorized by the invitation token at connect time |
+| `sessionId` | string | Approval session authorized by the exchanged invitation cookie at connect time |
 | `expiresAt` | timestamp | Must not exceed the approval-session expiration |
 | `connectedAt` | timestamp | UTC registration time |
 
-Raw invitation tokens are never persisted with a connection. Expired or delivery-gone connections are deleted, and reconnecting creates a new registration and immediately receives a complete redacted `session.snapshot` event.
+Raw invitation tokens and cookie values are never persisted with a connection.
+The WebSocket handshake uses the same-origin approval grant cookie; expired,
+mismatched, decided, or revoked child grants are rejected before upgrade.
+Expired or delivery-gone connections are deleted, and reconnecting creates a
+new registration and immediately receives a complete redacted
+`session.snapshot` event.
 
 ### EvidenceEvent
 
@@ -525,6 +724,7 @@ PK=SELLER#sel_123       SK=PROFILE
 PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=SELLER#sel_123       SK=PRODUCT_SLUG#<productSlug>
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123
+PK=CREDENTIAL#key_123   SK=LOOKUP
 PK=SELLER#sel_123       SK=DESTINATION#dst_123
 PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>
 PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL
@@ -538,8 +738,12 @@ PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123
 PK=SELLER#sel_123       SK=METER#<createdAt>#mtr_123
 PK=SELLER#sel_123       SK=METER_SOURCE#successful_transaction#txn_123
 PK=INTENT#int_123       SK=PROFILE
+PK=PURCHASE_SESSION#bps_123 SK=PROFILE
+PK=PURCHASE_SESSION#bps_123 SK=RECOVERY#bpr_123
+PK=BROWSER_GRANT#<grantHash> SK=PURCHASE#bps_123
 PK=APPROVAL#aps_123     SK=PROFILE
 PK=APPROVAL#aps_123     SK=INVITE#<tokenHash>
+PK=APPROVAL_GRANT#<grantHash> SK=SESSION#aps_123#<approverId>
 PK=APPROVAL#aps_123     SK=CONNECTION#<connectionId>
 PK=TXN#txn_123          SK=PROFILE
 PK=TXN#txn_123          SK=EVENT#000001

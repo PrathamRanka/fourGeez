@@ -125,6 +125,8 @@ V1 does not require a large seller SDK. AgentPay provides:
 
 - a seller control API and minimal dashboard;
 - a remote MCP server with scoped tools, resources, and setup prompts;
+- an AgentPay local connector for project-key installations and direct OAuth
+  interoperability for compatible remote MCP hosts;
 - coding-agent setup instructions for Claude Code, Codex, and generic MCP hosts;
 - maintained request-verification middleware or small packages for supported
   server frameworks;
@@ -157,9 +159,13 @@ is deferred and is not required for the agent-first release.
 The public storefront is the browser buyer experience. A separate `/buyer`
 account area is not part of V1. Agent-specific interaction is demonstrated at
 `/demo/agent-checkout` and uses the same authoritative commerce services.
-The currently implemented API still requires an agent credential for intent
-and paid-route operations; LCH-004 must define the separate browser purchase
-session or wallet-bound authorization contract before browser checkout is
+The current M7 development runtime still requires an agent credential for
+intent and paid-route operations. The locked M7.1 contract replaces that gap
+with a durable opaque browser purchase grant: commerce authority expires within
+ten minutes, receipt/dispute access survives reloads for 30 days after the
+terminal outcome or a timely dispute's resolution,
+and a finalized payer can recover read/remediation access with wallet proof.
+LCH-035 must implement and verify that target before browser checkout is
 represented as complete.
 
 ## Unified commerce rule

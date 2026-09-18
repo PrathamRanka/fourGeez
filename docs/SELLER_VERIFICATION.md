@@ -1,6 +1,6 @@
 # Seller request verification
 
-Status: **Locked through STK-003**.
+Status: **Version 2 contract locked by LCH-004; runtime implementation remains LCH-024-LCH-026**.
 
 Implementation status: version 1 uses the current per-seller HMAC contract.
 That shared-secret design is retained only for M7 compatibility and sandbox
@@ -39,3 +39,63 @@ valid signature, modified-body rejection, stale-request rejection, replay
 rejection, and minimum secret length. Run all four with
 `npm run test:verification:extended`; missing .NET, Ruby, or PHP runtimes use
 pinned official Docker images, while Java 17 or newer is required locally.
+
+## Version 2 production contract
+
+Version 2 replaces shared seller HMAC authority for production fulfillment.
+The cloud may mint this capability only after an atomic forwarding claim whose
+condition includes `status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the
+expected transaction version, and absence of a prior forwarding owner. The
+current M7 Go repository checks status only and therefore remains development
+compatibility code until LCH-024 updates that condition.
+Every AgentPay-to-seller request includes
+`X-AgentPay-Execution-Capability: <compact JWT>` and
+`X-AgentPay-Transaction-Id: txn_...` along with the exact configured method,
+literal path, and raw body.
+
+The JWT protected header requires `alg=ES256`, a known AgentPay JWKS `kid`, and
+`typ=agentpay-execution+jwt`. Required claims and checks are:
+
+| Claim | Required verification |
+|---|---|
+| `iss` | Exact configured AgentPay API origin |
+| `aud` | Exact `urn:agentpay:seller:<sellerId>` value |
+| `sub` | Equal to `transactionId` |
+| `sellerId` | Equal to the receiving seller |
+| `routeId` | Equal to the locally configured AgentPay route |
+| `transactionId` | Equal to `X-AgentPay-Transaction-Id` |
+| `method` | Equal to the uppercase request method |
+| `path` | Equal to the literal request path; query is excluded |
+| `bodySha256` | Equal to lowercase SHA-256 of exact raw request bytes |
+| `paymentFinality` | Exactly `finalized` |
+| `jti` | Unique `xec_` identifier consumed once |
+| `iat`, `exp` | Numeric dates; lifetime is 30-60 seconds |
+
+Verification packages fetch public keys from `/.well-known/jwks.json`, cache
+only according to response headers, pin ES256, reject unknown `kid` values, and
+refresh once for an unseen key during overlapping rotation. They never accept
+an algorithm from configuration or token input.
+
+Middleware preserves and hashes raw bytes before JSON parsing. After signature
+and claim verification, it atomically consumes `jti` in a shared replay store
+and uses `transactionId` as the seller application's fulfillment idempotency
+key. A repeated JTI returns `409`; an already completed transaction returns its
+stored outcome without rerunning business logic.
+
+Verification failure returns `401`, binding or audience mismatch returns `403`,
+replay returns `409`, and JWKS/replay-store failure returns `503`. Middleware
+never logs or returns the JWT, authorization headers, raw body, payment proof,
+or internal verifier errors.
+
+Seller code receives verification authority only. It never receives an
+AgentPay private signing key, payment-verification authority, publication
+authority, or capability-minting endpoint. Forking or removing middleware can
+weaken only the seller's endpoint; it cannot create an AgentPay transaction,
+receipt, evidence chain, or valid execution capability.
+
+Version 1 remains available only to local and sandbox fixtures during
+migration. Production publication rejects integrations that validate only
+version 1. Webhook HMAC is separate and unaffected. All language fixtures must
+cover a valid version-2 request, modified body, wrong seller/route/method/path/
+audience, unknown key, expiry, replay, JWKS failure, and transaction-level
+idempotent retry.

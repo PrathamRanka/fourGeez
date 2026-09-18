@@ -33,6 +33,7 @@ M8, and M9 pass, cancellation-safe production access is not implemented.
 - Seller request/response content.
 - Evidence chain, signatures, and dispute decisions.
 - Seller project credentials and MCP authorization grants.
+- Browser purchase-session capabilities and entitlement revision state.
 - Seller repository contents, deployment credentials, and generated configuration.
 
 The per-seller HMAC request-signing contract is the implemented M7 mechanism,
@@ -61,6 +62,10 @@ transaction authority.
 | Denial of service | API throttles, body limits, route limits, Lambda concurrency, upstream timeout, Bedrock call budget |
 | Repository prompt injection | Treat repository text as untrusted, expose only allowlisted MCP tools, and require confirmation for commercial or deployment mutations |
 | Over-scoped integration credential | Bind each credential to one seller, use explicit scopes and expiration, hash it at rest, and support immediate revocation |
+| Forked or modified local MCP | Keep token issuance, entitlement, publication, payment, and transaction authority in AgentPay cloud; the local connector can only request short-lived capabilities and proxy bounded messages |
+| Stale access capability | Verify ES256, exact issuer/audience/type, expiry, current credential state, and current `entitlementEpoch` on every protected operation |
+| Stale or forged discovery | Verify the AgentPay discovery signature and expiry, then perform fresh cloud authorization before intent creation, challenge, verification, or settlement |
+| Forged browser checkout | Use a short-lived purchase capability bound to seller, route, product slug, request hash, maximum amount, and browser channel; never expose seller credentials to the browser |
 | Generated secret exposure | Write secrets only to ignored server-side configuration, scan generated changes, and never serialize secrets into browser code or model prompts |
 | Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |
 | Human checkout forgery or replay | Authenticate provider callbacks, bind them to immutable intents, process them idempotently, and reuse transaction replay protection |
@@ -99,10 +104,63 @@ Canonicalization must be versioned. Version 1 uses:
 
 Use different domain separators for intent and evidence hashes, such as `agentpay.intent.v1` and `agentpay.evidence.v1`. Never hash an ambiguous string concatenation.
 
-## Seller request signatures
+## Capability classes and key publication
 
-AgentPay authenticates each forwarded seller request with `X-AgentPay-Signature`,
-`X-AgentPay-Timestamp`, and `X-AgentPay-Transaction-Id`. Version 1 signs the
+AgentPay uses separate capabilities for separate trust boundaries:
+
+| Capability | Holder | Maximum lifetime | Audience | Authority |
+|---|---|---:|---|---|
+| Project key | Seller-side connector | Until expiry/rotation/revocation | Bootstrap endpoint only | Request an MCP access token |
+| MCP access token | Connector process | 300 seconds | `urn:agentpay:mcp` | Exact seller MCP scopes only |
+| Browser purchase grant | Secure HttpOnly cookie backed by server-side state | Commerce: 10 minutes; read/remediation: 30 days after terminal outcome or dispute resolution | One browser grant containing bounded purchase sessions | Create/pay once during commerce window; read/recover/dispute afterward |
+| Approval grant set | Secure HttpOnly cookie backed by server-side state | Per-invitation approval expiry | Independently bound approval sessions | Read and decide once for each authorized approver grant |
+| Execution capability | AgentPay proxy and seller endpoint | 60 seconds | `urn:agentpay:seller:<sellerId>` | One exact finalized transaction request |
+
+JWT capabilities use ES256 only. Protected headers pin a capability-specific
+`typ` and a known `kid`. Public verification keys are served from
+`/.well-known/jwks.json` with overlapping publication during rotation. Private
+signing material remains behind the cloud KMS/HSM boundary and is never placed
+in application configuration, seller infrastructure, browser code, logs, or
+repositories.
+
+The project-key exchange is proprietary AgentPay bootstrap, not OAuth. It uses
+`POST /v1/integration-access-tokens` and returns `Cache-Control: no-store`.
+Project-key installations must use the AgentPay connector; project keys are
+never accepted by `/mcp` or commerce routes. Direct standards-compatible MCP
+clients use the OAuth authorization servers published by
+`/.well-known/oauth-protected-resource/mcp`. Both paths produce short-lived MCP
+access tokens carrying exact issuer, audience, subject, seller, credential or
+delegated-client identity, scopes, `entitlementEpoch`, JTI, issued-at, and
+expiry claims. Middleware additionally loads current credential and entitlement
+state; a valid signature with a stale epoch or revoked credential is rejected.
+
+Approval invitation tokens are the one deliberate URL-delivered secret. They
+appear only after `#invite=` in a generated approval URL, so browsers do not
+send them in HTTP requests or referrers. The approval page exchanges the token
+once into a server-side grant set represented by a Secure, HttpOnly,
+SameSite=Strict cookie and removes the fragment. A separate non-HttpOnly
+SameSite=Strict CSRF cookie must match `X-AgentPay-CSRF`; the server also
+requires the exact configured approval Origin and strict JSON content type for
+decisions. Multiple invitation grants may coexist under one browser grant.
+Approvers never receive the purchase-completion token; only the authenticated
+purchase owner may claim it after resolution.
+Seller sessions, project keys, access tokens, browser purchase cookies, payment
+proofs, approval tokens, and execution capabilities must never appear in URLs.
+
+## Seller request authorization
+
+The production contract authenticates each forwarded seller request with
+`X-AgentPay-Execution-Capability` and `X-AgentPay-Transaction-Id`. The ES256 JWT
+has `typ=agentpay-execution+jwt` and binds issuer, exact seller audience,
+transaction, seller, route, method, literal path, lowercase SHA-256 of the exact
+raw body, `paymentFinality=finalized`, JTI, issued-at, and expiry. Seller
+middleware verifies a pinned algorithm, resolves `kid` through AgentPay JWKS,
+compares every binding, consumes the JTI once, and uses `transactionId` as the
+fulfillment idempotency key. Removing seller middleware cannot mint a valid
+AgentPay capability or alter the cloud forwarding claim.
+
+Version 1 uses `X-AgentPay-Signature`, `X-AgentPay-Timestamp`, and
+`X-AgentPay-Transaction-Id` for existing development fixtures and signs the
 following newline-delimited UTF-8 fields with HMAC-SHA256 and base64-encodes the
 result:
 
@@ -115,7 +173,8 @@ agentpay.seller-request.v1
 <transactionId>
 ```
 
-The secret is resolved server-side from the seller's `signingSecretRef`, must
+Version 1 is not permitted for production transaction authorization. Its
+secret is resolved server-side from the seller's `signingSecretRef`, must
 contain at least 32 bytes, and is never added to request models, logs, evidence,
 or responses. Seller verification uses constant-time signature comparison.
 
@@ -141,6 +200,14 @@ Forbidden:
 - Maximum JSON body: 1 MiB; paid-route limit is configurable downward.
 - Strict content types and JSON decoding with unknown-field rejection for control APIs.
 - Stable machine error codes; internal stack traces never leave the service.
+- Error responses use the documented status/code pairs: `401` for
+  `invalid_credential`, `token_expired`, or `token_revoked`; `403` for
+  `subscription_inactive`, `insufficient_scope`, or `permission_denied`; `404`
+  for `not_found`; `409` for `state_conflict`, `idempotency_conflict`,
+  `payment_replayed`, or `token_replayed`; `410` for `seller_inactive` or
+  `invitation_expired`; `422` for `validation_failed`; `428` for
+  `approval_required`; `429` for `rate_limited`; `402` for `payment_required`
+  or `payment_rejected`; and `503` for `dependency_unavailable`.
 - Authenticate and authorize the seller before consuming seller-scoped API
   quota so an attacker cannot exhaust another tenant's allowance.
 - Return `permission_denied` for suspended plans and static entitlements, and
@@ -160,6 +227,8 @@ Forbidden:
 - Every authenticated MCP POST consumes one seller-scoped monthly operation
   unit; invalid credentials do not consume quota.
 - Project credentials are seller-scoped, hashed at rest, revocable, and never committed to the seller repository.
+- Project credentials are accepted only by the proprietary bootstrap exchange;
+  ordinary MCP requests require a short-lived access capability.
 - Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.
 - Repository analysis must not upload unrelated source files, `.env` contents, credentials, wallet material, customer information, or proprietary data to AgentPay.
 - SEO/AEO generation may inspect public page structure and allowlisted product
@@ -173,7 +242,15 @@ Forbidden:
 
 - Card checkout is deferred to milestone H1 and is not required for the
   agent-first x402 release.
-- The human checkout provider must be selected and its official integration guidance recorded before adding a dependency.
+- Browser x402 checkout uses an opaque server-side purchase grant distinct from
+  seller and buyer-agent credentials. A Secure HttpOnly cookie survives reloads
+  and is bound to one product/request/maximum amount. Commerce authority expires
+  within ten minutes, while read and dispute authority lasts for 30 days after
+  terminal fulfillment/failure or a timely dispute's resolution. Finalized payment binds the payer wallet so a
+  one-time signed recovery challenge can restore read/remediation access without
+  restoring commerce authority. State-changing cookie-authenticated requests
+  require double-submit CSRF and exact Origin validation.
+- A future card checkout provider must be selected and its official integration guidance recorded before adding a dependency.
 - A provider success redirect is not proof of payment; only an authenticated server callback may advance payment state.
 - Provider events require replay protection and idempotent processing.
 - Human checkout uses the same frozen seller quote, approval policy, fulfillment claim, evidence chain, and dispute rules as x402.
