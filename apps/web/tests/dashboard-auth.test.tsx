@@ -15,12 +15,20 @@ describe("authenticated seller dashboard", () => {
       "href",
       "/dashboard/products",
     );
+    expect(screen.getByRole("link", { name: "Disputes" })).toHaveAttribute(
+      "href",
+      "/dashboard/disputes",
+    );
     expect(
       screen.getByRole("link", { name: "Transactions" }),
     ).not.toHaveAttribute("href", expect.stringContaining("sellerId"));
+    expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
-  it("shows the authenticated owner and a real sign-out action", () => {
+  it("shows the authenticated workspace context and a real sign-out action", () => {
     render(
       <DashboardShell
         seller={{ email: "owner@example.com", name: "Northstar Research" }}
@@ -28,8 +36,15 @@ describe("authenticated seller dashboard", () => {
         <p>Protected content</p>
       </DashboardShell>,
     );
+    expect(
+      screen.getByRole("complementary", { name: "AgentPay seller workspace" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("status", { name: "Environment" }),
+    ).toHaveTextContent("Local testnet");
     expect(screen.getByText("Northstar Research")).toBeVisible();
     expect(screen.getByText("owner@example.com")).toBeVisible();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 });
