@@ -1,0 +1,400 @@
+.workspace,
+.openPanel,
+.outcome {
+  --line: color-mix(in oklab, var(--foreground) 17%, transparent);
+  --subtle-line: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --surface: color-mix(in oklab, var(--background) 94%, black);
+  min-width: 0;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.eyebrow {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.detailHeader {
+  position: relative;
+  display: flex;
+  min-height: 12rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.detailHeader::after {
+  position: absolute;
+  z-index: 0;
+  top: -70%;
+  right: -8%;
+  width: min(42rem, 60vw);
+  height: 18rem;
+  background:
+    radial-gradient(circle at 35% 60%, rgb(58 136 255 / 0.32), transparent 36%),
+    radial-gradient(circle at 66% 60%, rgb(183 136 255 / 0.3), transparent 35%);
+  content: "";
+  filter: blur(2.2rem);
+  pointer-events: none;
+}
+
+.detailHeader > * {
+  position: relative;
+  z-index: 1;
+}
+
+.detailHeader h1 {
+  margin-top: 0.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 0.98;
+}
+
+.detailHeader code {
+  display: block;
+  margin-top: 0.65rem;
+  color: var(--muted-foreground);
+  font-size: 0.6rem;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.2rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-decoration: none;
+}
+
+.backLink:hover,
+.backLink:focus-visible {
+  color: var(--foreground);
+}
+
+.backLink svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.outlineAction,
+.submitButton {
+  min-height: 2.65rem;
+  border-radius: 0;
+  font-family: var(--font-mono);
+}
+
+.openPanel,
+.outcome {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.panelHeader,
+.outcomeHeader {
+  display: flex;
+  min-height: 4.3rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.9rem 1rem;
+}
+
+.panelHeader > div,
+.outcomeHeader > div {
+  min-width: 0;
+  margin-right: auto;
+}
+
+.panelHeader p {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panelHeader h2 {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 580;
+}
+
+.iconFrame {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--line);
+}
+
+.iconFrame svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.evidenceBadge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.5rem;
+  border: 1px solid rgb(116 222 167 / 0.28);
+  background: rgb(116 222 167 / 0.06);
+  padding-inline: 0.5rem;
+  color: rgb(116 222 167);
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+}
+
+.evidenceBadge[data-valid="false"] {
+  border-color: rgb(255 137 137 / 0.28);
+  background: rgb(255 137 137 / 0.06);
+  color: rgb(255 137 137);
+}
+
+.evidenceBadge svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.openGrid,
+.outcomeGrid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.7fr) minmax(0, 1.3fr);
+}
+
+.openNote,
+.explanation {
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.openNote::before {
+  position: absolute;
+  right: -6rem;
+  bottom: -7rem;
+  width: 18rem;
+  height: 18rem;
+  background: radial-gradient(
+    circle,
+    rgb(97 150 255 / 0.2),
+    rgb(184 132 255 / 0.13) 38%,
+    transparent 67%
+  );
+  content: "";
+  filter: blur(1rem);
+  pointer-events: none;
+}
+
+.openNote > *,
+.explanation > * {
+  position: relative;
+}
+
+.openNote span,
+.explanation > span {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.openNote strong {
+  display: block;
+  max-width: 18rem;
+  margin-top: 0.9rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
+  font-weight: 500;
+  line-height: 1.12;
+}
+
+.openNote p {
+  max-width: 22rem;
+  margin-top: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.form label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.form select,
+.form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: color-mix(in oklab, var(--background) 88%, white 3%);
+  padding: 0.78rem;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  text-transform: none;
+}
+
+.form select:focus-visible,
+.form textarea:focus-visible {
+  border-color: color-mix(in oklab, var(--foreground) 48%, transparent);
+  outline: 1px solid color-mix(in oklab, var(--foreground) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.form textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.disabledCopy,
+.error {
+  font-size: 0.68rem;
+}
+
+.disabledCopy {
+  color: var(--muted-foreground);
+}
+
+.error {
+  color: rgb(255 137 137);
+}
+
+.submitButton {
+  justify-self: start;
+  background: var(--foreground);
+  padding-inline: 1rem;
+  color: var(--background);
+}
+
+.outcomeHeader h2 {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 3vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.explanation p {
+  max-width: 28rem;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  line-height: 1.32;
+}
+
+.explanation blockquote {
+  margin-top: 1.5rem;
+  border-left: 1px solid var(--foreground);
+  padding-left: 0.85rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.facts {
+  display: grid;
+}
+
+.facts > div {
+  min-width: 0;
+  border-bottom: 1px solid var(--subtle-line);
+  padding: 0.85rem 1rem;
+}
+
+.facts > div:last-child {
+  border-bottom: 0;
+}
+
+.facts dt {
+  color: var(--muted-foreground);
+  font-size: 0.58rem;
+}
+
+.facts dd {
+  margin-top: 0.3rem;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outcomeFooter {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding: 0.85rem 1rem;
+}
+
+@media (max-width: 800px) {
+  .detailHeader,
+  .panelHeader,
+  .outcomeHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .openGrid,
+  .outcomeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .openNote,
+  .explanation {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .evidenceBadge {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .detailHeader {
+    min-height: 0;
+    padding: 1.1rem;
+  }
+
+  .outlineAction,
+  .submitButton {
+    width: 100%;
+  }
+
+  .outcomeFooter {
+    display: block;
+  }
+}

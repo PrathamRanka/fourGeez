@@ -81,7 +81,12 @@ describe("transaction detail", () => {
     expect(screen.getByText(transactionId)).toBeVisible();
     expect(screen.getByText("35 USDC")).toBeVisible();
     expect(screen.getByText("Finalized")).toBeVisible();
-    expect(screen.getByText("Fulfilled")).toBeVisible();
+    expect(screen.getAllByText("Fulfilled")).toHaveLength(2);
+    expect(
+      screen.getByRole("region", { name: "Transaction lifecycle" }),
+    ).toBeVisible();
+    expect(screen.getByText("Payment verified")).toBeVisible();
+    expect(screen.getByText("Fulfillment complete")).toBeVisible();
     expect(
       screen.getByText("Payment and delivery proof verified"),
     ).toBeVisible();

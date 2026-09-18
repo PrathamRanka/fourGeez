@@ -106,9 +106,10 @@ describe("dashboard seller ownership", () => {
   it("builds transaction links without seller identity in the URL", async () => {
     render(await TransactionsPage());
     expect(loadTransactionList).toHaveBeenCalledWith();
-    expect(screen.getByRole("link", { name: "View details" })).toHaveAttribute(
-      "href",
-      "/dashboard/transactions/txn_123",
-    );
+    expect(
+      screen.getByRole("link", {
+        name: "Open Digital purchase transaction",
+      }),
+    ).toHaveAttribute("href", "/dashboard/transactions/txn_123");
   });
 });

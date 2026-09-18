@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   CheckCircle2,
   FileWarning,
   LoaderCircle,
@@ -20,6 +21,7 @@ import {
   disputeStatusLabel,
 } from "@/features/disputes/model";
 import type { TransactionStatus } from "@/features/transactions/model";
+import styles from "./disputes.module.css";
 
 const disputeReasons: DisputeReason[] = [
   "unauthorized",
@@ -77,64 +79,79 @@ export function DisputePanel({
   }
 
   return (
-    <section className="dispute-panel" aria-labelledby="open-dispute-title">
-      <header>
-        <FileWarning aria-hidden="true" />
+    <section className={styles.openPanel} aria-labelledby="open-dispute-title">
+      <header className={styles.panelHeader}>
+        <span className={styles.iconFrame}>
+          <FileWarning aria-hidden="true" />
+        </span>
         <div>
+          <p>Resolution desk</p>
           <h2 id="open-dispute-title">Open a dispute</h2>
-          <p>
-            Recorded transaction facts determine the initial classification.
-          </p>
         </div>
         <EvidenceBadge valid={evidenceValid} />
       </header>
-      <form aria-label="Open dispute" onSubmit={submit}>
-        <label>
-          <span>Dispute reason</span>
-          <select
-            name="reason"
-            defaultValue=""
-            required
-            disabled={!canDispute || pending}
-          >
-            <option value="" disabled>
-              Select a reason
-            </option>
-            {disputeReasons.map((reason) => (
-              <option key={reason} value={reason}>
-                {disputeReasonLabel(reason)}
+      <div className={styles.openGrid}>
+        <div className={styles.openNote}>
+          <span>Deterministic review</span>
+          <strong>Recorded facts decide the first classification.</strong>
+          <p>No model can change payment, fulfillment, or evidence state.</p>
+        </div>
+        <form
+          aria-label="Open dispute"
+          onSubmit={submit}
+          className={styles.form}
+        >
+          <label>
+            <span>Dispute reason</span>
+            <select
+              name="reason"
+              defaultValue=""
+              required
+              disabled={!canDispute || pending}
+            >
+              <option value="" disabled>
+                Select a reason
               </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Statement</span>
-          <textarea
-            name="statement"
-            maxLength={2000}
+              {disputeReasons.map((reason) => (
+                <option key={reason} value={reason}>
+                  {disputeReasonLabel(reason)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Statement</span>
+            <textarea
+              name="statement"
+              maxLength={2000}
+              disabled={!canDispute || pending}
+              placeholder="Add concise facts for seller review."
+            />
+          </label>
+          {!canDispute ? (
+            <p className={styles.disabledCopy}>
+              Disputes become available after fulfillment succeeds or fails.
+            </p>
+          ) : null}
+          {error ? (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          ) : null}
+          <Button
+            type="submit"
             disabled={!canDispute || pending}
-            placeholder="Add concise facts that help the seller review this purchase."
-          />
-        </label>
-        {!canDispute ? (
-          <p className="dispute-disabled-copy">
-            Disputes become available after fulfillment succeeds or fails.
-          </p>
-        ) : null}
-        {error ? (
-          <p className="dispute-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <Button type="submit" disabled={!canDispute || pending}>
-          {pending ? (
-            <LoaderCircle className="animate-spin" aria-hidden="true" />
-          ) : (
-            <Scale aria-hidden="true" />
-          )}
-          Open and classify dispute
-        </Button>
-      </form>
+            className={styles.submitButton}
+          >
+            {pending ? (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            ) : (
+              <Scale aria-hidden="true" />
+            )}
+            Open and classify dispute
+          </Button>
+        </form>
+      </div>
     </section>
   );
 }
@@ -147,15 +164,22 @@ export function DisputeDetail({
   evidenceValid: boolean;
 }) {
   return (
-    <div className="dispute-detail-workspace">
-      <header className="dispute-detail-header">
+    <div className={styles.workspace}>
+      <header className={styles.detailHeader}>
         <div>
-          <p className="dashboard-eyebrow">Proof Stream</p>
-          <h1>{dispute.disputeId}</h1>
-          <p>Deterministic classification and recorded resolution state.</p>
+          <Link
+            href={`/dashboard/transactions/${dispute.transactionId}`}
+            className={styles.backLink}
+          >
+            <ArrowLeft aria-hidden="true" />
+            Transaction
+          </Link>
+          <p className={styles.eyebrow}>Proof stream / dispute</p>
+          <h1>Dispute record</h1>
+          <code>{dispute.disputeId}</code>
         </div>
         <Link
-          className={buttonVariants({ variant: "outline" })}
+          className={`${buttonVariants({ variant: "outline" })} ${styles.outlineAction}`}
           href={`/dashboard/transactions/${dispute.transactionId}`}
         >
           View transaction
@@ -176,47 +200,54 @@ function DisputeOutcome({
   detailLink?: string;
 }) {
   return (
-    <section
-      className="dispute-outcome"
-      aria-labelledby="dispute-outcome-title"
-    >
-      <header>
-        <Scale aria-hidden="true" />
+    <section className={styles.outcome} aria-label="Dispute classification">
+      <header className={styles.outcomeHeader}>
         <div>
-          <p>Classification</p>
-          <h2 id="dispute-outcome-title">
-            {disputeStatusLabel(dispute.status)}
-          </h2>
+          <p className={styles.eyebrow}>Classification</p>
+          <h2>{disputeStatusLabel(dispute.status)}</h2>
         </div>
         <EvidenceBadge valid={evidenceValid} />
       </header>
-      <p className="dispute-explanation">{dispute.explanation}</p>
-      <dl>
-        <div>
-          <dt>Reason</dt>
-          <dd>{disputeReasonLabel(dispute.reason)}</dd>
-        </div>
-        <div>
-          <dt>Classification code</dt>
-          <dd>{dispute.classificationCode}</dd>
-        </div>
-        <div>
-          <dt>Rule version</dt>
-          <dd>{dispute.ruleVersion}</dd>
-        </div>
-        <div>
-          <dt>Created</dt>
-          <dd>{formatUTC(dispute.createdAt)}</dd>
-        </div>
-      </dl>
-      {dispute.statement ? <blockquote>{dispute.statement}</blockquote> : null}
+      <div className={styles.outcomeGrid}>
+        <article className={styles.explanation}>
+          <span>Recorded facts</span>
+          <p>{dispute.explanation}</p>
+          {dispute.statement ? (
+            <blockquote>{dispute.statement}</blockquote>
+          ) : null}
+        </article>
+        <dl className={styles.facts}>
+          <div>
+            <dt>Reason</dt>
+            <dd>{disputeReasonLabel(dispute.reason)}</dd>
+          </div>
+          <div>
+            <dt>Classification code</dt>
+            <dd>{dispute.classificationCode}</dd>
+          </div>
+          <div>
+            <dt>Rule version</dt>
+            <dd>{dispute.ruleVersion}</dd>
+          </div>
+          <div>
+            <dt>Created</dt>
+            <dd>{formatUTC(dispute.createdAt)}</dd>
+          </div>
+          <div>
+            <dt>Transaction</dt>
+            <dd>{dispute.transactionId}</dd>
+          </div>
+        </dl>
+      </div>
       {detailLink ? (
-        <Link
-          className={buttonVariants({ variant: "outline" })}
-          href={detailLink}
-        >
-          View dispute record
-        </Link>
+        <footer className={styles.outcomeFooter}>
+          <Link
+            className={`${buttonVariants({ variant: "outline" })} ${styles.outlineAction}`}
+            href={detailLink}
+          >
+            View dispute record
+          </Link>
+        </footer>
       ) : null}
     </section>
   );
@@ -224,7 +255,7 @@ function DisputeOutcome({
 
 function EvidenceBadge({ valid }: { valid: boolean }) {
   return (
-    <span className="dispute-evidence-badge" data-valid={valid}>
+    <span className={styles.evidenceBadge} data-valid={valid}>
       {valid ? (
         <CheckCircle2 aria-hidden="true" />
       ) : (
@@ -236,9 +267,5 @@ function EvidenceBadge({ valid }: { valid: boolean }) {
 }
 
 function formatUTC(value: string): string {
-  return `${new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(value))} UTC`;
+  return `${new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value))} UTC`;
 }

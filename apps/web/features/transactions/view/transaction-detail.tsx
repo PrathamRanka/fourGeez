@@ -1,4 +1,6 @@
 import {
+  ArrowLeft,
+  Check,
   CheckCircle2,
   Download,
   FileKey2,
@@ -6,6 +8,7 @@ import {
   Webhook,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -13,14 +16,15 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
+import type { DisputeAction } from "@/features/disputes/model";
+import { DisputePanel } from "@/features/disputes/view/dispute-workspace";
 import type { TransactionDetailSnapshot } from "@/features/transactions/model";
 import {
   transactionStatusLabel,
   webhookDeliveryStatusLabel,
 } from "@/features/transactions/model";
 import { formatAtomicPrice } from "@/lib/money";
-import type { DisputeAction } from "@/features/disputes/model";
-import { DisputePanel } from "@/features/disputes/view/dispute-workspace";
+import styles from "./transactions.module.css";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -33,48 +37,88 @@ type TransactionDetailProps = {
   createDispute?: DisputeAction;
 };
 
-// TransactionDetail presents payment, fulfillment, evidence, delivery, and receipt facts.
 export function TransactionDetail({
   snapshot,
   createDispute,
 }: TransactionDetailProps) {
   const { transaction, evidence } = snapshot;
+  const canDownloadReceipt =
+    evidence.valid && transaction.paymentFinality === "finalized";
+
   return (
-    <div className="transaction-detail-workspace">
-      <header className="transaction-detail-header">
+    <div className={styles.workspace}>
+      <header className={styles.detailHeader}>
         <div>
-          <p className="dashboard-eyebrow">Proof Stream</p>
-          <h1>{transaction.productDisplayName ?? "Purchase details"}</h1>
-          <span>{transaction.transactionId}</span>
-          <p>
-            Payment, delivery proof, receipt, and notification history for one
-            purchase.
-          </p>
-        </div>
-        {evidence.valid && transaction.paymentFinality === "finalized" ? (
-          <Link
-            className={buttonVariants()}
-            href={`/dashboard/transactions/${encodeURIComponent(transaction.transactionId)}/receipt`}
-          >
-            <Download aria-hidden="true" />
-            Download receipt
+          <Link href="/dashboard/transactions" className={styles.backLink}>
+            <ArrowLeft aria-hidden="true" />
+            Transactions
           </Link>
-        ) : null}
+          <p className={styles.eyebrow}>Proof stream / transaction</p>
+          <h1>{transaction.productDisplayName ?? "Purchase details"}</h1>
+          <code>{transaction.transactionId}</code>
+        </div>
+        <div className={styles.headerActions}>
+          <StatusBadge status={transaction.status} />
+          {canDownloadReceipt ? (
+            <Link
+              className={`${buttonVariants()} ${styles.primaryAction}`}
+              href={`/dashboard/transactions/${encodeURIComponent(transaction.transactionId)}/receipt`}
+            >
+              <Download aria-hidden="true" />
+              Download receipt
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {snapshot.error ? (
-        <div className="dashboard-error" role="alert">
+        <div className={styles.error} role="alert">
           {snapshot.error}
         </div>
       ) : null}
 
-      <section className="transaction-facts" aria-label="Transaction summary">
+      <section className={styles.lifecycle} aria-label="Transaction lifecycle">
+        <LifecycleStep
+          index="01"
+          label={
+            transaction.paymentFinality === "failed"
+              ? "Payment failed"
+              : transaction.paymentFinality
+                ? "Payment verified"
+                : "Payment pending"
+          }
+          complete={Boolean(
+            transaction.paymentFinality &&
+            transaction.paymentFinality !== "failed",
+          )}
+        />
+        <LifecycleStep
+          index="02"
+          label={
+            transaction.paymentFinality === "finalized"
+              ? "Settlement finalized"
+              : "Settlement pending"
+          }
+          complete={transaction.paymentFinality === "finalized"}
+        />
+        <LifecycleStep
+          index="03"
+          label={
+            transaction.status === "FULFILLED"
+              ? "Fulfillment complete"
+              : transactionStatusLabel(transaction.status)
+          }
+          complete={transaction.status === "FULFILLED"}
+        />
+      </section>
+
+      <section className={styles.facts} aria-label="Transaction summary">
         <Fact
           label="Amount"
           value={formatAtomicPrice(transaction.amount, transaction.asset)}
         />
         <Fact
-          label="Payment status"
+          label="Payment"
           value={
             transaction.paymentFinality
               ? titleCase(transaction.paymentFinality)
@@ -82,56 +126,48 @@ export function TransactionDetail({
           }
         />
         <Fact
-          label="Delivery status"
+          label="Delivery"
           value={transactionStatusLabel(transaction.status)}
         />
-        <Fact
-          label="Product URL"
-          value={
-            transaction.productSlug
-              ? `/products/${transaction.productSlug}`
-              : "Not available"
-          }
-        />
+        <Fact label="Network" value={transaction.network} />
       </section>
 
-      <div className="transaction-detail-grid">
-        <section className="transaction-panel" aria-labelledby="evidence-title">
-          <div className="transaction-panel-heading">
-            <div>
-              {evidence.valid ? (
+      <div className={styles.detailGrid}>
+        <section className={styles.panel} aria-labelledby="evidence-title">
+          <PanelHeading
+            icon={
+              evidence.valid ? (
                 <CheckCircle2 aria-hidden="true" />
               ) : (
                 <ShieldAlert aria-hidden="true" />
-              )}
-              <div>
-                <h2 id="evidence-title">
-                  {evidence.valid
-                    ? "Payment and delivery proof verified"
-                    : "Payment and delivery proof verification failed"}
-                </h2>
-                <p>{evidence.events.length} append-only events</p>
-              </div>
-            </div>
-          </div>
+              )
+            }
+            title={
+              evidence.valid
+                ? "Payment and delivery proof verified"
+                : "Payment and delivery proof verification failed"
+            }
+            detail={`${evidence.events.length} append-only events`}
+            id="evidence-title"
+          />
           {!evidence.valid ? (
-            <div className="transaction-evidence-warning" role="alert">
+            <div className={styles.evidenceWarning} role="alert">
               Payment and delivery proof verification failed. Receipt download
               is unavailable.
             </div>
           ) : null}
-          <ol
-            className="transaction-evidence-list"
-            aria-label="Evidence events"
-          >
+          <ol className={styles.evidenceList} aria-label="Evidence events">
             {evidence.events.map((event) => (
               <li key={event.eventId}>
-                <span>{event.sequence}</span>
+                <span>{String(event.sequence).padStart(2, "0")}</span>
                 <div>
                   <strong>{event.eventType}</strong>
                   <p>
-                    <span>Sequence {event.sequence}</span> · {event.actorType} ·{" "}
-                    {dateFormatter.format(new Date(event.createdAt))} UTC
+                    <span>Sequence {event.sequence}</span>
+                    <span>{event.actorType}</span>
+                    <time dateTime={event.createdAt}>
+                      {dateFormatter.format(new Date(event.createdAt))} UTC
+                    </time>
                   </p>
                   <code>{event.eventHash}</code>
                 </div>
@@ -140,20 +176,14 @@ export function TransactionDetail({
           </ol>
         </section>
 
-        <section className="transaction-panel" aria-labelledby="payment-title">
-          <div className="transaction-panel-heading">
-            <div>
-              <FileKey2 aria-hidden="true" />
-              <div>
-                <h2 id="payment-title">Purchase record</h2>
-                <p>
-                  Safe payment and delivery references; raw proofs are never
-                  displayed.
-                </p>
-              </div>
-            </div>
-          </div>
-          <dl className="transaction-definition-list">
+        <section className={styles.panel} aria-labelledby="payment-title">
+          <PanelHeading
+            icon={<FileKey2 aria-hidden="true" />}
+            title="Purchase record"
+            detail="Safe references only. Raw proofs stay private."
+            id="payment-title"
+          />
+          <dl className={styles.definitionList}>
             <Definition
               label="Payment reference"
               value={transaction.paymentReference ?? "Not available"}
@@ -166,12 +196,22 @@ export function TransactionDetail({
                   : String(transaction.upstreamStatus)
               }
             />
+            <Definition
+              label="Product path"
+              value={
+                transaction.productSlug
+                  ? `/products/${transaction.productSlug}`
+                  : "Not available"
+              }
+            />
           </dl>
-          <Accordion className="transaction-technical-details">
+          <Accordion className={styles.technicalDetails}>
             <AccordionItem value="technical-details">
-              <AccordionTrigger>Advanced technical details</AccordionTrigger>
+              <AccordionTrigger className={styles.technicalTrigger}>
+                Advanced technical details
+              </AccordionTrigger>
               <AccordionContent>
-                <dl className="transaction-definition-list">
+                <dl className={styles.definitionList}>
                   <Definition
                     label="Purchase intent ID"
                     value={transaction.intentId}
@@ -193,26 +233,24 @@ export function TransactionDetail({
         </section>
       </div>
 
-      <section className="transaction-panel" aria-labelledby="delivery-title">
-        <div className="transaction-panel-heading">
-          <div>
-            <Webhook aria-hidden="true" />
-            <div>
-              <h2 id="delivery-title">Webhook delivery history</h2>
-              <p>Seller-wide delivery attempts, newest page.</p>
-            </div>
-          </div>
-        </div>
+      <section className={styles.panel} aria-labelledby="delivery-title">
+        <PanelHeading
+          icon={<Webhook aria-hidden="true" />}
+          title="Webhook delivery history"
+          detail="Seller notifications, newest page."
+          id="delivery-title"
+        />
         {snapshot.webhookDeliveries.length === 0 ? (
-          <p className="transaction-empty-copy">
-            No webhook deliveries recorded.
-          </p>
+          <p className={styles.emptyCopy}>No webhook deliveries recorded.</p>
         ) : (
-          <div className="transaction-table-wrap">
-            <table aria-label="Webhook delivery history">
+          <div className={styles.tableScroller}>
+            <table
+              aria-label="Webhook delivery history"
+              className={styles.table}
+            >
               <thead>
                 <tr>
-                  <th>Event</th>
+                  <th>Event / delivery</th>
                   <th>Status</th>
                   <th>Attempts</th>
                   <th>Response</th>
@@ -224,10 +262,14 @@ export function TransactionDetail({
                   <tr key={delivery.deliveryId}>
                     <td>
                       <strong>{delivery.eventType}</strong>
-                      <small>{delivery.deliveryId}</small>
+                      <code>{delivery.deliveryId}</code>
                     </td>
                     <td>
-                      <span data-delivery-status={delivery.status}>
+                      <span
+                        className={styles.status}
+                        data-state={delivery.status}
+                      >
+                        <span aria-hidden="true" />
                         {webhookDeliveryStatusLabel(delivery.status)}
                       </span>
                     </td>
@@ -236,7 +278,9 @@ export function TransactionDetail({
                       {delivery.responseStatusCode ?? delivery.errorCode ?? "—"}
                     </td>
                     <td>
-                      {dateFormatter.format(new Date(delivery.updatedAt))} UTC
+                      <time dateTime={delivery.updatedAt}>
+                        {dateFormatter.format(new Date(delivery.updatedAt))} UTC
+                      </time>
                     </td>
                   </tr>
                 ))}
@@ -245,6 +289,7 @@ export function TransactionDetail({
           </div>
         )}
       </section>
+
       {createDispute ? (
         <DisputePanel
           transactionId={transaction.transactionId}
@@ -254,6 +299,45 @@ export function TransactionDetail({
         />
       ) : null}
     </div>
+  );
+}
+
+function LifecycleStep({
+  index,
+  label,
+  complete,
+}: {
+  index: string;
+  label: string;
+  complete: boolean;
+}) {
+  return (
+    <div data-complete={complete}>
+      <span>{complete ? <Check aria-hidden="true" /> : index}</span>
+      <strong>{label}</strong>
+    </div>
+  );
+}
+
+function PanelHeading({
+  icon,
+  title,
+  detail,
+  id,
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  id: string;
+}) {
+  return (
+    <header className={styles.panelHeading}>
+      <span>{icon}</span>
+      <div>
+        <h2 id={id}>{title}</h2>
+        <p>{detail}</p>
+      </div>
+    </header>
   );
 }
 
@@ -272,6 +356,19 @@ function Definition({ label, value }: { label: string; value: string }) {
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
+  );
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: TransactionDetailSnapshot["transaction"]["status"];
+}) {
+  return (
+    <span className={styles.status} data-state={status.toLowerCase()}>
+      <span aria-hidden="true" />
+      {transactionStatusLabel(status)}
+    </span>
   );
 }
 
