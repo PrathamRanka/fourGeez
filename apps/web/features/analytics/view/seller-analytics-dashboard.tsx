@@ -1,13 +1,11 @@
-import { AlertTriangle, ArrowUpRight, CircleCheck, Scale } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  AlertTriangle,
+  ArrowUpRight,
+  CircleCheck,
+  RefreshCw,
+  Scale,
+} from "lucide-react";
+import Link from "next/link";
 import {
   buildDailyActivity,
   buildPaymentPairSummaries,
@@ -16,10 +14,18 @@ import {
 } from "@/features/analytics/model";
 import { DailyActivityChart } from "@/features/analytics/view/daily-activity-chart";
 import { formatAtomicPrice } from "@/lib/money";
+import styles from "./seller-analytics-dashboard.module.css";
 
 type SellerAnalyticsDashboardProps = {
   snapshot: AnalyticsSnapshot;
 };
+
+const metrics = [
+  { key: "grossVerifiedAmount", label: "Gross verified", icon: ArrowUpRight },
+  { key: "fulfilledAmount", label: "Fulfilled sales", icon: CircleCheck },
+  { key: "failedAmount", label: "Failures", icon: AlertTriangle },
+  { key: "disputedAmount", label: "Disputes", icon: Scale },
+] as const;
 
 // SellerAnalyticsDashboard presents authoritative, payment-pair-separated sales reporting.
 export function SellerAnalyticsDashboard({
@@ -33,119 +39,128 @@ export function SellerAnalyticsDashboard({
   );
 
   return (
-    <div className="analytics-workspace">
-      <header className="analytics-header">
+    <div className={styles.workspace}>
+      <header className={styles.hero}>
         <div>
-          <p className="dashboard-eyebrow">Seller reporting</p>
+          <p className={styles.eyebrow}>Revenue intelligence / UTC</p>
           <h1>Revenue Lens</h1>
           <p>
-            Verified payment and fulfillment facts, separated by asset and
-            network. Unlike currencies are never combined.
+            Verified commerce facts. Every asset and network stays distinct.
           </p>
         </div>
-        <span>{snapshot.transactionCount} transactions in this window</span>
+        <div
+          className={styles.windowCount}
+          role="status"
+          aria-label={`${snapshot.transactionCount} transactions in this window`}
+        >
+          <strong>{snapshot.transactionCount}</strong>
+          <span>transactions in this window</span>
+        </div>
       </header>
 
       {snapshot.error ? (
-        <div className="dashboard-error" role="alert">
-          {snapshot.error}
-        </div>
-      ) : null}
-
-      {paymentPairs.length === 0 ? (
-        <Card className="analytics-empty-state">
-          <CardHeader>
-            <CardTitle>No sales in this window yet</CardTitle>
-            <CardDescription>
-              Publish a validated product, then completed purchases will appear
-              here once the gateway records them.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button render={<Link href="/dashboard/products" />}>
-              Review products
-              <ArrowUpRight aria-hidden="true" />
-            </Button>
-          </CardContent>
-        </Card>
+        <section className={styles.errorState} role="alert">
+          <div className={styles.errorIcon} aria-hidden="true">
+            <RefreshCw />
+          </div>
+          <div>
+            <p className={styles.sectionIndex}>Reporting unavailable</p>
+            <h2>Live totals could not be loaded.</h2>
+            <p>{snapshot.error}</p>
+          </div>
+          <Link href="/dashboard/analytics">Reload analytics</Link>
+        </section>
+      ) : paymentPairs.length === 0 ? (
+        <section className={styles.emptyState}>
+          <div>
+            <p className={styles.sectionIndex}>No recorded volume</p>
+            <h2>No sales in this window yet</h2>
+            <p>
+              Publish a validated product. Verified purchases will appear here.
+            </p>
+          </div>
+          <Link href="/dashboard/products">
+            Review products <ArrowUpRight aria-hidden="true" />
+          </Link>
+        </section>
       ) : (
         <>
-          <div className="analytics-pair-grid">
-            {paymentPairs.map((summary) => (
-              <section
-                key={`${summary.asset}:${summary.network}`}
-                className="analytics-pair"
-                aria-label={`${summary.asset} on ${summary.network}`}
-              >
-                <header>
-                  <div>
-                    <strong>{summary.asset}</strong>
-                    <span>{summary.network}</span>
-                  </div>
-                  <span>Settlement pair</span>
-                </header>
-                <div className="analytics-metric-grid">
-                  <Metric
-                    label="Gross verified"
-                    value={formatAtomicPrice(
-                      summary.grossVerifiedAmount,
-                      summary.asset,
-                    )}
-                    icon={<ArrowUpRight aria-hidden="true" />}
-                  />
-                  <Metric
-                    label="Fulfilled sales"
-                    value={formatAtomicPrice(
-                      summary.fulfilledAmount,
-                      summary.asset,
-                    )}
-                    icon={<CircleCheck aria-hidden="true" />}
-                  />
-                  <Metric
-                    label="Failures"
-                    value={formatAtomicPrice(
-                      summary.failedAmount,
-                      summary.asset,
-                    )}
-                    icon={<AlertTriangle aria-hidden="true" />}
-                  />
-                  <Metric
-                    label="Disputes"
-                    value={formatAtomicPrice(
-                      summary.disputedAmount,
-                      summary.asset,
-                    )}
-                    icon={<Scale aria-hidden="true" />}
-                  />
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <section className="analytics-chart-panel">
-            <div className="analytics-section-heading">
+          <section aria-labelledby="settlement-pairs" className={styles.pairs}>
+            <header className={styles.sectionHeading}>
               <div>
-                <h2>Daily sales activity</h2>
-                <p>Transaction counts by current reconciliation stage.</p>
+                <p className={styles.sectionIndex}>01 / Settlement pairs</p>
+                <h2 id="settlement-pairs">Revenue without false totals.</h2>
               </div>
-              <span>UTC</span>
+              <span>{paymentPairs.length} active pairs</span>
+            </header>
+            <div className={styles.pairGrid}>
+              {paymentPairs.map((summary, pairIndex) => (
+                <section
+                  key={`${summary.asset}:${summary.network}`}
+                  className={styles.pair}
+                  data-accent={pairIndex === 0 ? "true" : undefined}
+                  aria-label={`${summary.asset} on ${summary.network}`}
+                >
+                  <header>
+                    <div>
+                      <strong>{summary.asset}</strong>
+                      <span>{summary.network}</span>
+                    </div>
+                    <span>Settlement pair</span>
+                  </header>
+                  <div className={styles.metricGrid}>
+                    {metrics.map((metric) => {
+                      const Icon = metric.icon;
+                      return (
+                        <div className={styles.metric} key={metric.key}>
+                          <Icon aria-hidden="true" />
+                          <p>{metric.label}</p>
+                          <strong>
+                            {formatAtomicPrice(
+                              summary[metric.key],
+                              summary.asset,
+                            )}
+                          </strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </section>
+
+          <section
+            className={styles.chartPanel}
+            aria-labelledby="daily-activity"
+          >
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className={styles.sectionIndex}>02 / Reconciliation flow</p>
+                <h2 id="daily-activity">Daily sales activity</h2>
+              </div>
+              <span>Count by current stage / UTC</span>
             </div>
             <DailyActivityChart activity={dailyActivity} />
           </section>
 
-          <section className="analytics-route-panel">
-            <div className="analytics-section-heading">
+          <section
+            className={styles.routePanel}
+            aria-labelledby="product-performance"
+          >
+            <div className={styles.sectionHeading}>
               <div>
-                <h2>Product performance</h2>
-                <p>Fulfillment outcomes remain separated by payment pair.</p>
+                <p className={styles.sectionIndex}>03 / Products</p>
+                <h2 id="product-performance">Product performance</h2>
               </div>
+              <span>Fulfillment by exact payment pair</span>
             </div>
             {routePerformance.length === 0 ? (
-              <p className="analytics-muted-state">
+              <div className={styles.mutedState}>
                 Route-level performance appears after the first paid request.
-              </p>
+              </div>
             ) : (
-              <div className="analytics-table-wrap">
+              <div className={styles.tableWrap}>
                 <table aria-label="Product performance">
                   <thead>
                     <tr>
@@ -167,7 +182,7 @@ export function SellerAnalyticsDashboard({
                           <small>{route.routeId}</small>
                         </td>
                         <td>
-                          {route.asset}
+                          <strong>{route.asset}</strong>
                           <small>{route.network}</small>
                         </td>
                         <td>{route.fulfilledCount} fulfilled</td>
@@ -188,22 +203,6 @@ export function SellerAnalyticsDashboard({
           </section>
         </>
       )}
-    </div>
-  );
-}
-
-type MetricProps = {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-};
-
-function Metric({ label, value, icon }: MetricProps) {
-  return (
-    <div className="analytics-metric">
-      <span>{icon}</span>
-      <p>{label}</p>
-      <strong>{value}</strong>
     </div>
   );
 }

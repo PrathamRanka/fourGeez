@@ -1,0 +1,450 @@
+.workspace {
+  --analytics-bg: #050505;
+  --analytics-panel: #090909;
+  --analytics-line: #292929;
+  --analytics-text: #f5f5f2;
+  --analytics-muted: #96969e;
+  display: grid;
+  min-height: calc(100vh - 8rem);
+  overflow: hidden;
+  border: 1px solid var(--analytics-line);
+  background: var(--analytics-bg);
+  color: var(--analytics-text);
+}
+
+.hero {
+  display: flex;
+  min-height: 19rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3rem;
+  padding: clamp(2rem, 6vw, 5rem);
+  border-bottom: 1px solid var(--analytics-line);
+  background:
+    radial-gradient(
+      circle at 78% 32%,
+      rgb(122 154 255 / 17%),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 62% 76%,
+      rgb(202 159 255 / 10%),
+      transparent 20rem
+    ),
+    var(--analytics-bg);
+}
+
+.eyebrow,
+.sectionIndex,
+.windowCount span,
+.sectionHeading > span,
+.pair > header span,
+.metric p,
+.routePanel th {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.eyebrow,
+.sectionIndex {
+  color: var(--analytics-muted);
+  font-size: 0.62rem;
+}
+
+.hero h1 {
+  margin-top: 0.9rem;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-weight: 470;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+}
+
+.hero > div:first-child > p:last-child {
+  max-width: 35rem;
+  margin-top: 1.4rem;
+  color: var(--analytics-muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.windowCount {
+  display: grid;
+  flex: none;
+  justify-items: end;
+}
+
+.windowCount strong {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 6rem);
+  font-weight: 420;
+  line-height: 0.8;
+  letter-spacing: -0.075em;
+}
+
+.windowCount span {
+  margin-top: 0.9rem;
+  color: var(--analytics-muted);
+  font-size: 0.58rem;
+}
+
+.sectionHeading {
+  display: flex;
+  min-height: 7.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  border-bottom: 1px solid var(--analytics-line);
+  padding: 1.5rem clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.sectionHeading h2,
+.errorState h2,
+.emptyState h2 {
+  margin-top: 0.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 3vw, 2.7rem);
+  font-weight: 470;
+  line-height: 1.03;
+  letter-spacing: -0.05em;
+}
+
+.sectionHeading > span {
+  color: var(--analytics-muted);
+  font-size: 0.56rem;
+}
+
+.pairGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 31rem), 1fr));
+}
+
+.pair {
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--analytics-line);
+  border-bottom: 1px solid var(--analytics-line);
+  background: var(--analytics-panel);
+}
+
+.pair[data-accent="true"] {
+  background:
+    radial-gradient(
+      circle at 80% 4%,
+      rgb(214 173 255 / 38%),
+      transparent 13rem
+    ),
+    radial-gradient(
+      circle at 52% 53%,
+      rgb(88 146 255 / 28%),
+      transparent 15rem
+    ),
+    var(--analytics-panel);
+}
+
+.pair > header {
+  display: flex;
+  min-height: 5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--analytics-line);
+  padding: 1rem 1.25rem;
+}
+
+.pair > header strong,
+.pair > header span {
+  display: block;
+}
+
+.pair > header strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 520;
+}
+
+.pair > header span {
+  margin-top: 0.22rem;
+  color: #aaaab2;
+  font-size: 0.54rem;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric {
+  min-width: 0;
+  min-height: 10.5rem;
+  border-right: 1px solid var(--analytics-line);
+  padding: 1.25rem;
+}
+
+.metric:last-child {
+  border-right: 0;
+}
+
+.metric svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: #b9b9c0;
+}
+
+.metric p {
+  margin-top: 2.2rem;
+  color: var(--analytics-muted);
+  font-size: 0.52rem;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 2vw, 1.65rem);
+  font-weight: 460;
+  letter-spacing: -0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chartPanel,
+.routePanel {
+  border-bottom: 1px solid var(--analytics-line);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.routePanel table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.routePanel th,
+.routePanel td {
+  border-right: 1px solid var(--analytics-line);
+  border-bottom: 1px solid var(--analytics-line);
+  padding: 1rem 1.25rem;
+}
+
+.routePanel th:last-child,
+.routePanel td:last-child {
+  border-right: 0;
+}
+
+.routePanel tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.routePanel th {
+  color: var(--analytics-muted);
+  font-size: 0.54rem;
+  font-weight: 500;
+}
+
+.routePanel td {
+  color: #d7d7dc;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.routePanel td strong,
+.routePanel td small {
+  display: block;
+}
+
+.routePanel td strong {
+  color: var(--analytics-text);
+  font-weight: 500;
+}
+
+.routePanel td small {
+  max-width: 16rem;
+  margin-top: 0.3rem;
+  overflow: hidden;
+  color: var(--analytics-muted);
+  font-size: 0.56rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.errorState,
+.emptyState {
+  display: grid;
+  min-height: 24rem;
+  align-items: center;
+  gap: 2rem;
+  padding: clamp(2rem, 6vw, 5rem);
+  background:
+    radial-gradient(
+      circle at 75% 35%,
+      rgb(108 150 255 / 17%),
+      transparent 25rem
+    ),
+    var(--analytics-panel);
+}
+
+.errorState {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.errorIcon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 1px solid #593638;
+  color: #ffb5b9;
+}
+
+.errorIcon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.errorState p:not(.sectionIndex),
+.emptyState p:not(.sectionIndex) {
+  max-width: 38rem;
+  margin-top: 0.75rem;
+  color: var(--analytics-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.errorState a,
+.emptyState a {
+  display: inline-flex;
+  min-height: 2.85rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid #4a4a50;
+  padding: 0.7rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.emptyState {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.emptyState svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.mutedState {
+  padding: 3rem clamp(1.25rem, 4vw, 2.5rem);
+  color: var(--analytics-muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .errorState a:hover,
+  .emptyState a:hover {
+    border-color: #f1f1ed;
+    background: #f1f1ed;
+    color: #090909;
+  }
+}
+
+@media (max-width: 63.999rem) {
+  .metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric:nth-child(2) {
+    border-right: 0;
+  }
+
+  .metric:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--analytics-line);
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .workspace {
+    margin-inline: -1rem;
+    border-right: 0;
+    border-left: 0;
+  }
+
+  .hero {
+    min-height: 23rem;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 2rem;
+    padding: 2rem 1.25rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(3rem, 17vw, 4.6rem);
+  }
+
+  .windowCount {
+    justify-items: start;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pairGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pair {
+    border-right: 0;
+  }
+
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric,
+  .metric:nth-child(2) {
+    min-height: 8.5rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--analytics-line);
+  }
+
+  .metric:last-child {
+    border-bottom: 0;
+  }
+
+  .metric p {
+    margin-top: 1.4rem;
+  }
+
+  .errorState,
+  .emptyState {
+    grid-template-columns: 1fr;
+    padding: 2rem 1.25rem;
+  }
+
+  .errorState a,
+  .emptyState a {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .errorState a,
+  .emptyState a {
+    transition: none;
+  }
+}

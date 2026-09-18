@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getSellerSession } from "@/features/auth/server/session";
 import { loadAnalyticsSnapshot } from "@/features/analytics/controller";
 import { SellerAnalyticsDashboard } from "@/features/analytics/view/seller-analytics-dashboard";
+import styles from "./analytics-page.module.css";
 
 export const metadata: Metadata = {
   title: "Revenue Lens",
@@ -16,13 +17,16 @@ export default async function AnalyticsPage() {
 
   if (!sellerId) {
     return (
-      <section className="dashboard-missing-context">
-        <p className="dashboard-eyebrow">Seller reporting</p>
+      <section className={styles.missingContext}>
+        <p>Seller reporting / setup required</p>
         <h1>Choose a storefront first</h1>
-        <p>
+        <span>
           Complete onboarding before opening asset-separated sales reporting.
-        </p>
-        <Button render={<Link href="/dashboard/onboarding" />}>
+        </span>
+        <Button
+          className={styles.action}
+          render={<Link href="/dashboard/onboarding" />}
+        >
           Open seller onboarding
         </Button>
       </section>

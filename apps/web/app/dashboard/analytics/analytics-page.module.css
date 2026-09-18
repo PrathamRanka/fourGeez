@@ -1,0 +1,64 @@
+.missingContext {
+  display: grid;
+  min-height: calc(100vh - 8rem);
+  place-content: center;
+  justify-items: start;
+  gap: 1rem;
+  border: 1px solid #292929;
+  padding: clamp(2rem, 7vw, 6rem);
+  background:
+    radial-gradient(
+      circle at 70% 40%,
+      rgb(115 151 255 / 20%),
+      transparent 24rem
+    ),
+    #050505;
+  color: #f5f5f2;
+}
+
+.missingContext > p {
+  color: #96969e;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.missingContext h1 {
+  max-width: 12ch;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  font-weight: 470;
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+}
+
+.missingContext > span {
+  max-width: 34rem;
+  color: #a1a1aa;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.action {
+  min-height: 2.9rem;
+  margin-top: 1rem;
+  border: 1px solid #f4f4f1;
+  border-radius: 0;
+  background: #f4f4f1;
+  padding-inline: 1rem;
+  color: #080808;
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 47.999rem) {
+  .missingContext {
+    margin-inline: -1rem;
+    border-right: 0;
+    border-left: 0;
+  }
+
+  .action {
+    width: 100%;
+  }
+}

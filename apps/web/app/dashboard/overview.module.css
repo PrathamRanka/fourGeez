@@ -1,0 +1,457 @@
+.workspace {
+  --overview-bg: #050505;
+  --overview-panel: #090909;
+  --overview-line: #292929;
+  --overview-text: #f5f5f2;
+  --overview-muted: #96969e;
+  display: grid;
+  min-height: calc(100vh - 8rem);
+  overflow: hidden;
+  border: 1px solid var(--overview-line);
+  background: var(--overview-bg);
+  color: var(--overview-text);
+}
+
+.hero {
+  display: flex;
+  min-height: 20rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3rem;
+  padding: clamp(2rem, 6vw, 5rem);
+  border-bottom: 1px solid var(--overview-line);
+  background:
+    radial-gradient(
+      circle at 77% 28%,
+      rgb(123 151 255 / 16%),
+      transparent 25rem
+    ),
+    radial-gradient(
+      circle at 62% 72%,
+      rgb(85 156 255 / 10%),
+      transparent 22rem
+    ),
+    var(--overview-bg);
+}
+
+.eyebrow,
+.sectionIndex,
+.networkStatus,
+.pairIdentity span,
+.transactionCount span,
+.pairCard dt,
+.pulseFooter,
+.operationTopline {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.eyebrow,
+.sectionIndex {
+  color: var(--overview-muted);
+  font-size: 0.64rem;
+}
+
+.hero h1 {
+  max-width: 12ch;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 7vw, 6.75rem);
+  font-weight: 480;
+  line-height: 0.92;
+  letter-spacing: -0.072em;
+}
+
+.intro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  align-items: center;
+  margin-top: 1.5rem;
+  color: var(--overview-muted);
+  font-size: 0.86rem;
+}
+
+.sellerName {
+  color: var(--overview-text);
+  font-weight: 520;
+}
+
+.networkStatus {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--overview-line);
+  padding: 0.85rem 1rem;
+  color: #c7c7cd;
+  font-size: 0.58rem;
+}
+
+.networkStatus > span {
+  width: 0.45rem;
+  height: 0.45rem;
+  background: #9cf2bd;
+  box-shadow: 0 0 1rem rgb(95 237 151 / 65%);
+}
+
+.errorState,
+.emptyPulse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.errorState {
+  border-bottom: 1px solid #5a3030;
+  background: #130909;
+  color: #ffc8c8;
+}
+
+.errorState strong,
+.emptyPulse strong {
+  font-size: 0.82rem;
+  font-weight: 560;
+}
+
+.errorState p,
+.emptyPulse p {
+  margin-top: 0.25rem;
+  color: var(--overview-muted);
+  font-size: 0.72rem;
+}
+
+.errorState a,
+.emptyPulse a,
+.pulseFooter a,
+.operationCard a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid #45454a;
+  padding: 0.65rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.pulsePanel {
+  border-bottom: 1px solid var(--overview-line);
+}
+
+.pulseHeading,
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.pulseHeading {
+  border-bottom: 1px solid var(--overview-line);
+}
+
+.pulseHeading h2,
+.sectionHeading h2 {
+  max-width: 19ch;
+  margin-top: 0.65rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.8rem);
+  font-weight: 480;
+  line-height: 1.03;
+  letter-spacing: -0.05em;
+}
+
+.transactionCount {
+  display: grid;
+  justify-items: end;
+}
+
+.transactionCount strong {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 430;
+  line-height: 0.8;
+  letter-spacing: -0.07em;
+}
+
+.transactionCount span {
+  margin-top: 0.75rem;
+  color: var(--overview-muted);
+  font-size: 0.58rem;
+}
+
+.pairGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
+}
+
+.pairCard {
+  min-width: 0;
+  min-height: 15rem;
+  overflow: hidden;
+  border-right: 1px solid var(--overview-line);
+  padding: clamp(1.4rem, 4vw, 2.5rem);
+  background: var(--overview-panel);
+}
+
+.pairCard:last-child {
+  border-right: 0;
+}
+
+.pairCard[data-accent="true"] {
+  background:
+    radial-gradient(
+      circle at 80% 18%,
+      rgb(215 170 255 / 42%),
+      transparent 13rem
+    ),
+    radial-gradient(
+      circle at 53% 64%,
+      rgb(99 153 255 / 32%),
+      transparent 15rem
+    ),
+    var(--overview-panel);
+}
+
+.pairIdentity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pairIdentity span {
+  min-width: 0;
+  overflow: hidden;
+  color: #b0b0b8;
+  font-size: 0.57rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pairIdentity strong {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.pairCard dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 4rem;
+}
+
+.pairCard dt {
+  color: #b3b3bb;
+  font-size: 0.56rem;
+}
+
+.pairCard dd {
+  margin-top: 0.55rem;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3vw, 2.65rem);
+  font-weight: 430;
+  letter-spacing: -0.055em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emptyPulse {
+  min-height: 12rem;
+  background:
+    radial-gradient(
+      circle at 75% 50%,
+      rgb(102 148 255 / 16%),
+      transparent 20rem
+    ),
+    var(--overview-panel);
+}
+
+.pulseFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--overview-line);
+  padding: 1rem clamp(1.25rem, 4vw, 2.5rem);
+  color: var(--overview-muted);
+  font-size: 0.57rem;
+}
+
+.pulseFooter a {
+  min-height: 2.4rem;
+  color: var(--overview-text);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.pulseFooter svg,
+.operationCard svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.sectionHeading {
+  justify-content: flex-start;
+  border-bottom: 1px solid var(--overview-line);
+}
+
+.operationGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.operationCard {
+  display: grid;
+  min-height: 18rem;
+  grid-template-rows: auto 1fr auto;
+  gap: 2.5rem;
+  border-right: 1px solid var(--overview-line);
+  padding: clamp(1.4rem, 3vw, 2rem);
+  background: var(--overview-panel);
+}
+
+.operationCard:last-child {
+  border-right: 0;
+}
+
+.operationTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--overview-muted);
+  font-size: 0.58rem;
+}
+
+.operationCard h3 {
+  max-width: 11ch;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+  font-weight: 460;
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.operationCard p {
+  max-width: 28ch;
+  margin-top: 0.75rem;
+  color: var(--overview-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.operationCard a {
+  width: fit-content;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .errorState a:hover,
+  .emptyPulse a:hover,
+  .pulseFooter a:hover,
+  .operationCard a:hover {
+    border-color: #f1f1ed;
+    background: #f1f1ed;
+    color: #090909;
+  }
+}
+
+@media (max-width: 63.999rem) {
+  .operationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .operationCard {
+    min-height: 14rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--overview-line);
+  }
+
+  .operationCard:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .workspace {
+    margin-inline: -1rem;
+    border-right: 0;
+    border-left: 0;
+  }
+
+  .hero {
+    min-height: 24rem;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 2rem;
+    padding: 2rem 1.25rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.7rem, 15vw, 4.5rem);
+  }
+
+  .networkStatus {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pulseHeading,
+  .sectionHeading,
+  .errorState,
+  .emptyPulse,
+  .pulseFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .transactionCount {
+    justify-items: start;
+  }
+
+  .pairGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pairCard {
+    border-right: 0;
+    border-bottom: 1px solid var(--overview-line);
+  }
+
+  .pairCard:last-child {
+    border-bottom: 0;
+  }
+
+  .pairCard dl {
+    grid-template-columns: 1fr;
+    margin-top: 3rem;
+  }
+
+  .pulseFooter a,
+  .errorState a,
+  .emptyPulse a {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .errorState a,
+  .emptyPulse a,
+  .pulseFooter a,
+  .operationCard a {
+    transition: none;
+  }
+}

@@ -85,7 +85,11 @@ describe("seller analytics dashboard", () => {
     render(<SellerAnalyticsDashboard snapshot={snapshot} />);
 
     expect(screen.getByRole("heading", { name: "Revenue Lens" })).toBeVisible();
-    expect(screen.getByText("5 transactions in this window")).toBeVisible();
+    expect(
+      screen.getByRole("status", {
+        name: "5 transactions in this window",
+      }),
+    ).toBeVisible();
 
     const usdcSummary = screen.getByRole("region", {
       name: "USDC on eip155:84532",
@@ -108,6 +112,22 @@ describe("seller analytics dashboard", () => {
     expect(
       screen.getByRole("img", { name: "Daily sales activity" }),
     ).toBeVisible();
+    const legend = screen.getByRole("list", {
+      name: "Reconciliation stages",
+    });
+    expect(within(legend).getByText("Fulfilled")).toBeVisible();
+    expect(within(legend).getByText("Processing")).toBeVisible();
+    expect(within(legend).getByText("Failed")).toBeVisible();
+    expect(within(legend).getByText("Disputed")).toBeVisible();
+    const accessibleSeries = screen.getByRole("table", {
+      name: "Daily reconciliation totals",
+    });
+    expect(
+      within(accessibleSeries).getByText("2026-09-17"),
+    ).toBeInTheDocument();
+    expect(
+      within(accessibleSeries).getByText("2026-09-18"),
+    ).toBeInTheDocument();
     const routeTable = screen.getByRole("table", {
       name: "Product performance",
     });
@@ -127,5 +147,28 @@ describe("seller analytics dashboard", () => {
     expect(
       screen.getByRole("link", { name: "Review products" }),
     ).toHaveAttribute("href", "/dashboard/products");
+  });
+
+  it("shows a distinct retryable reporting error without an empty-sales prompt", () => {
+    render(
+      <SellerAnalyticsDashboard
+        snapshot={{
+          ...snapshot,
+          transactionCount: 0,
+          aggregates: [],
+          error: "The reporting service is unavailable.",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The reporting service is unavailable.",
+    );
+    expect(
+      screen.getByRole("link", { name: "Reload analytics" }),
+    ).toHaveAttribute("href", "/dashboard/analytics");
+    expect(
+      screen.queryByText("No sales in this window yet"),
+    ).not.toBeInTheDocument();
   });
 });
