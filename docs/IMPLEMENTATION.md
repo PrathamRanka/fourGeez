@@ -141,7 +141,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **WEB-004** Implement the seller dashboard for gross verified payments, fulfilled sales, failures, disputes, route performance, and asset/network-separated totals.
 - [x] **WEB-005** Implement transaction detail, evidence verification, webhook delivery history, and receipt download views.
 - [x] **WEB-006** Implement seller-branded storefront and product-detail pages with wallet/x402 purchase instructions and generated SEO/AEO metadata.
-- [ ] **WEB-007** Implement buyer chat/tool activity view with deterministic fallback indicator.
+- [x] **WEB-007** Implement buyer chat/tool activity view with deterministic fallback indicator.
 - [ ] **WEB-008** Implement live approval page, decision controls, REST fallback, and expiration state.
 - [ ] **WEB-009** Implement evidence verification and dispute creation/resolution views.
 - [ ] **WEB-010** Add loading, empty, retryable error, terminal error, disabled, permission-denied, quota, and suspended-seller states.

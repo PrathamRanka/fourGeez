@@ -2959,6 +2959,140 @@
     margin-top: 0.1rem;
   }
 
+  .buyer-activity-page {
+    width: min(100%, 76rem);
+    margin-inline: auto;
+    padding: clamp(3rem, 7vw, 6rem) var(--page-gutter);
+  }
+
+  .buyer-activity-page > header > p {
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .buyer-activity-page > header h1 {
+    max-width: 15ch;
+    margin-top: 0.8rem;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 6vw, 5rem);
+    font-weight: 560;
+    line-height: 0.98;
+    letter-spacing: -0.065em;
+  }
+
+  .buyer-activity-page > header > span {
+    display: block;
+    max-width: 42rem;
+    margin-top: 1rem;
+    color: var(--muted-foreground);
+    line-height: 1.65;
+  }
+
+  .buyer-activity-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+
+  .buyer-activity-layout > form,
+  .buyer-activity-layout > section {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    padding: 1.25rem;
+  }
+
+  .buyer-activity-layout label {
+    display: grid;
+    gap: 0.4rem;
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .buyer-activity-layout input,
+  .buyer-activity-layout textarea {
+    width: 100%;
+    border: 1px solid var(--input);
+    border-radius: 0.6rem;
+    background: var(--background);
+    padding: 0.75rem;
+    color: var(--foreground);
+  }
+
+  .buyer-activity-layout textarea {
+    min-height: 9rem;
+    resize: vertical;
+  }
+
+  .buyer-activity-layout form > p {
+    color: var(--destructive);
+    font-size: 0.72rem;
+  }
+
+  .buyer-mode {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    background: oklch(0.94 0.04 75);
+    padding: 0.45rem 0.65rem;
+    color: oklch(0.42 0.12 65);
+    font-size: 0.66rem;
+    font-weight: 650;
+  }
+
+  .buyer-mode svg,
+  .buyer-tool-log svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .buyer-response {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.45;
+  }
+
+  .buyer-tool-log {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .buyer-tool-log li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.65rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.8rem;
+  }
+
+  .buyer-tool-log strong,
+  .buyer-tool-log span {
+    display: block;
+  }
+
+  .buyer-tool-log strong {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+  }
+
+  .buyer-tool-log span,
+  .buyer-placeholder {
+    margin-top: 0.2rem;
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
+
 }
 
 @keyframes hero-enter {
@@ -3346,6 +3480,10 @@
 
   .storefront-product-detail aside {
     position: static;
+  }
+
+  .buyer-activity-layout {
+    grid-template-columns: 1fr;
   }
 
   .product-detail-heading > div:last-child {
