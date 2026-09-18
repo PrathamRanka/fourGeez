@@ -14,7 +14,7 @@ import {
 import { ProductRouteWorkspace } from "@/features/products/view/product-route-workspace";
 
 export const metadata: Metadata = {
-  title: "Product routes",
+  title: "Products",
 };
 
 type ProductRoutesPageProps = {

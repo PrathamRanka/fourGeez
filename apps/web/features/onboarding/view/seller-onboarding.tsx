@@ -187,7 +187,7 @@ export function SellerOnboarding({
     }
   }
 
-  // issueCredential creates one scoped token and retains it only in current browser memory.
+  // issueCredential creates one scoped project connection key and keeps it in browser memory.
   async function issueCredential() {
     if (!seller) {
       return;
@@ -259,7 +259,7 @@ export function SellerOnboarding({
             <div className="onboarding-complete-row">
               <div>
                 <strong>Storefront created</strong>
-                <span>{seller.slug}</span>
+                <span>/store/{seller.slug}</span>
               </div>
               <CheckCircle2 aria-hidden="true" />
             </div>
@@ -279,7 +279,7 @@ export function SellerOnboarding({
                 />
               </label>
               <label>
-                <span>Storefront slug</span>
+                <span>Storefront URL name</span>
                 <input
                   name="slug"
                   required
@@ -290,7 +290,7 @@ export function SellerOnboarding({
                 />
               </label>
               <label className="onboarding-field-wide">
-                <span>Upstream API URL</span>
+                <span>Service API URL</span>
                 <input
                   name="upstreamBaseUrl"
                   required
@@ -347,13 +347,15 @@ export function SellerOnboarding({
         <OnboardingStep
           number="03"
           icon={KeyRound}
-          title="Create a project key"
-          description="The key is scoped to this seller and grants only the setup operations your coding agent needs."
+          title="Create a project connection key"
+          description="This one-time key connects your coding agent to this storefront with only the setup permissions it needs."
           complete={credentialReady}
         >
           {createdCredential ? (
             <div className="credential-secret">
-              <strong>Save this key now. It is shown only once.</strong>
+              <strong>
+                Save this project connection key now. It is shown only once.
+              </strong>
               <code>{createdCredential.token}</code>
             </div>
           ) : activeCredential ? (
@@ -373,7 +375,7 @@ export function SellerOnboarding({
               {pendingStep === "credential" ? (
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
               ) : null}
-              Create integration key
+              Create project connection key
             </Button>
           )}
         </OnboardingStep>
@@ -422,7 +424,7 @@ export function SellerOnboarding({
             </div>
           ) : (
             <p className="onboarding-muted-state">
-              Create a project key to reveal setup instructions.
+              Create a project connection key to reveal setup instructions.
             </p>
           )}
         </OnboardingStep>

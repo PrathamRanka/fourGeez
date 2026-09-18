@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { StorefrontManifest } from "@/features/storefront/model";
 import {
@@ -38,7 +38,13 @@ describe("seller storefront", () => {
   it("renders seller branding and published products with discovery links", () => {
     render(<StorefrontHome manifest={manifest} />);
 
-    expect(screen.getByRole("heading", { name: "Northstar Research" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Northstar Research" }),
+    ).toBeVisible();
+    expect(screen.getByText("/store/northstar")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Research Report" }),
+    ).toBeVisible();
     expect(screen.getByText(manifest.routes[0].description)).toBeVisible();
     expect(screen.getByText("35 USDC")).toBeVisible();
     expect(screen.getByRole("link", { name: "View product" })).toHaveAttribute(
@@ -55,7 +61,7 @@ describe("seller storefront", () => {
     );
   });
 
-  it("shows exact x402 purchase instructions and matching structured data", () => {
+  it("shows exact x402 purchase instructions and matching structured data", async () => {
     render(
       <ProductDetail
         manifest={manifest}
@@ -64,9 +70,20 @@ describe("seller storefront", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "/research" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Research Report" }),
+    ).toBeVisible();
     expect(screen.getByText("Pay exactly 35 USDC")).toBeVisible();
-    expect(screen.getByText("eip155:84532")).toBeVisible();
+    expect(
+      screen.getByText("/store/northstar/products/research-report"),
+    ).toBeVisible();
+    expect(screen.queryByText("eip155:84532")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Advanced technical details" }),
+    );
+    expect(await screen.findByText("eip155:84532")).toBeVisible();
+    expect(screen.getByText("Route ID")).toBeVisible();
     expect(
       screen.getByText("https://api.agentpay.example/pay/northstar/research"),
     ).toBeVisible();

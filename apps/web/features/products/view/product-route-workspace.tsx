@@ -24,6 +24,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import type {
   PaidRoute,
@@ -33,7 +39,11 @@ import type {
   RouteValidationResult,
 } from "@/features/products/model";
 import { routeLifecycleLabel } from "@/features/products/model";
-import { formatAtomicPrice } from "@/lib/money";
+import {
+  decimalToAtomicUnits,
+  formatAtomicPrice,
+  formatAtomicUnits,
+} from "@/lib/money";
 
 const historyDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -63,17 +73,14 @@ export function ProductRouteWorkspace({
     initialSnapshot.error ?? null,
   );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [confirmEmergencyDisable, setConfirmEmergencyDisable] =
-    useState(false);
+  const [confirmEmergencyDisable, setConfirmEmergencyDisable] = useState(false);
   const selectedRoute =
     routes.find((route) => route.routeId === selectedRouteId) ?? null;
   const routeCounts = useMemo(
     () => ({
-      published: routes.filter(
-        (route) => route.lifecycleStatus === "published",
-      ).length,
-      draft: routes.filter((route) => route.lifecycleStatus === "draft")
+      published: routes.filter((route) => route.lifecycleStatus === "published")
         .length,
+      draft: routes.filter((route) => route.lifecycleStatus === "draft").length,
       attention: routes.filter((route) =>
         ["paused", "emergency_disabled"].includes(route.lifecycleStatus),
       ).length,
@@ -99,6 +106,16 @@ export function ProductRouteWorkspace({
     setPendingAction("create");
     const form = event.currentTarget;
     const fields = new FormData(form);
+    let amount: string;
+    try {
+      amount = decimalToAtomicUnits(String(fields.get("price") ?? ""));
+    } catch (error) {
+      setPendingAction(null);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Enter a valid decimal price.",
+      );
+      return;
+    }
     const result = await actions.createDraft({
       sellerId: initialSnapshot.sellerId,
       displayName: String(fields.get("displayName") ?? "").trim(),
@@ -107,7 +124,7 @@ export function ProductRouteWorkspace({
       pathPattern: String(fields.get("pathPattern") ?? "").trim(),
       description: String(fields.get("description") ?? "").trim(),
       mimeType: String(fields.get("mimeType") ?? "").trim(),
-      amount: String(fields.get("amount") ?? "").trim(),
+      amount,
       asset: String(fields.get("asset") ?? "").trim(),
       network: String(fields.get("network") ?? "").trim(),
       payTo: String(fields.get("payTo") ?? "").trim(),
@@ -138,11 +155,21 @@ export function ProductRouteWorkspace({
     setStatusMessage(null);
     setPendingAction("price");
     const fields = new FormData(event.currentTarget);
+    let amount: string;
+    try {
+      amount = decimalToAtomicUnits(String(fields.get("price") ?? ""));
+    } catch (error) {
+      setPendingAction(null);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Enter a valid decimal price.",
+      );
+      return;
+    }
     const result = await actions.updatePrice({
       sellerId: initialSnapshot.sellerId,
       routeId: selectedRoute.routeId,
       expectedVersion: selectedRoute.version,
-      amount: String(fields.get("amount") ?? "").trim(),
+      amount,
     });
     setPendingAction(null);
 
@@ -212,7 +239,7 @@ export function ProductRouteWorkspace({
 
     replaceRoute(result.value);
     setStatusMessage(
-      `Route is now ${routeLifecycleLabel(result.value.lifecycleStatus).toLowerCase()}.`,
+      `Product is now ${routeLifecycleLabel(result.value.lifecycleStatus).toLowerCase()}.`,
     );
   }
 
@@ -220,14 +247,15 @@ export function ProductRouteWorkspace({
     <div className="product-workspace">
       <header className="product-page-header">
         <div>
-          <p className="dashboard-eyebrow">Catalog control</p>
-          <h1>Product routes</h1>
+          <p className="dashboard-eyebrow">Storefront catalog</p>
+          <h1>Products</h1>
           <p>
-            Draft, validate, price, and publish the API operations customers can
-            buy. Every change is version guarded and recorded.
+            Name, price, review, and publish what buyers can purchase from your
+            service. Technical delivery settings stay available when you need
+            them.
           </p>
         </div>
-        <div className="product-counts" aria-label="Route status summary">
+        <div className="product-counts" aria-label="Product status summary">
           <span>{routeCounts.published} published</span>
           <span>{routeCounts.draft} draft</span>
           <span>{routeCounts.attention} need attention</span>
@@ -243,20 +271,25 @@ export function ProductRouteWorkspace({
         {statusMessage}
       </p>
 
-      <section className="product-create-panel" aria-labelledby="new-route-title">
+      <section
+        className="product-create-panel"
+        aria-labelledby="new-product-title"
+      >
         <div className="product-panel-heading">
           <div>
             <span className="product-panel-icon">
               <Plus aria-hidden="true" />
             </span>
             <div>
-              <h2 id="new-route-title">Create a route draft</h2>
-              <p>Nothing goes live until validation passes and you publish it.</p>
+              <h2 id="new-product-title">Add a product</h2>
+              <p>
+                Save a draft, review its checks, then publish it when ready.
+              </p>
             </div>
           </div>
         </div>
         <form
-          aria-label="Create route draft"
+          aria-label="Create product draft"
           className="product-create-form"
           onSubmit={submitDraft}
         >
@@ -270,7 +303,7 @@ export function ProductRouteWorkspace({
             />
           </label>
           <label>
-            <span>Product slug</span>
+            <span>Product URL name</span>
             <input
               name="productSlug"
               required
@@ -280,24 +313,8 @@ export function ProductRouteWorkspace({
               placeholder="board-ready-market-report"
             />
           </label>
-          <label>
-            <span>Method</span>
-            <select name="method" defaultValue="POST">
-              <option value="POST">POST</option>
-              <option value="GET">GET</option>
-            </select>
-          </label>
-          <label className="product-field-route">
-            <span>Route path</span>
-            <input
-              name="pathPattern"
-              required
-              pattern="/[A-Za-z0-9/_-]+"
-              placeholder="/reports/market-brief"
-            />
-          </label>
           <label className="product-field-description">
-            <span>Product description</span>
+            <span>What buyers receive</span>
             <input
               name="description"
               required
@@ -306,33 +323,78 @@ export function ProductRouteWorkspace({
             />
           </label>
           <label>
-            <span>Price in atomic units</span>
+            <span>Price</span>
             <input
-              name="amount"
+              name="price"
               required
-              inputMode="numeric"
-              pattern="[0-9]+"
-              placeholder="35000000"
+              inputMode="decimal"
+              pattern="[0-9]+(?:\.[0-9]{1,6})?"
+              placeholder="35.00"
             />
           </label>
           <label>
-            <span>Asset</span>
+            <span>Price asset</span>
             <input name="asset" required defaultValue="USDC" />
           </label>
-          <label>
-            <span>Network</span>
-            <input name="network" required defaultValue="eip155:84532" />
-          </label>
           <label className="product-field-route">
-            <span>Payment destination</span>
+            <span>Verified payment destination</span>
             <input
               name="payTo"
               required
               placeholder="0x verified wallet address"
             />
           </label>
-          <input name="mimeType" type="hidden" value="application/json" />
-          <input name="upstreamTimeoutSeconds" type="hidden" value="20" />
+          <Accordion className="product-advanced-fields">
+            <AccordionItem value="technical-setup">
+              <AccordionTrigger>Advanced product setup</AccordionTrigger>
+              <AccordionContent>
+                <div className="product-advanced-grid">
+                  <label>
+                    <span>HTTP method</span>
+                    <select name="method" defaultValue="POST">
+                      <option value="POST">POST</option>
+                      <option value="GET">GET</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>API path</span>
+                    <input
+                      name="pathPattern"
+                      required
+                      pattern="/[A-Za-z0-9/_-]+"
+                      placeholder="/reports/market-brief"
+                    />
+                  </label>
+                  <label>
+                    <span>Output MIME type</span>
+                    <input
+                      name="mimeType"
+                      required
+                      defaultValue="application/json"
+                    />
+                  </label>
+                  <label>
+                    <span>Payment network</span>
+                    <input
+                      name="network"
+                      required
+                      defaultValue="eip155:84532"
+                    />
+                  </label>
+                  <label>
+                    <span>Service timeout in seconds</span>
+                    <input
+                      name="upstreamTimeoutSeconds"
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]+"
+                      defaultValue="20"
+                    />
+                  </label>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           <Button type="submit" disabled={pendingAction === "create"}>
             {pendingAction === "create" ? (
               <LoaderCircle className="animate-spin" aria-hidden="true" />
@@ -345,16 +407,19 @@ export function ProductRouteWorkspace({
       </section>
 
       <div className="product-management-grid">
-        <section className="product-route-list" aria-labelledby="route-list-title">
+        <section
+          className="product-route-list"
+          aria-labelledby="route-list-title"
+        >
           <div className="product-panel-heading">
             <div>
-              <h2 id="route-list-title">Catalog</h2>
-              <p>{routes.length} configured routes</p>
+              <h2 id="route-list-title">Storefront catalog</h2>
+              <p>{routes.length} configured products</p>
             </div>
           </div>
           {routes.length === 0 ? (
             <div className="product-empty-state">
-              <p>No product routes yet.</p>
+              <p>No products yet.</p>
               <span>Create a draft above or connect your coding agent.</span>
             </div>
           ) : (
@@ -370,10 +435,9 @@ export function ProductRouteWorkspace({
                     setValidation(null);
                   }}
                 >
-                  <span className="product-route-method">{route.method}</span>
                   <span className="product-route-copy">
-                    <strong>{route.pathPattern}</strong>
-                    <small>{route.description}</small>
+                    <strong>{route.displayName}</strong>
+                    <small>/products/{route.productSlug}</small>
                   </span>
                   <span className="product-route-price">
                     {formatAtomicPrice(route.amount, route.asset)}
@@ -385,7 +449,10 @@ export function ProductRouteWorkspace({
           )}
         </section>
 
-        <section className="product-inspector" aria-labelledby="route-detail-title">
+        <section
+          className="product-inspector"
+          aria-labelledby="route-detail-title"
+        >
           {selectedRoute ? (
             <RouteInspector
               actionsPending={pendingAction}
@@ -394,24 +461,18 @@ export function ProductRouteWorkspace({
               route={selectedRoute}
               validation={validation}
               onArchive={() => runLifecycleAction("archive")}
-              onCancelEmergencyDisable={() =>
-                setConfirmEmergencyDisable(false)
-              }
-              onConfirmEmergencyDisable={() =>
-                runLifecycleAction("emergency")
-              }
+              onCancelEmergencyDisable={() => setConfirmEmergencyDisable(false)}
+              onConfirmEmergencyDisable={() => runLifecycleAction("emergency")}
               onPause={() => runLifecycleAction("pause")}
               onPublish={() => runLifecycleAction("publish")}
-              onRequestEmergencyDisable={() =>
-                setConfirmEmergencyDisable(true)
-              }
+              onRequestEmergencyDisable={() => setConfirmEmergencyDisable(true)}
               onSubmitPrice={submitPrice}
               onValidate={validateSelectedRoute}
             />
           ) : (
             <div className="product-empty-state product-empty-inspector">
-              <p id="route-detail-title">Select a product route</p>
-              <span>Configuration, controls, and history appear here.</span>
+              <p id="route-detail-title">Select a product</p>
+              <span>Price, publication controls, and history appear here.</span>
             </div>
           )}
         </section>
@@ -479,8 +540,8 @@ function RouteInspector({
     <>
       <div className="product-detail-heading">
         <div>
-          <span>{route.method}</span>
-          <h2 id="route-detail-title">{route.pathPattern}</h2>
+          <span>Product</span>
+          <h2 id="route-detail-title">{route.displayName}</h2>
           <p>{route.description}</p>
         </div>
         <div>
@@ -497,20 +558,30 @@ function RouteInspector({
           </div>
           <strong>{formatAtomicPrice(route.amount, route.asset)}</strong>
         </div>
+        <dl className="product-customer-details">
+          <div>
+            <dt>Product URL</dt>
+            <dd>/products/{route.productSlug}</dd>
+          </div>
+          <div>
+            <dt>Verified payment destination</dt>
+            <dd>{route.payTo}</dd>
+          </div>
+        </dl>
         <form
-          aria-label="Update route price"
+          aria-label="Update product price"
           className="product-price-form"
           onSubmit={onSubmitPrice}
         >
           <label>
-            <span>Atomic amount</span>
+            <span>Price</span>
             <input
               key={`${route.routeId}-${route.version}`}
-              name="amount"
+              name="price"
               required
-              inputMode="numeric"
-              pattern="[0-9]+"
-              defaultValue={route.amount}
+              inputMode="decimal"
+              pattern="[0-9]+(?:\.[0-9]{1,6})?"
+              defaultValue={formatAtomicUnits(route.amount)}
               disabled={route.lifecycleStatus === "archived"}
             />
           </label>
@@ -518,8 +589,7 @@ function RouteInspector({
             type="submit"
             variant="outline"
             disabled={
-              route.lifecycleStatus === "archived" ||
-              actionsPending === "price"
+              route.lifecycleStatus === "archived" || actionsPending === "price"
             }
           >
             Update price
@@ -531,7 +601,7 @@ function RouteInspector({
         <div className="product-section-title">
           <div>
             <h3>Publication checks</h3>
-            <p>Checks are refreshed from the backend and never cached.</p>
+            <p>Checks are refreshed before this product can be published.</p>
           </div>
           <Button
             type="button"
@@ -543,7 +613,7 @@ function RouteInspector({
             }
           >
             <RefreshCw aria-hidden="true" />
-            Validate route
+            Validate product
           </Button>
         </div>
         {validation ? (
@@ -567,7 +637,7 @@ function RouteInspector({
           </div>
         ) : (
           <p className="product-muted-copy">
-            Run validation before publishing or resuming this route.
+            Run validation before publishing or resuming this product.
           </p>
         )}
       </div>
@@ -575,8 +645,8 @@ function RouteInspector({
       <div className="product-detail-section">
         <div className="product-section-title">
           <div>
-            <h3>Route controls</h3>
-            <p>Every action uses the version shown above.</p>
+            <h3>Product controls</h3>
+            <p>Publish, pause, or retire this storefront product.</p>
           </div>
         </div>
         <div className="product-control-row">
@@ -587,7 +657,7 @@ function RouteInspector({
               disabled={actionsPending === "publish"}
             >
               <CirclePlay aria-hidden="true" />
-              Publish route
+              Publish product
             </Button>
           ) : null}
           {route.lifecycleStatus === "published" ? (
@@ -598,7 +668,7 @@ function RouteInspector({
               disabled={actionsPending === "pause"}
             >
               <CirclePause aria-hidden="true" />
-              Pause route
+              Pause product
             </Button>
           ) : null}
           {canArchive ? (
@@ -609,7 +679,7 @@ function RouteInspector({
               disabled={actionsPending === "archive"}
             >
               <Archive aria-hidden="true" />
-              Archive route
+              Archive product
             </Button>
           ) : null}
           {route.lifecycleStatus === "published" ? (
@@ -627,17 +697,17 @@ function RouteInspector({
                 render={<Button type="button" variant="destructive" />}
               >
                 <ShieldAlert aria-hidden="true" />
-                Emergency disable route
+                Emergency disable product
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogMedia>
                     <ShieldAlert aria-hidden="true" />
                   </AlertDialogMedia>
-                  <AlertDialogTitle>Disable this route now?</AlertDialogTitle>
+                  <AlertDialogTitle>Disable this product now?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    New purchase attempts stop immediately. Existing payment
-                    and evidence records remain unchanged.
+                    New purchase attempts stop immediately. Existing payment and
+                    evidence records remain unchanged.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -660,12 +730,33 @@ function RouteInspector({
         <div className="product-section-title">
           <div>
             <h3>Version history</h3>
-            <p>Immutable seller audit events for this route.</p>
+            <p>Recorded publication and pricing changes for this product.</p>
           </div>
         </div>
         <RouteHistory events={routeHistory} />
       </div>
 
+      <div className="product-detail-section">
+        <Accordion className="product-technical-accordion">
+          <AccordionItem value="technical-details">
+            <AccordionTrigger>Advanced technical details</AccordionTrigger>
+            <AccordionContent>
+              <dl className="product-technical-details">
+                <Definition label="Route ID" value={route.routeId} />
+                <Definition label="API path" value={route.pathPattern} />
+                <Definition label="HTTP method" value={route.method} />
+                <Definition label="Output MIME type" value={route.mimeType} />
+                <Definition label="Payment network" value={route.network} />
+                <Definition
+                  label="Service timeout"
+                  value={`${route.upstreamTimeoutSeconds} seconds`}
+                />
+                <Definition label="Atomic amount" value={route.amount} />
+              </dl>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
     </>
   );
 }
@@ -679,7 +770,7 @@ function RouteHistory({ events }: RouteHistoryProps) {
   if (events.length === 0) {
     return (
       <p className="product-muted-copy">
-        No recorded changes for this route yet.
+        No recorded changes for this product yet.
       </p>
     );
   }
@@ -707,10 +798,19 @@ function auditActionLabel(action: string): string {
   const labels: Record<string, string> = {
     "route.draft_created": "Draft created",
     "route.price_changed": "Price changed",
-    "route.published": "Published route",
-    "route.paused": "Paused route",
-    "route.archived": "Archived route",
-    "route.emergency_disabled": "Emergency disabled route",
+    "route.published": "Published product",
+    "route.paused": "Paused product",
+    "route.archived": "Archived product",
+    "route.emergency_disabled": "Emergency disabled product",
   };
   return labels[action] ?? action;
+}
+
+function Definition({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
 }

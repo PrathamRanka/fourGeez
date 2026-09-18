@@ -1830,7 +1830,7 @@
 
   .product-create-form {
     display: grid;
-    grid-template-columns: 0.55fr 1.2fr 2fr 1.1fr 0.8fr 1.3fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
     align-items: end;
     padding: 1rem 1.15rem 1.15rem;
@@ -1871,6 +1871,25 @@
   .product-field-description,
   .product-field-route {
     min-width: 9rem;
+  }
+
+  .product-field-description {
+    grid-column: span 2;
+  }
+
+  .product-advanced-fields {
+    grid-column: 1 / -1;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    background: var(--muted);
+    padding-inline: 0.85rem;
+  }
+
+  .product-advanced-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    padding-bottom: 0.9rem;
   }
 
   .product-management-grid {
@@ -2066,6 +2085,41 @@
     gap: 0.65rem;
     align-items: end;
     margin-top: 0.8rem;
+  }
+
+  .product-customer-details,
+  .product-technical-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-top: 0.9rem;
+  }
+
+  .product-customer-details > div,
+  .product-technical-details > div {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--muted);
+    padding: 0.7rem 0.8rem;
+  }
+
+  .product-customer-details dt,
+  .product-technical-details dt {
+    color: var(--muted-foreground);
+    font-size: 0.62rem;
+  }
+
+  .product-customer-details dd,
+  .product-technical-details dd {
+    margin-top: 0.25rem;
+    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+  }
+
+  .product-technical-accordion {
+    width: 100%;
   }
 
   .product-control-row {
@@ -2618,6 +2672,15 @@
     white-space: nowrap;
   }
 
+  .transaction-technical-details {
+    border-top: 1px solid var(--border);
+    padding-inline: 1.1rem;
+  }
+
+  .transaction-technical-details .transaction-definition-list {
+    margin-inline: -1.1rem;
+  }
+
   .transaction-table-wrap {
     overflow-x: auto;
   }
@@ -2894,6 +2957,36 @@
     font-size: 0.72rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .storefront-product-url {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 1rem;
+  }
+
+  .storefront-product-url span {
+    color: var(--muted-foreground);
+    font-size: 0.65rem;
+  }
+
+  .storefront-product-url code {
+    overflow-wrap: anywhere;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
+    background: var(--muted);
+    padding: 0.7rem 0.8rem;
+    font-size: 0.68rem;
+  }
+
+  .storefront-technical-details {
+    margin-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .storefront-technical-details dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0;
   }
 
   .storefront-product-detail aside {
@@ -3610,7 +3703,6 @@
     font-family: var(--font-mono);
     font-size: 0.64rem;
   }
-
 }
 
 @keyframes hero-enter {
@@ -3712,6 +3804,10 @@
 
   .product-field-description {
     grid-column: span 2;
+  }
+
+  .product-advanced-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .product-management-grid {
@@ -3902,6 +3998,13 @@
 
   .product-field-description {
     grid-column: auto;
+  }
+
+  .product-advanced-grid,
+  .product-customer-details,
+  .product-technical-details,
+  .storefront-technical-details dl {
+    grid-template-columns: 1fr;
   }
 
   .product-field-description,

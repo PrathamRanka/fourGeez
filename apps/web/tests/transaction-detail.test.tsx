@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { TransactionDetailSnapshot } from "@/features/transactions/model";
 import { TransactionDetail } from "@/features/transactions/view/transaction-detail";
@@ -13,6 +13,8 @@ const snapshot: TransactionDetailSnapshot = {
     intentId: "int_01ARZ3NDEKTSV4RRFFQ69G5FAW",
     sellerId,
     routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAX",
+    productDisplayName: "Research Report",
+    productSlug: "research-report",
     buyerId: "buyer-demo",
     status: "FULFILLED",
     amount: "35000000",
@@ -70,14 +72,26 @@ const snapshot: TransactionDetailSnapshot = {
 };
 
 describe("transaction detail", () => {
-  it("shows payment, fulfillment, verified evidence, delivery history, and receipt download", () => {
+  it("shows payment, fulfillment, verified evidence, delivery history, and receipt download", async () => {
     render(<TransactionDetail snapshot={snapshot} />);
 
-    expect(screen.getByRole("heading", { name: transactionId })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Research Report" }),
+    ).toBeVisible();
+    expect(screen.getByText(transactionId)).toBeVisible();
     expect(screen.getByText("35 USDC")).toBeVisible();
     expect(screen.getByText("Finalized")).toBeVisible();
     expect(screen.getByText("Fulfilled")).toBeVisible();
-    expect(screen.getByText("Evidence chain verified")).toBeVisible();
+    expect(
+      screen.getByText("Payment and delivery proof verified"),
+    ).toBeVisible();
+
+    expect(screen.queryByText("Route ID")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Advanced technical details" }),
+    );
+    expect(await screen.findByText("Route ID")).toBeVisible();
+    expect(screen.getByText(snapshot.transaction.routeId)).toBeVisible();
 
     const evidenceList = screen.getByRole("list", { name: "Evidence events" });
     expect(within(evidenceList).getByText("payment.verified")).toBeVisible();
@@ -86,10 +100,14 @@ describe("transaction detail", () => {
     const deliveryTable = screen.getByRole("table", {
       name: "Webhook delivery history",
     });
-    expect(within(deliveryTable).getByText("fulfillment.succeeded")).toBeVisible();
+    expect(
+      within(deliveryTable).getByText("fulfillment.succeeded"),
+    ).toBeVisible();
     expect(within(deliveryTable).getByText("Delivered")).toBeVisible();
 
-    expect(screen.getByRole("link", { name: "Download receipt" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Download receipt" }),
+    ).toHaveAttribute(
       "href",
       `/dashboard/transactions/${transactionId}/receipt`,
     );
@@ -106,7 +124,7 @@ describe("transaction detail", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Evidence verification failed",
+      "Payment and delivery proof verification failed",
     );
     expect(
       screen.queryByRole("link", { name: "Download receipt" }),

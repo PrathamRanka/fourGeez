@@ -1,10 +1,5 @@
 export type ReconciliationStage =
-  | "challenged"
-  | "verified"
-  | "finalized"
-  | "fulfilled"
-  | "failed"
-  | "disputed";
+  "challenged" | "verified" | "finalized" | "fulfilled" | "failed" | "disputed";
 
 export type SalesAggregate = {
   sellerId: string;
@@ -20,6 +15,7 @@ export type SalesAggregate = {
 
 export type AnalyticsRoute = {
   routeId: string;
+  displayName: string;
   pathPattern: string;
 };
 
@@ -115,7 +111,9 @@ export function buildPaymentPairSummaries(
   }
 
   return [...summaries.values()].sort((left, right) =>
-    `${left.asset}:${left.network}`.localeCompare(`${right.asset}:${right.network}`),
+    `${left.asset}:${left.network}`.localeCompare(
+      `${right.asset}:${right.network}`,
+    ),
   );
 }
 
@@ -157,7 +155,7 @@ export function buildRoutePerformance(
   routes: AnalyticsRoute[],
 ): RoutePerformance[] {
   const routeLabels = new Map(
-    routes.map((route) => [route.routeId, route.pathPattern]),
+    routes.map((route) => [route.routeId, route.displayName]),
   );
   const performance = new Map<string, RoutePerformance>();
 

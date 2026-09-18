@@ -11,6 +11,7 @@ const snapshot: AnalyticsSnapshot = {
   routes: [
     {
       routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+      displayName: "Research Report",
       pathPattern: "/research",
     },
   ],
@@ -83,9 +84,7 @@ describe("seller analytics dashboard", () => {
   it("keeps unlike assets and networks in separate revenue summaries", () => {
     render(<SellerAnalyticsDashboard snapshot={snapshot} />);
 
-    expect(
-      screen.getByRole("heading", { name: "Revenue Lens" }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Revenue Lens" })).toBeVisible();
     expect(screen.getByText("5 transactions in this window")).toBeVisible();
 
     const usdcSummary = screen.getByRole("region", {
@@ -109,8 +108,10 @@ describe("seller analytics dashboard", () => {
     expect(
       screen.getByRole("img", { name: "Daily sales activity" }),
     ).toBeVisible();
-    const routeTable = screen.getByRole("table", { name: "Route performance" });
-    expect(within(routeTable).getByText("/research")).toBeVisible();
+    const routeTable = screen.getByRole("table", {
+      name: "Product performance",
+    });
+    expect(within(routeTable).getByText("Research Report")).toBeVisible();
     expect(within(routeTable).getByText("1 fulfilled")).toBeVisible();
     expect(within(routeTable).getByText("35 USDC")).toBeVisible();
   });
@@ -124,7 +125,7 @@ describe("seller analytics dashboard", () => {
 
     expect(screen.getByText("No sales in this window yet")).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Review product routes" }),
+      screen.getByRole("link", { name: "Review products" }),
     ).toHaveAttribute("href", `/dashboard/products?sellerId=${sellerId}`);
   });
 });

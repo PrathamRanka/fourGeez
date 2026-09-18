@@ -57,8 +57,8 @@ export function SellerAnalyticsDashboard({
           <CardHeader>
             <CardTitle>No sales in this window yet</CardTitle>
             <CardDescription>
-              Publish a validated product route, then completed purchases will
-              appear here once the gateway records them.
+              Publish a validated product, then completed purchases will appear
+              here once the gateway records them.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -69,7 +69,7 @@ export function SellerAnalyticsDashboard({
                 />
               }
             >
-              Review product routes
+              Review products
               <ArrowUpRight aria-hidden="true" />
             </Button>
           </CardContent>
@@ -142,7 +142,7 @@ export function SellerAnalyticsDashboard({
           <section className="analytics-route-panel">
             <div className="analytics-section-heading">
               <div>
-                <h2>Route performance</h2>
+                <h2>Product performance</h2>
                 <p>Fulfillment outcomes remain separated by payment pair.</p>
               </div>
             </div>
@@ -152,10 +152,10 @@ export function SellerAnalyticsDashboard({
               </p>
             ) : (
               <div className="analytics-table-wrap">
-                <table aria-label="Route performance">
+                <table aria-label="Product performance">
                   <thead>
                     <tr>
-                      <th>Route</th>
+                      <th>Product</th>
                       <th>Payment pair</th>
                       <th>Fulfilled</th>
                       <th>Volume</th>

@@ -6,13 +6,17 @@ import {
   ProductDetail,
 } from "@/features/storefront/view/storefront";
 
-type ProductPageProps = { params: Promise<{ slug: string; routeId: string }> };
+type ProductPageProps = {
+  params: Promise<{ slug: string; productSlug: string }>;
+};
 
-export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
-  const { slug, routeId } = await params;
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { slug, productSlug } = await params;
   const manifest = await loadStorefrontManifest(slug);
   const route = manifest?.routes.find(
-    (candidate) => candidate.productSlug === routeId || candidate.routeId === routeId,
+    (candidate) => candidate.productSlug === productSlug,
   );
   if (!manifest || !route) return {};
   const origin = process.env.AGENTPAY_WEB_ORIGIN ?? "http://localhost:3000";
@@ -27,15 +31,19 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const { slug, routeId } = await params;
+  const { slug, productSlug } = await params;
   const manifest = await loadStorefrontManifest(slug);
   const route = manifest?.routes.find(
-    (candidate) => candidate.productSlug === routeId || candidate.routeId === routeId,
+    (candidate) => candidate.productSlug === productSlug,
   );
   if (!manifest || !route) notFound();
   const webOrigin = process.env.AGENTPAY_WEB_ORIGIN ?? "http://localhost:3000";
   const canonicalUrl = `${webOrigin.replace(/\/$/, "")}/store/${slug}/products/${route.productSlug}`;
-  const structuredData = buildProductStructuredData(manifest, route, canonicalUrl);
+  const structuredData = buildProductStructuredData(
+    manifest,
+    route,
+    canonicalUrl,
+  );
   return (
     <>
       <script

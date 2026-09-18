@@ -108,10 +108,10 @@ describe("seller onboarding", () => {
     fireEvent.change(screen.getByLabelText("Storefront name"), {
       target: { value: seller.name },
     });
-    fireEvent.change(screen.getByLabelText("Storefront slug"), {
+    fireEvent.change(screen.getByLabelText("Storefront URL name"), {
       target: { value: seller.slug },
     });
-    fireEvent.change(screen.getByLabelText("Upstream API URL"), {
+    fireEvent.change(screen.getByLabelText("Service API URL"), {
       target: { value: seller.upstreamBaseUrl },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Create storefront" }));
@@ -120,6 +120,7 @@ describe("seller onboarding", () => {
       expect(actions.createStorefront).toHaveBeenCalledTimes(1),
     );
     expect((await screen.findAllByText("Storefront created"))[0]).toBeVisible();
+    expect(screen.getByText("/store/northstar-research")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Connect browser wallet" }),
     ).toBeEnabled();
@@ -139,11 +140,13 @@ describe("seller onboarding", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Create integration key" }),
+      screen.getByRole("button", { name: "Create project connection key" }),
     );
 
     expect(
-      await screen.findByText("Save this key now. It is shown only once."),
+      await screen.findByText(
+        "Save this project connection key now. It is shown only once.",
+      ),
     ).toBeVisible();
     expect(screen.getByText(createdCredential.token)).toBeVisible();
     expect(

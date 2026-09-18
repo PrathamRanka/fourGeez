@@ -20,6 +20,8 @@ export type Transaction = {
   intentId: string;
   sellerId: string;
   routeId: string;
+  productDisplayName?: string;
+  productSlug?: string;
   buyerId: string;
   status: TransactionStatus;
   amount: string;
@@ -51,10 +53,7 @@ export type EvidenceEvent = {
 };
 
 export type WebhookDeliveryStatus =
-  | "pending"
-  | "retry_scheduled"
-  | "delivered"
-  | "dead_letter";
+  "pending" | "retry_scheduled" | "delivered" | "dead_letter";
 
 export type WebhookDelivery = {
   deliveryId: string;

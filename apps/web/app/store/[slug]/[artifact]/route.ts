@@ -20,7 +20,7 @@ export async function GET(
   const urls = [
     `${origin}/store/${slug}`,
     ...manifest.routes.map(
-      (route) => `${origin}${storefrontProductPath(slug, route.routeId)}`,
+      (route) => `${origin}${storefrontProductPath(slug, route.productSlug)}`,
     ),
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((url) => `<url><loc>${url}</loc></url>`).join("")}</urlset>\n`;

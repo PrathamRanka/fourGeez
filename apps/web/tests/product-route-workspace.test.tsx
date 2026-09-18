@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type {
   PaidRoute,
@@ -136,7 +142,7 @@ function createActions(): ProductRouteActions {
 }
 
 describe("product route workspace", () => {
-  it("shows route state, pricing, validation, and version history", async () => {
+  it("leads with product language and keeps route details advanced", async () => {
     const actions = createActions();
     render(
       <ProductRouteWorkspace
@@ -145,15 +151,25 @@ describe("product route workspace", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("heading", { name: "Product routes" }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Products" })).toBeVisible();
     expect(screen.getByText("1 published")).toBeVisible();
     expect(screen.getAllByText("35 USDC")[0]).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Research Report" }),
+    ).toBeVisible();
     expect(screen.getByText("Version 2")).toBeVisible();
     expect(screen.getAllByText("Published")[0]).toBeVisible();
+    expect(screen.queryByText("Route ID")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate route" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Advanced technical details" }),
+    );
+    expect(screen.getByText("Route ID")).toBeVisible();
+    expect(screen.getAllByText(publishedRoute.routeId)[0]).toBeVisible();
+    expect(screen.getByText("API path")).toBeVisible();
+    expect(screen.getByText("/research")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Validate product" }));
 
     expect(actions.validateRoute).toHaveBeenCalledWith({
       sellerId,
@@ -164,7 +180,7 @@ describe("product route workspace", () => {
       name: "Publication checks",
     });
     expect(within(validationList).getAllByText("Passed")).toHaveLength(2);
-    expect(screen.getByText("Published route")).toBeVisible();
+    expect(screen.getByText("Published product")).toBeVisible();
   });
 
   it("creates a draft and pauses a published route through real actions", async () => {
@@ -179,28 +195,41 @@ describe("product route workspace", () => {
     fireEvent.change(screen.getByLabelText("Product name"), {
       target: { value: "Executive Summaries" },
     });
-    fireEvent.change(screen.getByLabelText("Product slug"), {
+    fireEvent.change(screen.getByLabelText("Product URL name"), {
       target: { value: "executive-summaries" },
     });
-    fireEvent.change(screen.getByLabelText("Route path"), {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Advanced product setup" }),
+    );
+    fireEvent.change(screen.getByLabelText("API path"), {
       target: { value: "/summaries" },
     });
-    fireEvent.change(screen.getByLabelText("Product description"), {
+    fireEvent.change(screen.getByLabelText("What buyers receive"), {
       target: { value: "Summarize a supplied document" },
     });
-    fireEvent.change(screen.getByLabelText("Price in atomic units"), {
-      target: { value: "12000000" },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Create route draft" }));
+    fireEvent.change(
+      within(
+        screen.getByRole("form", { name: "Create product draft" }),
+      ).getByLabelText("Price"),
+      {
+        target: { value: "12" },
+      },
+    );
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Create product draft" }),
+    );
 
     await waitFor(() => expect(actions.createDraft).toHaveBeenCalledTimes(1));
+    expect(actions.createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: "12000000" }),
+    );
     expect(screen.getByText("1 draft")).toBeVisible();
     expect(
-      await screen.findByRole("heading", { name: "/summaries" }),
+      await screen.findByRole("heading", { name: "Executive Summaries" }),
     ).toBeVisible();
 
-    fireEvent.click(screen.getByText("/research"));
-    fireEvent.click(screen.getByRole("button", { name: "Pause route" }));
+    fireEvent.click(screen.getByRole("button", { name: /Research Report/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Pause product" }));
     await waitFor(() => expect(actions.pauseRoute).toHaveBeenCalledTimes(1));
     expect((await screen.findAllByText("Paused"))[0]).toBeVisible();
   });
@@ -229,10 +258,13 @@ describe("product route workspace", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Atomic amount"), {
-      target: { value: "40000000" },
+    const priceForm = screen.getByRole("form", {
+      name: "Update product price",
     });
-    fireEvent.submit(screen.getByLabelText("Update route price"));
+    fireEvent.change(within(priceForm).getByLabelText("Price"), {
+      target: { value: "40" },
+    });
+    fireEvent.submit(priceForm);
 
     await waitFor(() =>
       expect(actions.updatePrice).toHaveBeenCalledWith({
@@ -244,7 +276,7 @@ describe("product route workspace", () => {
     );
     expect(await screen.findByText("Version 2")).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Publish route" }));
+    fireEvent.click(screen.getByRole("button", { name: "Publish product" }));
     await waitFor(() =>
       expect(actions.publishRoute).toHaveBeenCalledWith({
         sellerId,
@@ -280,7 +312,7 @@ describe("product route workspace", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Archive route" }));
+    fireEvent.click(screen.getByRole("button", { name: "Archive product" }));
 
     await waitFor(() =>
       expect(actions.archiveRoute).toHaveBeenCalledWith({
@@ -292,7 +324,7 @@ describe("product route workspace", () => {
     expect((await screen.findAllByText("Archived"))[0]).toBeVisible();
     expect(screen.getByRole("button", { name: "Update price" })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Validate route" }),
+      screen.getByRole("button", { name: "Validate product" }),
     ).toBeDisabled();
   });
 
@@ -306,10 +338,10 @@ describe("product route workspace", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Emergency disable route" }),
+      screen.getByRole("button", { name: "Emergency disable product" }),
     );
     expect(
-      screen.getByRole("heading", { name: "Disable this route now?" }),
+      screen.getByRole("heading", { name: "Disable this product now?" }),
     ).toBeVisible();
     expect(actions.emergencyDisableRoute).not.toHaveBeenCalled();
 
@@ -319,8 +351,6 @@ describe("product route workspace", () => {
     await waitFor(() =>
       expect(actions.emergencyDisableRoute).toHaveBeenCalledTimes(1),
     );
-    expect(
-      (await screen.findAllByText("Emergency disabled"))[0],
-    ).toBeVisible();
+    expect((await screen.findAllByText("Emergency disabled"))[0]).toBeVisible();
   });
 });

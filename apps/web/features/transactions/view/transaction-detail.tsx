@@ -6,6 +6,12 @@ import {
   Webhook,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
 import type { TransactionDetailSnapshot } from "@/features/transactions/model";
 import {
@@ -28,17 +34,21 @@ type TransactionDetailProps = {
 };
 
 // TransactionDetail presents payment, fulfillment, evidence, delivery, and receipt facts.
-export function TransactionDetail({ snapshot, createDispute }: TransactionDetailProps) {
+export function TransactionDetail({
+  snapshot,
+  createDispute,
+}: TransactionDetailProps) {
   const { transaction, evidence } = snapshot;
   return (
     <div className="transaction-detail-workspace">
       <header className="transaction-detail-header">
         <div>
           <p className="dashboard-eyebrow">Proof Stream</p>
-          <h1>{transaction.transactionId}</h1>
+          <h1>{transaction.productDisplayName ?? "Purchase details"}</h1>
+          <span>{transaction.transactionId}</span>
           <p>
-            Payment, fulfillment, signed evidence, and outbound notification
-            history for one purchase.
+            Payment, delivery proof, receipt, and notification history for one
+            purchase.
           </p>
         </div>
         {evidence.valid && transaction.paymentFinality === "finalized" ? (
@@ -59,13 +69,30 @@ export function TransactionDetail({ snapshot, createDispute }: TransactionDetail
       ) : null}
 
       <section className="transaction-facts" aria-label="Transaction summary">
-        <Fact label="Amount" value={formatAtomicPrice(transaction.amount, transaction.asset)} />
-        <Fact label="Network" value={transaction.network} />
         <Fact
-          label="Payment"
-          value={transaction.paymentFinality ? titleCase(transaction.paymentFinality) : "Awaiting payment"}
+          label="Amount"
+          value={formatAtomicPrice(transaction.amount, transaction.asset)}
         />
-        <Fact label="Fulfillment" value={transactionStatusLabel(transaction.status)} />
+        <Fact
+          label="Payment status"
+          value={
+            transaction.paymentFinality
+              ? titleCase(transaction.paymentFinality)
+              : "Awaiting payment"
+          }
+        />
+        <Fact
+          label="Delivery status"
+          value={transactionStatusLabel(transaction.status)}
+        />
+        <Fact
+          label="Product URL"
+          value={
+            transaction.productSlug
+              ? `/products/${transaction.productSlug}`
+              : "Not available"
+          }
+        />
       </section>
 
       <div className="transaction-detail-grid">
@@ -80,8 +107,8 @@ export function TransactionDetail({ snapshot, createDispute }: TransactionDetail
               <div>
                 <h2 id="evidence-title">
                   {evidence.valid
-                    ? "Evidence chain verified"
-                    : "Evidence verification failed"}
+                    ? "Payment and delivery proof verified"
+                    : "Payment and delivery proof verification failed"}
                 </h2>
                 <p>{evidence.events.length} append-only events</p>
               </div>
@@ -89,10 +116,14 @@ export function TransactionDetail({ snapshot, createDispute }: TransactionDetail
           </div>
           {!evidence.valid ? (
             <div className="transaction-evidence-warning" role="alert">
-              Evidence verification failed. Receipt download is unavailable.
+              Payment and delivery proof verification failed. Receipt download
+              is unavailable.
             </div>
           ) : null}
-          <ol className="transaction-evidence-list" aria-label="Evidence events">
+          <ol
+            className="transaction-evidence-list"
+            aria-label="Evidence events"
+          >
             {evidence.events.map((event) => (
               <li key={event.eventId}>
                 <span>{event.sequence}</span>
@@ -114,32 +145,51 @@ export function TransactionDetail({ snapshot, createDispute }: TransactionDetail
             <div>
               <FileKey2 aria-hidden="true" />
               <div>
-                <h2 id="payment-title">Payment and fulfillment</h2>
-                <p>Safe references only; raw proofs are never displayed.</p>
+                <h2 id="payment-title">Purchase record</h2>
+                <p>
+                  Safe payment and delivery references; raw proofs are never
+                  displayed.
+                </p>
               </div>
             </div>
           </div>
           <dl className="transaction-definition-list">
-            <Definition label="Intent" value={transaction.intentId} />
-            <Definition label="Route" value={transaction.routeId} />
-            <Definition label="Buyer" value={transaction.buyerId} />
             <Definition
               label="Payment reference"
               value={transaction.paymentReference ?? "Not available"}
             />
             <Definition
-              label="Upstream status"
+              label="Delivery response"
               value={
                 transaction.upstreamStatus === null
                   ? "Not called"
                   : String(transaction.upstreamStatus)
               }
             />
-            <Definition
-              label="Response hash"
-              value={transaction.responseHash ?? "Not available"}
-            />
           </dl>
+          <Accordion className="transaction-technical-details">
+            <AccordionItem value="technical-details">
+              <AccordionTrigger>Advanced technical details</AccordionTrigger>
+              <AccordionContent>
+                <dl className="transaction-definition-list">
+                  <Definition
+                    label="Purchase intent ID"
+                    value={transaction.intentId}
+                  />
+                  <Definition label="Route ID" value={transaction.routeId} />
+                  <Definition label="Buyer ID" value={transaction.buyerId} />
+                  <Definition
+                    label="Payment network"
+                    value={transaction.network}
+                  />
+                  <Definition
+                    label="Response hash"
+                    value={transaction.responseHash ?? "Not available"}
+                  />
+                </dl>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </section>
       </div>
 
@@ -154,7 +204,9 @@ export function TransactionDetail({ snapshot, createDispute }: TransactionDetail
           </div>
         </div>
         {snapshot.webhookDeliveries.length === 0 ? (
-          <p className="transaction-empty-copy">No webhook deliveries recorded.</p>
+          <p className="transaction-empty-copy">
+            No webhook deliveries recorded.
+          </p>
         ) : (
           <div className="transaction-table-wrap">
             <table aria-label="Webhook delivery history">
@@ -180,7 +232,9 @@ export function TransactionDetail({ snapshot, createDispute }: TransactionDetail
                       </span>
                     </td>
                     <td>{delivery.attemptCount}</td>
-                    <td>{delivery.responseStatusCode ?? delivery.errorCode ?? "—"}</td>
+                    <td>
+                      {delivery.responseStatusCode ?? delivery.errorCode ?? "—"}
+                    </td>
                     <td>
                       {dateFormatter.format(new Date(delivery.updatedAt))} UTC
                     </td>
