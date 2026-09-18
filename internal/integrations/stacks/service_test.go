@@ -14,15 +14,15 @@ func TestServiceDetectsDocumentedStacks(t *testing.T) {
 		wantStack Stack
 		wantTier  SupportTier
 	}{
-		{name: "Next.js", files: nodeManifest("next", "react"), wantStack: StackNextJS, wantTier: SupportTierPlanned},
-		{name: "React Vite", files: nodeManifest("react", "vite"), wantStack: StackReactVite, wantTier: SupportTierPlanned},
-		{name: "Remix", files: nodeManifest("@remix-run/react"), wantStack: StackRemix, wantTier: SupportTierPlanned},
-		{name: "Nuxt", files: nodeManifest("nuxt"), wantStack: StackNuxt, wantTier: SupportTierPlanned},
-		{name: "SvelteKit", files: nodeManifest("@sveltejs/kit"), wantStack: StackSvelteKit, wantTier: SupportTierPlanned},
-		{name: "Astro", files: nodeManifest("astro"), wantStack: StackAstro, wantTier: SupportTierPlanned},
+		{name: "Next.js", files: nodeManifest("next", "react"), wantStack: StackNextJS, wantTier: SupportTierMaintained},
+		{name: "React Vite", files: nodeManifest("react", "vite"), wantStack: StackReactVite, wantTier: SupportTierMaintained},
+		{name: "Remix", files: nodeManifest("@remix-run/react"), wantStack: StackRemix, wantTier: SupportTierMaintained},
+		{name: "Nuxt", files: nodeManifest("nuxt"), wantStack: StackNuxt, wantTier: SupportTierMaintained},
+		{name: "SvelteKit", files: nodeManifest("@sveltejs/kit"), wantStack: StackSvelteKit, wantTier: SupportTierMaintained},
+		{name: "Astro", files: nodeManifest("astro"), wantStack: StackAstro, wantTier: SupportTierMaintained},
 		{name: "Express", files: nodeManifest("express"), wantStack: StackExpress, wantTier: SupportTierMaintained},
-		{name: "Fastify", files: nodeManifest("fastify"), wantStack: StackFastify, wantTier: SupportTierPlanned},
-		{name: "NestJS", files: nodeManifest("@nestjs/core"), wantStack: StackNestJS, wantTier: SupportTierPlanned},
+		{name: "Fastify", files: nodeManifest("fastify"), wantStack: StackFastify, wantTier: SupportTierMaintained},
+		{name: "NestJS", files: nodeManifest("@nestjs/core"), wantStack: StackNestJS, wantTier: SupportTierMaintained},
 		{name: "Go net http", files: map[string]string{"go.mod": "module seller\n", "main.go": "package main\nimport \"net/http\"\n"}, wantStack: StackGoNetHTTP, wantTier: SupportTierMaintained},
 		{name: "Gin", files: map[string]string{"go.mod": "require github.com/gin-gonic/gin v1.10.0\n"}, wantStack: StackGin, wantTier: SupportTierPlanned},
 		{name: "Echo", files: map[string]string{"go.mod": "require github.com/labstack/echo/v4 v4.13.4\n"}, wantStack: StackEcho, wantTier: SupportTierPlanned},

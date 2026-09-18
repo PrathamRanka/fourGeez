@@ -110,8 +110,8 @@ bundle pins the first package contract so setup behavior cannot drift silently.
 
 | Support tier | Stacks |
 |---|---|
-| Maintained verification and setup fixtures | Go `net/http`; Node.js/Express; Python ASGI/FastAPI/Starlette |
-| Planned adapters using maintained language verification primitives | Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Fastify, NestJS, Gin, Echo, Fiber, Flask, Django |
+| Maintained verification and setup fixtures | Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, FastAPI, Starlette |
+| Planned adapters using maintained language verification primitives | Gin, Echo, Fiber, Flask, Django |
 | Not advertised until dedicated verification packages pass | ASP.NET Core, Spring Boot, Rails, Laravel |
 
 The generic MCP host is not a generic framework implementation. A stack moves
@@ -129,15 +129,15 @@ package name, never substring guessing.
 
 | Stack | Required evidence | Initial tier |
 |---|---|---|
-| Next.js | `package.json` dependency `next` | planned |
-| React/Vite | dependencies `react` and `vite`, without a stronger metaframework match | planned |
-| Remix | dependency `@remix-run/react` | planned |
-| Nuxt | dependency `nuxt` | planned |
-| SvelteKit | dependency `@sveltejs/kit` | planned |
-| Astro | dependency `astro` | planned |
+| Next.js | `package.json` dependency `next` | maintained |
+| React/Vite | dependencies `react` and `vite`, without a stronger metaframework match | maintained |
+| Remix | dependency `@remix-run/react` | maintained |
+| Nuxt | dependency `nuxt` | maintained |
+| SvelteKit | dependency `@sveltejs/kit` | maintained |
+| Astro | dependency `astro` | maintained |
 | Express | dependency `express` | maintained |
-| Fastify | dependency `fastify` | planned |
-| NestJS | dependency `@nestjs/core` | planned |
+| Fastify | dependency `fastify` | maintained |
+| NestJS | dependency `@nestjs/core` | maintained |
 | Go `net/http` | `go.mod` plus a `.go` source marker importing `net/http`, without a stronger Go framework match | maintained |
 | Gin | `go.mod` module `github.com/gin-gonic/gin` | planned |
 | Echo | `go.mod` module `github.com/labstack/echo` | planned |

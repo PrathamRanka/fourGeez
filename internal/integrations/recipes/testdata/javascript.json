@@ -1,0 +1,56 @@
+[
+  {
+    "stack": "nextjs",
+    "evidence": {"package.json": "{\"dependencies\":{\"next\":\"16.0.0\",\"react\":\"19.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "app/layout.tsx"
+  },
+  {
+    "stack": "react-vite",
+    "evidence": {"package.json": "{\"dependencies\":{\"react\":\"19.0.0\",\"vite\":\"7.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "index.html"
+  },
+  {
+    "stack": "remix",
+    "evidence": {"package.json": "{\"dependencies\":{\"@remix-run/react\":\"2.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "root.tsx"
+  },
+  {
+    "stack": "nuxt",
+    "evidence": {"package.json": "{\"dependencies\":{\"nuxt\":\"4.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "nuxt.config.ts"
+  },
+  {
+    "stack": "sveltekit",
+    "evidence": {"package.json": "{\"dependencies\":{\"@sveltejs/kit\":\"2.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "+layout.svelte"
+  },
+  {
+    "stack": "astro",
+    "evidence": {"package.json": "{\"dependencies\":{\"astro\":\"5.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "Layout.astro"
+  },
+  {
+    "stack": "express",
+    "evidence": {"package.json": "{\"dependencies\":{\"express\":\"5.0.0\"}}"},
+    "adapter": "createAgentPayMiddleware",
+    "metadataFragment": "storefront.ts"
+  },
+  {
+    "stack": "fastify",
+    "evidence": {"package.json": "{\"dependencies\":{\"fastify\":\"5.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "storefront.ts"
+  },
+  {
+    "stack": "nestjs",
+    "evidence": {"package.json": "{\"dependencies\":{\"@nestjs/core\":\"11.0.0\"}}"},
+    "adapter": "verifyAgentPayRequest",
+    "metadataFragment": "storefront.controller.ts"
+  }
+]

@@ -1,6 +1,9 @@
 package setupbundles
 
-import "github.com/fourgeez/agentpay/internal/integrations/stacks"
+import (
+	"github.com/fourgeez/agentpay/internal/integrations/recipes"
+	"github.com/fourgeez/agentpay/internal/integrations/stacks"
+)
 
 const (
 	SchemaVersionV1                = "agentpay.setup.v1"
@@ -49,6 +52,7 @@ type StackSetup struct {
 	DisplayName      string             `json:"displayName"`
 	Tier             stacks.SupportTier `json:"tier"`
 	Verification     *FrameworkSetup    `json:"verification,omitempty"`
+	Recipe           *recipes.Recipe    `json:"recipe,omitempty"`
 	IntegrationNotes []string           `json:"integrationNotes"`
 }
 

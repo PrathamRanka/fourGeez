@@ -84,6 +84,11 @@ without network access or model judgment. It returns fixed named checks for
 SEO, AEO, manifest agreement, accessibility facts, and performance budgets and
 never emits a ranking score or guarantee.
 
+The `integrations/recipes` package owns versioned stack instructions consumed
+by setup bundle v2. Recipes pin verification packages, preserve raw request
+bytes, define middleware order, require the no-op sandbox endpoint, and name
+the framework-native storefront and discovery files verified by fixtures.
+
 ### Feature package layout
 
 Backend feature packages separate responsibilities by file without adding wrapper layers:

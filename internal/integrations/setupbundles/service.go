@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/fourgeez/agentpay/internal/integrations/recipes"
 	"github.com/fourgeez/agentpay/internal/integrations/stacks"
 )
 
@@ -32,6 +33,9 @@ Do not invent prices. Do not publish a route, rotate credentials, or deploy prod
 const setupPromptV2Template = `Connect this repository to AgentPay using the %s setup bundle for %s. The current support tier is %s and verification uses %s.
 
 Stack-native conventions:
+%s
+
+Verification recipe:
 %s
 
 1. Read the repository instructions and existing tests before editing.
@@ -123,6 +127,17 @@ func (service *Service) PromptV2(host Host, stackName string) (string, error) {
 		return "", err
 	}
 	frameworkSetup := *stackSetup.Verification
+	recipeSummary := "Use the maintained language verification package and preserve raw request bytes before decoding."
+	focusedTestCommand := frameworkSetup.TestCommand
+	if stackSetup.Recipe != nil {
+		recipeSummary = fmt.Sprintf(
+			"Use %s. %s Middleware order: %s.",
+			stackSetup.Recipe.VerificationAdapter,
+			stackSetup.Recipe.RawBodyStrategy,
+			strings.Join(stackSetup.Recipe.MiddlewareOrder, " -> "),
+		)
+		focusedTestCommand = stackSetup.Recipe.FocusedTestCommand
+	}
 	return fmt.Sprintf(
 		setupPromptV2Template,
 		host,
@@ -130,9 +145,10 @@ func (service *Service) PromptV2(host Host, stackName string) (string, error) {
 		stackSetup.Tier,
 		frameworkSetup.Package,
 		"- "+strings.Join(stackSetup.IntegrationNotes, "\n- "),
+		recipeSummary,
 		host,
 		frameworkSetup.InstallCommand,
-		frameworkSetup.TestCommand,
+		focusedTestCommand,
 	), nil
 }
 
@@ -275,11 +291,17 @@ func stackSetups() []StackSetup {
 				verification = &frameworkSetup
 			}
 		}
+		var recipe *recipes.Recipe
+		stackRecipe, recipeErr := recipes.NewService().Recipe(entry.Stack)
+		if recipeErr == nil {
+			recipe = &stackRecipe
+		}
 		setups = append(setups, StackSetup{
 			Stack:            entry.Stack,
 			DisplayName:      entry.DisplayName,
 			Tier:             entry.Tier,
 			Verification:     verification,
+			Recipe:           recipe,
 			IntegrationNotes: integrationNotesForStack(entry.Stack),
 		})
 	}

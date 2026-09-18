@@ -9,15 +9,15 @@ import (
 )
 
 var stackMatrix = []MatrixEntry{
-	{Stack: StackNextJS, DisplayName: "Next.js", Tier: SupportTierPlanned},
-	{Stack: StackReactVite, DisplayName: "React/Vite", Tier: SupportTierPlanned},
-	{Stack: StackRemix, DisplayName: "Remix", Tier: SupportTierPlanned},
-	{Stack: StackNuxt, DisplayName: "Nuxt", Tier: SupportTierPlanned},
-	{Stack: StackSvelteKit, DisplayName: "SvelteKit", Tier: SupportTierPlanned},
-	{Stack: StackAstro, DisplayName: "Astro", Tier: SupportTierPlanned},
+	{Stack: StackNextJS, DisplayName: "Next.js", Tier: SupportTierMaintained},
+	{Stack: StackReactVite, DisplayName: "React/Vite", Tier: SupportTierMaintained},
+	{Stack: StackRemix, DisplayName: "Remix", Tier: SupportTierMaintained},
+	{Stack: StackNuxt, DisplayName: "Nuxt", Tier: SupportTierMaintained},
+	{Stack: StackSvelteKit, DisplayName: "SvelteKit", Tier: SupportTierMaintained},
+	{Stack: StackAstro, DisplayName: "Astro", Tier: SupportTierMaintained},
 	{Stack: StackExpress, DisplayName: "Express", Tier: SupportTierMaintained},
-	{Stack: StackFastify, DisplayName: "Fastify", Tier: SupportTierPlanned},
-	{Stack: StackNestJS, DisplayName: "NestJS", Tier: SupportTierPlanned},
+	{Stack: StackFastify, DisplayName: "Fastify", Tier: SupportTierMaintained},
+	{Stack: StackNestJS, DisplayName: "NestJS", Tier: SupportTierMaintained},
 	{Stack: StackGoNetHTTP, DisplayName: "Go net/http", Tier: SupportTierMaintained},
 	{Stack: StackGin, DisplayName: "Gin", Tier: SupportTierPlanned},
 	{Stack: StackEcho, DisplayName: "Echo", Tier: SupportTierPlanned},

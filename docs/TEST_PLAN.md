@@ -61,6 +61,10 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - Stack detection fixtures cover exact dependency evidence, metaframework
   precedence, malformed manifests, bounded input, and explicit unsupported
   ecosystem labels.
+- JavaScript and TypeScript recipe fixtures cover Next.js, React/Vite, Remix,
+  Nuxt, SvelteKit, Astro, Express, Fastify, and NestJS, including raw-body
+  strategy, verification adapter, middleware order, sandbox route, discovery
+  files, and focused test commands.
 
 ### End-to-end tests
 

@@ -131,7 +131,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **SEO-001** Define stack detection and the supported integration matrix for Next.js, React/Vite, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, Gin, Echo, Fiber, FastAPI, Starlette, Flask, and Django; keep unsupported ecosystems explicitly labeled.
 - [x] **SEO-002** Publish setup bundle v2 for Claude Code, Codex, and generic MCP hosts with technical SEO, AEO, and agent-discovery generation using stack-native conventions.
 - [x] **SEO-003** Add deterministic checks for metadata, canonical URLs, robots directives, sitemap output, structured data, semantic content, `llms.txt`, manifest consistency, accessibility, and performance budgets. Never promise or report guaranteed search ranking.
-- [ ] **STK-001** Add maintained integration recipes and focused tests for the supported JavaScript and TypeScript stacks.
+- [x] **STK-001** Add maintained integration recipes and focused tests for the supported JavaScript and TypeScript stacks.
 - [ ] **STK-002** Add maintained integration recipes and focused tests for the supported Go and Python stacks.
 - [ ] **STK-003** Add verified package and setup-bundle support for ASP.NET Core, Spring Boot, Rails, and Laravel before advertising those ecosystems as supported.
 - [ ] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.

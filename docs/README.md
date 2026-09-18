@@ -23,6 +23,7 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 | [SETUP_BUNDLES.md](SETUP_BUNDLES.md) | Versioned coding-agent setup resources and prompt contract |
 | [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md) | Pre-publication seller integration validation contract |
 | [STOREFRONT_VALIDATION.md](STOREFRONT_VALIDATION.md) | Deterministic SEO, AEO, discovery, accessibility, and performance checks |
+| [INTEGRATION_RECIPES.md](INTEGRATION_RECIPES.md) | Maintained stack recipes, middleware order, generated files, and fixture gates |
 | [uml/system-context.puml](uml/system-context.puml) | System context diagram |
 | [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
 | [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Purchase and approval sequence |

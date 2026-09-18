@@ -218,7 +218,7 @@ func TestServiceSelectsVersionTwoStackPrompt(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"Next.js",
-		"planned",
+		"maintained",
 		"app/robots.ts",
 		"metadata",
 		"canonical",
