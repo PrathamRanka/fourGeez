@@ -43,6 +43,14 @@ test("local runtime config starts every production-shaped dependency", () => {
     config.processes[3].env.AGENTPAY_DEMO_SELLER_ID,
     "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
   );
+  assert.equal(
+    config.processes[3].env.AGENTPAY_LOCAL_DEMO_EMAIL,
+    "pratham@agentpay.local",
+  );
+  assert.equal(
+    config.processes[3].env.AGENTPAY_LOCAL_DEMO_PASSWORD,
+    "AgentPayLocalDemo2026",
+  );
   assert.deepEqual(config.processes[2].args, [
     "run",
     "-tags",
@@ -279,6 +287,8 @@ test("runLocalRuntime treats Ctrl+C as a clean supervised shutdown", async () =>
   assert.equal(shutdownCalls, 1);
   assert.equal(guardianCalls, 1);
   assert.match(outputLines.join(""), /local runtime is ready/i);
+  assert.match(outputLines.join(""), /pratham@agentpay\.local/i);
+  assert.match(outputLines.join(""), /AgentPayLocalDemo2026/);
 });
 
 test("runLocalRuntime surfaces an unexpected dependency exit", async () => {

@@ -3,6 +3,45 @@ import { describe, expect, it } from "vitest";
 import { createLocalIdentityAdapter } from "@/features/auth/server/local-identity-adapter";
 
 describe("local seller identity adapter", () => {
+  it("seeds a verified launch-ready seller account for local dashboard review", async () => {
+    const identity = createLocalIdentityAdapter({
+      sellerTokenSigningSecret: "test-local-identity-signing-secret-32-bytes",
+      seedAccount: {
+        email: "pratham@agentpay.local",
+        name: "Pratham",
+        onboardingComplete: true,
+        password: "AgentPayLocalDemo2026",
+        sellerId: "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+        storefront: {
+          sellerId: "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+          name: "Northstar Research",
+          slug: "demo-seller",
+          upstreamBaseUrl: "http://127.0.0.1:8090",
+          status: "active",
+          version: 3,
+        },
+        subject: "local-seller",
+      },
+    });
+
+    const authentication = await identity.signIn({
+      email: "pratham@agentpay.local",
+      password: "AgentPayLocalDemo2026",
+    });
+
+    expect(authentication).toMatchObject({
+      ok: true,
+      value: {
+        principal: {
+          subject: "local-seller",
+          sellerId: "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+          onboardingComplete: true,
+          storefront: { slug: "demo-seller", status: "active" },
+        },
+      },
+    });
+  });
+
   it("supports static-token compatibility for existing local launchers", async () => {
     const identity = createLocalIdentityAdapter({
       sellerAccessToken: "local-seller-token",

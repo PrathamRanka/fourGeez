@@ -35,6 +35,18 @@ asset/network-separated analytics. Inspect its stable public identifiers at:
 GET http://127.0.0.1:8080/__dev/seed-profile
 ```
 
+Open `http://localhost:3000/sign-in` and use the local-only launch-ready seller:
+
+```text
+Email: pratham@agentpay.local
+Password: AgentPayLocalDemo2026
+```
+
+The account is already mapped to the seeded `demo-seller` storefront, so the
+dashboard opens with products, transactions, evidence, disputes, integration
+state, and asset/network-separated analytics. It exists only for the lifetime
+of the local supervisor process.
+
 Clear all seed-owned in-memory state and restore the profile with:
 
 ```powershell

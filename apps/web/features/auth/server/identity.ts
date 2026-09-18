@@ -41,7 +41,35 @@ export function getIdentityAdapter(): IdentityAdapter {
   if (!sellerTokenSigningSecret && !sellerAccessToken) {
     return unavailableIdentity;
   }
+  const demoSellerId = process.env.AGENTPAY_DEMO_SELLER_ID ?? "";
+  const demoEmail = process.env.AGENTPAY_LOCAL_DEMO_EMAIL ?? "";
+  const demoPassword = process.env.AGENTPAY_LOCAL_DEMO_PASSWORD ?? "";
+  const seedAccount =
+    demoSellerId && demoEmail && demoPassword
+      ? {
+          email: demoEmail,
+          name: process.env.AGENTPAY_LOCAL_DEMO_NAME ?? "Pratham",
+          onboardingComplete: true,
+          password: demoPassword,
+          sellerId: demoSellerId,
+          storefront: {
+            sellerId: demoSellerId,
+            name:
+              process.env.AGENTPAY_LOCAL_DEMO_STOREFRONT_NAME ??
+              "Northstar Research",
+            slug:
+              process.env.AGENTPAY_LOCAL_DEMO_STOREFRONT_SLUG ?? "demo-seller",
+            upstreamBaseUrl:
+              process.env.AGENTPAY_LOCAL_DEMO_UPSTREAM_BASE_URL ??
+              "http://127.0.0.1:8090",
+            status: "active" as const,
+            version: 3,
+          },
+          subject: process.env.AGENTPAY_LOCAL_DEMO_SUBJECT ?? "local-seller",
+        }
+      : undefined;
   globalThis.agentPayLocalIdentity ??= createLocalIdentityAdapter({
+    seedAccount,
     sellerTokenSigningSecret,
     sellerAccessToken,
   });

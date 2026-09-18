@@ -47,6 +47,15 @@ type LocalIdentityState = {
 
 type LocalIdentityOptions = {
   now?: () => number;
+  seedAccount?: {
+    email: string;
+    name: string;
+    onboardingComplete: boolean;
+    password: string;
+    sellerId: string;
+    storefront: NonNullable<SellerPrincipal["storefront"]>;
+    subject: string;
+  };
   sellerAccessToken?: string;
   sellerTokenSigningSecret?: string;
 };
@@ -132,9 +141,35 @@ export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
       "Local identity requires a signing secret or compatibility token.",
     );
   }
+  const accounts = new Map<string, LocalAccount>();
+  if (options.seedAccount) {
+    const seedAccount = options.seedAccount;
+    const email = normalizeEmail(seedAccount.email);
+    if (
+      !email.includes("@") ||
+      !seedAccount.name.trim() ||
+      !validPassword(seedAccount.password) ||
+      !seedAccount.sellerId ||
+      !seedAccount.subject
+    ) {
+      throw new Error("Local seed account configuration is invalid.");
+    }
+    const passwordSalt = randomBytes(passwordSaltBytes);
+    accounts.set(email, {
+      email,
+      name: seedAccount.name.trim(),
+      onboardingComplete: seedAccount.onboardingComplete,
+      passwordHash: hashPassword(seedAccount.password, passwordSalt),
+      passwordSalt,
+      sellerId: seedAccount.sellerId,
+      storefront: seedAccount.storefront,
+      subject: seedAccount.subject,
+      verified: true,
+    });
+  }
   const state: LocalIdentityState = {
     accessTokens: new Map(),
-    accounts: new Map(),
+    accounts,
     challenges: new Map(),
   };
 

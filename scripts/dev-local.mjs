@@ -18,6 +18,8 @@ const guardianSnapshotDelaysMilliseconds = [0, 1_000, 2_000];
 const guardianParentPollMilliseconds = 250;
 const localSecretBytes = 32;
 const launchReadySellerID = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7";
+const localDemoEmail = "pratham@agentpay.local";
+const localDemoPassword = "AgentPayLocalDemo2026";
 
 function parsePort(rawValue, name, fallback) {
   const value = rawValue === undefined || rawValue === "" ? fallback : Number(rawValue);
@@ -82,6 +84,13 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET: identitySigningSecret,
     AGENTPAY_LOCAL_AGENT_KEY: agentKey,
     AGENTPAY_DEMO_SELLER_ID: launchReadySellerID,
+    AGENTPAY_LOCAL_DEMO_EMAIL: localDemoEmail,
+    AGENTPAY_LOCAL_DEMO_PASSWORD: localDemoPassword,
+    AGENTPAY_LOCAL_DEMO_NAME: "Pratham",
+    AGENTPAY_LOCAL_DEMO_SUBJECT: "local-seller",
+    AGENTPAY_LOCAL_DEMO_STOREFRONT_NAME: "Northstar Research",
+    AGENTPAY_LOCAL_DEMO_STOREFRONT_SLUG: "demo-seller",
+    AGENTPAY_LOCAL_DEMO_UPSTREAM_BASE_URL: `http://127.0.0.1:${ports.seller}`,
     AGENTPAY_BEDROCK_MODE: "disabled",
     AGENTPAY_BUYER_MODE: "deterministic",
     NEXT_TELEMETRY_DISABLED: "1",
@@ -542,6 +551,9 @@ export function installShutdownHandlers({ signalSource = process, shutdown }) {
 function printReady(config, output) {
   output.write("\nAgentPay local runtime is ready. Data is in memory and disappears on shutdown.\n");
   output.write(`Web:                 ${config.urls.web}\n`);
+  output.write(`Seller dashboard:    ${config.urls.web}/dashboard\n`);
+  output.write(`Demo login email:    ${localDemoEmail}\n`);
+  output.write(`Demo login password: ${localDemoPassword}\n`);
   output.write(`Deterministic buyer: ${config.urls.buyer}\n`);
   output.write(`API health:          ${config.urls.apiHealth}\n`);
   output.write(`Demo seller:         ${config.urls.seller}\n`);
