@@ -47,6 +47,7 @@
   --section-space: clamp(5rem, 10vw, 9rem);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
   --shadow-float: 0 2rem 5rem -2.5rem oklch(0.2 0.07 285 / 0.28);
+  --shadow-panel: 0 1.5rem 4rem -2.75rem oklch(0.18 0.04 275 / 0.3);
   --font-body: "Inter Variable", sans-serif;
   --font-display: "Manrope Variable", sans-serif;
   --font-mono: "IBM Plex Mono", monospace;
@@ -218,6 +219,218 @@
 
   .skip-link:focus {
     transform: translateY(0);
+  }
+
+  .section-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: var(--primary);
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5.5vw, 5rem);
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.06em;
+  }
+
+  .section-copy {
+    font-size: clamp(1rem, 1.7vw, 1.125rem);
+    line-height: 1.75;
+    color: var(--muted-foreground);
+  }
+
+  .hero-surface {
+    background:
+      radial-gradient(circle at 83% 36%, oklch(0.88 0.08 285 / 0.65), transparent 28%),
+      linear-gradient(180deg, oklch(1 0 0 / 0.72), transparent 75%);
+  }
+
+  .hero-surface::before,
+  .closing-surface::before {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    content: "";
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--border) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklab, var(--border) 55%, transparent) 1px, transparent 1px);
+    background-size: clamp(3rem, 7vw, 5.5rem) clamp(3rem, 7vw, 5.5rem);
+    mask-image: linear-gradient(to bottom, black, transparent 72%);
+    opacity: 0.42;
+  }
+
+  .hero-kicker {
+    animation: hero-enter 650ms var(--ease-out-expo) both;
+  }
+
+  .hero-surface h1 {
+    animation: hero-enter 750ms 70ms var(--ease-out-expo) both;
+  }
+
+  .hero-globe {
+    animation: globe-enter 900ms 120ms var(--ease-out-expo) both;
+  }
+
+  .network-note {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklab, white 82%, transparent);
+    box-shadow: var(--shadow-panel);
+    padding: 0.65rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    color: var(--muted-foreground);
+    backdrop-filter: blur(0.75rem);
+    animation: network-float 5s ease-in-out infinite;
+  }
+
+  .network-note-top {
+    top: 15%;
+    right: 1%;
+  }
+
+  .network-note-bottom {
+    bottom: 17%;
+    left: 0;
+    animation-delay: -2.4s;
+  }
+
+  .network-status-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: oklch(0.7 0.16 158);
+    box-shadow: 0 0 0 0.25rem oklch(0.7 0.16 158 / 0.16);
+  }
+
+  .capability-card {
+    background: var(--card);
+    transition:
+      background-color 180ms ease,
+      transform 220ms var(--ease-out-expo);
+  }
+
+  .trust-surface {
+    background:
+      radial-gradient(circle at 16% 18%, oklch(0.45 0.2 285 / 0.32), transparent 30%),
+      var(--foreground);
+  }
+
+  .pricing-panel {
+    box-shadow: var(--shadow-panel);
+  }
+
+  .closing-surface {
+    position: relative;
+    background:
+      radial-gradient(circle at 50% 100%, oklch(0.87 0.1 285 / 0.65), transparent 42%),
+      var(--background);
+  }
+
+  .closing-surface > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .public-copy h2 {
+    margin-top: 2.25rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 3vw, 1.8rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+  }
+
+  .public-copy h2:first-child {
+    margin-top: 0;
+  }
+
+  .public-copy p {
+    margin-top: 0.75rem;
+    color: var(--muted-foreground);
+    line-height: 1.75;
+  }
+
+  .commerce-progress {
+    animation: commerce-progress 800ms var(--ease-out-expo) both;
+  }
+}
+
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes globe-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes network-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-0.45rem);
+  }
+}
+
+@keyframes commerce-progress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .capability-card:hover {
+    background: color-mix(in oklab, var(--primary) 4%, var(--card));
+    transform: translateY(-0.2rem);
+  }
+}
+
+@media (max-width: 63.999rem) {
+  .hero-globe {
+    max-width: min(100%, 35rem);
+  }
+}
+
+@media (max-width: 39.999rem) {
+  .network-note-top {
+    right: -0.35rem;
+  }
+
+  .network-note-bottom {
+    left: -0.35rem;
   }
 }
 
