@@ -67,6 +67,62 @@ func TestHTTPControllerServesAuthenticatedResources(t *testing.T) {
 	}
 }
 
+// TestHTTPControllerConsumesAuthenticatedMCPQuota verifies per-operation enforcement.
+func TestHTTPControllerConsumesAuthenticatedMCPQuota(t *testing.T) {
+	t.Parallel()
+
+	quota := &mcpQuotaEnforcer{err: domain.ErrRateLimitExceeded}
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		nil,
+		nil,
+	)
+	controller.SetQuotaEnforcer(quota)
+	request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json, text/event-stream")
+	response := httptest.NewRecorder()
+
+	controller.ServeHTTP(response, request)
+
+	if response.Code != http.StatusTooManyRequests || quota.calls != 1 {
+		t.Fatalf("status/calls = %d/%d", response.Code, quota.calls)
+	}
+}
+
+type mcpQuotaEnforcer struct {
+	calls int
+	err   error
+}
+
+// ConsumeAPIRequest permits seller API requests.
+func (enforcer *mcpQuotaEnforcer) ConsumeAPIRequest(context.Context, domain.ID) error {
+	return nil
+}
+
+// ConsumeMCPOperation records one authenticated MCP request.
+func (enforcer *mcpQuotaEnforcer) ConsumeMCPOperation(context.Context, domain.ID) error {
+	enforcer.calls++
+	return enforcer.err
+}
+
+// ConsumeWebhookDelivery permits webhook delivery.
+func (enforcer *mcpQuotaEnforcer) ConsumeWebhookDelivery(context.Context, domain.ID, string) error {
+	return nil
+}
+
+// AllowPublishedRoute permits route publication.
+func (enforcer *mcpQuotaEnforcer) AllowPublishedRoute(context.Context, domain.ID, uint64) error {
+	return nil
+}
+
+// AllowWebhookSubscription permits webhook subscription creation.
+func (enforcer *mcpQuotaEnforcer) AllowWebhookSubscription(context.Context, domain.ID, uint64) error {
+	return nil
+}
+
 // TestHTTPControllerPublishesSetupPrompt verifies the coding-agent workflow.
 func TestHTTPControllerPublishesSetupPrompt(t *testing.T) {
 	t.Parallel()

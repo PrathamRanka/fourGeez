@@ -127,7 +127,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **BIL-001** Implement seller plans, quotas, and feature limits independently from buyer-to-seller payment settlement.
 - [x] **BIL-002** Implement immutable usage-meter events and invoice exports from successful AgentPay transactions; payment collection for AgentPay invoices remains a separate adapter.
 - [x] **AUD-001** Implement seller-visible audit events for credentials, wallets, prices, route lifecycle, publication, webhook configuration, and administrative suspension.
-- [ ] **OPS-001** Enforce per-seller API, MCP, route, and webhook quotas with deterministic permission-denied and rate-limit responses.
+- [x] **OPS-001** Enforce per-seller API, MCP, route, and webhook quotas with deterministic permission-denied and rate-limit responses.
 - [ ] **SEO-001** Define stack detection and the supported integration matrix for Next.js, React/Vite, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, Gin, Echo, Fiber, FastAPI, Starlette, Flask, and Django; keep unsupported ecosystems explicitly labeled.
 - [ ] **SEO-002** Publish setup bundle v2 for Claude Code, Codex, and generic MCP hosts with technical SEO, AEO, and agent-discovery generation using stack-native conventions.
 - [ ] **SEO-003** Add deterministic checks for metadata, canonical URLs, robots directives, sitemap output, structured data, semantic content, `llms.txt`, manifest consistency, accessibility, and performance budgets. Never promise or report guaranteed search ranking.

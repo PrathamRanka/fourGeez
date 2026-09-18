@@ -126,6 +126,11 @@ Forbidden:
 - Maximum JSON body: 1 MiB; paid-route limit is configurable downward.
 - Strict content types and JSON decoding with unknown-field rejection for control APIs.
 - Stable machine error codes; internal stack traces never leave the service.
+- Authenticate and authorize the seller before consuming seller-scoped API
+  quota so an attacker cannot exhaust another tenant's allowance.
+- Return `permission_denied` for suspended plans and static entitlements, and
+  `rate_limited` for exhausted monthly counters; neither response may reveal
+  another seller's plan or usage.
 - CORS limited to configured web origins.
 - `Cache-Control: no-store` on approval, transaction, dispute, and 402 responses.
 - Security headers on the web app, including CSP and `frame-ancestors 'none'` for approval pages unless embedding is intentionally added.
@@ -137,6 +142,8 @@ Forbidden:
 - Read-only tools are separated from mutating tools by scope.
 - Product creation, price updates, publication, credential rotation, and production deployment require explicit confirmation.
 - Every mutation requires idempotency and records the seller, credential, operation, target, and outcome without recording secrets or repository contents.
+- Every authenticated MCP POST consumes one seller-scoped monthly operation
+  unit; invalid credentials do not consume quota.
 - Project credentials are seller-scoped, hashed at rest, revocable, and never committed to the seller repository.
 - Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.
 - Repository analysis must not upload unrelated source files, `.env` contents, credentials, wallet material, customer information, or proprietary data to AgentPay.

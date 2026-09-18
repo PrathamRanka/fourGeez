@@ -2,17 +2,22 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/fourgeez/agentpay/internal/domain"
 )
 
 // Config contains dependencies shared by HTTP middleware.
 type Config struct {
-	AllowedOrigin string
-	Authenticator Authenticator
-	Logger        *slog.Logger
+	AllowedOrigin        string
+	Authenticator        Authenticator
+	SellerRequestLimiter SellerRequestLimiter
+	SellerAuthorizer     SellerRequestAuthorizer
+	Logger               *slog.Logger
 }
 
 // Middleware applies request identity, recovery, CORS, logging, and auth context.
@@ -75,6 +80,29 @@ func Middleware(config Config, next http.Handler) http.Handler {
 				time.Since(startedAt).Milliseconds(),
 			)
 		}()
+		if config.SellerRequestLimiter != nil {
+			if sellerID, ok := sellerIDFromPath(request.URL.Path); ok {
+				token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
+				principal, valid := authenticateSeller(request.Context(), config.Authenticator, token)
+				if valid {
+					request = request.WithContext(context.WithValue(request.Context(), principalContextKey{}, principal))
+					if config.SellerAuthorizer != nil {
+						if err := config.SellerAuthorizer.AuthorizeSeller(
+							request.Context(),
+							principal.Subject,
+							sellerID,
+						); err != nil {
+							next.ServeHTTP(statusResponse, request)
+							return
+						}
+					}
+					if err := config.SellerRequestLimiter.ConsumeAPIRequest(request.Context(), sellerID); err != nil {
+						writeQuotaError(statusResponse, request, err)
+						return
+					}
+				}
+			}
+		}
 
 		next.ServeHTTP(statusResponse, request)
 	})
@@ -83,6 +111,10 @@ func Middleware(config Config, next http.Handler) http.Handler {
 // RequireSeller authenticates a seller bearer token before calling next.
 func RequireSeller(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if principal, ok := PrincipalFromContext(request.Context()); ok && principal.Kind == PrincipalSeller {
+			next.ServeHTTP(response, request)
+			return
+		}
 		authenticator := authenticatorFromContext(request.Context())
 		token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
 		principal, valid := authenticateSeller(request.Context(), authenticator, token)
@@ -105,6 +137,31 @@ func RequireSeller(next http.Handler) http.Handler {
 		))
 		next.ServeHTTP(response, request)
 	})
+}
+
+// sellerIDFromPath extracts a seller identifier from control-plane paths.
+func sellerIDFromPath(path string) (domain.ID, bool) {
+	const prefix = "/v1/sellers/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", false
+	}
+	segment, _, _ := strings.Cut(strings.TrimPrefix(path, prefix), "/")
+	sellerID, err := domain.ParseID(segment, domain.SellerIDPrefix)
+	return sellerID, err == nil
+}
+
+// writeQuotaError maps quota failures to stable HTTP errors.
+func writeQuotaError(response http.ResponseWriter, request *http.Request, err error) {
+	if errors.Is(err, domain.ErrPermissionDenied) {
+		WriteError(response, request, http.StatusForbidden, ErrorCodePermissionDenied, err.Error(), nil)
+		return
+	}
+	if errors.Is(err, domain.ErrRateLimitExceeded) {
+		response.Header().Set("Retry-After", "1")
+		WriteError(response, request, http.StatusTooManyRequests, ErrorCodeRateLimited, err.Error(), nil)
+		return
+	}
+	WriteError(response, request, http.StatusInternalServerError, ErrorCodeInternal, "quota enforcement failed", nil)
 }
 
 // RequireAgent authenticates an agent API key before calling next.

@@ -16,6 +16,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/notifications"
+	"github.com/fourgeez/agentpay/internal/operations"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
@@ -34,6 +35,8 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "webhook delivery", got: webhookDeliverySortKey("whd_123"), want: "WEBHOOK_DELIVERY#whd_123"},
 		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
 		{name: "seller plan", got: sellerPlanSortKey, want: "BILLING_PLAN"},
+		{name: "quota counter", got: quotaCounterSortKey("2026-09", "api_request"), want: "QUOTA#2026-09#api_request"},
+		{name: "quota claim", got: quotaClaimSortKey("2026-09", "webhook_delivery", "source"), want: "QUOTA_CLAIM#2026-09#webhook_delivery#41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d"},
 		{name: "usage meter", got: usageMeterSortKey(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC), "mtr_123"), want: "METER#2026-09-17T10:00:00Z#mtr_123"},
 		{name: "usage source", got: usageMeterSourceSortKey("successful_transaction", "txn_123"), want: "METER_SOURCE#successful_transaction#txn_123"},
 		{name: "payment destination", got: paymentDestinationSortKey("dst_123"), want: "DESTINATION#dst_123"},
@@ -52,6 +55,39 @@ func TestDocumentedKeys(t *testing.T) {
 				t.Fatalf("key = %q, want %q", test.got, test.want)
 			}
 		})
+	}
+}
+
+// TestQuotaCounterRepositoryUsesConditionalAtomicWrites verifies persisted quota safety.
+func TestQuotaCounterRepositoryUsesConditionalAtomicWrites(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	repository := NewQuotaCounterRepository(client, "agentpay-dev")
+	request := operations.CounterRequest{
+		SellerID:    mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		QuotaName:   operations.QuotaAPIRequest,
+		PeriodStart: domain.NewTimestamp(time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)),
+		PeriodEnd:   domain.NewTimestamp(time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)),
+		Limit:       10,
+		UpdatedAt:   testDynamoTime(),
+	}
+	if err := repository.Increment(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	if client.updateInput == nil ||
+		readStringAttribute(client.updateInput.Key["SK"]) != quotaCounterSortKey("2026-09", "api_request") ||
+		client.updateInput.ConditionExpression == nil ||
+		!strings.Contains(*client.updateInput.ConditionExpression, "#count < :limit") {
+		t.Fatalf("quota update = %#v", client.updateInput)
+	}
+
+	client.updateInput = nil
+	if err := repository.IncrementUnique(t.Context(), request, "whk_1:evt_1"); err != nil {
+		t.Fatal(err)
+	}
+	if client.transactWriteInput == nil || len(client.transactWriteInput.TransactItems) != 2 {
+		t.Fatalf("quota transaction = %#v", client.transactWriteInput)
 	}
 }
 

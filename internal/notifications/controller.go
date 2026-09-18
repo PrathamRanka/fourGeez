@@ -125,6 +125,12 @@ func writeNotificationError(response http.ResponseWriter, request *http.Request,
 	status := http.StatusInternalServerError
 	code := api.ErrorCodeInternal
 	switch {
+	case errors.Is(err, domain.ErrPermissionDenied):
+		status = http.StatusForbidden
+		code = api.ErrorCodePermissionDenied
+	case errors.Is(err, domain.ErrRateLimitExceeded):
+		status = http.StatusTooManyRequests
+		code = api.ErrorCodeRateLimited
 	case errors.As(err, &validationErrors), errors.As(err, &validationError):
 		status = http.StatusBadRequest
 		code = api.ErrorCodeBadRequest

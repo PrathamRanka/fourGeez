@@ -37,6 +37,8 @@ func TestDeliveryServiceQueuesEachSubscriptionOnce(t *testing.T) {
 		&deliverySender{},
 		domain.FixedClock{Value: createdAt.Time()},
 	)
+	quota := &notificationQuotaEnforcer{}
+	service.SetQuotaEnforcer(quota)
 	event := validDeliveryParams(t, createdAt).Event
 
 	first, err := service.Enqueue(context.Background(), event)
@@ -51,6 +53,10 @@ func TestDeliveryServiceQueuesEachSubscriptionOnce(t *testing.T) {
 		first[0].DeliveryID != second[0].DeliveryID ||
 		len(deliveries.deliveries) != 1 {
 		t.Fatalf("enqueue results = (%#v, %#v), stored = %d", first, second, len(deliveries.deliveries))
+	}
+	if len(quota.deliverySources) != 2 ||
+		quota.deliverySources[0] != subscription.SubscriptionID().String()+":"+event.EventID.String() {
+		t.Fatalf("delivery quota sources = %#v", quota.deliverySources)
 	}
 }
 

@@ -23,6 +23,11 @@ const (
 
 type principalContextKey struct{}
 
+// OperationQuota consumes one authenticated seller MCP operation.
+type OperationQuota interface {
+	ConsumeMCPOperation(context.Context, domain.ID) error
+}
+
 // HTTPController authenticates and serves the remote MCP endpoint.
 type HTTPController struct {
 	authenticator   CredentialAuthenticator
@@ -30,6 +35,7 @@ type HTTPController struct {
 	mutationService *MutationService
 	analyzerService *analyzer.Service
 	streamHandler   http.Handler
+	quotaEnforcer   OperationQuota
 }
 
 // NewHTTPController creates an authenticated stateless MCP controller.
@@ -57,6 +63,11 @@ func NewHTTPController(
 	return controller
 }
 
+// SetQuotaEnforcer configures per-seller MCP operation metering.
+func (controller *HTTPController) SetQuotaEnforcer(quotaEnforcer OperationQuota) {
+	controller.quotaEnforcer = quotaEnforcer
+}
+
 // RegisterRoutes registers the single remote MCP endpoint.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("/mcp", controller)
@@ -80,6 +91,15 @@ func (controller *HTTPController) ServeHTTP(
 		controller.writeAuthenticationError(response, err)
 		return
 	}
+	if request.Method == http.MethodPost && controller.quotaEnforcer != nil {
+		if err := controller.quotaEnforcer.ConsumeMCPOperation(
+			request.Context(),
+			principal.SellerID,
+		); err != nil {
+			controller.writeQuotaError(response, err)
+			return
+		}
+	}
 	requestContext := context.WithValue(
 		request.Context(),
 		principalContextKey{},
@@ -89,6 +109,24 @@ func (controller *HTTPController) ServeHTTP(
 		response,
 		request.WithContext(requestContext),
 	)
+}
+
+// writeQuotaError maps MCP quota failures to deterministic HTTP statuses.
+func (controller *HTTPController) writeQuotaError(
+	response http.ResponseWriter,
+	err error,
+) {
+	response.Header().Set("Cache-Control", "no-store")
+	if errors.Is(err, domain.ErrPermissionDenied) {
+		http.Error(response, api.ErrorCodePermissionDenied, http.StatusForbidden)
+		return
+	}
+	if errors.Is(err, domain.ErrRateLimitExceeded) {
+		response.Header().Set("Retry-After", "1")
+		http.Error(response, api.ErrorCodeRateLimited, http.StatusTooManyRequests)
+		return
+	}
+	http.Error(response, "quota enforcement failed", http.StatusInternalServerError)
 }
 
 // serverForRequest binds all resources to the authenticated seller principal.
@@ -400,6 +438,8 @@ func safeMutationError(err error) error {
 	if errors.As(err, &validationError) ||
 		errors.As(err, &validationErrors) ||
 		errors.Is(err, integrations.ErrScopeDenied) ||
+		errors.Is(err, domain.ErrPermissionDenied) ||
+		errors.Is(err, domain.ErrRateLimitExceeded) ||
 		errors.Is(err, api.ErrIdempotencyConflict) ||
 		errors.Is(err, catalog.ErrRouteValidation) ||
 		errors.Is(err, catalog.ErrRoutePublished) ||

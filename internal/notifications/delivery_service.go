@@ -16,6 +16,11 @@ const (
 	maximumDeliveryPageSize = 100
 )
 
+// WebhookDeliveryQuota consumes one retry-safe logical delivery unit.
+type WebhookDeliveryQuota interface {
+	ConsumeWebhookDelivery(context.Context, domain.ID, string) error
+}
+
 // DeliveryRepository persists webhook deliveries and their unique event claims.
 type DeliveryRepository interface {
 	CreateIfAbsent(context.Context, Delivery) (Delivery, bool, error)
@@ -49,6 +54,7 @@ type DeliveryService struct {
 	signer                 EventSigner
 	sender                 DeliverySender
 	clock                  domain.Clock
+	quotaEnforcer          WebhookDeliveryQuota
 }
 
 // NewDeliveryService creates the webhook delivery use case.
@@ -72,6 +78,11 @@ func NewDeliveryService(
 	}
 }
 
+// SetQuotaEnforcer configures retry-safe webhook delivery metering.
+func (service *DeliveryService) SetQuotaEnforcer(quotaEnforcer WebhookDeliveryQuota) {
+	service.quotaEnforcer = quotaEnforcer
+}
+
 // Enqueue creates one idempotent delivery for each matching active subscription.
 func (service *DeliveryService) Enqueue(
 	ctx context.Context,
@@ -93,6 +104,16 @@ func (service *DeliveryService) Enqueue(
 		if subscription.Status() != SubscriptionStatusActive ||
 			!subscriptionIncludesEvent(subscription, event.EventType) {
 			continue
+		}
+		sourceID := subscription.SubscriptionID().String() + ":" + event.EventID.String()
+		if service.quotaEnforcer != nil {
+			if err := service.quotaEnforcer.ConsumeWebhookDelivery(
+				ctx,
+				event.SellerID,
+				sourceID,
+			); err != nil {
+				return nil, err
+			}
 		}
 		deliveryID, err := service.idGenerator.New(domain.WebhookDeliveryIDPrefix)
 		if err != nil {

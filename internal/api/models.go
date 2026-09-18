@@ -16,13 +16,15 @@ const (
 	// MaximumJSONBodyBytes limits control-plane JSON payloads to one MiB.
 	MaximumJSONBodyBytes int64 = 1 << 20
 
-	ErrorCodeBadRequest    = "bad_request"
-	ErrorCodeUnauthorized  = "unauthorized"
-	ErrorCodeConflict      = "conflict"
-	ErrorCodeGone          = "gone"
-	ErrorCodeNotFound      = "not_found"
-	ErrorCodeUnprocessable = "unprocessable_entity"
-	ErrorCodeInternal      = "internal_error"
+	ErrorCodeBadRequest       = "bad_request"
+	ErrorCodeUnauthorized     = "unauthorized"
+	ErrorCodeConflict         = "conflict"
+	ErrorCodeGone             = "gone"
+	ErrorCodeNotFound         = "not_found"
+	ErrorCodePermissionDenied = "permission_denied"
+	ErrorCodeRateLimited      = "rate_limited"
+	ErrorCodeUnprocessable    = "unprocessable_entity"
+	ErrorCodeInternal         = "internal_error"
 )
 
 // IdempotencyDecision contains either a replay or permission to execute.
@@ -65,6 +67,16 @@ type Principal struct {
 type Authenticator interface {
 	AuthenticateSeller(ctx context.Context, token string) (Principal, bool)
 	AuthenticateAgent(ctx context.Context, key string) (Principal, bool)
+}
+
+// SellerRequestLimiter consumes one authenticated seller API request.
+type SellerRequestLimiter interface {
+	ConsumeAPIRequest(context.Context, domain.ID) error
+}
+
+// SellerRequestAuthorizer verifies the authenticated subject owns a seller path.
+type SellerRequestAuthorizer interface {
+	AuthorizeSeller(context.Context, string, domain.ID) error
 }
 
 type requestIDContextKey struct{}

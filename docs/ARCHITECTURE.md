@@ -50,8 +50,10 @@ One deployable Go binary owns all authoritative business rules through isolated 
 - `agents`: Bedrock tool orchestration and deterministic fallback.
 - `analytics`: deterministic seller-scoped, asset-separated sales read models over bounded transaction queries.
 - `notifications`: signed seller webhook subscriptions and delivery attempts.
-- `billing`: seller plans, quotas, usage meters, and invoice exports; it never
+- `billing`: seller plans, entitlements, usage meters, and invoice exports; it never
   controls buyer funds or seller settlement.
+- `operations`: UTC-month API, MCP, and webhook-delivery counters plus static
+  route and webhook-subscription entitlement enforcement.
 - `audit`: immutable seller-visible control-plane change history and bounded
   tenant-scoped reads.
 
@@ -59,6 +61,12 @@ The billing package owns a versioned static plan catalog plus one seller plan
 assignment record. Other packages may read entitlements through a narrow
 billing interface, but billing cannot mutate purchase intents, transactions,
 payment destinations, facilitator state, or seller payout configuration.
+
+The operations package reads the resolved seller plan and owns atomic monthly
+quota counters. Consumer packages own narrow interfaces for the quota operation
+they need. Invalid authentication and cross-seller authorization failures do
+not consume quota. Webhook delivery claims deduplicate retries by subscription
+and event identity.
 
 Packages may call each other through explicit interfaces. They must not write another package's DynamoDB records directly.
 
@@ -177,6 +185,9 @@ authoritative intent, fulfillment, evidence, receipt, or dispute domains.
 | Expired approval | Require a new approval session before issuing another challenge. |
 | Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
+| Seller plan suspended | Return `403 permission_denied` before the control-plane or MCP operation mutates state. |
+| Monthly seller quota exhausted | Return `429 rate_limited`; do not execute the requested operation. |
+| Static route or webhook limit exhausted | Return `403 permission_denied`; do not create or publish the resource. |
 | Search metadata validation fails | Keep the storefront publishable only after the seller fixes or explicitly removes the invalid generated metadata. |
 
 The checkout path records proof verification as `confirmed`, then records the

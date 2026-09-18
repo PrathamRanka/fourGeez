@@ -17,6 +17,17 @@ func usageMeterSourceSortKey(meterName string, sourceID string) string {
 	return "METER_SOURCE#" + meterName + "#" + sourceID
 }
 
+// quotaCounterSortKey returns one seller UTC-month quota key.
+func quotaCounterSortKey(period string, quotaName string) string {
+	return "QUOTA#" + period + "#" + quotaName
+}
+
+// quotaClaimSortKey hashes one retry-safe source into a bounded claim key.
+func quotaClaimSortKey(period string, quotaName string, source string) string {
+	digest := sha256.Sum256([]byte(source))
+	return "QUOTA_CLAIM#" + period + "#" + quotaName + "#" + hex.EncodeToString(digest[:])
+}
+
 // auditEventSortKey returns the chronological immutable audit key.
 func auditEventSortKey(occurredAt time.Time, auditEventID string) string {
 	return "AUDIT#" + occurredAt.UTC().Format(time.RFC3339Nano) + "#" + auditEventID

@@ -1,8 +1,12 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.3.5
-  description: Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
+  version: 0.3.6
+  description: |
+    Seller commerce gateway, approval, transaction, and dispute API. AgentPay is a working name.
+    Authenticated seller-scoped control-plane operations may return 403 permission_denied
+    when the assigned plan is suspended or a static entitlement is exhausted, and 429
+    rate_limited when a monthly API quota is exhausted.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -117,7 +121,9 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SellerPlanResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/sellers/{sellerId}/invoice-export:
     get:
       summary: Export immutable AgentPay usage for external invoicing
@@ -182,8 +188,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/sellers/{sellerId}/payment-destinations:
     get:
       summary: List seller payment destinations
@@ -1397,3 +1405,9 @@ components:
     Conflict: { description: Idempotency or state conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Gone: { description: Invitation or session expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     Unprocessable: { description: Request is valid JSON but violates a business rule, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    PermissionDenied: { description: Seller plan is suspended or the requested operation exceeds a static entitlement, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    RateLimited:
+      description: Seller monthly operation quota is exhausted
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

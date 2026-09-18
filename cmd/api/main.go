@@ -20,6 +20,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/notifications"
+	"github.com/fourgeez/agentpay/internal/operations"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
@@ -52,6 +53,7 @@ func main() {
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
 	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
+	quotaCounterRepository := memory.NewQuotaCounterRepository()
 	auditEventRepository := memory.NewAuditEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
@@ -97,6 +99,12 @@ func main() {
 		catalogService,
 		clock,
 	)
+	quotaService := operations.NewService(
+		quotaCounterRepository,
+		billingService,
+		clock,
+	)
+	catalogService.SetQuotaEnforcer(quotaService)
 	billing.NewHTTPController(billingService).RegisterRoutes(mux)
 	usageService := billing.NewUsageService(
 		usageMeterEventRepository,
@@ -132,31 +140,35 @@ func main() {
 		integrationService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
+	notificationService := notifications.NewService(
+		webhookSubscriptionRepository,
+		catalogService,
+		idGenerator,
+		notifications.NewSecureSecretGenerator(nil),
+		webhookSecretStore,
+		clock,
+		auditAppender,
+	)
+	notificationService.SetQuotaEnforcer(quotaService)
 	notifications.NewHTTPController(
-		notifications.NewService(
-			webhookSubscriptionRepository,
-			catalogService,
-			idGenerator,
-			notifications.NewSecureSecretGenerator(nil),
-			webhookSecretStore,
-			clock,
-			auditAppender,
-		),
+		notificationService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
+	deliveryService := notifications.NewDeliveryService(
+		webhookDeliveryRepository,
+		webhookSubscriptionRepository,
+		catalogService,
+		idGenerator,
+		notifications.NewHMACEventSigner(webhookSecretStore, clock),
+		notifications.NewWebhookSender(nil),
+		clock,
+	)
+	deliveryService.SetQuotaEnforcer(quotaService)
 	notifications.NewDeliveryHTTPController(
-		notifications.NewDeliveryService(
-			webhookDeliveryRepository,
-			webhookSubscriptionRepository,
-			catalogService,
-			idGenerator,
-			notifications.NewHMACEventSigner(webhookSecretStore, clock),
-			notifications.NewWebhookSender(nil),
-			clock,
-		),
+		deliveryService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
-	mcpserver.NewHTTPController(
+	mcpController := mcpserver.NewHTTPController(
 		integrationService,
 		mcpserver.NewService(
 			catalogRepository,
@@ -170,7 +182,9 @@ func main() {
 			auditAppender,
 		),
 		analyzer.NewService(),
-	).RegisterRoutes(mux)
+	)
+	mcpController.SetQuotaEnforcer(quotaService)
+	mcpController.RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,
 		catalogRepository,
@@ -287,6 +301,8 @@ func main() {
 			os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
 			os.Getenv("AGENTPAY_LOCAL_AGENT_KEY"),
 		),
+		SellerRequestLimiter: quotaService,
+		SellerAuthorizer:     catalogService,
 	}, mux)
 
 	slog.Info("starting AgentPay API", "address", addr)

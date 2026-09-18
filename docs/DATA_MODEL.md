@@ -338,6 +338,22 @@ period start/end, assignment timestamps, and optimistic `version`. Status is
 changing plans requires an explicit trusted billing operation and never changes
 buyer settlement state.
 
+### QuotaCounter
+
+Operational monthly quotas use one atomic counter per seller, UTC month, and
+quota name at `PK=SELLER#<sellerId>`,
+`SK=QUOTA#<YYYY-MM>#<quotaName>`. The quota names are `api_request`,
+`mcp_operation`, and `webhook_delivery`. Each record stores the current `count`,
+exclusive `limit`, inclusive `periodStart`, exclusive `periodEnd`, and
+`updatedAt`. Counter increments use a conditional write that cannot advance the
+count above the frozen limit supplied by the assigned plan.
+
+Webhook retries must not consume multiple units for the same logical delivery.
+The first enqueue for a `(subscriptionId, eventId)` source atomically creates
+`SK=QUOTA_CLAIM#<YYYY-MM>#webhook_delivery#<sha256(source)>` and increments the
+monthly counter. A repeated source finds the claim and succeeds without another
+increment. Claims contain no webhook payload or secret material.
+
 ### UsageMeterEvent
 
 Usage meter events use ID prefix `mtr_` and are immutable and idempotently
@@ -467,6 +483,8 @@ PK=SELLER#sel_123       SK=WEBHOOK#whk_123
 PK=SELLER#sel_123       SK=WEBHOOK_DELIVERY#whd_123
 PK=SELLER#sel_123       SK=WEBHOOK_EVENT#whk_123#evt_123
 PK=SELLER#sel_123       SK=BILLING_PLAN
+PK=SELLER#sel_123       SK=QUOTA#2026-09#api_request
+PK=SELLER#sel_123       SK=QUOTA_CLAIM#2026-09#webhook_delivery#<sha256(source)>
 PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123
 PK=SELLER#sel_123       SK=METER#<createdAt>#mtr_123
 PK=SELLER#sel_123       SK=METER_SOURCE#successful_transaction#txn_123

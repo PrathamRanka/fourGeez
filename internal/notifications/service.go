@@ -16,6 +16,11 @@ import (
 
 const minimumWebhookSecretLength = 32
 
+// WebhookSubscriptionQuota checks seller capacity before subscription creation.
+type WebhookSubscriptionQuota interface {
+	AllowWebhookSubscription(context.Context, domain.ID, uint64) error
+}
+
 // SecureSecretGenerator creates URL-safe webhook signing secrets.
 type SecureSecretGenerator struct{ reader io.Reader }
 
@@ -45,6 +50,7 @@ type Service struct {
 	secretStore     SecretStore
 	clock           domain.Clock
 	auditRecorder   audit.Recorder
+	quotaEnforcer   WebhookSubscriptionQuota
 }
 
 // NewService creates the webhook subscription service.
@@ -68,6 +74,11 @@ func NewService(
 	}
 }
 
+// SetQuotaEnforcer configures plan checks for webhook subscription creation.
+func (service *Service) SetQuotaEnforcer(quotaEnforcer WebhookSubscriptionQuota) {
+	service.quotaEnforcer = quotaEnforcer
+}
+
 // Create stores a subscription and returns its signing secret once.
 func (service *Service) Create(
 	ctx context.Context,
@@ -77,6 +88,25 @@ func (service *Service) Create(
 ) (SubscriptionCreated, error) {
 	if err := service.authorizer.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
 		return SubscriptionCreated{}, err
+	}
+	subscriptions, err := service.repository.ListBySeller(ctx, sellerID)
+	if err != nil {
+		return SubscriptionCreated{}, err
+	}
+	var activeSubscriptionCount uint64
+	for _, subscription := range subscriptions {
+		if subscription.Status() == SubscriptionStatusActive {
+			activeSubscriptionCount++
+		}
+	}
+	if service.quotaEnforcer != nil {
+		if err := service.quotaEnforcer.AllowWebhookSubscription(
+			ctx,
+			sellerID,
+			activeSubscriptionCount,
+		); err != nil {
+			return SubscriptionCreated{}, err
+		}
 	}
 	subscriptionID, err := service.idGenerator.New(domain.WebhookSubscriptionIDPrefix)
 	if err != nil {

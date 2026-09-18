@@ -29,6 +29,8 @@ func TestServiceCreatesSellerWebhookSubscription(t *testing.T) {
 		clock,
 		audit.NoopRecorder{},
 	)
+	quota := &notificationQuotaEnforcer{}
+	service.SetQuotaEnforcer(quota)
 
 	created, err := service.Create(
 		context.Background(),
@@ -58,6 +60,9 @@ func TestServiceCreatesSellerWebhookSubscription(t *testing.T) {
 	}
 	if len(stored.EventTypes()) != 2 {
 		t.Fatalf("stored event types = %#v", stored.EventTypes())
+	}
+	if quota.subscriptionCount != 0 {
+		t.Fatalf("subscription count = %d, want 0", quota.subscriptionCount)
 	}
 }
 
@@ -213,6 +218,46 @@ func (generator fixedWebhookSecretGenerator) NewSecret() (string, error) {
 
 type notificationSecretStore struct {
 	secrets map[string][]byte
+}
+
+type notificationQuotaEnforcer struct {
+	subscriptionCount uint64
+	deliverySources   []string
+}
+
+// ConsumeAPIRequest permits notification API requests.
+func (enforcer *notificationQuotaEnforcer) ConsumeAPIRequest(context.Context, domain.ID) error {
+	return nil
+}
+
+// ConsumeMCPOperation permits notification MCP operations.
+func (enforcer *notificationQuotaEnforcer) ConsumeMCPOperation(context.Context, domain.ID) error {
+	return nil
+}
+
+// ConsumeWebhookDelivery records a logical webhook source.
+func (enforcer *notificationQuotaEnforcer) ConsumeWebhookDelivery(
+	_ context.Context,
+	_ domain.ID,
+	source string,
+) error {
+	enforcer.deliverySources = append(enforcer.deliverySources, source)
+	return nil
+}
+
+// AllowPublishedRoute permits notification route publication.
+func (enforcer *notificationQuotaEnforcer) AllowPublishedRoute(context.Context, domain.ID, uint64) error {
+	return nil
+}
+
+// AllowWebhookSubscription records the current subscription count.
+func (enforcer *notificationQuotaEnforcer) AllowWebhookSubscription(
+	_ context.Context,
+	_ domain.ID,
+	count uint64,
+) error {
+	enforcer.subscriptionCount = count
+	return nil
 }
 
 // PutSecret stores one secret under its opaque reference.

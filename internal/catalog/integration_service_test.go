@@ -1,6 +1,7 @@
 package catalog_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -24,6 +25,8 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 		clock,
 		audit.NoopRecorder{},
 	)
+	quota := &integrationQuotaEnforcer{}
+	service.SetQuotaEnforcer(quota)
 	seller, err := service.CreateSeller(
 		t.Context(),
 		"owner-123",
@@ -126,6 +129,43 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 	if !published.Enabled || published.Version != route.Version+1 {
 		t.Fatalf("published route = %#v", published)
 	}
+	if quota.publishedRouteCount != 0 {
+		t.Fatalf("published route count = %d, want 0", quota.publishedRouteCount)
+	}
+}
+
+type integrationQuotaEnforcer struct {
+	publishedRouteCount uint64
+}
+
+// ConsumeAPIRequest permits catalog integration requests.
+func (enforcer *integrationQuotaEnforcer) ConsumeAPIRequest(context.Context, domain.ID) error {
+	return nil
+}
+
+// ConsumeMCPOperation permits catalog integration operations.
+func (enforcer *integrationQuotaEnforcer) ConsumeMCPOperation(context.Context, domain.ID) error {
+	return nil
+}
+
+// ConsumeWebhookDelivery permits catalog integration deliveries.
+func (enforcer *integrationQuotaEnforcer) ConsumeWebhookDelivery(context.Context, domain.ID, string) error {
+	return nil
+}
+
+// AllowPublishedRoute records the current published-route count.
+func (enforcer *integrationQuotaEnforcer) AllowPublishedRoute(
+	_ context.Context,
+	_ domain.ID,
+	count uint64,
+) error {
+	enforcer.publishedRouteCount = count
+	return nil
+}
+
+// AllowWebhookSubscription permits catalog integration subscriptions.
+func (enforcer *integrationQuotaEnforcer) AllowWebhookSubscription(context.Context, domain.ID, uint64) error {
+	return nil
 }
 
 type integrationCatalogClock struct {

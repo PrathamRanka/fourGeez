@@ -16,6 +16,13 @@ expired, revoked, or unknown credentials return `401`. Valid credentials
 without `read` return `403`. Repository failures return a generic `500` without
 exposing internal details.
 
+Every authenticated `POST /mcp` request consumes one `mcp_operation` unit from
+the seller's UTC-month plan quota before JSON-RPC dispatch. A suspended plan
+returns HTTP `403` with `permission_denied`; an exhausted monthly quota returns
+HTTP `429` with `rate_limited` and `Retry-After`. Authentication failures do not
+consume quota. Retried webhook delivery quota is separate and does not affect
+MCP usage.
+
 Resource identity is derived only from the authenticated credential. Resource
 URIs never accept a caller-supplied seller identifier.
 
@@ -75,6 +82,10 @@ Idempotency is bound to credential, operation, target, and canonical request
 bytes. A replay returns the stored redacted result; reuse with different input
 returns a conflict. Tools never accept seller IDs, signing secrets, deployment
 credentials, arbitrary URLs, shell commands, or raw repository contents.
+
+Publishing checks the seller's current enabled-route count before changing a
+draft. Static route or webhook-subscription exhaustion returns
+`permission_denied`; it is not represented as a transient monthly rate limit.
 
 ### Repository analysis input
 

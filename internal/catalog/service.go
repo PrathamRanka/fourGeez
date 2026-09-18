@@ -34,12 +34,18 @@ var (
 	ErrRouteValidation = errors.New("paid route failed publication validation")
 )
 
+// PublishedRouteQuota checks seller capacity before route publication.
+type PublishedRouteQuota interface {
+	AllowPublishedRoute(context.Context, domain.ID, uint64) error
+}
+
 // Service coordinates catalog domain rules with persistence boundaries.
 type Service struct {
 	repository    Repository
 	idGenerator   domain.IDGenerator
 	clock         domain.Clock
 	auditRecorder audit.Recorder
+	quotaEnforcer PublishedRouteQuota
 }
 
 // NewService creates the catalog application service.
@@ -55,6 +61,11 @@ func NewService(
 		clock:         clock,
 		auditRecorder: auditRecorder,
 	}
+}
+
+// SetQuotaEnforcer configures plan quota checks for publication operations.
+func (service *Service) SetQuotaEnforcer(quotaEnforcer PublishedRouteQuota) {
+	service.quotaEnforcer = quotaEnforcer
 }
 
 // AuthorizeSeller verifies ownership without exposing another seller's record.
@@ -365,6 +376,25 @@ func (service *Service) PublishRouteForIntegration(
 	route, err := service.ownedRoute(ctx, sellerID, routeID)
 	if err != nil {
 		return PaidRoute{}, err
+	}
+	routes, err := service.repository.ListRoutesBySeller(ctx, sellerID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	var publishedRouteCount uint64
+	for _, sellerRoute := range routes {
+		if sellerRoute.Enabled {
+			publishedRouteCount++
+		}
+	}
+	if service.quotaEnforcer != nil {
+		if err := service.quotaEnforcer.AllowPublishedRoute(
+			ctx,
+			sellerID,
+			publishedRouteCount,
+		); err != nil {
+			return PaidRoute{}, err
+		}
 	}
 	if err := route.Publish(domain.NewTimestamp(service.clock.Now())); err != nil {
 		return PaidRoute{}, err
