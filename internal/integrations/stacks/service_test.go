@@ -31,10 +31,10 @@ func TestServiceDetectsDocumentedStacks(t *testing.T) {
 		{name: "Starlette", files: map[string]string{"pyproject.toml": "dependencies = [\"starlette==0.47.3\"]\n"}, wantStack: StackStarlette, wantTier: SupportTierMaintained},
 		{name: "Flask", files: map[string]string{"requirements.txt": "Flask==3.1.2\n"}, wantStack: StackFlask, wantTier: SupportTierMaintained},
 		{name: "Django", files: map[string]string{"requirements.txt": "Django==5.2.6\n"}, wantStack: StackDjango, wantTier: SupportTierMaintained},
-		{name: "ASP.NET Core", files: map[string]string{"Seller.csproj": `<Project Sdk="Microsoft.NET.Sdk.Web"></Project>`}, wantStack: StackASPNetCore, wantTier: SupportTierUnsupported},
-		{name: "Spring Boot", files: map[string]string{"pom.xml": `<artifactId>spring-boot-starter-web</artifactId>`}, wantStack: StackSpringBoot, wantTier: SupportTierUnsupported},
-		{name: "Rails", files: map[string]string{"Gemfile": `gem "rails", "8.0.2"`}, wantStack: StackRails, wantTier: SupportTierUnsupported},
-		{name: "Laravel", files: map[string]string{"composer.json": `{"require":{"laravel/framework":"12.0.0"}}`}, wantStack: StackLaravel, wantTier: SupportTierUnsupported},
+		{name: "ASP.NET Core", files: map[string]string{"Seller.csproj": `<Project Sdk="Microsoft.NET.Sdk.Web"></Project>`}, wantStack: StackASPNetCore, wantTier: SupportTierMaintained},
+		{name: "Spring Boot", files: map[string]string{"pom.xml": `<artifactId>spring-boot-starter-web</artifactId>`}, wantStack: StackSpringBoot, wantTier: SupportTierMaintained},
+		{name: "Rails", files: map[string]string{"Gemfile": `gem "rails", "8.0.2"`}, wantStack: StackRails, wantTier: SupportTierMaintained},
+		{name: "Laravel", files: map[string]string{"composer.json": `{"require":{"laravel/framework":"12.0.0"}}`}, wantStack: StackLaravel, wantTier: SupportTierMaintained},
 	}
 
 	service := NewService()

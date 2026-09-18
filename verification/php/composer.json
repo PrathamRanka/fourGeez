@@ -1,0 +1,15 @@
+{
+  "name": "agentpay/verify",
+  "description": "AgentPay seller-request verification for Laravel and PHP",
+  "version": "0.1.0",
+  "type": "library",
+  "license": "proprietary",
+  "autoload": {
+    "psr-4": {
+      "AgentPay\\Verify\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.2"
+  }
+}

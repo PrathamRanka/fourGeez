@@ -222,6 +222,34 @@ func frameworkSetups() []FrameworkSetup {
 			InstallCommand: "python -m pip install agentpay-verify==0.1.0",
 			TestCommand:    "python -m unittest discover -v",
 		},
+		{
+			Framework:      FrameworkDotNet,
+			Package:        "AgentPay.Verify",
+			PackageVersion: verificationPackageVersion,
+			InstallCommand: "dotnet add package AgentPay.Verify --version 0.1.0",
+			TestCommand:    "dotnet test",
+		},
+		{
+			Framework:      FrameworkJava,
+			Package:        "com.agentpay:agentpay-verify-spring",
+			PackageVersion: verificationPackageVersion,
+			InstallCommand: "./mvnw dependency:get -Dartifact=com.agentpay:agentpay-verify-spring:0.1.0",
+			TestCommand:    "./mvnw test",
+		},
+		{
+			Framework:      FrameworkRuby,
+			Package:        "agentpay-verify",
+			PackageVersion: verificationPackageVersion,
+			InstallCommand: "bundle add agentpay-verify --version 0.1.0 --strict",
+			TestCommand:    "bundle exec rails test",
+		},
+		{
+			Framework:      FrameworkPHP,
+			Package:        "agentpay/verify",
+			PackageVersion: verificationPackageVersion,
+			InstallCommand: "composer require agentpay/verify:0.1.0",
+			TestCommand:    "php artisan test",
+		},
 	}
 }
 
@@ -330,8 +358,14 @@ func frameworkForStack(stack stacks.Stack) (Framework, bool) {
 		return FrameworkGo, true
 	case stacks.StackFastAPI, stacks.StackStarlette, stacks.StackFlask, stacks.StackDjango:
 		return FrameworkPython, true
-	case stacks.StackASPNetCore, stacks.StackSpringBoot, stacks.StackRails, stacks.StackLaravel:
-		return "", false
+	case stacks.StackASPNetCore:
+		return FrameworkDotNet, true
+	case stacks.StackSpringBoot:
+		return FrameworkJava, true
+	case stacks.StackRails:
+		return FrameworkRuby, true
+	case stacks.StackLaravel:
+		return FrameworkPHP, true
 	default:
 		return FrameworkNode, true
 	}
@@ -389,6 +423,26 @@ func integrationNotesForStack(stack stacks.Stack) []string {
 		return []string{
 			"Verify request bytes before business side effects.",
 			"Use framework templates and explicit discovery routes.",
+		}
+	case stacks.StackASPNetCore:
+		return []string{
+			"Enable request buffering and verify the original body before model binding.",
+			"Use Razor metadata plus explicit robots, sitemap, llms.txt, and manifest endpoints.",
+		}
+	case stacks.StackSpringBoot:
+		return []string{
+			"Buffer and verify the servlet request in a highest-precedence filter before controller binding.",
+			"Use server-rendered templates plus explicit discovery-resource controllers.",
+		}
+	case stacks.StackRails:
+		return []string{
+			"Install verification middleware before parameter parsing and restore rack.input after capture.",
+			"Use Rails views, route helpers, and public discovery responses generated from published routes.",
+		}
+	case stacks.StackLaravel:
+		return []string{
+			"Verify getContent bytes in middleware before controllers or request validation perform side effects.",
+			"Use Blade metadata and explicit routes for robots, sitemap, llms.txt, and the manifest.",
 		}
 	default:
 		return []string{

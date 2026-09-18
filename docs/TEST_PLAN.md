@@ -68,6 +68,11 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - Go and Python recipe fixtures cover `net/http`, Gin, Echo, Fiber, FastAPI,
   Starlette, Flask, and Django. Python verification tests cover both ASGI and
   synchronous WSGI replay-store paths.
+- Extended recipe fixtures cover ASP.NET Core, Spring Boot, Rails, and Laravel.
+  Their package tests run under .NET 8, Java 17 or newer, Ruby 3.3, and PHP 8.3
+  and cover valid signatures, modified bodies, stale timestamps, replay, and
+  weak signing secrets. `npm run test:verification:extended` is the shared
+  local and CI entry point.
 
 ### End-to-end tests
 

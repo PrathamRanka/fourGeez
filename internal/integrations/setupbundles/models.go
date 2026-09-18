@@ -29,6 +29,10 @@ const (
 	FrameworkGo     Framework = "go"
 	FrameworkNode   Framework = "node"
 	FrameworkPython Framework = "python"
+	FrameworkDotNet Framework = "dotnet"
+	FrameworkJava   Framework = "java"
+	FrameworkRuby   Framework = "ruby"
+	FrameworkPHP    Framework = "php"
 )
 
 // Configuration contains the project file template for one MCP host.

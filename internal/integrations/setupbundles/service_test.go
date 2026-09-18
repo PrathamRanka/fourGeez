@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/fourgeez/agentpay/internal/integrations/stacks"
 )
 
 // TestServicePublishesVersionedHostBundles verifies every supported host bundle.
@@ -87,8 +89,8 @@ func TestServicePublishesVersionedHostBundles(t *testing.T) {
 					bundle.CredentialEnvironmentVariable,
 				)
 			}
-			if len(bundle.Frameworks) != 3 {
-				t.Fatalf("framework count = %d, want 3", len(bundle.Frameworks))
+			if len(bundle.Frameworks) != 7 {
+				t.Fatalf("framework count = %d, want 7", len(bundle.Frameworks))
 			}
 			if len(bundle.Workflow) < 8 {
 				t.Fatalf("workflow step count = %d, want at least 8", len(bundle.Workflow))
@@ -167,7 +169,7 @@ func TestServiceRejectsUnsupportedSelections(t *testing.T) {
 	if _, err := service.Bundle(Host("other")); !errors.Is(err, ErrUnsupportedHost) {
 		t.Fatalf("Bundle() error = %v, want ErrUnsupportedHost", err)
 	}
-	if _, err := service.Prompt(HostCodex, Framework("ruby")); !errors.Is(
+	if _, err := service.Prompt(HostCodex, Framework("unknown")); !errors.Is(
 		err,
 		ErrUnsupportedFramework,
 	) {
@@ -238,4 +240,82 @@ func TestServiceSelectsVersionTwoStackPrompt(t *testing.T) {
 	if _, err := NewService().PromptV2(HostCodex, "unknown"); !errors.Is(err, ErrUnsupportedStack) {
 		t.Fatalf("PromptV2() error = %v", err)
 	}
+}
+
+// TestServicePublishesExtendedStackSetup verifies every STK-003 package and recipe.
+func TestServicePublishesExtendedStackSetup(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		stack       stacks.Stack
+		framework   Framework
+		packageName string
+		adapter     string
+	}{
+		{
+			stack:       stacks.StackASPNetCore,
+			framework:   FrameworkDotNet,
+			packageName: "AgentPay.Verify",
+			adapter:     "AgentPayVerificationMiddleware",
+		},
+		{
+			stack:       stacks.StackSpringBoot,
+			framework:   FrameworkJava,
+			packageName: "com.agentpay:agentpay-verify-spring",
+			adapter:     "AgentPayVerificationFilter",
+		},
+		{
+			stack:       stacks.StackRails,
+			framework:   FrameworkRuby,
+			packageName: "agentpay-verify",
+			adapter:     "AgentPay::VerificationMiddleware",
+		},
+		{
+			stack:       stacks.StackLaravel,
+			framework:   FrameworkPHP,
+			packageName: "agentpay/verify",
+			adapter:     "AgentPayVerificationMiddleware",
+		},
+	}
+
+	service := NewService()
+	bundle, err := service.BundleV2(HostCodex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, testCase := range testCases {
+		t.Run(string(testCase.stack), func(t *testing.T) {
+			stackSetup := findStackSetup(t, bundle.Stacks, testCase.stack)
+			if stackSetup.Tier != stacks.SupportTierMaintained ||
+				stackSetup.Verification == nil ||
+				stackSetup.Verification.Framework != testCase.framework ||
+				stackSetup.Verification.Package != testCase.packageName ||
+				stackSetup.Recipe == nil ||
+				stackSetup.Recipe.VerificationAdapter != testCase.adapter {
+				t.Fatalf("stack setup = %#v", stackSetup)
+			}
+			prompt, promptErr := service.PromptV2(HostCodex, string(testCase.stack))
+			if promptErr != nil {
+				t.Fatal(promptErr)
+			}
+			for _, fragment := range []string{testCase.packageName, testCase.adapter, "maintained"} {
+				if !strings.Contains(prompt, fragment) {
+					t.Fatalf("prompt omitted %q: %s", fragment, prompt)
+				}
+			}
+		})
+	}
+}
+
+// findStackSetup returns one required setup from a versioned bundle.
+func findStackSetup(t *testing.T, setups []StackSetup, stack stacks.Stack) StackSetup {
+	t.Helper()
+
+	for _, setup := range setups {
+		if setup.Stack == stack {
+			return setup
+		}
+	}
+	t.Fatalf("stack setup %q was not published", stack)
+	return StackSetup{}
 }

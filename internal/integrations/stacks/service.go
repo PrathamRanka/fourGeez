@@ -26,10 +26,10 @@ var stackMatrix = []MatrixEntry{
 	{Stack: StackStarlette, DisplayName: "Starlette", Tier: SupportTierMaintained},
 	{Stack: StackFlask, DisplayName: "Flask", Tier: SupportTierMaintained},
 	{Stack: StackDjango, DisplayName: "Django", Tier: SupportTierMaintained},
-	{Stack: StackASPNetCore, DisplayName: "ASP.NET Core", Tier: SupportTierUnsupported},
-	{Stack: StackSpringBoot, DisplayName: "Spring Boot", Tier: SupportTierUnsupported},
-	{Stack: StackRails, DisplayName: "Rails", Tier: SupportTierUnsupported},
-	{Stack: StackLaravel, DisplayName: "Laravel", Tier: SupportTierUnsupported},
+	{Stack: StackASPNetCore, DisplayName: "ASP.NET Core", Tier: SupportTierMaintained},
+	{Stack: StackSpringBoot, DisplayName: "Spring Boot", Tier: SupportTierMaintained},
+	{Stack: StackRails, DisplayName: "Rails", Tier: SupportTierMaintained},
+	{Stack: StackLaravel, DisplayName: "Laravel", Tier: SupportTierMaintained},
 }
 
 // Service performs deterministic stack detection over bounded repository evidence.
@@ -150,7 +150,7 @@ func detectEvidence(
 
 	detectGoStacks(files, detected)
 	detectPythonStacks(files, detected)
-	if err := detectUnsupportedStacks(files, detected); err != nil {
+	if err := detectExtendedStacks(files, detected); err != nil {
 		return nil, err
 	}
 	return detected, nil
@@ -267,8 +267,8 @@ func manifestContainsPackage(content string, packageName string) bool {
 	return false
 }
 
-// detectUnsupportedStacks keeps unverified ecosystems explicitly labeled.
-func detectUnsupportedStacks(files map[string]string, detected map[Stack][]string) error {
+// detectExtendedStacks finds maintained ecosystems outside Node, Go, and Python.
+func detectExtendedStacks(files map[string]string, detected map[Stack][]string) error {
 	for path, content := range files {
 		lowerContent := strings.ToLower(content)
 		switch {

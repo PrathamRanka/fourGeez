@@ -36,12 +36,103 @@ func allRecipes() map[stacks.Stack]Recipe {
 		javaScriptRecipes(),
 		goRecipes(),
 		pythonRecipes(),
+		extendedRecipes(),
 	} {
 		for stack, recipe := range recipeSet {
 			result[stack] = recipe
 		}
 	}
 	return result
+}
+
+// extendedRecipes returns maintained .NET, Java, Ruby, and PHP integrations.
+func extendedRecipes() map[stacks.Stack]Recipe {
+	return map[stacks.Stack]Recipe{
+		stacks.StackASPNetCore: extendedRecipe(
+			stacks.StackASPNetCore,
+			LanguageDotNet,
+			"AgentPay.Verify",
+			"dotnet add package AgentPay.Verify --version 0.1.0",
+			"AgentPayVerificationMiddleware",
+			"Call EnableBuffering, verify the captured bytes, and rewind Request.Body before endpoint execution.",
+			[]string{
+				"Pages/Storefront.cshtml",
+				"Pages/Products/Details.cshtml",
+				"AgentPay/SandboxEndpoint.cs",
+			},
+			"dotnet test",
+		),
+		stacks.StackSpringBoot: extendedRecipe(
+			stacks.StackSpringBoot,
+			LanguageJava,
+			"com.agentpay:agentpay-verify-spring",
+			"./mvnw dependency:get -Dartifact=com.agentpay:agentpay-verify-spring:0.1.0",
+			"AgentPayVerificationFilter",
+			"Buffer the servlet input stream in a OncePerRequestFilter before Jackson or controller binding.",
+			[]string{
+				"src/main/resources/templates/storefront.html",
+				"src/main/resources/templates/products/detail.html",
+				"src/main/java/agentpay/AgentPaySandboxController.java",
+			},
+			"./mvnw test",
+		),
+		stacks.StackRails: extendedRecipe(
+			stacks.StackRails,
+			LanguageRuby,
+			"agentpay-verify",
+			"bundle add agentpay-verify --version 0.1.0 --strict",
+			"AgentPay::VerificationMiddleware",
+			"Read and replace rack.input in middleware before Rails parameter parsing or controller execution.",
+			[]string{
+				"app/views/storefront/index.html.erb",
+				"app/views/storefront/products/show.html.erb",
+				"app/controllers/agentpay/sandbox_controller.rb",
+			},
+			"bundle exec rails test",
+		),
+		stacks.StackLaravel: extendedRecipe(
+			stacks.StackLaravel,
+			LanguagePHP,
+			"agentpay/verify",
+			"composer require agentpay/verify:0.1.0",
+			"AgentPayVerificationMiddleware",
+			"Read getContent before request decoding and verify in middleware before controller execution.",
+			[]string{
+				"resources/views/storefront.blade.php",
+				"resources/views/products/show.blade.php",
+				"app/Http/Controllers/AgentPaySandboxController.php",
+			},
+			"php artisan test",
+		),
+	}
+}
+
+// extendedRecipe constructs one pinned verification recipe for STK-003.
+func extendedRecipe(
+	stack stacks.Stack,
+	language Language,
+	verificationPackage string,
+	installCommand string,
+	adapter string,
+	rawBodyStrategy string,
+	storefrontFiles []string,
+	testCommand string,
+) Recipe {
+	return Recipe{
+		SchemaVersion:       RecipeSchemaVersion,
+		Stack:               stack,
+		Language:            language,
+		VerificationPackage: verificationPackage,
+		PackageVersion:      "0.1.0",
+		InstallCommand:      installCommand,
+		VerificationAdapter: adapter,
+		RawBodyStrategy:     rawBodyStrategy,
+		MiddlewareOrder:     requiredMiddlewareOrder(),
+		SandboxRoute:        SandboxRoute,
+		StorefrontFiles:     storefrontFiles,
+		DiscoveryFiles:      requiredDiscoveryFiles(),
+		FocusedTestCommand:  testCommand,
+	}
 }
 
 // Validate enforces the safety and completeness contract for one recipe.

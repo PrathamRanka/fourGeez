@@ -11,6 +11,8 @@ npm-debug.log*
 *.test
 coverage.out
 verification/node/dist/
+verification/dotnet/**/bin/
+verification/dotnet/**/obj/
 
 # Python / RL research
 .venv/

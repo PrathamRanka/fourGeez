@@ -133,7 +133,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **SEO-003** Add deterministic checks for metadata, canonical URLs, robots directives, sitemap output, structured data, semantic content, `llms.txt`, manifest consistency, accessibility, and performance budgets. Never promise or report guaranteed search ranking.
 - [x] **STK-001** Add maintained integration recipes and focused tests for the supported JavaScript and TypeScript stacks.
 - [x] **STK-002** Add maintained integration recipes and focused tests for the supported Go and Python stacks.
-- [ ] **STK-003** Add verified package and setup-bundle support for ASP.NET Core, Spring Boot, Rails, and Laravel before advertising those ecosystems as supported.
+- [x] **STK-003** Add verified package and setup-bundle support for ASP.NET Core, Spring Boot, Rails, and Laravel before advertising those ecosystems as supported.
 - [ ] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.
 - [ ] **WEB-002** Implement seller onboarding for storefront creation, verified wallet setup, project credentials, MCP configuration, setup-prompt copy, and sandbox status.
 - [ ] **WEB-003** Implement product-route draft, price, validation, publish, pause, archive, and emergency-disable controls with version history.

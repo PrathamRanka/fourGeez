@@ -102,6 +102,10 @@ reviews, unsupported structured data, or claims absent from visible content.
 | Go | `github.com/fourgeez/agentpay/verification/go` | `go get github.com/fourgeez/agentpay/verification/go@v0.1.0` | `go test ./...` |
 | Node.js | `@agentpay/verify-node` | `npm install --save-exact @agentpay/verify-node@0.1.0` | `npm test` |
 | Python | `agentpay-verify` | `python -m pip install agentpay-verify==0.1.0` | `python -m unittest discover -v` |
+| .NET | `AgentPay.Verify` | `dotnet add package AgentPay.Verify --version 0.1.0` | `dotnet test` |
+| Java | `com.agentpay:agentpay-verify-spring` | `./mvnw dependency:get -Dartifact=com.agentpay:agentpay-verify-spring:0.1.0` | `./mvnw test` |
+| Ruby | `agentpay-verify` | `bundle add agentpay-verify --version 0.1.0 --strict` | `bundle exec rails test` |
+| PHP | `agentpay/verify` | `composer require agentpay/verify:0.1.0` | `php artisan test` |
 
 Package publication is a release operation outside this repository task. The
 bundle pins the first package contract so setup behavior cannot drift silently.
@@ -110,9 +114,9 @@ bundle pins the first package contract so setup behavior cannot drift silently.
 
 | Support tier | Stacks |
 |---|---|
-| Maintained verification and setup fixtures | Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, Gin, Echo, Fiber, FastAPI, Starlette, Flask, Django |
+| Maintained verification and setup fixtures | Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, Gin, Echo, Fiber, FastAPI, Starlette, Flask, Django, ASP.NET Core, Spring Boot, Rails, Laravel |
 | Planned adapters using maintained language verification primitives | None |
-| Not advertised until dedicated verification packages pass | ASP.NET Core, Spring Boot, Rails, Laravel |
+| Not advertised until dedicated verification packages pass | None |
 
 The generic MCP host is not a generic framework implementation. A stack moves
 to the maintained tier only after raw-body handling, middleware order, replay
@@ -146,10 +150,10 @@ package name, never substring guessing.
 | Starlette | Python dependency `starlette`, without FastAPI | maintained |
 | Flask | Python dependency `flask` | maintained |
 | Django | Python dependency `django` | maintained |
-| ASP.NET Core | `.csproj` with `Microsoft.AspNetCore` evidence | unsupported until STK-003 |
-| Spring Boot | Maven or Gradle dependency containing `spring-boot` | unsupported until STK-003 |
-| Rails | `Gemfile` dependency `rails` | unsupported until STK-003 |
-| Laravel | `composer.json` dependency `laravel/framework` | unsupported until STK-003 |
+| ASP.NET Core | `.csproj` with `Microsoft.AspNetCore` evidence | maintained |
+| Spring Boot | Maven or Gradle dependency containing `spring-boot` | maintained |
+| Rails | `Gemfile` dependency `rails` | maintained |
+| Laravel | `composer.json` dependency `laravel/framework` | maintained |
 
 When multiple application layers are present, detection returns every evidenced
 stack in deterministic matrix order. Setup must select the stack that owns the

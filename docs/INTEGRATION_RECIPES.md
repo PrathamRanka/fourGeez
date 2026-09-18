@@ -1,6 +1,6 @@
 # Seller integration recipe contract
 
-Status: **Locked through STK-002**.
+Status: **Locked through STK-003**.
 
 Each maintained stack has a versioned `agentpay.recipe.v1` entry included in
 setup bundle v2. A recipe identifies the pinned verification package and
@@ -65,3 +65,18 @@ Python recipes use the pinned `agentpay-verify==0.1.0` package and run
 `python -m unittest discover -v`. The package exposes separate asynchronous and
 synchronous replay-store boundaries so ASGI and WSGI applications do not hide
 event-loop behavior inside verification.
+
+## Maintained extended-framework recipes
+
+| Stack | Verification package | Verification adapter | Raw-body integration |
+|---|---|---|---|
+| ASP.NET Core | `AgentPay.Verify` `0.1.0` | `AgentPayVerificationMiddleware` | Enable buffering, verify captured bytes, then rewind `Request.Body` |
+| Spring Boot | `com.agentpay:agentpay-verify-spring:0.1.0` | `AgentPayVerificationFilter` | Buffer the servlet input before Jackson or controller binding |
+| Rails | `agentpay-verify` `0.1.0` | `AgentPay::VerificationMiddleware` | Read and replace `rack.input` before Rails parameter parsing |
+| Laravel | `agentpay/verify` `0.1.0` | `AgentPayVerificationMiddleware` | Verify `getContent` bytes before request validation or controllers |
+
+The package fixtures live under `verification/dotnet`, `verification/java`,
+`verification/ruby`, and `verification/php`. The repository test runner uses
+the package-native runtime or a pinned official runtime image and verifies
+valid, modified, stale, replayed, and weak-secret cases before these stacks are
+advertised as maintained.

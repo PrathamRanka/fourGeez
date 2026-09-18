@@ -1,0 +1,30 @@
+[
+  {
+    "stack": "aspnet-core",
+    "evidence": {"Seller.csproj": "<Project Sdk=\"Microsoft.NET.Sdk.Web\"></Project>"},
+    "language": "dotnet",
+    "adapter": "AgentPayVerificationMiddleware",
+    "metadataFragment": "Pages/Storefront.cshtml"
+  },
+  {
+    "stack": "spring-boot",
+    "evidence": {"pom.xml": "<artifactId>spring-boot-starter-web</artifactId>"},
+    "language": "java",
+    "adapter": "AgentPayVerificationFilter",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "rails",
+    "evidence": {"Gemfile": "gem \"rails\", \"8.0.2\""},
+    "language": "ruby",
+    "adapter": "AgentPay::VerificationMiddleware",
+    "metadataFragment": "views/storefront"
+  },
+  {
+    "stack": "laravel",
+    "evidence": {"composer.json": "{\"require\":{\"laravel/framework\":\"12.0.0\"}}"},
+    "language": "php",
+    "adapter": "AgentPayVerificationMiddleware",
+    "metadataFragment": "views/storefront.blade.php"
+  }
+]
