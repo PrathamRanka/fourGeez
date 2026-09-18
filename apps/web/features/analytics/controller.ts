@@ -8,6 +8,8 @@ import type {
 import { authenticatedSellerId } from "@/features/auth/server/authorization";
 import { requestAgentPay } from "@/lib/agentpay-api";
 
+const analyticsWindowMilliseconds = 30 * 24 * 60 * 60 * 1000;
+
 // loadAnalyticsSnapshot starts independent summary and route requests together.
 export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
   const sellerId = await authenticatedSellerId();
@@ -21,11 +23,19 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
     };
   }
   const encodedSellerId = encodeURIComponent(sellerId);
+  const windowEnd = new Date();
+  const windowStart = new Date(windowEnd.getTime() - analyticsWindowMilliseconds);
+  const summaryQuery = new URLSearchParams({
+    from: windowStart.toISOString(),
+    to: windowEnd.toISOString(),
+  });
   const [summaryResult, routeResult] = await Promise.all([
     requestAgentPay<{
       transactionCount: number;
       aggregates: SalesAggregate[];
-    }>(`/v1/sellers/${encodedSellerId}/dashboard-summary`, { method: "GET" }),
+    }>(`/v1/sellers/${encodedSellerId}/dashboard-summary?${summaryQuery}`, {
+      method: "GET",
+    }),
     requestAgentPay<{ items: AnalyticsRoute[] }>(
       `/v1/sellers/${encodedSellerId}/routes`,
       { method: "GET" },

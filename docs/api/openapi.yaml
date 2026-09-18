@@ -1096,8 +1096,8 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
-        - { $ref: '#/components/parameters/TransactionFrom' }
-        - { $ref: '#/components/parameters/TransactionTo' }
+        - { $ref: '#/components/parameters/DashboardFrom' }
+        - { $ref: '#/components/parameters/DashboardTo' }
         - { $ref: '#/components/parameters/TransactionRouteId' }
         - { $ref: '#/components/parameters/TransactionStatus' }
         - { $ref: '#/components/parameters/TransactionAsset' }
@@ -1606,6 +1606,8 @@ components:
     AuditCursor: { name: cursor, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 512 } }
     TransactionFrom: { name: from, in: query, required: false, schema: { type: string, format: date-time } }
     TransactionTo: { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+    DashboardFrom: { name: from, in: query, required: true, description: Inclusive UTC start of the bounded reporting window., schema: { type: string, format: date-time } }
+    DashboardTo: { name: to, in: query, required: true, description: Exclusive UTC end of the bounded reporting window; the interval must not exceed 31 days., schema: { type: string, format: date-time } }
     TransactionRouteId: { name: routeId, in: query, required: false, schema: { type: string, pattern: '^rte_[A-Za-z0-9]+$' } }
     TransactionStatus: { name: status, in: query, required: false, schema: { type: string, enum: [PROPOSED, PAYMENT_REQUIRED, PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] } }
     TransactionAsset: { name: asset, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 160 } }
