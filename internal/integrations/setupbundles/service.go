@@ -3,11 +3,16 @@ package setupbundles
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/fourgeez/agentpay/internal/integrations/stacks"
 )
 
 var (
 	ErrUnsupportedHost      = errors.New("unsupported coding-agent host")
 	ErrUnsupportedFramework = errors.New("unsupported seller framework")
+	ErrUnsupportedStack     = errors.New("unsupported seller stack")
+	ErrStackUnavailable     = errors.New("seller stack does not have a setup package")
 )
 
 const setupPromptTemplate = `Connect this repository to AgentPay using the %s setup bundle and the maintained %s verification package.
@@ -21,6 +26,26 @@ const setupPromptTemplate = `Connect this repository to AgentPay using the %s se
 7. Add focused tests for valid signatures, modified-body rejection, stale requests, replay rejection, and payment gating.
 8. Run the repository's existing checks and this focused command: %s
 9. Present the proposed routes, validation output, complete diff, and commands for review.
+
+Do not invent prices. Do not publish a route, rotate credentials, or deploy production changes without explicit seller confirmation.`
+
+const setupPromptV2Template = `Connect this repository to AgentPay using the %s setup bundle for %s. The current support tier is %s and verification uses %s.
+
+Stack-native conventions:
+%s
+
+1. Read the repository instructions and existing tests before editing.
+2. Detect the stack from committed manifests and reject this requested stack if the evidence conflicts.
+3. Read agentpay://seller, agentpay://routes, and agentpay://integration/setup/v2/%s.
+4. Install the pinned verification package with: %s
+5. Add raw-body AgentPay signature verification before fulfillment and a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware.
+6. Generate storefront and product pages using the selected stack's native routing, rendering, metadata, robots, and sitemap conventions.
+7. Generate truthful title and description metadata, canonical URLs, Open Graph metadata, semantic product content, visible-fact-backed JSON-LD, robots directives, sitemap output, llms.txt, and an AgentPay manifest that agree on every published route.
+8. Add focused signature, stale-request, replay, payment-gating, sandbox, metadata, accessibility, performance, llms.txt, and manifest-consistency tests.
+9. Run the repository's existing checks and this focused command: %s
+10. Present route proposals, generated SEO/AEO assets, validation output, complete diff, and commands for seller review.
+
+SEO/AEO work can improve crawlability and machine discovery but cannot guarantee ranking, traffic, or conversion. Do not create hidden text, keyword stuffing, doorway pages, fabricated reviews, unsupported structured data, or claims absent from visible content.
 
 Do not invent prices. Do not publish a route, rotate credentials, or deploy production changes without explicit seller confirmation.`
 
@@ -50,6 +75,25 @@ func (service *Service) Bundle(host Host) (Bundle, error) {
 	}, nil
 }
 
+// BundleV2 returns the stack-aware setup contract for one supported host.
+func (service *Service) BundleV2(host Host) (BundleV2, error) {
+	configuration, err := configurationForHost(host)
+	if err != nil {
+		return BundleV2{}, err
+	}
+	return BundleV2{
+		SchemaVersion:                  SchemaVersionV2,
+		Host:                           host,
+		MCPEndpointEnvironmentVariable: MCPEndpointEnvironmentVariable,
+		CredentialEnvironmentVariable:  CredentialEnvironmentVariable,
+		Configuration:                  configuration,
+		Stacks:                         stackSetups(),
+		Workflow:                       workflowStepsV2(),
+		GenerationRequirements:         generationRequirements(),
+		Prompt:                         bundlePromptV2(),
+	}, nil
+}
+
 // Prompt selects one host and framework workflow for an MCP prompt request.
 func (service *Service) Prompt(host Host, framework Framework) (string, error) {
 	if _, err := configurationForHost(host); err != nil {
@@ -63,6 +107,29 @@ func (service *Service) Prompt(host Host, framework Framework) (string, error) {
 		setupPromptTemplate,
 		host,
 		frameworkSetup.Package,
+		frameworkSetup.InstallCommand,
+		frameworkSetup.TestCommand,
+	), nil
+}
+
+// PromptV2 selects one host and detected-stack integration workflow.
+func (service *Service) PromptV2(host Host, stackName string) (string, error) {
+	if _, err := configurationForHost(host); err != nil {
+		return "", err
+	}
+	stackSetup, err := stackSetupFor(stacks.Stack(stackName))
+	if err != nil {
+		return "", err
+	}
+	frameworkSetup := *stackSetup.Verification
+	return fmt.Sprintf(
+		setupPromptV2Template,
+		host,
+		stackSetup.DisplayName,
+		stackSetup.Tier,
+		frameworkSetup.Package,
+		"- "+strings.Join(stackSetup.IntegrationNotes, "\n- "),
+		host,
 		frameworkSetup.InstallCommand,
 		frameworkSetup.TestCommand,
 	), nil
@@ -164,6 +231,156 @@ func workflowSteps() []string {
 		"Run focused tests and the repository's existing quality checks.",
 		"Present route proposals, validation output, diff, and commands for review.",
 	}
+}
+
+// workflowStepsV2 returns the stack-aware integration sequence.
+func workflowStepsV2() []string {
+	return []string{
+		"Read repository instructions and inspect existing code and tests.",
+		"Detect the stack from committed manifests and verify the selected stack.",
+		"Read authenticated seller, route, and version-two setup resources.",
+		"Install the maintained language verification package.",
+		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint.",
+		"Generate stack-native storefront, technical SEO, AEO, and agent-discovery assets.",
+		"Add signature, sandbox, SEO, accessibility, performance, and consistency tests.",
+		"Run focused tests and the repository's existing quality checks.",
+		"Present route proposals, validation output, generated assets, diff, and commands for review.",
+	}
+}
+
+// generationRequirements returns deterministic v2 output categories.
+func generationRequirements() []string {
+	return []string{
+		"Stack-native title, description, canonical, Open Graph, and social metadata.",
+		"Public robots directives and sitemap entries for visible product pages.",
+		"Semantic visible product content and truthful JSON-LD supported by page facts.",
+		"Consistent llms.txt and AgentPay storefront manifest route discovery.",
+		"Keyboard accessibility, semantic landmarks, labels, and error descriptions.",
+		"performance budgets for page weight, blocking scripts, and primary content rendering.",
+	}
+}
+
+// stackSetups returns package and generation guidance in matrix order.
+func stackSetups() []StackSetup {
+	matrix := stacks.NewService().Matrix()
+	setups := make([]StackSetup, 0, len(matrix))
+	for _, entry := range matrix {
+		framework, available := frameworkForStack(entry.Stack)
+		var verification *FrameworkSetup
+		if available {
+			frameworkSetup, err := frameworkSetupFor(framework)
+			if err == nil {
+				verification = &frameworkSetup
+			}
+		}
+		setups = append(setups, StackSetup{
+			Stack:            entry.Stack,
+			DisplayName:      entry.DisplayName,
+			Tier:             entry.Tier,
+			Verification:     verification,
+			IntegrationNotes: integrationNotesForStack(entry.Stack),
+		})
+	}
+	return setups
+}
+
+// stackSetupFor returns one selectable stack setup.
+func stackSetupFor(stack stacks.Stack) (StackSetup, error) {
+	for _, stackSetup := range stackSetups() {
+		if stackSetup.Stack != stack {
+			continue
+		}
+		if stackSetup.Tier == stacks.SupportTierUnsupported ||
+			stackSetup.Verification == nil {
+			return StackSetup{}, ErrStackUnavailable
+		}
+		return stackSetup, nil
+	}
+	return StackSetup{}, ErrUnsupportedStack
+}
+
+// frameworkForStack maps supported stacks to maintained language primitives.
+func frameworkForStack(stack stacks.Stack) (Framework, bool) {
+	switch stack {
+	case stacks.StackGoNetHTTP, stacks.StackGin, stacks.StackEcho, stacks.StackFiber:
+		return FrameworkGo, true
+	case stacks.StackFastAPI, stacks.StackStarlette, stacks.StackFlask, stacks.StackDjango:
+		return FrameworkPython, true
+	case stacks.StackASPNetCore, stacks.StackSpringBoot, stacks.StackRails, stacks.StackLaravel:
+		return "", false
+	default:
+		return FrameworkNode, true
+	}
+}
+
+// integrationNotesForStack returns rendering and discovery conventions.
+func integrationNotesForStack(stack stacks.Stack) []string {
+	switch stack {
+	case stacks.StackNextJS:
+		return []string{
+			"Use the Next.js metadata API and canonical alternates.",
+			"Generate app/robots.ts and app/sitemap.ts from published routes.",
+		}
+	case stacks.StackReactVite:
+		return []string{
+			"Render route-specific document head metadata.",
+			"Emit public robots.txt, sitemap.xml, llms.txt, and manifest assets.",
+		}
+	case stacks.StackRemix:
+		return []string{
+			"Use route meta and links exports.",
+			"Expose robots, sitemap, llms.txt, and manifest through resource routes.",
+		}
+	case stacks.StackNuxt:
+		return []string{
+			"Use useSeoMeta and useHead for visible route facts.",
+			"Generate server routes for robots, sitemap, llms.txt, and manifest.",
+		}
+	case stacks.StackSvelteKit:
+		return []string{
+			"Use route load data and svelte:head metadata.",
+			"Generate +server routes for discovery documents.",
+		}
+	case stacks.StackAstro:
+		return []string{
+			"Generate canonical head metadata in page layouts.",
+			"Use Astro routes or integrations for sitemap and discovery documents.",
+		}
+	case stacks.StackExpress, stacks.StackFastify, stacks.StackNestJS:
+		return []string{
+			"Preserve raw request bytes before body parsing.",
+			"Serve rendered product metadata and public discovery documents from explicit routes.",
+		}
+	case stacks.StackGoNetHTTP, stacks.StackGin, stacks.StackEcho, stacks.StackFiber:
+		return []string{
+			"Verify the raw request body before fulfillment handlers.",
+			"Serve semantic templates and deterministic discovery endpoints.",
+		}
+	case stacks.StackFastAPI, stacks.StackStarlette:
+		return []string{
+			"Verify and replay the ASGI receive body before route handling.",
+			"Serve semantic templates and deterministic discovery endpoints.",
+		}
+	case stacks.StackFlask, stacks.StackDjango:
+		return []string{
+			"Verify request bytes before business side effects.",
+			"Use framework templates and explicit discovery routes.",
+		}
+	default:
+		return []string{
+			"A dedicated verification package and fixture are required before this stack can be advertised.",
+		}
+	}
+}
+
+// bundlePromptV2 returns host-neutral SEO and publication safety guidance.
+func bundlePromptV2() string {
+	return strings.Join([]string{
+		"Prepare this repository for AgentPay using the detected stack and maintained language verification package.",
+		"Generate stack-native storefront pages, truthful technical SEO, AEO, llms.txt, and manifest output with focused accessibility and performance tests.",
+		"Generated changes cannot guarantee ranking and must not use hidden or fabricated content.",
+		"Do not invent prices, publish routes, rotate credentials, or deploy production changes without explicit seller confirmation.",
+	}, " ")
 }
 
 // bundlePrompt returns host-neutral safety and integration instructions.

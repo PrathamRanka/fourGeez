@@ -96,6 +96,24 @@ func (service *Service) Resources() []ResourceDescriptor {
 			Description: "Versioned generic Streamable HTTP setup bundle",
 			MIMEType:    JSONMIMEType,
 		},
+		{
+			URI:         ClaudeCodeSetupV2ResourceURI,
+			Name:        "claude-code-setup-v2",
+			Description: "Stack-aware Claude Code setup with SEO, AEO, and agent discovery",
+			MIMEType:    JSONMIMEType,
+		},
+		{
+			URI:         CodexSetupV2ResourceURI,
+			Name:        "codex-setup-v2",
+			Description: "Stack-aware Codex setup with SEO, AEO, and agent discovery",
+			MIMEType:    JSONMIMEType,
+		},
+		{
+			URI:         GenericMCPSetupV2ResourceURI,
+			Name:        "generic-mcp-setup-v2",
+			Description: "Stack-aware generic MCP setup with SEO, AEO, and agent discovery",
+			MIMEType:    JSONMIMEType,
+		},
 	}
 }
 
@@ -126,6 +144,12 @@ func (service *Service) Read(
 		return service.readSetupBundle(uri, setupbundles.HostCodex)
 	case GenericMCPSetupResourceURI:
 		return service.readSetupBundle(uri, setupbundles.HostGenericMCP)
+	case ClaudeCodeSetupV2ResourceURI:
+		return service.readSetupBundleV2(uri, setupbundles.HostClaudeCode)
+	case CodexSetupV2ResourceURI:
+		return service.readSetupBundleV2(uri, setupbundles.HostCodex)
+	case GenericMCPSetupV2ResourceURI:
+		return service.readSetupBundleV2(uri, setupbundles.HostGenericMCP)
 	default:
 		return ResourceDocument{}, ErrResourceNotFound
 	}
@@ -133,10 +157,22 @@ func (service *Service) Read(
 
 // SetupPrompt returns a framework-specific integration workflow.
 func (service *Service) SetupPrompt(host string, framework string) (string, error) {
-	return service.setupBundles.Prompt(
+	return service.setupBundles.PromptV2(
 		setupbundles.Host(host),
-		setupbundles.Framework(framework),
+		framework,
 	)
+}
+
+// readSetupBundleV2 serializes one stack-aware host bundle as an MCP resource.
+func (service *Service) readSetupBundleV2(
+	uri string,
+	host setupbundles.Host,
+) (ResourceDocument, error) {
+	bundle, err := service.setupBundles.BundleV2(host)
+	if err != nil {
+		return ResourceDocument{}, err
+	}
+	return jsonResource(uri, bundle)
 }
 
 // readSetupBundle serializes one fixed host bundle as an MCP resource.

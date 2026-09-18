@@ -1,7 +1,10 @@
 package setupbundles
 
+import "github.com/fourgeez/agentpay/internal/integrations/stacks"
+
 const (
 	SchemaVersionV1                = "agentpay.setup.v1"
+	SchemaVersionV2                = "agentpay.setup.v2"
 	MCPEndpointEnvironmentVariable = "AGENTPAY_MCP_URL"
 	CredentialEnvironmentVariable  = "AGENTPAY_INTEGRATION_TOKEN"
 	verificationPackageVersion     = "0.1.0"
@@ -40,6 +43,15 @@ type FrameworkSetup struct {
 	TestCommand    string    `json:"testCommand"`
 }
 
+// StackSetup describes the package and stack-native generation conventions.
+type StackSetup struct {
+	Stack            stacks.Stack       `json:"stack"`
+	DisplayName      string             `json:"displayName"`
+	Tier             stacks.SupportTier `json:"tier"`
+	Verification     *FrameworkSetup    `json:"verification,omitempty"`
+	IntegrationNotes []string           `json:"integrationNotes"`
+}
+
 // Bundle is one deterministic, credential-free coding-agent setup contract.
 type Bundle struct {
 	SchemaVersion                  string           `json:"schemaVersion"`
@@ -50,4 +62,17 @@ type Bundle struct {
 	Frameworks                     []FrameworkSetup `json:"frameworks"`
 	Workflow                       []string         `json:"workflow"`
 	Prompt                         string           `json:"prompt"`
+}
+
+// BundleV2 is the stack-aware SEO, AEO, and agent-discovery setup contract.
+type BundleV2 struct {
+	SchemaVersion                  string        `json:"schemaVersion"`
+	Host                           Host          `json:"host"`
+	MCPEndpointEnvironmentVariable string        `json:"mcpEndpointEnvironmentVariable"`
+	CredentialEnvironmentVariable  string        `json:"credentialEnvironmentVariable"`
+	Configuration                  Configuration `json:"configuration"`
+	Stacks                         []StackSetup  `json:"stacks"`
+	Workflow                       []string      `json:"workflow"`
+	GenerationRequirements         []string      `json:"generationRequirements"`
+	Prompt                         string        `json:"prompt"`
 }

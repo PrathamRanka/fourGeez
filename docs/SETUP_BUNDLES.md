@@ -1,6 +1,6 @@
 # Coding-agent setup bundle contract
 
-Status: **Locked for AUT-007; setup bundle v2 is planned in SEO-002**.
+Status: **Locked through SEO-002**.
 
 AgentPay publishes deterministic setup bundles for Claude Code, Codex, and
 generic Model Context Protocol hosts. Bundle schema versions are independent
@@ -17,6 +17,9 @@ The authenticated MCP server exposes these read-only resources:
 | Claude Code | `agentpay://integration/setup/v1/claude-code` |
 | Codex | `agentpay://integration/setup/v1/codex` |
 | Generic MCP | `agentpay://integration/setup/v1/generic-mcp` |
+| Claude Code v2 | `agentpay://integration/setup/v2/claude-code` |
+| Codex v2 | `agentpay://integration/setup/v2/codex` |
+| Generic MCP v2 | `agentpay://integration/setup/v2/generic-mcp` |
 
 Version 2 resources use the same host names under
 `agentpay://integration/setup/v2/<host>`. Version 1 remains readable until all
@@ -33,8 +36,11 @@ Each JSON resource contains:
 - the ordered integration workflow; and
 - the prompt used to prepare a reviewable seller-repository change.
 
-Version 2 additionally contains the detected stack, support tier, stack-native
-integration notes, and the required SEO/AEO validation checklist.
+Version 2 additionally contains the complete explicit stack matrix, each
+stack's support tier, pinned language verification setup when available,
+stack-native integration notes, and the required SEO/AEO validation checklist.
+Unsupported stacks remain visible in the matrix but have no verification setup
+and cannot be selected by the setup prompt.
 
 Templates may contain `${AGENTPAY_MCP_URL}` and
 `${AGENTPAY_INTEGRATION_TOKEN}` references. They never contain a resolved

@@ -252,8 +252,8 @@ func (controller *HTTPController) registerSetupPrompt(
 					Required:    true,
 				},
 				{
-					Name:        "framework",
-					Description: "go, node, or python",
+					Name:        "stack",
+					Description: "detected stack identifier from the version-two support matrix",
 					Required:    true,
 				},
 			},
@@ -267,7 +267,7 @@ func (controller *HTTPController) registerSetupPrompt(
 			}
 			prompt, err := controller.resourceService.SetupPrompt(
 				request.Params.Arguments["host"],
-				request.Params.Arguments["framework"],
+				request.Params.Arguments["stack"],
 			)
 			if err != nil {
 				return nil, err

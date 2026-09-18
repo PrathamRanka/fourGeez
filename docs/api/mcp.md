@@ -1,6 +1,6 @@
 # AgentPay MCP contract
 
-Status: **Locked through AUT-007**.
+Status: **Locked through SEO-002**.
 
 AgentPay exposes the official Model Context Protocol `2026-07-28` over
 stateless Streamable HTTP at `POST /mcp`. Requests and responses use the
@@ -38,6 +38,9 @@ URIs never accept a caller-supplied seller identifier.
 | `agentpay://integration/setup/v1/claude-code` | `application/json` | Claude Code project configuration and AgentPay integration workflow |
 | `agentpay://integration/setup/v1/codex` | `application/json` | Codex project configuration and AgentPay integration workflow |
 | `agentpay://integration/setup/v1/generic-mcp` | `application/json` | Host-neutral Streamable HTTP configuration and AgentPay integration workflow |
+| `agentpay://integration/setup/v2/claude-code` | `application/json` | Claude Code configuration, stack matrix, verification setup, and SEO/AEO generation requirements |
+| `agentpay://integration/setup/v2/codex` | `application/json` | Codex configuration, stack matrix, verification setup, and SEO/AEO generation requirements |
+| `agentpay://integration/setup/v2/generic-mcp` | `application/json` | Host-neutral configuration, stack matrix, verification setup, and SEO/AEO generation requirements |
 
 The transaction summary excludes buyer identity, payment identifiers, payment
 proof hashes, response bodies, evidence payloads, and seller secrets.
@@ -47,12 +50,18 @@ unrestricted HTTP requests.
 
 ## Setup prompt
 
-The version-one read-scoped `prepare_agentpay_integration` prompt requires
-`host` and `framework`. SEO-002 introduces version two with `host` and `stack`,
-repository-manifest verification, the support tiers in `SETUP_BUNDLES.md`, and
-stack-native SEO/AEO generation. Both versions select a pinned verification
-package, direct the coding agent to produce tests and a reviewable diff, and
-preserve publication and deployment confirmation boundaries.
+The read-scoped `prepare_agentpay_integration` prompt now requires `host` and
+`stack`. It selects setup bundle v2, includes the stack's support tier,
+stack-native routing and metadata conventions, and pins the maintained language
+verification package. Unknown and unsupported stacks fail closed. Version-one
+resources remain readable for existing clients, but new prompt invocations use
+version two.
+
+The prompt requires technical SEO, AEO, semantic visible content, truthful
+JSON-LD, canonical URLs, robots and sitemap output, `llms.txt`, AgentPay
+manifest consistency, accessibility checks, and performance budgets. It also
+states that these changes cannot guarantee ranking and prohibits hidden or
+fabricated search content.
 
 ## Mutation tools
 

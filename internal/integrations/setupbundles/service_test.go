@@ -174,3 +174,67 @@ func TestServiceRejectsUnsupportedSelections(t *testing.T) {
 		t.Fatalf("Prompt() error = %v, want ErrUnsupportedFramework", err)
 	}
 }
+
+// TestServicePublishesStackAwareVersionTwoBundles verifies SEO and discovery instructions.
+func TestServicePublishesStackAwareVersionTwoBundles(t *testing.T) {
+	t.Parallel()
+
+	service := NewService()
+	for _, host := range []Host{HostClaudeCode, HostCodex, HostGenericMCP} {
+		bundle, err := service.BundleV2(host)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bundle.SchemaVersion != SchemaVersionV2 || len(bundle.Stacks) != 21 {
+			t.Fatalf("bundle = %#v", bundle)
+		}
+		if bundle.Stacks[0].Stack != "nextjs" ||
+			!strings.Contains(strings.Join(bundle.Stacks[0].IntegrationNotes, "\n"), "metadata API") {
+			t.Fatalf("Next.js stack setup = %#v", bundle.Stacks[0])
+		}
+		for _, requirement := range []string{
+			"canonical",
+			"robots",
+			"sitemap",
+			"JSON-LD",
+			"llms.txt",
+			"accessibility",
+			"performance",
+		} {
+			if !strings.Contains(strings.Join(bundle.GenerationRequirements, "\n"), requirement) {
+				t.Fatalf("bundle omitted %q", requirement)
+			}
+		}
+	}
+}
+
+// TestServiceSelectsVersionTwoStackPrompt verifies stack-native and safety guidance.
+func TestServiceSelectsVersionTwoStackPrompt(t *testing.T) {
+	t.Parallel()
+
+	prompt, err := NewService().PromptV2(HostCodex, "nextjs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		"Next.js",
+		"planned",
+		"app/robots.ts",
+		"metadata",
+		"canonical",
+		"robots",
+		"sitemap",
+		"JSON-LD",
+		"llms.txt",
+		"manifest",
+		"cannot guarantee ranking",
+		"Do not publish",
+	} {
+		if !strings.Contains(prompt, fragment) {
+			t.Fatalf("prompt omitted %q: %s", fragment, prompt)
+		}
+	}
+	if _, err := NewService().PromptV2(HostCodex, "unknown"); !errors.Is(err, ErrUnsupportedStack) {
+		t.Fatalf("PromptV2() error = %v", err)
+	}
+}

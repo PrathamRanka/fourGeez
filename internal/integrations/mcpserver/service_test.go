@@ -96,6 +96,24 @@ func TestServiceReadsSellerScopedResources(t *testing.T) {
 			contains: []string{"agentpay.setup.v1", "streamable-http", "tokenEnvironmentVariable"},
 			excludes: []string{"integration_test_token"},
 		},
+		{
+			name:     "Claude Code setup bundle v2",
+			uri:      ClaudeCodeSetupV2ResourceURI,
+			mimeType: JSONMIMEType,
+			contains: []string{`"schemaVersion":"agentpay.setup.v2"`},
+		},
+		{
+			name:     "Codex setup bundle v2",
+			uri:      CodexSetupV2ResourceURI,
+			mimeType: JSONMIMEType,
+			contains: []string{`"schemaVersion":"agentpay.setup.v2"`},
+		},
+		{
+			name:     "generic MCP setup bundle v2",
+			uri:      GenericMCPSetupV2ResourceURI,
+			mimeType: JSONMIMEType,
+			contains: []string{`"schemaVersion":"agentpay.setup.v2"`},
+		},
 	}
 
 	for _, testCase := range testCases {

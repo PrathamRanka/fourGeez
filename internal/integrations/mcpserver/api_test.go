@@ -52,8 +52,8 @@ func TestHTTPControllerServesAuthenticatedResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Resources) != 8 {
-		t.Fatalf("resource count = %d, want 8", len(listed.Resources))
+	if len(listed.Resources) != 11 {
+		t.Fatalf("resource count = %d, want 11", len(listed.Resources))
 	}
 	read, err := session.ReadResource(
 		t.Context(),
@@ -168,8 +168,8 @@ func TestHTTPControllerPublishesSetupPrompt(t *testing.T) {
 		&protocol.GetPromptParams{
 			Name: SetupPromptName,
 			Arguments: map[string]string{
-				"host":      "claude-code",
-				"framework": "node",
+				"host":  "claude-code",
+				"stack": "express",
 			},
 		},
 	)
@@ -184,8 +184,12 @@ func TestHTTPControllerPublishesSetupPrompt(t *testing.T) {
 		t.Fatalf("prompt content = %T, want *mcp.TextContent", result.Messages[0].Content)
 	}
 	for _, fragment := range []string{
+		"Express",
 		"@agentpay/verify-node",
 		"npm test",
+		"canonical",
+		"llms.txt",
+		"cannot guarantee ranking",
 		"explicit seller confirmation",
 	} {
 		if !strings.Contains(content.Text, fragment) {
