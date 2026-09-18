@@ -22,11 +22,18 @@ export default function SignUpPage() {
         </div>
         <div>
           <p>
-            You will create a project, verify a payment destination, connect your coding agent, and
-            approve every generated route before it becomes purchasable.
+            You will create a project, verify a payment destination, connect
+            your coding agent, and approve every generated route before it
+            becomes purchasable.
           </p>
-          <Link href="/docs" className={buttonVariants({ size: "lg", className: "mt-6 h-11 px-4" })}>
-            See how setup works
+          <Link
+            href="/dashboard/onboarding"
+            className={buttonVariants({
+              size: "lg",
+              className: "mt-6 h-11 px-4",
+            })}
+          >
+            Start seller setup
           </Link>
         </div>
       </div>

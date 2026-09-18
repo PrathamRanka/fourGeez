@@ -1,0 +1,27 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
+
+type ApplicationShellProps = {
+  children: ReactNode;
+};
+
+// ApplicationShell keeps public navigation out of the authenticated dashboard workspace.
+export function ApplicationShell({ children }: ApplicationShellProps) {
+  const pathname = usePathname();
+
+  if (pathname.startsWith("/dashboard")) {
+    return children;
+  }
+
+  return (
+    <>
+      <SiteHeader />
+      {children}
+      <SiteFooter />
+    </>
+  );
+}

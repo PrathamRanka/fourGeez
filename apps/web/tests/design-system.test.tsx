@@ -66,4 +66,14 @@ describe("AgentPay web foundation", () => {
     expect(stylesheet).toContain("@media (prefers-reduced-motion: reduce)");
     expect(stylesheet).toContain(":focus-visible");
   });
+
+  it("contains the dashboard navigation inside narrow viewports", () => {
+    const stylesheet = readFileSync(
+      path.resolve(process.cwd(), "app/globals.css"),
+      "utf8",
+    );
+
+    expect(stylesheet).toContain("max-width: 100vw");
+    expect(stylesheet).not.toContain("min-width: 31rem");
+  });
 });

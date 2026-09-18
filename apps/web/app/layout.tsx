@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { SiteFooter } from "@/components/site/site-footer";
-import { SiteHeader } from "@/components/site/site-header";
+import { ApplicationShell } from "@/components/site/application-shell";
 import "./globals.css";
 
 const themeInitializationScript = `
@@ -35,9 +34,7 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+        <ApplicationShell>{children}</ApplicationShell>
       </body>
     </html>
   );
