@@ -179,6 +179,22 @@ The channel is presentation and payment-rail metadata. It does not create separa
 Card checkout is deferred to H1. Selecting a provider later must not change the
 authoritative intent, fulfillment, evidence, receipt, or dispute domains.
 
+### Web route ownership
+
+- `/` and the public information routes explain AgentPay.
+- `/dashboard/*` is an authenticated seller workspace. Seller identity comes
+  from the authenticated principal, never from a query parameter.
+- `/store/{sellerSlug}` is the public catalog for one seller.
+- `/store/{sellerSlug}/products/{productSlug}` is one public product and the
+  human checkout entry point.
+- `/demo/agent-checkout` is an educational and testable agent-channel flow. It
+  is not a buyer account, a separate marketplace, or an authorization boundary.
+
+The existing route-ID product URL is retained only as a migration-compatible
+redirect until the product-slug API contract is implemented. Public navigation
+uses seller and product slugs; internal services continue to use immutable IDs
+for ownership and persistence.
+
 ## Purchase lifecycle
 
 1. The buyer reads the seller manifest.

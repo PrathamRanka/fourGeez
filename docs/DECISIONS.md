@@ -40,6 +40,8 @@ access, and data lifecycle before dependent code is implemented.
 | ADR-023 | Treat AgentPay transaction, reconciliation, evidence, and aggregate records as the dashboard source of truth; the seller coding agent is setup-time tooling, not a runtime sales reporter. | Sales remain visible when the coding agent is disconnected and can be isolated by seller. |
 | ADR-024 | Generate technical SEO, AEO, and agent-discovery assets through setup bundles, but never promise rankings or generate deceptive content. | Search placement is controlled by external systems; AgentPay can improve discoverability and correctness only. |
 | ADR-025 | Publish an explicit tested-stack matrix. A stack is advertised as supported only after its integration recipe and focused fixture pass. | Language-level verification primitives do not prove framework-level raw-body, middleware-order, routing, or rendering compatibility. |
+| ADR-026 | Use the seller storefront as the V1 human buyer experience and reserve `/demo/agent-checkout` for the visible agent-channel demonstration. | Avoids an unexplained buyer account area and keeps browser and agent purchases on one commerce pipeline. |
+| ADR-027 | Use `/store/{sellerSlug}` for one seller and `/store/{sellerSlug}/products/{productSlug}` for one public product while retaining immutable internal IDs behind the route. | Gives people and agents readable canonical URLs without using mutable slugs as authorization or persistence identity. |
 
 ## Hackathon assumptions
 

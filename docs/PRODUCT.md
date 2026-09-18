@@ -43,6 +43,30 @@ remain fast, accessible, usable without animation, and truthful. It must never
 claim guaranteed search ranking, guaranteed revenue, automatic production
 deployment without consent, or support for a payment rail that is not enabled.
 
+## Product surfaces and route meaning
+
+The V1 information architecture has four distinct surfaces:
+
+- the public AgentPay website explains the platform before account creation;
+- the authenticated seller dashboard owns onboarding, products, storefront
+  publication, transactions, evidence, billing, and operations;
+- `/store/{sellerSlug}` is one seller's public storefront containing all of
+  that seller's published products; and
+- `/store/{sellerSlug}/products/{productSlug}` is the canonical public page for
+  one product.
+
+Human buyers purchase from storefront product pages and do not require a
+general AgentPay buyer account in V1. Software agents discover products through
+the central AgentPay directory, signed storefront manifests, `llms.txt`, MCP or
+API resources, and paid URLs. The interactive agent demonstration lives at
+`/demo/agent-checkout`; it explains and exercises the agent channel but is not
+the authoritative discovery registry or a separate commerce pipeline.
+
+Internal identifiers such as `sellerId` and `routeId` are never used as public
+navigation labels. The current route-ID product URL remains a compatibility
+path only until LCH-003 and LCH-004 introduce the product-slug wire contract and
+redirect behavior.
+
 ## Initial product scope
 
 The first commercial scope is API-backed and digitally fulfilled products:
@@ -127,6 +151,10 @@ and may complete an x402-compatible wallet payment through browser instructions
 or a supported wallet flow. Agent and browser purchases enter the same intent,
 transaction, evidence, receipt, fulfillment, and dispute pipeline. Card checkout
 is deferred and is not required for the agent-first release.
+
+The public storefront is the browser buyer experience. A separate `/buyer`
+account area is not part of V1. Agent-specific interaction is demonstrated at
+`/demo/agent-checkout` and uses the same authoritative commerce services.
 
 ## Unified commerce rule
 
