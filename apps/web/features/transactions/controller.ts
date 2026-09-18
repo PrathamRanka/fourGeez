@@ -50,3 +50,15 @@ export async function loadTransactionDetail(
     error: deliveryResult.ok ? undefined : deliveryResult.error,
   };
 }
+
+// loadTransactionEvidenceValidity reads only the transaction evidence needed by dispute detail.
+export async function loadTransactionEvidenceValidity(
+  transactionId: string,
+): Promise<boolean | null> {
+  const result = await requestAgentPay<
+    Pick<TransactionDetailSnapshot, "evidence">
+  >(`/v1/transactions/${encodeURIComponent(transactionId)}`, {
+    method: "GET",
+  });
+  return result.ok ? result.value.evidence.valid : null;
+}

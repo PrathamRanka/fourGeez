@@ -13,6 +13,8 @@ import {
   webhookDeliveryStatusLabel,
 } from "@/features/transactions/model";
 import { formatAtomicPrice } from "@/lib/money";
+import type { DisputeAction } from "@/features/disputes/model";
+import { DisputePanel } from "@/features/disputes/view/dispute-workspace";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -22,10 +24,11 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 
 type TransactionDetailProps = {
   snapshot: TransactionDetailSnapshot;
+  createDispute?: DisputeAction;
 };
 
 // TransactionDetail presents payment, fulfillment, evidence, delivery, and receipt facts.
-export function TransactionDetail({ snapshot }: TransactionDetailProps) {
+export function TransactionDetail({ snapshot, createDispute }: TransactionDetailProps) {
   const { transaction, evidence } = snapshot;
   return (
     <div className="transaction-detail-workspace">
@@ -188,6 +191,15 @@ export function TransactionDetail({ snapshot }: TransactionDetailProps) {
           </div>
         )}
       </section>
+      {createDispute ? (
+        <DisputePanel
+          sellerId={snapshot.sellerId}
+          transactionId={transaction.transactionId}
+          transactionStatus={transaction.status}
+          evidenceValid={evidence.valid}
+          createDispute={createDispute}
+        />
+      ) : null}
     </div>
   );
 }

@@ -3367,6 +3367,190 @@
     height: 0.85rem;
   }
 
+  .dispute-panel,
+  .dispute-outcome {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+  }
+
+  .dispute-panel > header,
+  .dispute-outcome > header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.1rem;
+  }
+
+  .dispute-panel > header > svg,
+  .dispute-outcome > header > svg {
+    width: 1rem;
+    height: 1rem;
+    color: var(--muted-foreground);
+  }
+
+  .dispute-panel > header > div,
+  .dispute-outcome > header > div {
+    min-width: 0;
+    margin-right: auto;
+  }
+
+  .dispute-panel h2,
+  .dispute-outcome h2 {
+    font-family: var(--font-display);
+    font-size: 1rem;
+  }
+
+  .dispute-panel header p,
+  .dispute-outcome header p {
+    margin-top: 0.18rem;
+    color: var(--muted-foreground);
+    font-size: 0.66rem;
+  }
+
+  .dispute-evidence-badge {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    background: oklch(0.94 0.055 157);
+    padding: 0.4rem 0.55rem;
+    color: oklch(0.4 0.12 157);
+    font-size: 0.61rem;
+    font-weight: 650;
+  }
+
+  .dispute-evidence-badge[data-valid="false"] {
+    background: oklch(0.95 0.045 28);
+    color: oklch(0.45 0.16 28);
+  }
+
+  .dispute-evidence-badge svg {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
+  .dispute-panel form {
+    display: grid;
+    gap: 1rem;
+    padding: 1.1rem;
+  }
+
+  .dispute-panel label {
+    display: grid;
+    gap: 0.4rem;
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+
+  .dispute-panel select,
+  .dispute-panel textarea {
+    width: 100%;
+    border: 1px solid var(--input);
+    border-radius: 0.6rem;
+    background: var(--background);
+    padding: 0.75rem;
+    color: var(--foreground);
+  }
+
+  .dispute-panel textarea {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
+  .dispute-disabled-copy,
+  .dispute-error {
+    font-size: 0.7rem;
+  }
+
+  .dispute-disabled-copy {
+    color: var(--muted-foreground);
+  }
+
+  .dispute-error {
+    color: var(--destructive);
+  }
+
+  .dispute-explanation {
+    padding: 1.25rem 1.1rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.45;
+  }
+
+  .dispute-outcome dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--border);
+  }
+
+  .dispute-outcome dl > div {
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0.85rem 1.1rem;
+  }
+
+  .dispute-outcome dl > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .dispute-outcome dt {
+    color: var(--muted-foreground);
+    font-size: 0.62rem;
+  }
+
+  .dispute-outcome dd {
+    margin-top: 0.3rem;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dispute-outcome blockquote {
+    margin: 1.1rem;
+    border-left: 2px solid var(--foreground);
+    padding-left: 0.85rem;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1.55;
+  }
+
+  .dispute-outcome > a {
+    margin: 0 1.1rem 1.1rem;
+  }
+
+  .dispute-detail-workspace {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .dispute-detail-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .dispute-detail-header h1 {
+    margin-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 3vw, 2.3rem);
+    letter-spacing: -0.04em;
+  }
+
+  .dispute-detail-header p:last-child {
+    margin-top: 0.45rem;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+  }
+
 }
 
 @keyframes hero-enter {
@@ -3792,6 +3976,26 @@
 
   .approval-intent-facts > div:last-child {
     border-bottom: 0;
+  }
+
+  .dispute-panel > header,
+  .dispute-outcome > header,
+  .dispute-detail-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dispute-evidence-badge {
+    white-space: normal;
+  }
+
+  .dispute-outcome dl {
+    grid-template-columns: 1fr;
+  }
+
+  .dispute-outcome dl > div,
+  .dispute-outcome dl > div:nth-child(2n) {
+    border-right: 0;
   }
 
   .product-detail-heading > div:last-child {
