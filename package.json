@@ -8,6 +8,7 @@
     "verification/node"
   ],
   "scripts": {
+    "dev:local": "node scripts/dev-local.mjs",
     "dev:web": "npm run dev --workspace @agentpay/web",
     "dev:api": "go run ./cmd/api",
     "dev:seller": "go run ./examples/demo-seller",
@@ -21,7 +22,8 @@
     "lint:web": "npm run lint --workspace @agentpay/web",
     "lint:go": "node scripts/go-tool.mjs vet ./cmd/... ./internal/... ./examples/... ./verification/go",
     "lint:contracts": "redocly lint docs/api/openapi.yaml && node scripts/validate-asyncapi.mjs",
-    "test": "npm run test:web && npm run test:go && npm run test:verification",
+    "test": "npm run test:dev-local && npm run test:web && npm run test:go && npm run test:verification",
+    "test:dev-local": "node --test scripts/dev-local.test.mjs",
     "test:web": "npm run test --workspace @agentpay/web",
     "test:go": "node scripts/go-tool.mjs test ./cmd/... ./internal/... ./examples/... ./verification/go",
     "test:verification": "npm run test --workspace @agentpay/verify-node && node scripts/run-python-verification-tests.mjs && npm run test:verification:extended",

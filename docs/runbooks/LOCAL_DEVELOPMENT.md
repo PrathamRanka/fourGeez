@@ -1,0 +1,31 @@
+# Local development runtime
+
+Run the complete disposable local process graph from the repository root:
+
+```powershell
+npm run dev:local
+```
+
+The launcher starts and supervises:
+
+- Next.js at `http://localhost:3000`;
+- the real Go API and approval WebSocket transport at `http://127.0.0.1:8080`;
+- the demo seller at `http://127.0.0.1:8090`; and
+- the local mock facilitator at `http://127.0.0.1:8091`.
+
+The Go API uses in-memory repositories, mock payment behavior, ephemeral local
+credentials, and the explicitly labeled deterministic buyer fallback. The
+launcher prints the verified URLs only after every process passes its readiness
+probe. LCH-008 adds the named launch-ready seed profile; until then, the runtime
+starts with empty repositories.
+
+Requirements are Node.js 24 or newer, npm 11 or newer, and Go 1.26 or newer.
+Ports 3000, 8080, 8090, and 8091 must be free. The web and API ports may be
+overridden with `AGENTPAY_LOCAL_WEB_PORT` and `AGENTPAY_LOCAL_API_PORT`; the demo
+seller and mock facilitator retain their fixed local fixture ports.
+
+Press Ctrl+C once to stop the runtime. On Windows, a detached cleanup guardian
+tracks wrapper descendants so that `go run`, npm, Next.js, and their generated
+child processes are all terminated even when the command shell exits first.
+All application state and ephemeral credentials disappear with the process
+tree; no cleanup command is required.
