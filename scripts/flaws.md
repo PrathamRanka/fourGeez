@@ -35,9 +35,9 @@ tests pass.
   evidence, analytics, webhook, billing, audit, and dispute operations.
 - The current demo API exposes only selected reads and cannot complete seller
   onboarding, product publication, or a real purchase flow.
-- `README.md` says that the web application is not started while
-  `docs/IMPLEMENTATION.md` marks the M7 web tasks complete. Documentation and
-  actual launch status therefore disagree.
+- `README.md` and the authoritative documentation now identify M0–M7 as a
+  development preview and M7.1 as mandatory launch hardening. Remaining
+  contract and implementation work must preserve that distinction.
 - AWS infrastructure, Cognito, deployment, and the M9 release gates are still
   incomplete.
 
@@ -247,8 +247,12 @@ a required buyer account or the ordinary human checkout.
 
 ### Security and operational readiness
 
-- Tokens must never appear in URLs, logs, client-readable persistent storage,
-  repository files, or browser bundles.
+- Seller sessions, API keys, MCP access tokens, payment proofs, and execution
+  tokens must never appear in URLs, logs, client-readable persistent storage,
+  repository files, or browser bundles. The current one-time approval
+  invitation token is a narrowly documented query-parameter exception with a
+  short expiry and `Referrer-Policy: no-referrer`; LCH-004 must either preserve
+  that explicit exception or replace it with fragment-to-cookie exchange.
 - `.env.local` and generated secret files must remain ignored by Git.
 - The API must derive tenant ownership from authenticated claims instead of
   trusting caller-supplied seller IDs.
@@ -860,9 +864,9 @@ An MCP access token should contain only bounded claims:
 {
   "iss": "https://api.agentpay.example",
   "aud": "agentpay-mcp",
-  "sub": "credential:icr_...",
+  "sub": "credential:key_...",
   "sellerId": "sel_...",
-  "credentialId": "icr_...",
+  "credentialId": "key_...",
   "scopes": ["read", "configure"],
   "entitlementEpoch": 42,
   "jti": "tok_...",
@@ -879,8 +883,10 @@ increment that epoch, causing already-issued access tokens to fail immediately.
 ### API-key design
 
 - Generate at least 256 bits of random secret material.
-- Format keys so the public lookup identifier is separate from the secret, for
-  example `apk_live_<credentialId>.<secret>`.
+- Format keys so the public lookup identifier is separate from the secret. The
+  current format is `apc1.<sellerId>.<credentialId>.<randomSecret>`; LCH-004
+  and LCH-011 must either retain it or document a versioned migration before
+  implementation.
 - Show the raw key once.
 - Store only a keyed digest of the secret and metadata such as seller, scopes,
   status, expiry, created time, last-used time, and version.
@@ -1061,15 +1067,18 @@ export interface CredentialRepository {
   touchLastUsed(credentialId: string, usedAt: string): Promise<void>;
 }
 
-const prefix = "apk_live_";
+const prefix = "apc1.";
 
-export function generateApiKey(credentialId: string): {
+export function generateApiKey(
+  sellerId: string,
+  credentialId: string,
+): {
   rawKey: string;
   secretDigestInput: string;
 } {
   const secret = randomBytes(32).toString("base64url");
   return {
-    rawKey: `${prefix}${credentialId}.${secret}`,
+    rawKey: `${prefix}${sellerId}.${credentialId}.${secret}`,
     secretDigestInput: secret,
   };
 }
@@ -1085,20 +1094,28 @@ function constantTimeEqualHex(left: string, right: string): boolean {
   return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 
-function parseApiKey(rawKey: string): { credentialId: string; secret: string } {
+function parseApiKey(rawKey: string): {
+  sellerId: string;
+  credentialId: string;
+  secret: string;
+} {
   if (!rawKey.startsWith(prefix)) {
     throw new AuthorizationError("invalid_credential", "Invalid API key.");
   }
-  const separator = rawKey.indexOf(".", prefix.length);
-  if (separator < 0) {
+  const [version, sellerId, credentialId, secret, ...remainder] =
+    rawKey.split(".");
+  if (
+    version !== "apc1" ||
+    !sellerId?.startsWith("sel_") ||
+    !credentialId?.startsWith("key_") ||
+    remainder.length > 0
+  ) {
     throw new AuthorizationError("invalid_credential", "Invalid API key.");
   }
-  const credentialId = rawKey.slice(prefix.length, separator);
-  const secret = rawKey.slice(separator + 1);
   if (!credentialId || secret.length < 40) {
     throw new AuthorizationError("invalid_credential", "Invalid API key.");
   }
-  return { credentialId, secret };
+  return { sellerId, credentialId, secret };
 }
 
 export class ApiKeyService {
@@ -1196,8 +1213,14 @@ export class EntitlementService {
     const accessEnded =
       entitlement.accessEndsAt !== null &&
       new Date(entitlement.accessEndsAt) <= now;
+    const cancelledAccessRemains =
+      entitlement.status === "cancelled" &&
+      entitlement.accessEndsAt !== null &&
+      new Date(entitlement.accessEndsAt) > now;
     const statusAllowsAccess =
-      entitlement.status === "active" || entitlement.status === "grace";
+      entitlement.status === "active" ||
+      entitlement.status === "grace" ||
+      cancelledAccessRemains;
 
     if (!statusAllowsAccess || accessEnded) {
       throw new AuthorizationError(
@@ -1439,15 +1462,18 @@ export class AgentPayTokenClient {
       return this.cached.token;
     }
 
-    const response = await fetch(`${this.cloudOrigin}/v1/oauth/token`, {
+    const response = await fetch(
+      `${this.cloudOrigin}/v1/integration-token-exchanges`,
+      {
       method: "POST",
       headers: {
         "X-AgentPay-API-Key": this.apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ grantType: "client_credentials" }),
-      signal: AbortSignal.timeout(8_000),
-    });
+        signal: AbortSignal.timeout(8_000),
+      },
+    );
     if (!response.ok) {
       this.cached = null;
       throw new Error(`AgentPay token exchange failed with ${response.status}.`);
@@ -1739,11 +1765,13 @@ export class TransactionAuthorizer {
 }
 ```
 
-The repository claim must be a database conditional write from `FINALIZED` to
-`FORWARDING`. Only the caller that wins the claim may invoke the seller. Normal
-subscription cancellation is not rechecked after a finalized payment because
-that transaction is already an obligation; no new product or payment can be
-created after suspension.
+The repository claim must be a database conditional write from transaction
+status `PAYMENT_VERIFIED` with `paymentFinality=finalized` into the documented
+forwarded/claimed state. Only the caller that wins the claim may invoke the
+seller. Normal subscription cancellation is not rechecked after a finalized
+payment because that transaction is already an obligation; no new product or
+payment can be created after suspension. LCH-004 must name the exact persisted
+claim representation without inventing a second finality state machine.
 
 ### Seller-side execution verification
 

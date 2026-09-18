@@ -2,6 +2,12 @@
 
 Status: **Locked through STK-003**.
 
+Implementation status: version 1 uses the current per-seller HMAC contract.
+That shared-secret design is retained only for M7 compatibility and sandbox
+fixtures. LCH-004 and LCH-024–LCH-026 must define and implement version 2 using
+cloud-only asymmetric execution capabilities and JWKS verification before
+production launch; webhook HMAC is unaffected.
+
 AgentPay maintains equivalent verification packages for Go, Node.js, Python,
 .NET, Java, Ruby, and PHP applications. These packages support the maintained
 Go and Python frameworks, JavaScript and TypeScript stacks, ASP.NET Core,

@@ -35,6 +35,14 @@ M8, and M9 pass, cancellation-safe production access is not implemented.
 - Seller project credentials and MCP authorization grants.
 - Seller repository contents, deployment credentials, and generated configuration.
 
+The per-seller HMAC request-signing contract is the implemented M7 mechanism,
+not the final fork-resistant execution authorization. Because a seller holding
+the shared HMAC secret can generate the same MAC locally, LCH-004, LCH-006, and
+LCH-024–LCH-026 must replace fulfillment authorization with a cloud-only
+asymmetric execution capability before production launch. Webhook HMAC remains
+a separate receiver-authentication mechanism and does not grant cloud
+transaction authority.
+
 ## Primary threats and controls
 
 | Threat | Required controls |

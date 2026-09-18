@@ -57,10 +57,12 @@ The V1 information architecture has four distinct surfaces:
 
 Human buyers purchase from storefront product pages and do not require a
 general AgentPay buyer account in V1. Software agents discover products through
-the central AgentPay directory, signed storefront manifests, `llms.txt`, MCP or
-API resources, and paid URLs. The interactive agent demonstration lives at
-`/demo/agent-checkout`; it explains and exercises the agent channel but is not
-the authoritative discovery registry or a separate commerce pipeline.
+the central AgentPay directory, signed storefront manifests, `llms.txt`,
+buyer-facing API resources, and paid URLs. The seller-authenticated coding-agent
+MCP is a separate integration surface and is not buyer discovery. The
+interactive agent demonstration lives at `/demo/agent-checkout`; it explains
+and exercises the agent channel but is not the authoritative discovery registry
+or a separate commerce pipeline.
 
 Internal identifiers such as `sellerId` and `routeId` are never used as public
 navigation labels. The current route-ID product URL remains a compatibility
@@ -155,6 +157,10 @@ is deferred and is not required for the agent-first release.
 The public storefront is the browser buyer experience. A separate `/buyer`
 account area is not part of V1. Agent-specific interaction is demonstrated at
 `/demo/agent-checkout` and uses the same authoritative commerce services.
+The currently implemented API still requires an agent credential for intent
+and paid-route operations; LCH-004 must define the separate browser purchase
+session or wallet-bound authorization contract before browser checkout is
+represented as complete.
 
 ## Unified commerce rule
 
