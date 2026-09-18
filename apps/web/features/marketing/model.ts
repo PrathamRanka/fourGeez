@@ -22,10 +22,52 @@ export const supportedAgents = [
   "Any MCP host",
 ] as const;
 
-export const productFacts = [
-  { value: "1 prompt", label: "to prepare the integration" },
-  { value: "15+ stacks", label: "with maintained setup recipes" },
-  { value: "0 private keys", label: "stored by AgentPay" },
+export const launchSignals = [
+  { value: "1 prompt", label: "Repository setup" },
+  { value: "15+", label: "Maintained stacks" },
+  { value: "0", label: "Wallet keys held" },
+] as const;
+
+export const agentPayPlans = [
+  {
+    name: "Starter",
+    audience: "For a focused catalog",
+    volume: "10K",
+    volumeLabel: "API requests / month",
+    featured: false,
+    features: [
+      "5 published products",
+      "1,000 MCP operations",
+      "30-day evidence retention",
+      "Signed webhooks",
+    ],
+  },
+  {
+    name: "Growth",
+    audience: "For expanding agent revenue",
+    volume: "100K",
+    volumeLabel: "API requests / month",
+    featured: true,
+    features: [
+      "50 published products",
+      "10,000 MCP operations",
+      "180-day evidence retention",
+      "Advanced analytics",
+    ],
+  },
+  {
+    name: "Scale",
+    audience: "For high-volume platforms",
+    volume: "1M",
+    volumeLabel: "API requests / month",
+    featured: false,
+    features: [
+      "500 published products",
+      "100,000 MCP operations",
+      "10-year evidence retention",
+      "Priority support",
+    ],
+  },
 ] as const;
 
 export const frequentlyAskedQuestions = [
@@ -47,7 +89,7 @@ export const frequentlyAskedQuestions = [
   {
     question: "Will AgentPay put my products at the top of search?",
     answer:
-      "AgentPay improves technical SEO, answer-engine discovery, metadata consistency, and crawlability. It does not guarantee search ranking, traffic, or sales because external search and agent systems control placement.",
+      "AgentPay improves technical SEO, answer-engine discovery, metadata consistency, and crawlability. Discovery never authorizes a transaction and does not guarantee search ranking, traffic, or sales.",
   },
   {
     question: "How is AgentPay priced?",

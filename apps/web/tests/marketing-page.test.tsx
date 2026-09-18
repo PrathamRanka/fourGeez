@@ -1,32 +1,32 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import HomePage from "@/app/page";
 
-vi.mock("@/components/ui/cobe-globe", () => ({
-  Globe: () => <div data-testid="commerce-globe" />,
-}));
-
 describe("AgentPay public site", () => {
-  it("opens with the agent-commerce promise and a single primary action", () => {
+  it("opens with the agent-commerce promise and a focused launch path", () => {
     render(<HomePage />);
 
     expect(
-      screen.getByRole("heading", { name: "Sell your API to AI agents." }),
+      screen.getByRole("heading", { name: "Sell to agents. Settle on-chain." }),
     ).toBeVisible();
-    expect(screen.getByText(/one key, one prompt/i)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Get started" })).toHaveAttribute(
+    expect(
+      screen.getByText(/one integration turns your existing api/i),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Start selling" })).toHaveAttribute(
       "href",
       "/sign-up",
     );
-    expect(screen.getByTestId("commerce-globe")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Watch agent checkout" }),
+    ).toHaveAttribute("href", "/demo/agent-checkout");
   });
 
-  it("shows clear launch, checkout, analytics, and trust demonstrations", () => {
+  it("shows the bounded product, integration, and network story", () => {
     render(<HomePage />);
 
     expect(
       screen.getByRole("heading", {
-        name: /everything you need to sell to agents/i,
+        name: "Your route to revenue.",
       }),
     ).toBeVisible();
     expect(
@@ -40,8 +40,14 @@ describe("AgentPay public site", () => {
     ).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "Built around approval, not surprises",
+        name: "Cloud authority. Local freedom.",
       }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "One integration. Every sale." }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Built for both sides." }),
     ).toBeVisible();
   });
 
@@ -66,14 +72,33 @@ describe("AgentPay public site", () => {
       screen.getByText(/funds settle directly to your verified wallet/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/does not guarantee search ranking/i),
+      screen.getByText(/discovery never authorizes a transaction/i),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Start selling with AgentPay" }),
+      screen.getByRole("link", { name: "Create your storefront" }),
     ).toHaveAttribute("href", "/sign-up");
     expect(
       screen.getByRole("button", { name: "How is AgentPay priced?" }),
     ).toBeVisible();
+  });
+
+  it("presents the implemented plans without inventing subscription prices", () => {
+    render(<HomePage />);
+
+    const pricing = screen.getByRole("region", { name: "AgentPay plans" });
+    expect(
+      within(pricing).getByRole("heading", { name: "Starter" }),
+    ).toBeVisible();
+    expect(
+      within(pricing).getByRole("heading", { name: "Growth" }),
+    ).toBeVisible();
+    expect(
+      within(pricing).getByRole("heading", { name: "Scale" }),
+    ).toBeVisible();
+    expect(within(pricing).getByText("5 published products")).toBeVisible();
+    expect(within(pricing).getByText("50 published products")).toBeVisible();
+    expect(within(pricing).getByText("500 published products")).toBeVisible();
+    expect(within(pricing).queryByText(/\$\d/)).not.toBeInTheDocument();
   });
 
   it("offers a light and dark appearance control", () => {

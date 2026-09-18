@@ -6,31 +6,33 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { frequentlyAskedQuestions } from "@/features/marketing/model";
+import styles from "./marketing-page.module.css";
 
-// FrequentlyAskedQuestions answers the most important launch, payment, and discovery concerns.
 export function FrequentlyAskedQuestions() {
   return (
-    <section id="faq" className="faq-section">
-      <div className="site-container faq-layout">
-        <div>
-          <h2 className="faq-title">Questions sellers ask.</h2>
-          <Link className="faq-doc-link" href="/docs">
-            Browse the documentation →
-          </Link>
-        </div>
-        <Accordion className="faq-accordion">
-          {frequentlyAskedQuestions.map((question, index) => (
-            <AccordionItem key={question.question} value={`question-${index}`}>
-              <AccordionTrigger className="faq-trigger">
-                {question.question}
-              </AccordionTrigger>
-              <AccordionContent className="faq-content">
-                <p>{question.answer}</p>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+    <section id="faq" className={styles.faqSection} aria-labelledby="faq-title">
+      <div className={styles.faqIntro}>
+        <p className={styles.kicker}>FAQ</p>
+        <h2 id="faq-title">Clear before you connect.</h2>
+        <p>Payments, access, discovery, and control—without protocol fog.</p>
+        <Link href="/docs">Browse documentation →</Link>
       </div>
+      <Accordion className={styles.faqList}>
+        {frequentlyAskedQuestions.map((question, index) => (
+          <AccordionItem
+            className={styles.faqItem}
+            key={question.question}
+            value={`question-${index}`}
+          >
+            <AccordionTrigger className={styles.faqTrigger}>
+              {question.question}
+            </AccordionTrigger>
+            <AccordionContent className={styles.faqContent}>
+              <p>{question.answer}</p>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
     </section>
   );
 }
