@@ -17,6 +17,7 @@ const defaultRetryDelayMilliseconds = 250;
 const guardianSnapshotDelaysMilliseconds = [0, 1_000, 2_000];
 const guardianParentPollMilliseconds = 250;
 const localSecretBytes = 32;
+const launchReadySellerID = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7";
 
 function parsePort(rawValue, name, fallback) {
   const value = rawValue === undefined || rawValue === "" ? fallback : Number(rawValue);
@@ -58,6 +59,8 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_PAYMENT_MODE: "mock",
     AGENTPAY_USE_MOCK_PAYMENT: "true",
     AGENTPAY_MOCK_FACILITATOR_URL: `http://127.0.0.1:${ports.facilitator}`,
+    AGENTPAY_PAYMENT_READINESS_URL: `http://127.0.0.1:${ports.facilitator}/verify`,
+    AGENTPAY_SELLER_READINESS_URL: `http://127.0.0.1:${ports.seller}/research/basic`,
     AGENTPAY_BEDROCK_MODE: "disabled",
     AGENTPAY_BUYER_MODE: "deterministic",
     AGENTPAY_LOCAL_SELLER_TOKEN: sellerToken,
@@ -66,6 +69,8 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_LOCAL_APPROVAL_TOKEN_SECRET: createSecret("approval_signing", randomBytes),
     AGENTPAY_LOCAL_EVIDENCE_KEY_ID: "local-evidence-key-v1",
     AGENTPAY_LOCAL_EVIDENCE_SIGNING_SECRET: createSecret("evidence_signing", randomBytes),
+    AGENTPAY_LOCAL_WEBHOOK_SIGNING_SECRET: createSecret("webhook_signing", randomBytes),
+    AGENTPAY_LOCAL_SEED_PROFILE: "launch-ready",
     GOCACHE: goBuildCache,
   };
   const webEnvironment = {
@@ -74,6 +79,7 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_WEB_ORIGIN: webOrigin,
     AGENTPAY_WS_ORIGIN: `ws://127.0.0.1:${ports.api}`,
     AGENTPAY_SELLER_BEARER_TOKEN: sellerToken,
+    AGENTPAY_DEMO_SELLER_ID: launchReadySellerID,
     AGENTPAY_BEDROCK_MODE: "disabled",
     AGENTPAY_BUYER_MODE: "deterministic",
     NEXT_TELEMETRY_DISABLED: "1",
@@ -100,7 +106,7 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     {
       name: "api",
       command: "go",
-      args: ["run", "./cmd/api"],
+      args: ["run", "-tags", "agentpay_dev", "./cmd/api"],
       env: apiEnvironment,
     },
     {
@@ -137,7 +143,7 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
       expectedStatuses: [200],
     },
     {
-      ...localURL("api", "http", "127.0.0.1", ports.api, "/health"),
+      ...localURL("api", "http", "127.0.0.1", ports.api, "/health/ready"),
       method: "GET",
       expectedStatuses: [200],
     },
@@ -165,10 +171,12 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     urls: {
       web: webOrigin,
       buyer: `${webOrigin}/buyer`,
-      apiHealth: `${apiOrigin}/health`,
+      apiHealth: `${apiOrigin}/health/ready`,
       seller: `http://127.0.0.1:${ports.seller}/research/basic`,
       facilitator: `http://127.0.0.1:${ports.facilitator}/verify`,
       approvalWebSocket: `ws://127.0.0.1:${ports.api}/ws/approval-sessions/{sessionId}`,
+      seedProfile: `${apiOrigin}/__dev/seed-profile`,
+      seedReset: `${apiOrigin}/__dev/seed-profile/reset`,
     },
   };
   validateLocalRuntimeConfig(config);
@@ -538,6 +546,8 @@ function printReady(config, output) {
   output.write(`Demo seller:         ${config.urls.seller}\n`);
   output.write(`Mock facilitator:    ${config.urls.facilitator}\n`);
   output.write(`Approval WebSocket:  ${config.urls.approvalWebSocket}\n`);
+  output.write(`Seed profile:        ${config.urls.seedProfile}\n`);
+  output.write(`Reset seed (POST):   ${config.urls.seedReset}\n`);
   output.write("Press Ctrl+C once to stop every process.\n\n");
 }
 

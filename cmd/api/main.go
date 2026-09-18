@@ -38,9 +38,6 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		_ = api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
 
 	catalogRepository := memory.NewCatalogRepository()
 	intentRepository := memory.NewPurchaseIntentRepository()
@@ -239,6 +236,55 @@ func main() {
 		slog.Error("invalid local evidence signing configuration", "error", err)
 		os.Exit(1)
 	}
+	if err := configureDevelopmentSeed(
+		mux,
+		developmentSeedConfig{
+			Environment:          os.Getenv("AGENTPAY_ENV"),
+			RepositoryMode:       os.Getenv("AGENTPAY_REPOSITORY_MODE"),
+			HTTPAddress:          addr,
+			ProfileName:          os.Getenv("AGENTPAY_LOCAL_SEED_PROFILE"),
+			WebhookSigningSecret: os.Getenv("AGENTPAY_LOCAL_WEBHOOK_SIGNING_SECRET"),
+		},
+		developmentSeedRepositories{
+			Catalog:                catalogRepository,
+			PurchaseIntents:        intentRepository,
+			Approvals:              approvalRepository,
+			Transactions:           transactionRepository,
+			Evidence:               evidenceRepository,
+			Disputes:               disputeRepository,
+			PaymentDestinations:    paymentDestinationRepository,
+			WebhookSubscriptions:   webhookSubscriptionRepository,
+			WebhookDeliveries:      webhookDeliveryRepository,
+			WebhookSecrets:         webhookSecretStore,
+			IntegrationCredentials: integrationCredentialRepository,
+			AuditEvents:            auditEventRepository,
+			Idempotency:            idempotencyStore,
+		},
+		evidenceSigner,
+	); err != nil {
+		slog.Error("invalid local seed configuration", "error", err)
+		os.Exit(1)
+	}
+	healthController, err := newDependencyHealthController(
+		dependencyHealthConfig{
+			RepositoryMode:      os.Getenv("AGENTPAY_REPOSITORY_MODE"),
+			PaymentReadinessURL: os.Getenv("AGENTPAY_PAYMENT_READINESS_URL"),
+			SellerReadinessURL:  os.Getenv("AGENTPAY_SELLER_READINESS_URL"),
+			Timeout:             defaultDependencyHealthTimeout,
+		},
+		dependencyHealthDependencies{
+			Catalog:             catalogRepository,
+			EvidenceSigner:      evidenceSigner,
+			SellerSigner:        sellerSigner,
+			SellerSigningSecret: []byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
+			WebSocketRepository: realtimeHub,
+		},
+	)
+	if err != nil {
+		slog.Error("invalid dependency health configuration", "error", err)
+		os.Exit(1)
+	}
+	healthController.RegisterRoutes(mux)
 	evidenceRecorder := evidence.NewRecorder(
 		evidenceRepository,
 		idGenerator,

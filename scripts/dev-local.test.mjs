@@ -30,6 +30,25 @@ test("local runtime config starts every production-shaped dependency", () => {
   assert.equal(config.repositoryMode, "memory");
   assert.equal(config.buyerMode, "deterministic");
   assert.equal(config.processes[2].env.AGENTPAY_USE_MOCK_PAYMENT, "true");
+  assert.equal(config.processes[2].env.AGENTPAY_LOCAL_SEED_PROFILE, "launch-ready");
+  assert.equal(
+    config.processes[2].env.AGENTPAY_PAYMENT_READINESS_URL,
+    "http://127.0.0.1:8091/verify",
+  );
+  assert.equal(
+    config.processes[2].env.AGENTPAY_SELLER_READINESS_URL,
+    "http://127.0.0.1:8090/research/basic",
+  );
+  assert.equal(
+    config.processes[3].env.AGENTPAY_DEMO_SELLER_ID,
+    "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+  );
+  assert.deepEqual(config.processes[2].args, [
+    "run",
+    "-tags",
+    "agentpay_dev",
+    "./cmd/api",
+  ]);
   for (const processSpecification of config.processes.slice(0, 3)) {
     assert.match(processSpecification.env.GOCACHE, /\.cache[\\/]go-build$/i);
   }
@@ -54,7 +73,7 @@ test("local runtime config starts every production-shaped dependency", () => {
         url: "http://127.0.0.1:8090/research/basic",
         method: "POST",
       },
-      { name: "api", url: "http://127.0.0.1:8080/health", method: "GET" },
+      { name: "api", url: "http://127.0.0.1:8080/health/ready", method: "GET" },
       { name: "web", url: "http://localhost:3000/", method: "GET" },
     ],
   );

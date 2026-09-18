@@ -16,8 +16,34 @@ The launcher starts and supervises:
 The Go API uses in-memory repositories, mock payment behavior, ephemeral local
 credentials, and the explicitly labeled deterministic buyer fallback. The
 launcher prints the verified URLs only after every process passes its readiness
-probe. LCH-008 adds the named launch-ready seed profile; until then, the runtime
-starts with empty repositories.
+probe.
+
+Process liveness is available at `GET /health/live`. Transaction-path
+readiness is available at `GET /health/ready` and fails with `503` unless the
+configured in-memory repository, evidence and seller-request signing, mock
+x402 facilitator, demo seller forwarding target, and approval WebSocket store
+all pass bounded checks. Responses report only dependency names and
+`ready`/`unavailable`; dependency errors, URLs, response bodies, and credentials
+are never returned. `GET /health` remains the legacy liveness contract.
+
+The `launch-ready` profile is loaded automatically. It includes a complete demo
+seller, an incomplete seller, below-threshold and approval-required products,
+representative transaction and evidence states, webhook delivery history, and
+asset/network-separated analytics. Inspect its stable public identifiers at:
+
+```text
+GET http://127.0.0.1:8080/__dev/seed-profile
+```
+
+Clear all seed-owned in-memory state and restore the profile with:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8080/__dev/seed-profile/reset
+```
+
+The profile and reset route exist only in the `agentpay_dev` Go build selected
+by the launcher. The same environment setting causes a production build to
+fail startup rather than seed data.
 
 Requirements are Node.js 24 or newer, npm 11 or newer, and Go 1.26 or newer.
 Ports 3000, 8080, 8090, and 8091 must be free. The web and API ports may be
