@@ -32,10 +32,8 @@ import type {
   RouteAuditEvent,
   RouteValidationResult,
 } from "@/features/products/model";
-import {
-  formatAtomicPrice,
-  routeLifecycleLabel,
-} from "@/features/products/model";
+import { routeLifecycleLabel } from "@/features/products/model";
+import { formatAtomicPrice } from "@/lib/money";
 
 const historyDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
