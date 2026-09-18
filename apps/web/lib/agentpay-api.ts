@@ -18,6 +18,11 @@ type AgentPayRequest = {
   method: "GET" | "PATCH" | "POST";
 };
 
+type ApprovalInvitationRequest = {
+  body?: unknown;
+  method: "GET" | "POST";
+};
+
 export type AgentPayFile = {
   body: string;
   contentType: string;
@@ -224,5 +229,49 @@ export async function requestPublicAgentPayText(
       : { ok: false, error: "This discovery document is unavailable." };
   } catch {
     return { ok: false, error: "This discovery document is unavailable." };
+  }
+}
+
+// requestApprovalInvitation keeps one-time invitation credentials out of seller authentication.
+export async function requestApprovalInvitation<Value>(
+  path: string,
+  invitationToken: string,
+  request: ApprovalInvitationRequest,
+): Promise<ActionResult<Value>> {
+  const apiOrigin = process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080";
+  try {
+    const url = new URL(`${apiOrigin}${path}`);
+    url.searchParams.set("token", invitationToken);
+    const response = await fetch(url, {
+      method: request.method,
+      headers: {
+        ...(request.body === undefined
+          ? {}
+          : { "Content-Type": "application/json" }),
+        ...(request.method === "POST"
+          ? { "Idempotency-Key": crypto.randomUUID() }
+          : {}),
+      },
+      body:
+        request.body === undefined ? undefined : JSON.stringify(request.body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMilliseconds),
+    });
+    const responseText = await readBoundedResponse(response);
+    const responseBody: unknown = responseText ? JSON.parse(responseText) : {};
+    if (!response.ok) {
+      return {
+        ok: false,
+        error:
+          getAPIErrorMessage(responseBody) ??
+          "This approval invitation is unavailable.",
+      };
+    }
+    return { ok: true, value: responseBody as Value };
+  } catch {
+    return {
+      ok: false,
+      error: "Approval service is unavailable. Check the connection and retry.",
+    };
   }
 }
