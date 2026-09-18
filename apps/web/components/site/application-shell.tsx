@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site/site-footer";
-import { SiteHeader } from "@/components/site/site-header";
 
 type ApplicationShellProps = {
   children: ReactNode;
@@ -19,9 +18,7 @@ export function ApplicationShell({ children }: ApplicationShellProps) {
 
   return (
     <div className="public-shell">
-      <SiteHeader />
       {children}
-      <SiteFooter />
     </div>
   );
 }

@@ -514,7 +514,7 @@ export function MarketingPage() {
         <SignalStrip />
         <ProductBento />
         <IntegrationSection />
-        <NetworkSection />
+        {/* <NetworkSection /> */}
         <PricingSection />
         <FrequentlyAskedQuestions />
         <ClosingSection />
