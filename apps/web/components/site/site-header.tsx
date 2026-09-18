@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { BrandMark } from "@/components/site/brand-mark";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -13,7 +13,7 @@ const primaryLinks = [
   { href: "/docs", label: "Docs" },
 ] as const;
 
-// SiteHeader provides the shared public navigation shell.
+// SiteHeader provides the compact public navigation and launch announcement.
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -24,16 +24,15 @@ export function SiteHeader() {
 
   return (
     <header className="site-header">
-      <div className="site-container flex min-h-18 items-center justify-between gap-6">
-        <Link
-          href="/"
-          aria-label="AgentPay home"
-          className="rounded-md text-foreground transition-opacity duration-150 ease-out hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4"
-        >
+      <div className="site-container flex min-h-16 items-center justify-between gap-6">
+        <Link href="/" aria-label="AgentPay home" className="brand-link">
           <BrandMark />
         </Link>
 
-        <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
+        <nav
+          aria-label="Primary navigation"
+          className="hidden items-center gap-1 lg:flex"
+        >
           {primaryLinks.map((link) => (
             <Link key={link.href} href={link.href} className="nav-link">
               {link.label}
@@ -41,12 +40,18 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          <Link href="/sign-in" className={buttonVariants({ variant: "ghost", size: "lg" })}>
+        <div className="hidden items-center gap-1.5 lg:flex">
+          <Link
+            href="/sign-in"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
             Sign in
           </Link>
-          <Link href="/sign-up" className={buttonVariants({ size: "lg" })}>
-            Start selling
+          <Link
+            href="/sign-up"
+            className={buttonVariants({ size: "lg", className: "px-4" })}
+          >
+            Get started
           </Link>
         </div>
 
@@ -69,9 +74,17 @@ export function SiteHeader() {
         data-open={menuOpen}
         className="mobile-navigation lg:hidden"
       >
-        <nav aria-label="Mobile navigation" className="site-container flex flex-col py-4">
+        <nav
+          aria-label="Mobile navigation"
+          className="site-container flex flex-col py-4"
+        >
           {primaryLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="mobile-nav-link" onClick={closeMenu}>
+            <Link
+              key={link.href}
+              href={link.href}
+              className="mobile-nav-link"
+              onClick={closeMenu}
+            >
               {link.label}
             </Link>
           ))}
@@ -83,12 +96,21 @@ export function SiteHeader() {
             >
               Sign in
             </Link>
-            <Link href="/sign-up" className={buttonVariants({ size: "lg" })} onClick={closeMenu}>
-              Start selling
+            <Link
+              href="/sign-up"
+              className={buttonVariants({ size: "lg" })}
+              onClick={closeMenu}
+            >
+              Get started
             </Link>
           </div>
         </nav>
       </div>
+
+      <Link className="announcement-bar" href="/docs">
+        <span>AgentPay launch access is open</span>
+        <span className="announcement-link">Learn more →</span>
+      </Link>
     </header>
   );
 }

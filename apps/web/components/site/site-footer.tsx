@@ -1,5 +1,5 @@
+import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { BrandMark } from "@/components/site/brand-mark";
 
 const footerGroups = [
@@ -8,17 +8,17 @@ const footerGroups = [
     title: "Product",
     links: [
       { href: "/#product", label: "Agent Checkout" },
-      { href: "/#discovery", label: "Discovery Mesh" },
+      { href: "/#product", label: "Revenue Lens" },
       { href: "/#security", label: "Trust Gate" },
     ],
   },
   {
     label: "Company links",
-    title: "Explore",
+    title: "Resources",
     links: [
       { href: "/docs", label: "Documentation" },
-      { href: "/#pricing", label: "Pricing" },
-      { href: "/#faq", label: "Questions" },
+      { href: "/#faq", label: "FAQ" },
+      { href: "/sign-up", label: "Get started" },
     ],
   },
   {
@@ -32,31 +32,35 @@ const footerGroups = [
   },
 ] as const;
 
-// SiteFooter closes public pages with product and trust navigation.
+// SiteFooter adapts the MIT Ruixen enterprise footer to AgentPay's public navigation.
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-card">
-      <div className="site-container grid gap-12 py-[clamp(3rem,7vw,6rem)] lg:grid-cols-[1.4fr_2fr]">
-        <div className="max-w-sm">
+    <footer className="site-footer">
+      <div className="site-container footer-layout">
+        <div>
           <BrandMark />
-          <p className="mt-5 text-base leading-7 text-muted-foreground">
-            Turn an existing digital service into a storefront that both people and software agents
-            can trust.
+          <p className="footer-description">
+            Commerce infrastructure for APIs selling to people and software
+            agents.
           </p>
+          <div className="footer-proof">
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            Verified payment. Signed fulfillment.
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+
+        <div className="footer-groups">
           {footerGroups.map((group) => (
             <nav key={group.label} aria-label={group.label}>
-              <p className="font-mono text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                {group.title}
-              </p>
-              <div className="mt-4 flex flex-col items-start gap-3">
+              <p className="footer-group-title">{group.title}</p>
+              <div className="footer-links">
                 {group.links.map((link) => (
-                  <Link key={link.href} href={link.href} className="footer-link">
+                  <Link
+                    key={`${group.label}-${link.label}`}
+                    href={link.href}
+                    className="footer-link"
+                  >
                     {link.label}
-                    {link.href === "/docs" ? (
-                      <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                    ) : null}
                   </Link>
                 ))}
               </div>
@@ -64,9 +68,10 @@ export function SiteFooter() {
           ))}
         </div>
       </div>
-      <div className="site-container flex flex-col gap-3 border-t border-dashed border-border py-6 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <span>AgentPay · Commerce infrastructure for the agent web</span>
-        <span>Built for verifiable transactions</span>
+
+      <div className="site-container footer-bottom">
+        <span>© 2026 AgentPay</span>
+        <span>Buyer funds settle directly to verified seller wallets.</span>
       </div>
     </footer>
   );

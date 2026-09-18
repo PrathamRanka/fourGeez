@@ -36,7 +36,9 @@ export function Globe({
     let cancelled = false;
     let globe: CobeInstance | undefined;
     let width = canvas.clientWidth;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     const resizeObserver = new ResizeObserver((entries) => {
       width = entries[0]?.contentRect.width ?? canvas.clientWidth;
     });
@@ -53,12 +55,14 @@ export function Globe({
         phi: 0.15,
         theta: 0.22,
         dark: 0,
-        diffuse: 1.2,
-        mapSamples: 16_000,
-        mapBrightness: 6,
-        baseColor: [1, 1, 1] as [number, number, number],
-        markerColor: [0.37, 0.22, 0.94] as [number, number, number],
-        glowColor: [0.88, 0.91, 1] as [number, number, number],
+        diffuse: 0.28,
+        mapSamples: 32_000,
+        mapBrightness: 11,
+        mapBaseBrightness: 0,
+        opacity: 0.32,
+        baseColor: [0.82, 0.86, 1] as [number, number, number],
+        markerColor: [0.31, 0.24, 1] as [number, number, number],
+        glowColor: [0.9, 0.92, 1] as [number, number, number],
         arcColor: [0.18, 0.76, 0.56] as [number, number, number],
         arcWidth: 0.7,
         arcHeight: 0.22,
@@ -70,8 +74,10 @@ export function Globe({
             rotationReference.current += 0.0024;
           }
           state.phi = rotationReference.current + dragMovementReference.current;
-          state.width = Math.max(width, 1) * Math.min(window.devicePixelRatio, 2);
-          state.height = Math.max(width, 1) * Math.min(window.devicePixelRatio, 2);
+          state.width =
+            Math.max(width, 1) * Math.min(window.devicePixelRatio, 2);
+          state.height =
+            Math.max(width, 1) * Math.min(window.devicePixelRatio, 2);
         },
       } satisfies COBEOptions & {
         onRender: (state: Record<string, number>) => void;
@@ -97,7 +103,8 @@ export function Globe({
     if (dragStartReference.current === null) {
       return;
     }
-    dragMovementReference.current = (event.clientX - dragStartReference.current) / 180;
+    dragMovementReference.current =
+      (event.clientX - dragStartReference.current) / 180;
   }
 
   // stopDragging commits the latest manual rotation.
@@ -112,7 +119,10 @@ export function Globe({
       ref={canvasReference}
       role="img"
       aria-label={label}
-      className={cn("aspect-square w-full cursor-grab touch-none active:cursor-grabbing", className)}
+      className={cn(
+        "aspect-square w-full cursor-grab touch-none active:cursor-grabbing",
+        className,
+      )}
       onPointerDown={startDragging}
       onPointerMove={continueDragging}
       onPointerUp={stopDragging}

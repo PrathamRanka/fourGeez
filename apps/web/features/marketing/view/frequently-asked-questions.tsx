@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Accordion,
   AccordionContent,
@@ -9,19 +10,21 @@ import { frequentlyAskedQuestions } from "@/features/marketing/model";
 // FrequentlyAskedQuestions answers the most important launch, payment, and discovery concerns.
 export function FrequentlyAskedQuestions() {
   return (
-    <section id="faq" className="border-t border-border bg-card py-[var(--section-space)]">
-      <div className="site-container grid gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:gap-20">
+    <section id="faq" className="faq-section">
+      <div className="site-container faq-layout">
         <div>
-          <p className="section-kicker">Clear before you connect</p>
-          <h2 className="section-title mt-4">Questions, answered.</h2>
+          <h2 className="faq-title">Questions sellers ask.</h2>
+          <Link className="faq-doc-link" href="/docs">
+            Browse the documentation →
+          </Link>
         </div>
-        <Accordion className="border-t border-border">
+        <Accordion className="faq-accordion">
           {frequentlyAskedQuestions.map((question, index) => (
             <AccordionItem key={question.question} value={`question-${index}`}>
-              <AccordionTrigger className="py-6 font-display text-lg font-semibold tracking-[-0.025em] hover:no-underline">
+              <AccordionTrigger className="faq-trigger">
                 {question.question}
               </AccordionTrigger>
-              <AccordionContent className="max-w-2xl pb-6 text-base leading-7 text-muted-foreground">
+              <AccordionContent className="faq-content">
                 <p>{question.answer}</p>
               </AccordionContent>
             </AccordionItem>
