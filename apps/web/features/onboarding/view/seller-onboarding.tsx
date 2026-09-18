@@ -25,6 +25,7 @@ import {
   createMCPConfiguration,
   setupPrompt,
 } from "@/features/onboarding/model";
+import styles from "./seller-onboarding.module.css";
 
 type SellerOnboardingProps = {
   actions: OnboardingActions;
@@ -213,8 +214,12 @@ export function SellerOnboarding({
   }
 
   return (
-    <div className="onboarding-layout">
-      <aside className="onboarding-summary">
+    <div
+      className={styles.workspace}
+      role="region"
+      aria-label="Storefront launch sequence"
+    >
+      <aside className="onboarding-summary" aria-label="Launch progress">
         <p className="dashboard-eyebrow">Launch Rail</p>
         <h1>Launch your storefront</h1>
         <p>
@@ -509,7 +514,11 @@ function OnboardingStep({
   title,
 }: OnboardingStepProps) {
   return (
-    <section className="onboarding-step" data-complete={complete}>
+    <section
+      className="onboarding-step"
+      data-complete={complete}
+      aria-label={`${number} ${title}`}
+    >
       <header>
         <span className="onboarding-step-number">{number}</span>
         <span className="onboarding-step-icon">

@@ -152,6 +152,15 @@ describe("product route workspace", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Products" })).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Catalog workspace" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("complementary", { name: "Product catalog" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Product editor" }),
+    ).toBeVisible();
     expect(screen.getByText("1 published")).toBeVisible();
     expect(screen.getAllByText("35 USDC")[0]).toBeVisible();
     expect(

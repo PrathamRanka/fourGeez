@@ -103,6 +103,12 @@ describe("seller onboarding", () => {
     expect(
       screen.getByRole("heading", { name: "Launch your storefront" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Storefront launch sequence" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "01 Create your storefront" }),
+    ).toBeVisible();
     expect(screen.getByText("1 of 5 complete")).toBeVisible();
 
     fireEvent.change(screen.getByLabelText("Storefront name"), {

@@ -44,6 +44,7 @@ import {
   formatAtomicPrice,
   formatAtomicUnits,
 } from "@/lib/money";
+import styles from "./product-route-workspace.module.css";
 
 const historyDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -244,7 +245,11 @@ export function ProductRouteWorkspace({
   }
 
   return (
-    <div className="product-workspace">
+    <div
+      className={styles.workspace}
+      role="region"
+      aria-label="Catalog workspace"
+    >
       <header className="product-page-header">
         <div>
           <p className="dashboard-eyebrow">Storefront catalog</p>
@@ -407,9 +412,9 @@ export function ProductRouteWorkspace({
       </section>
 
       <div className="product-management-grid">
-        <section
+        <aside
           className="product-route-list"
-          aria-labelledby="route-list-title"
+          aria-label="Product catalog"
         >
           <div className="product-panel-heading">
             <div>
@@ -447,11 +452,11 @@ export function ProductRouteWorkspace({
               ))}
             </div>
           )}
-        </section>
+        </aside>
 
         <section
           className="product-inspector"
-          aria-labelledby="route-detail-title"
+          aria-label="Product editor"
         >
           {selectedRoute ? (
             <RouteInspector

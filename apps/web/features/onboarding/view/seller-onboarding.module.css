@@ -1,0 +1,497 @@
+.workspace {
+  color-scheme: dark;
+  --background: #050505;
+  --foreground: #f4f4f4;
+  --card: #0a0a0a;
+  --card-foreground: #f4f4f4;
+  --primary: #f4f4f4;
+  --primary-foreground: #050505;
+  --secondary: #121212;
+  --secondary-foreground: #f4f4f4;
+  --muted: #121212;
+  --muted-foreground: #929292;
+  --border: #292929;
+  --input: #343434;
+  --ring: #f4f4f4;
+  --surface: #050505;
+  --surface-raised: #0a0a0a;
+  --surface-muted: #101010;
+  --line: color-mix(in oklab, var(--foreground) 17%, transparent);
+  --line-strong: color-mix(in oklab, var(--foreground) 28%, transparent);
+  --copy-muted: color-mix(in oklab, var(--foreground) 58%, transparent);
+  --copy-faint: color-mix(in oklab, var(--foreground) 54%, transparent);
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.72fr) minmax(0, 1.8fr);
+  min-height: calc(100vh - 5rem);
+  border-inline: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.onboarding-summary) {
+  position: sticky;
+  top: 4.75rem;
+  align-self: start;
+  min-height: calc(100vh - 5rem);
+  padding: clamp(2rem, 4vw, 4.5rem) clamp(1.5rem, 3vw, 3.5rem);
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, #17355f 16%, transparent), transparent 34%),
+    var(--surface);
+}
+
+.workspace :global(.dashboard-eyebrow) {
+  margin: 0 0 1.25rem;
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspace :global(.onboarding-summary h1) {
+  max-width: 8ch;
+  margin: 0;
+  font-size: clamp(2.5rem, 4.5vw, 4.75rem);
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.95;
+}
+
+.workspace :global(.onboarding-summary > p:not(.dashboard-eyebrow)) {
+  max-width: 31rem;
+  margin: 1.5rem 0 0;
+  color: var(--copy-muted);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.workspace :global(.onboarding-progress) {
+  margin-top: clamp(2.5rem, 6vw, 5.5rem);
+}
+
+.workspace :global(.onboarding-progress > div:first-child) {
+  display: flex;
+  justify-content: space-between;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.onboarding-progress-track) {
+  height: 1px;
+  margin-top: 0.85rem;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.workspace :global(.onboarding-progress-track span) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left;
+  background: var(--foreground);
+  transition: transform 200ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.workspace :global(.onboarding-checklist) {
+  display: grid;
+  gap: 0;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.workspace :global(.onboarding-checklist li) {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--copy-faint);
+  font-size: 0.82rem;
+}
+
+.workspace :global(.onboarding-checklist li[data-complete="true"]) {
+  color: var(--foreground);
+}
+
+.workspace :global(.onboarding-checklist svg) {
+  width: 0.9rem;
+  height: 0.9rem;
+  stroke-width: 1.5;
+}
+
+.workspace :global(.onboarding-steps) {
+  min-width: 0;
+}
+
+.workspace :global(.dashboard-error) {
+  margin: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid color-mix(in oklab, var(--destructive) 45%, var(--line));
+  border-radius: 0;
+  background: color-mix(in oklab, var(--destructive) 8%, var(--surface));
+  color: var(--foreground);
+}
+
+.workspace :global(.onboarding-step) {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.78fr) minmax(0, 1.25fr);
+  min-height: 17rem;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.workspace :global(.onboarding-step:last-child) {
+  border-bottom: 0;
+}
+
+.workspace :global(.onboarding-step[data-complete="true"])::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  background: var(--foreground);
+  content: "";
+}
+
+.workspace :global(.onboarding-step > header) {
+  display: grid;
+  grid-template-columns: auto 2rem minmax(0, 1fr) auto;
+  align-content: start;
+  gap: 1rem;
+  padding: clamp(1.5rem, 3vw, 2.75rem);
+  border-right: 1px solid var(--line);
+}
+
+.workspace :global(.onboarding-step-number) {
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.workspace :global(.onboarding-step-icon) {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  color: var(--copy-muted);
+}
+
+.workspace :global(.onboarding-step h2) {
+  margin: -0.15rem 0 0;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 450;
+  letter-spacing: -0.035em;
+}
+
+.workspace :global(.onboarding-step header p) {
+  max-width: 28rem;
+  margin: 0.65rem 0 0;
+  color: var(--copy-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.workspace :global(.onboarding-step-check) {
+  width: 1.1rem;
+  color: var(--foreground);
+  stroke-width: 1.5;
+}
+
+.workspace :global(.onboarding-step-content) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding: clamp(1.5rem, 3vw, 2.75rem);
+  border-top: 0;
+}
+
+.workspace :global(.onboarding-form) {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.workspace :global(.onboarding-field-wide) {
+  grid-column: 1 / -1;
+}
+
+.workspace :global(.onboarding-form label),
+.workspace :global(.onboarding-code-block) {
+  min-width: 0;
+}
+
+.workspace :global(.onboarding-form label > span) {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace :global(.onboarding-form label) {
+  gap: 0;
+}
+
+.workspace :global(input),
+.workspace :global(select) {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  outline: none;
+  background: var(--surface-raised);
+  color: var(--foreground);
+  padding: 0 0.9rem;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.workspace :global(input::placeholder) {
+  color: var(--copy-faint);
+}
+
+.workspace :global(input:focus-visible),
+.workspace :global(select:focus-visible) {
+  border-color: var(--foreground);
+  background: var(--surface-muted);
+}
+
+.workspace :global([data-slot="button"]) {
+  min-height: 2.75rem;
+  border-radius: 0;
+  padding-inline: 1.15rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.workspace :global(.onboarding-form > [data-slot="button"]) {
+  justify-self: start;
+}
+
+.workspace :global(.onboarding-complete-row),
+.workspace :global(.onboarding-action-row),
+.workspace :global(.sandbox-readiness),
+.workspace :global(.credential-secret) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+
+.workspace :global(.onboarding-complete-row strong),
+.workspace :global(.onboarding-action-row strong),
+.workspace :global(.credential-secret strong) {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.workspace :global(.onboarding-complete-row span),
+.workspace :global(.onboarding-action-row span) {
+  display: block;
+  max-width: 38rem;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+}
+
+.workspace :global(.onboarding-complete-row svg) {
+  width: 1rem;
+  flex: 0 0 auto;
+  stroke-width: 1.5;
+}
+
+.workspace :global(.credential-secret) {
+  display: grid;
+  align-items: start;
+  background:
+    radial-gradient(circle at 82% 30%, color-mix(in oklab, #d7b8ff 34%, transparent), transparent 34%),
+    radial-gradient(circle at 65% 75%, color-mix(in oklab, #3d8cff 34%, transparent), transparent 42%),
+    var(--surface-muted);
+}
+
+.workspace :global(.credential-secret code) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid color-mix(in oklab, var(--foreground) 34%, transparent);
+  background: color-mix(in oklab, #000 78%, transparent);
+  padding: 0.9rem;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.onboarding-copy-grid) {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.workspace :global(.onboarding-code-block) {
+  background: var(--surface-raised);
+  border: 0;
+  border-radius: 0;
+}
+
+.workspace :global(.onboarding-code-block > div) {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.5rem 0 1rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace :global(.onboarding-code-block pre),
+.workspace :global(.onboarding-code-block > p) {
+  max-height: 13rem;
+  margin: 0;
+  overflow: auto;
+  padding: 1rem;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.workspace :global(.onboarding-muted-state),
+.workspace :global(.sandbox-readiness p) {
+  color: var(--copy-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.workspace :global(.sandbox-readiness) {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+}
+
+.workspace :global(.sandbox-readiness)::before {
+  position: absolute;
+  inset: auto -10% -80% 25%;
+  height: 12rem;
+  background: radial-gradient(ellipse, color-mix(in oklab, #629cff 28%, transparent), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+.workspace :global(.sandbox-readiness > *) {
+  position: relative;
+}
+
+.workspace :global(.status-ready),
+.workspace :global(.status-waiting) {
+  width: fit-content;
+  border: 1px solid var(--line-strong);
+  padding: 0.4rem 0.55rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.workspace :global(.status-ready) {
+  border-color: color-mix(in oklab, #8db4ff 55%, var(--line));
+  color: #dce8ff;
+}
+
+@media (max-width: 74rem) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace :global(.onboarding-summary) {
+    position: static;
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .workspace :global(.onboarding-summary h1) {
+    max-width: 12ch;
+  }
+}
+
+@media (max-width: 52rem) {
+  .workspace :global(.onboarding-step) {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace :global(.onboarding-step > header) {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .workspace :global(.onboarding-form),
+  .workspace :global(.onboarding-copy-grid) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 32rem) {
+  .workspace :global(.onboarding-summary),
+  .workspace :global(.onboarding-step > header),
+  .workspace :global(.onboarding-step-content) {
+    padding: 1.25rem;
+  }
+
+  .workspace :global(.onboarding-step > header) {
+    grid-template-columns: auto 1.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .workspace :global(.onboarding-step-check) {
+    display: none;
+  }
+
+  .workspace :global(.onboarding-action-row),
+  .workspace :global(.onboarding-complete-row) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace :global(*) {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

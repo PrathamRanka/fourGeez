@@ -1,0 +1,744 @@
+.workspace {
+  color-scheme: dark;
+  --background: #050505;
+  --foreground: #f4f4f4;
+  --card: #0a0a0a;
+  --card-foreground: #f4f4f4;
+  --primary: #f4f4f4;
+  --primary-foreground: #050505;
+  --secondary: #121212;
+  --secondary-foreground: #f4f4f4;
+  --muted: #121212;
+  --muted-foreground: #929292;
+  --border: #292929;
+  --input: #343434;
+  --ring: #f4f4f4;
+  --surface: #050505;
+  --surface-raised: #0a0a0a;
+  --surface-muted: #101010;
+  --line: color-mix(in oklab, var(--foreground) 17%, transparent);
+  --line-strong: color-mix(in oklab, var(--foreground) 29%, transparent);
+  --copy-muted: color-mix(in oklab, var(--foreground) 58%, transparent);
+  --copy-faint: color-mix(in oklab, var(--foreground) 54%, transparent);
+  min-height: calc(100vh - 5rem);
+  border-inline: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.product-page-header) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 2rem;
+  min-height: 18rem;
+  padding: clamp(2rem, 5vw, 5rem);
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 78% 80%, color-mix(in oklab, #d9b7ff 17%, transparent), transparent 22%),
+    radial-gradient(circle at 65% 100%, color-mix(in oklab, #347ef3 21%, transparent), transparent 34%),
+    var(--surface);
+}
+
+.workspace :global(.dashboard-eyebrow) {
+  margin: 0 0 1.1rem;
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspace :global(.product-page-header h1) {
+  margin: 0;
+  font-size: clamp(3.4rem, 7vw, 7rem);
+  font-weight: 400;
+  letter-spacing: -0.075em;
+  line-height: 0.84;
+}
+
+.workspace :global(.product-page-header > div:first-child > p:last-child) {
+  max-width: 42rem;
+  margin: 1.65rem 0 0;
+  color: var(--copy-muted);
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+.workspace :global(.product-counts) {
+  display: grid;
+  min-width: 13rem;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, #000 65%, transparent);
+}
+
+.workspace :global(.product-counts span) {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.product-counts span:last-child) {
+  border-bottom: 0;
+}
+
+.workspace :global(.dashboard-error) {
+  margin: 1.5rem 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid color-mix(in oklab, var(--destructive) 45%, var(--line));
+  border-radius: 0;
+  background: color-mix(in oklab, var(--destructive) 8%, var(--surface));
+  color: var(--foreground);
+}
+
+.workspace :global(.dashboard-status) {
+  min-height: 0;
+  margin: 0;
+  padding: 0 1.5rem;
+  color: var(--copy-muted);
+  font-size: 0.8rem;
+}
+
+.workspace :global(.dashboard-status:not(:empty)) {
+  min-height: 3rem;
+  padding-top: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace :global(.product-create-panel) {
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.workspace :global(.product-panel-heading > div) {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.workspace :global(.product-panel-heading h2) {
+  margin: 0;
+  font-size: clamp(1.55rem, 2.5vw, 2.25rem);
+  font-weight: 450;
+  letter-spacing: -0.045em;
+}
+
+.workspace :global(.product-panel-heading p) {
+  margin: 0.45rem 0 0;
+  color: var(--copy-muted);
+  font-size: 0.85rem;
+}
+
+.workspace :global(.product-panel-icon) {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+}
+
+.workspace :global(.product-panel-icon svg) {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 1.5;
+}
+
+.workspace :global(.product-create-form) {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.workspace :global(.product-create-form > label) {
+  grid-column: span 3;
+}
+
+.workspace :global(.product-field-description),
+.workspace :global(.product-field-route) {
+  grid-column: span 6 !important;
+}
+
+.workspace :global(.product-advanced-fields) {
+  grid-column: 1 / -1;
+  border-block: 1px solid var(--line);
+}
+
+.workspace :global(.product-advanced-fields [data-slot="accordion-item"]),
+.workspace :global(.product-technical-accordion [data-slot="accordion-item"]) {
+  border: 0;
+}
+
+.workspace :global(.product-advanced-fields [data-slot="accordion-trigger"]),
+.workspace :global(.product-technical-accordion [data-slot="accordion-trigger"]) {
+  min-height: 3.25rem;
+  border-radius: 0;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.workspace :global(.product-advanced-grid) {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0.5rem 0 1.5rem;
+}
+
+.workspace :global(.product-create-form label > span),
+.workspace :global(.product-price-form label > span) {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace :global(input),
+.workspace :global(select) {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  outline: none;
+  background: var(--surface-raised);
+  color: var(--foreground);
+  padding: 0 0.9rem;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.workspace :global(input::placeholder) {
+  color: var(--copy-faint);
+}
+
+.workspace :global(input:focus-visible),
+.workspace :global(select:focus-visible) {
+  border-color: var(--foreground);
+  background: var(--surface-muted);
+}
+
+.workspace :global([data-slot="button"]) {
+  min-height: 2.75rem;
+  border-radius: 0;
+  padding-inline: 1.15rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.workspace :global(.product-create-form > [data-slot="button"]) {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.workspace :global(.product-management-grid) {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.72fr) minmax(0, 1.8fr);
+  min-height: 44rem;
+}
+
+.workspace :global(.product-route-list) {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.workspace :global(.product-route-list .product-panel-heading) {
+  min-height: 6rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace :global(.product-route-list .product-panel-heading h2) {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.workspace :global(.product-route-items) {
+  display: grid;
+}
+
+.workspace :global(.product-route-item) {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  min-height: 7.5rem;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  outline: none;
+  background: var(--surface);
+  color: var(--foreground);
+  text-align: left;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.workspace :global(.product-route-item)::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  background: transparent;
+  content: "";
+}
+
+.workspace :global(.product-route-item[data-selected="true"]) {
+  background: var(--surface-muted);
+}
+
+.workspace :global(.product-route-item[data-selected="true"])::before {
+  background: var(--foreground);
+}
+
+.workspace :global(.product-route-item:focus-visible) {
+  box-shadow: inset 0 0 0 1px var(--foreground);
+}
+
+.workspace :global(.product-route-copy) {
+  min-width: 0;
+}
+
+.workspace :global(.product-route-copy strong) {
+  display: block;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace :global(.product-route-copy small) {
+  display: block;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace :global(.product-route-price) {
+  grid-row: span 2;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.route-status-badge) {
+  width: fit-content;
+  margin-top: 0.65rem;
+  border: 1px solid var(--line-strong);
+  padding: 0.28rem 0.45rem;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.workspace :global(.route-status-badge[data-status="published"]) {
+  border-color: color-mix(in oklab, #8db4ff 52%, var(--line));
+  color: #dce8ff;
+}
+
+.workspace :global(.route-status-badge[data-status="emergency_disabled"]) {
+  border-color: color-mix(in oklab, var(--destructive) 55%, var(--line));
+  color: color-mix(in oklab, var(--destructive) 65%, white);
+}
+
+.workspace :global(.product-inspector) {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.workspace :global(.product-detail-heading) {
+  display: flex;
+  min-height: 12rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in oklab, #d7b8ff 15%, transparent), transparent 26%),
+    radial-gradient(circle at 72% 36%, color-mix(in oklab, #3d8cff 18%, transparent), transparent 35%),
+    var(--surface);
+}
+
+.workspace :global(.product-detail-heading > div:first-child > span) {
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.workspace :global(.product-detail-heading h2) {
+  margin: 1rem 0 0;
+  font-size: clamp(2rem, 4vw, 4rem);
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.95;
+}
+
+.workspace :global(.product-detail-heading p) {
+  max-width: 36rem;
+  margin: 1rem 0 0;
+  color: var(--copy-muted);
+  line-height: 1.6;
+}
+
+.workspace :global(.product-detail-heading > div:last-child) {
+  display: grid;
+  justify-items: end;
+  gap: 0.65rem;
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.67rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.product-detail-section) {
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace :global(.product-section-title) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.workspace :global(.product-section-title h3) {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.workspace :global(.product-section-title p),
+.workspace :global(.product-muted-copy) {
+  margin: 0.45rem 0 0;
+  color: var(--copy-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.workspace :global(.product-section-title > strong) {
+  font-size: clamp(1.7rem, 3vw, 2.8rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.product-customer-details) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 2rem 0 0;
+  border: 1px solid var(--line);
+}
+
+.workspace :global(.product-customer-details > div) {
+  min-width: 0;
+  padding: 1rem;
+  border-right: 1px solid var(--line);
+}
+
+.workspace :global(.product-customer-details > div:last-child) {
+  border-right: 0;
+}
+
+.workspace :global(dt) {
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.workspace :global(dd) {
+  margin: 0.55rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--copy-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.product-price-form) {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) auto;
+  align-items: end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.workspace :global(.product-validation) {
+  margin-top: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.workspace :global(.product-validation > strong) {
+  display: block;
+  padding: 1rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.workspace :global(.product-validation ul) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace :global(.product-validation li) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--copy-muted);
+  font-size: 0.78rem;
+}
+
+.workspace :global(.product-validation li:last-child) {
+  border-bottom: 0;
+}
+
+.workspace :global(.product-validation li svg) {
+  width: 0.9rem;
+  height: 0.9rem;
+  stroke-width: 1.5;
+}
+
+.workspace :global(.product-validation li small) {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace :global(.product-control-row) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.workspace :global(.product-history) {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.workspace :global(.product-history li) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace :global(.product-history li > span) {
+  width: 0.35rem;
+  height: 0.35rem;
+  background: var(--foreground);
+}
+
+.workspace :global(.product-history strong) {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.workspace :global(.product-history small) {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--copy-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace :global(.product-technical-details) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+.workspace :global(.product-technical-details > div) {
+  min-width: 0;
+  padding: 1rem 1rem 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace :global(.product-empty-state) {
+  display: grid;
+  min-height: 14rem;
+  place-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.workspace :global(.product-empty-state p) {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.workspace :global(.product-empty-state span) {
+  max-width: 23rem;
+  margin-top: 0.55rem;
+  color: var(--copy-muted);
+  font-size: 0.82rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace :global(.product-route-item:hover) {
+    background: var(--surface-muted);
+  }
+}
+
+@media (max-width: 74rem) {
+  .workspace :global(.product-create-form > label) {
+    grid-column: span 6;
+  }
+
+  .workspace :global(.product-advanced-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace :global(.product-management-grid) {
+    grid-template-columns: minmax(15rem, 0.75fr) minmax(0, 1.5fr);
+  }
+}
+
+@media (max-width: 56rem) {
+  .workspace :global(.product-page-header) {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .workspace :global(.product-counts) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workspace :global(.product-counts span) {
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  .workspace :global(.product-counts span:last-child) {
+    border-right: 0;
+  }
+
+  .workspace :global(.product-management-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace :global(.product-route-list) {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .workspace :global(.product-route-items) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace :global(.product-route-item:nth-child(odd)) {
+    border-right: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 40rem) {
+  .workspace :global(.product-page-header),
+  .workspace :global(.product-create-panel),
+  .workspace :global(.product-detail-heading),
+  .workspace :global(.product-detail-section) {
+    padding: 1.25rem;
+  }
+
+  .workspace :global(.product-create-form > label),
+  .workspace :global(.product-field-description),
+  .workspace :global(.product-field-route) {
+    grid-column: 1 / -1 !important;
+  }
+
+  .workspace :global(.product-advanced-grid),
+  .workspace :global(.product-route-items),
+  .workspace :global(.product-customer-details),
+  .workspace :global(.product-technical-details) {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace :global(.product-route-item:nth-child(odd)),
+  .workspace :global(.product-customer-details > div) {
+    border-right: 0;
+  }
+
+  .workspace :global(.product-counts) {
+    min-width: 0;
+  }
+
+  .workspace :global(.product-counts span) {
+    padding-inline: 0.65rem;
+    font-size: 0.6rem;
+  }
+
+  .workspace :global(.product-detail-heading),
+  .workspace :global(.product-section-title) {
+    flex-direction: column;
+  }
+
+  .workspace :global(.product-detail-heading > div:last-child) {
+    justify-items: start;
+  }
+
+  .workspace :global(.product-price-form) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace :global(*) {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
