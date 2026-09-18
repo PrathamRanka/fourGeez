@@ -10,13 +10,21 @@ AgentPay turns a seller's existing API or digital service into one commerce surf
 
 ### Web application
 
-The Next.js application provides seller onboarding, verified payment-destination
-setup, product and route configuration, an asset-separated sales dashboard,
-seller-branded storefronts, browser-wallet purchase guidance, the agent buyer
-demonstration, live approval, transaction evidence, receipts, webhook status,
-and dispute views.
+The Next.js application provides the public AgentPay marketing and product site,
+sign-up and sign-in entry points, seller onboarding, verified
+payment-destination setup, product and route configuration, an asset-separated
+sales dashboard, seller-branded storefronts, browser-wallet purchase guidance,
+the agent buyer demonstration, live approval, transaction evidence, receipts,
+webhook status, and dispute views.
 
 Server Components render read-heavy pages. Client Components are limited to buyer interaction, approval decisions, WebSocket status, and small optimistic controls.
+
+The public site and authenticated product share one token, typography,
+navigation, and responsive-layout system. Marketing-only visual effects remain
+isolated from dashboard interaction code, load progressively, and disable under
+`prefers-reduced-motion`. Public pages render meaningful HTML before client
+JavaScript so human visitors, crawlers, and software agents receive the same
+truthful product explanation.
 
 ### Seller automation
 

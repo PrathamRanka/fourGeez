@@ -134,7 +134,8 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **STK-001** Add maintained integration recipes and focused tests for the supported JavaScript and TypeScript stacks.
 - [x] **STK-002** Add maintained integration recipes and focused tests for the supported Go and Python stacks.
 - [x] **STK-003** Add verified package and setup-bundle support for ASP.NET Core, Spring Boot, Rails, and Laravel before advertising those ecosystems as supported.
-- [ ] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.
+- [x] **WEB-001** Implement design tokens, typography, responsive shell, keyboard focus, and reduced-motion behavior.
+- [ ] **SITE-001** Implement the complete public AgentPay website for ordinary visitors: responsive navigation, landing hero, live commerce demonstration, seller and buyer explanations, supported-stack showcase, trust and payment sections, pricing preview, FAQ, documentation links, and sign-up/sign-in entry points. Use the shared design system, selected Aceternity/21st.dev/shadcn components, meaningful branded feature names with plain-language descriptions, progressive enhancement, semantic server-rendered content, viewport checks at 360/768/1280/1440, and reduced-motion behavior. Depends on WEB-001.
 - [ ] **WEB-002** Implement seller onboarding for storefront creation, verified wallet setup, project credentials, MCP configuration, setup-prompt copy, and sandbox status.
 - [ ] **WEB-003** Implement product-route draft, price, validation, publish, pause, archive, and emergency-disable controls with version history.
 - [ ] **WEB-004** Implement the seller dashboard for gross verified payments, fulfilled sales, failures, disputes, route performance, and asset/network-separated totals.

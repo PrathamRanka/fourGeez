@@ -96,6 +96,13 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 
 ## Web quality checks
 
+- Public landing content explains the seller setup and buyer payment paths
+  without requiring knowledge of MCP or x402 terminology.
+- Landing-page sign-up, sign-in, documentation, seller, and buyer navigation
+  targets are keyboard reachable and resolve to real routes or explicit
+  unavailable states.
+- Marketing motion is progressive, uses transform or opacity where possible,
+  and is removed when `prefers-reduced-motion` is enabled.
 - Keyboard-only operation for onboarding, buyer, approval, and dispute flows.
 - Visible focus and correctly associated labels/errors.
 - Approval status announced through an ARIA live region.

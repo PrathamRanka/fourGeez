@@ -13,6 +13,29 @@ discovery protocols.
 AgentPay is the commerce gateway and control plane. The seller continues to own
 and operate the upstream service that fulfills each product.
 
+## Public product experience
+
+AgentPay includes a complete public website for ordinary visitors before they
+enter a seller or buyer workflow. The site explains the product without
+requiring protocol knowledge, demonstrates the agent purchase path, exposes
+supported stacks and payment behavior, answers trust and pricing questions, and
+provides clear sign-up and sign-in entry points.
+
+Branded feature names may make the product memorable, but every name must be
+paired with a plain-language explanation. The initial vocabulary is:
+
+- **Launch Rail** — the guided API-key and coding-agent setup flow;
+- **Agent Checkout** — the shared purchase flow for agents and browser wallets;
+- **Discovery Mesh** — storefront metadata, manifest, sitemap, and `llms.txt`;
+- **Proof Stream** — transaction, payment, fulfillment, and evidence history;
+- **Revenue Lens** — asset- and network-separated seller analytics; and
+- **Trust Gate** — approval, replay protection, sandbox, and publication checks.
+
+The public site may use polished demonstrations and restrained motion, but must
+remain fast, accessible, usable without animation, and truthful. It must never
+claim guaranteed search ranking, guaranteed revenue, automatic production
+deployment without consent, or support for a payment rail that is not enabled.
+
 ## Initial product scope
 
 The first commercial scope is API-backed and digitally fulfilled products:
