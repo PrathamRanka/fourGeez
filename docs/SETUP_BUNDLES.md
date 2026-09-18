@@ -110,8 +110,8 @@ bundle pins the first package contract so setup behavior cannot drift silently.
 
 | Support tier | Stacks |
 |---|---|
-| Maintained verification and setup fixtures | Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, FastAPI, Starlette |
-| Planned adapters using maintained language verification primitives | Gin, Echo, Fiber, Flask, Django |
+| Maintained verification and setup fixtures | Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go `net/http`, Gin, Echo, Fiber, FastAPI, Starlette, Flask, Django |
+| Planned adapters using maintained language verification primitives | None |
 | Not advertised until dedicated verification packages pass | ASP.NET Core, Spring Boot, Rails, Laravel |
 
 The generic MCP host is not a generic framework implementation. A stack moves
@@ -139,13 +139,13 @@ package name, never substring guessing.
 | Fastify | dependency `fastify` | maintained |
 | NestJS | dependency `@nestjs/core` | maintained |
 | Go `net/http` | `go.mod` plus a `.go` source marker importing `net/http`, without a stronger Go framework match | maintained |
-| Gin | `go.mod` module `github.com/gin-gonic/gin` | planned |
-| Echo | `go.mod` module `github.com/labstack/echo` | planned |
-| Fiber | `go.mod` module `github.com/gofiber/fiber` | planned |
+| Gin | `go.mod` module `github.com/gin-gonic/gin` | maintained |
+| Echo | `go.mod` module `github.com/labstack/echo` | maintained |
+| Fiber | `go.mod` module `github.com/gofiber/fiber` | maintained |
 | FastAPI | Python dependency `fastapi` | maintained |
 | Starlette | Python dependency `starlette`, without FastAPI | maintained |
-| Flask | Python dependency `flask` | planned |
-| Django | Python dependency `django` | planned |
+| Flask | Python dependency `flask` | maintained |
+| Django | Python dependency `django` | maintained |
 | ASP.NET Core | `.csproj` with `Microsoft.AspNetCore` evidence | unsupported until STK-003 |
 | Spring Boot | Maven or Gradle dependency containing `spring-boot` | unsupported until STK-003 |
 | Rails | `Gemfile` dependency `rails` | unsupported until STK-003 |

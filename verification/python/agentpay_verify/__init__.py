@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Mapping, Protocol
 
@@ -20,6 +21,13 @@ class ReplayStore(Protocol):
     """Atomically claims accepted transaction identifiers."""
 
     async def claim(self, transaction_id: str, timestamp: datetime) -> bool:
+        """Returns true only for the first accepted transaction identifier."""
+
+
+class SyncReplayStore(Protocol):
+    """Atomically claims accepted transaction identifiers for WSGI applications."""
+
+    def claim(self, transaction_id: str, timestamp: datetime) -> bool:
         """Returns true only for the first accepted transaction identifier."""
 
 
@@ -41,6 +49,24 @@ class MemoryReplayStore:
             return True
 
 
+class MemorySyncReplayStore:
+    """Provides process-local replay protection for WSGI tests and development."""
+
+    def __init__(self) -> None:
+        """Creates an empty synchronous replay store."""
+        self._transactions: set[str] = set()
+        self._lock = threading.Lock()
+
+    def claim(self, transaction_id: str, timestamp: datetime) -> bool:
+        """Claims a transaction once within the current process."""
+        del timestamp
+        with self._lock:
+            if transaction_id in self._transactions:
+                return False
+            self._transactions.add(transaction_id)
+            return True
+
+
 async def verify_request(
     secret: bytes,
     method: str,
@@ -52,6 +78,29 @@ async def verify_request(
     maximum_age: timedelta = DEFAULT_MAXIMUM_AGE,
 ) -> None:
     """Verifies one exact raw request and atomically blocks replay."""
+    transaction_id, timestamp = _validate_request(
+        secret,
+        method,
+        path,
+        body,
+        headers,
+        now,
+        maximum_age,
+    )
+    if not await replay_store.claim(transaction_id, timestamp):
+        raise VerificationError("replay")
+
+
+def _validate_request(
+    secret: bytes,
+    method: str,
+    path: str,
+    body: bytes,
+    headers: Mapping[str, str],
+    now: datetime | None,
+    maximum_age: timedelta,
+) -> tuple[str, datetime]:
+    """Validates signed request facts before a replay store is selected."""
     if len(secret) < 32:
         raise VerificationError("invalid_configuration")
     signature_value = headers.get("x-agentpay-signature")
@@ -85,7 +134,30 @@ async def verify_request(
     ).digest()
     if not hmac.compare_digest(provided_signature, expected_signature):
         raise VerificationError("invalid_signature")
-    if not await replay_store.claim(transaction_id, timestamp):
+    return transaction_id, timestamp
+
+
+def verify_request_sync(
+    secret: bytes,
+    method: str,
+    path: str,
+    body: bytes,
+    headers: Mapping[str, str],
+    replay_store: SyncReplayStore,
+    now: datetime | None = None,
+    maximum_age: timedelta = DEFAULT_MAXIMUM_AGE,
+) -> None:
+    """Verifies one WSGI request and atomically blocks replay."""
+    transaction_id, timestamp = _validate_request(
+        secret,
+        method,
+        path,
+        body,
+        headers,
+        now,
+        maximum_age,
+    )
+    if not replay_store.claim(transaction_id, timestamp):
         raise VerificationError("replay")
 
 

@@ -51,9 +51,49 @@ func TestRecipeRejectsUnavailableStacks(t *testing.T) {
 	}
 }
 
+// TestGoAndPythonFixturesHaveMaintainedRecipes verifies server-framework recipes.
+func TestGoAndPythonFixturesHaveMaintainedRecipes(t *testing.T) {
+	t.Parallel()
+
+	fixtures := readRecipeFixtures(t, "testdata/go_python.json")
+	detector := stacks.NewService()
+	service := NewService()
+	for _, fixture := range fixtures {
+		t.Run(string(fixture.Stack), func(t *testing.T) {
+			detections, err := detector.Detect(fixture.Evidence)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !hasMaintainedDetection(detections, fixture.Stack) {
+				t.Fatalf("detections = %#v", detections)
+			}
+			recipe, err := service.Recipe(fixture.Stack)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if recipe.Language != fixture.Language ||
+				recipe.VerificationAdapter != fixture.Adapter ||
+				!containsFragment(recipe.StorefrontFiles, fixture.MetadataFragment) {
+				t.Fatalf("recipe = %#v", recipe)
+			}
+			if err := Validate(recipe); err != nil {
+				t.Fatalf("Validate() error = %v", err)
+			}
+		})
+	}
+}
+
 type javaScriptFixture struct {
 	Stack            stacks.Stack      `json:"stack"`
 	Evidence         map[string]string `json:"evidence"`
+	Adapter          string            `json:"adapter"`
+	MetadataFragment string            `json:"metadataFragment"`
+}
+
+type recipeFixture struct {
+	Stack            stacks.Stack      `json:"stack"`
+	Evidence         map[string]string `json:"evidence"`
+	Language         Language          `json:"language"`
 	Adapter          string            `json:"adapter"`
 	MetadataFragment string            `json:"metadataFragment"`
 }
@@ -67,6 +107,21 @@ func readJavaScriptFixtures(t *testing.T) []javaScriptFixture {
 		t.Fatal(err)
 	}
 	var fixtures []javaScriptFixture
+	if err := json.Unmarshal(encoded, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+	return fixtures
+}
+
+// readRecipeFixtures loads a committed cross-language fixture set.
+func readRecipeFixtures(t *testing.T, path string) []recipeFixture {
+	t.Helper()
+
+	encoded, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixtures []recipeFixture
 	if err := json.Unmarshal(encoded, &fixtures); err != nil {
 		t.Fatal(err)
 	}

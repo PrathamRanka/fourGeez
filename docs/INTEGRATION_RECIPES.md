@@ -1,6 +1,6 @@
 # Seller integration recipe contract
 
-Status: **Locked through STK-001**.
+Status: **Locked through STK-002**.
 
 Each maintained stack has a versioned `agentpay.recipe.v1` entry included in
 setup bundle v2. A recipe identifies the pinned verification package and
@@ -38,3 +38,30 @@ stack detection, maintained-tier advertising, package selection, adapter
 selection, metadata file placement, middleware order, sandbox coverage, and
 discovery outputs. A detected stack is not considered maintained unless that
 fixture passes.
+
+## Maintained Go recipes
+
+| Stack | Verification adapter | Raw-body integration |
+|---|---|---|
+| Go `net/http` | `Verifier.Middleware` | Wrap sandbox and fulfillment handlers before mux registration |
+| Gin | `Verifier.Verify` | Read and restore `c.Request.Body` before binding |
+| Echo | `Verifier.Verify` | Read and restore `c.Request().Body` before binding |
+| Fiber | `Verifier.Verify` | Copy `c.Body()` and verify before `c.Next()` |
+
+Go recipes use the pinned
+`github.com/fourgeez/agentpay/verification/go@v0.1.0` package and run
+`go test ./...`.
+
+## Maintained Python recipes
+
+| Stack | Verification adapter | Raw-body integration |
+|---|---|---|
+| FastAPI | `AgentPayASGIMiddleware` | Install outside FastAPI to capture and replay ASGI receive bytes |
+| Starlette | `AgentPayASGIMiddleware` | Install outside Starlette to capture and replay ASGI receive bytes |
+| Flask | `verify_request_sync` | Call `request.get_data(cache=True)` before JSON parsing |
+| Django | `verify_request_sync` | Verify `request.body` in middleware before the paid view |
+
+Python recipes use the pinned `agentpay-verify==0.1.0` package and run
+`python -m unittest discover -v`. The package exposes separate asynchronous and
+synchronous replay-store boundaries so ASGI and WSGI applications do not hide
+event-loop behavior inside verification.

@@ -19,7 +19,7 @@ func NewService() *Service {
 
 // Recipe returns one isolated maintained recipe.
 func (service *Service) Recipe(stack stacks.Stack) (Recipe, error) {
-	recipe, exists := javaScriptRecipes()[stack]
+	recipe, exists := allRecipes()[stack]
 	if !exists {
 		return Recipe{}, ErrRecipeUnavailable
 	}
@@ -27,6 +27,21 @@ func (service *Service) Recipe(stack stacks.Stack) (Recipe, error) {
 	recipe.StorefrontFiles = append([]string(nil), recipe.StorefrontFiles...)
 	recipe.DiscoveryFiles = append([]string(nil), recipe.DiscoveryFiles...)
 	return recipe, nil
+}
+
+// allRecipes combines every verified language recipe catalog.
+func allRecipes() map[stacks.Stack]Recipe {
+	result := make(map[stacks.Stack]Recipe)
+	for _, recipeSet := range []map[stacks.Stack]Recipe{
+		javaScriptRecipes(),
+		goRecipes(),
+		pythonRecipes(),
+	} {
+		for stack, recipe := range recipeSet {
+			result[stack] = recipe
+		}
+	}
+	return result
 }
 
 // Validate enforces the safety and completeness contract for one recipe.
@@ -158,6 +173,124 @@ func nodeRecipe(
 			"manifest.json",
 		},
 		FocusedTestCommand: "npm test -- agentpay.integration.test.ts",
+	}
+}
+
+// goRecipes returns maintained Go framework integrations.
+func goRecipes() map[stacks.Stack]Recipe {
+	return map[stacks.Stack]Recipe{
+		stacks.StackGoNetHTTP: goRecipe(
+			stacks.StackGoNetHTTP,
+			"Verifier.Middleware",
+			"Wrap the sandbox and fulfillment handlers before registering them with http.ServeMux.",
+		),
+		stacks.StackGin: goRecipe(
+			stacks.StackGin,
+			"Verifier.Verify",
+			"Read and restore c.Request.Body in middleware before Gin binding or handlers.",
+		),
+		stacks.StackEcho: goRecipe(
+			stacks.StackEcho,
+			"Verifier.Verify",
+			"Read and restore c.Request().Body in middleware before Echo binding or handlers.",
+		),
+		stacks.StackFiber: goRecipe(
+			stacks.StackFiber,
+			"Verifier.Verify",
+			"Copy c.Body() bytes and verify before calling c.Next().",
+		),
+	}
+}
+
+// goRecipe constructs one pinned Go integration recipe.
+func goRecipe(stack stacks.Stack, adapter string, rawBodyStrategy string) Recipe {
+	return Recipe{
+		SchemaVersion:       RecipeSchemaVersion,
+		Stack:               stack,
+		Language:            LanguageGo,
+		VerificationPackage: "github.com/fourgeez/agentpay/verification/go",
+		PackageVersion:      "0.1.0",
+		InstallCommand:      "go get github.com/fourgeez/agentpay/verification/go@v0.1.0",
+		VerificationAdapter: adapter,
+		RawBodyStrategy:     rawBodyStrategy,
+		MiddlewareOrder:     requiredMiddlewareOrder(),
+		SandboxRoute:        SandboxRoute,
+		StorefrontFiles: []string{
+			"templates/storefront.html",
+			"internal/agentpay/storefront.go",
+			"internal/agentpay/sandbox.go",
+		},
+		DiscoveryFiles:     requiredDiscoveryFiles(),
+		FocusedTestCommand: "go test ./...",
+	}
+}
+
+// pythonRecipes returns maintained ASGI and WSGI framework integrations.
+func pythonRecipes() map[stacks.Stack]Recipe {
+	return map[stacks.Stack]Recipe{
+		stacks.StackFastAPI: pythonRecipe(
+			stacks.StackFastAPI,
+			"AgentPayASGIMiddleware",
+			"Install AgentPayASGIMiddleware outside FastAPI so it captures and replays the ASGI receive body.",
+		),
+		stacks.StackStarlette: pythonRecipe(
+			stacks.StackStarlette,
+			"AgentPayASGIMiddleware",
+			"Install AgentPayASGIMiddleware outside Starlette so it captures and replays the ASGI receive body.",
+		),
+		stacks.StackFlask: pythonRecipe(
+			stacks.StackFlask,
+			"verify_request_sync",
+			"Read request.get_data(cache=True) and verify before request.get_json or the view performs side effects.",
+		),
+		stacks.StackDjango: pythonRecipe(
+			stacks.StackDjango,
+			"verify_request_sync",
+			"Read request.body and verify in middleware before the paid view performs side effects.",
+		),
+	}
+}
+
+// pythonRecipe constructs one pinned Python integration recipe.
+func pythonRecipe(stack stacks.Stack, adapter string, rawBodyStrategy string) Recipe {
+	return Recipe{
+		SchemaVersion:       RecipeSchemaVersion,
+		Stack:               stack,
+		Language:            LanguagePython,
+		VerificationPackage: "agentpay-verify",
+		PackageVersion:      "0.1.0",
+		InstallCommand:      "python -m pip install agentpay-verify==0.1.0",
+		VerificationAdapter: adapter,
+		RawBodyStrategy:     rawBodyStrategy,
+		MiddlewareOrder:     requiredMiddlewareOrder(),
+		SandboxRoute:        SandboxRoute,
+		StorefrontFiles: []string{
+			"templates/storefront.html",
+			"agentpay/storefront.py",
+			"agentpay/sandbox.py",
+		},
+		DiscoveryFiles:     requiredDiscoveryFiles(),
+		FocusedTestCommand: "python -m unittest discover -v",
+	}
+}
+
+// requiredMiddlewareOrder returns the shared verification safety sequence.
+func requiredMiddlewareOrder() []string {
+	return []string{
+		"capture_raw_body",
+		"verify_agentpay_signature",
+		"claim_replay_identifier",
+		"fulfillment_handler",
+	}
+}
+
+// requiredDiscoveryFiles returns the cross-stack discovery outputs.
+func requiredDiscoveryFiles() []string {
+	return []string{
+		"robots.txt",
+		"sitemap.xml",
+		"llms.txt",
+		"manifest.json",
 	}
 }
 

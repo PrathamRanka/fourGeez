@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 from agentpay_verify import (
     AgentPayASGIMiddleware,
     MemoryReplayStore,
+    MemorySyncReplayStore,
     VerificationError,
     verify_request,
+    verify_request_sync,
 )
 
 
@@ -131,6 +133,25 @@ class VerificationTests(unittest.IsolatedAsyncioTestCase):
         messages.append({"type": "http.request", "body": b"hello", "more_body": False})
         await middleware(scope, receive, send)
         self.assertEqual(sent_messages[0]["status"], 409)
+
+
+class SyncVerificationTests(unittest.TestCase):
+    # test_sync_verifier_supports_wsgi_frameworks covers Flask and Django adapters.
+    def test_sync_verifier_supports_wsgi_frameworks(self) -> None:
+        timestamp = "2026-09-17T10:00:00Z"
+        headers = {
+            "x-agentpay-signature": sign(b"hello", timestamp, "txn_wsgi"),
+            "x-agentpay-timestamp": timestamp,
+            "x-agentpay-transaction-id": "txn_wsgi",
+        }
+        replay_store = MemorySyncReplayStore()
+        verify_request_sync(
+            SECRET, "POST", "/fulfill", b"hello", headers, replay_store, NOW
+        )
+        with self.assertRaisesRegex(VerificationError, "replay"):
+            verify_request_sync(
+                SECRET, "POST", "/fulfill", b"hello", headers, replay_store, NOW
+            )
 
 
 if __name__ == "__main__":

@@ -65,6 +65,9 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
   Nuxt, SvelteKit, Astro, Express, Fastify, and NestJS, including raw-body
   strategy, verification adapter, middleware order, sandbox route, discovery
   files, and focused test commands.
+- Go and Python recipe fixtures cover `net/http`, Gin, Echo, Fiber, FastAPI,
+  Starlette, Flask, and Django. Python verification tests cover both ASGI and
+  synchronous WSGI replay-store paths.
 
 ### End-to-end tests
 

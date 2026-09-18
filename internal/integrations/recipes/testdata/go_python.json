@@ -1,0 +1,58 @@
+[
+  {
+    "stack": "go-net-http",
+    "evidence": {"go.mod": "module seller", "main.go": "package main\nimport \"net/http\""},
+    "language": "go",
+    "adapter": "Verifier.Middleware",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "gin",
+    "evidence": {"go.mod": "require github.com/gin-gonic/gin v1.10.0"},
+    "language": "go",
+    "adapter": "Verifier.Verify",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "echo",
+    "evidence": {"go.mod": "require github.com/labstack/echo/v4 v4.13.4"},
+    "language": "go",
+    "adapter": "Verifier.Verify",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "fiber",
+    "evidence": {"go.mod": "require github.com/gofiber/fiber/v2 v2.52.9"},
+    "language": "go",
+    "adapter": "Verifier.Verify",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "fastapi",
+    "evidence": {"requirements.txt": "fastapi==0.116.1"},
+    "language": "python",
+    "adapter": "AgentPayASGIMiddleware",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "starlette",
+    "evidence": {"requirements.txt": "starlette==0.47.3"},
+    "language": "python",
+    "adapter": "AgentPayASGIMiddleware",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "flask",
+    "evidence": {"requirements.txt": "Flask==3.1.2"},
+    "language": "python",
+    "adapter": "verify_request_sync",
+    "metadataFragment": "templates/storefront.html"
+  },
+  {
+    "stack": "django",
+    "evidence": {"requirements.txt": "Django==5.2.6"},
+    "language": "python",
+    "adapter": "verify_request_sync",
+    "metadataFragment": "templates/storefront.html"
+  }
+]
