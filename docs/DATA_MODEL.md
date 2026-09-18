@@ -117,21 +117,38 @@ authority without constant-time verification of the complete token hash.
 | `paymentDestinationId` | string/null | Planned M7 reference to the verified seller destination |
 | `approvalThresholdAmount` | string/null | Approval required when amount is greater than or equal to threshold |
 | `upstreamTimeoutSeconds` | integer | Range 1–30 |
-| `enabled` | boolean | Disabled routes cannot issue challenges |
+| `lifecycleStatus` | enum | `draft`, `published`, `paused`, `archived`, or `emergency_disabled` |
+| `enabled` | boolean | Compatibility publication flag; true only while `lifecycleStatus=published` |
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
 
 Price updates apply only to purchase intents created after the update. Existing intents retain their frozen amount until they expire or execute.
 
-`enabled` is the V1 publication flag. Seller API route creation remains an
-explicit seller-authorized operation and creates an enabled route for backward
-compatibility. MCP route configuration creates `enabled=false` drafts. The MCP
-publish operation revalidates seller ownership, active seller status, signing
-configuration, route configuration, confirmation metadata, expected version,
-idempotency, and the seller sandbox endpoint before changing the draft to
-`enabled=true` with a conditional write. Deterministic and sandbox validation
-results are computed responses and are not persisted; publication performs a
-fresh sandbox run so a stale result cannot authorize a changed route.
+`lifecycleStatus` is the authoritative route lifecycle. Existing records that
+do not contain it are read as `published` when `enabled=true` and `draft` when
+`enabled=false`; the next successful mutation writes both fields. Seller API
+route creation remains backward compatible and publishes immediately unless
+the caller explicitly sends `publishImmediately=false`. MCP route configuration
+always creates a `draft`.
+
+Allowed lifecycle transitions are:
+
+- `draft` to `published` or `archived`;
+- `published` to `paused` or `emergency_disabled`;
+- `paused` to `published` or `archived`;
+- `emergency_disabled` to `published` or `archived`; and
+- `archived` is terminal.
+
+Publication revalidates seller ownership, active seller status, signing
+configuration, route configuration, expected version, quota, idempotency, and
+the seller sandbox endpoint where the integration flow requires it. Pause is a
+reversible seller action. Emergency disable is a separate high-urgency action
+so operations and audit history can distinguish it from a planned pause.
+Archive requires a non-published route and is irreversible. Every transition
+uses a conditional version write and synchronizes `enabled` to the lifecycle.
+Deterministic and sandbox validation results are computed responses and are not
+persisted; publication performs fresh validation so a stale result cannot
+authorize a changed route.
 
 Approval threshold evaluation is inclusive: an amount equal to or greater than the applicable threshold requires approval. A missing threshold means no approval requirement from that policy. The recorded policy version is `approval-threshold-v1`.
 

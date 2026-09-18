@@ -47,6 +47,17 @@ const (
 	RouteMethodPost RouteMethod = "POST"
 )
 
+// RouteLifecycleStatus identifies whether a route can accept new purchases.
+type RouteLifecycleStatus string
+
+const (
+	RouteLifecycleDraft             RouteLifecycleStatus = "draft"
+	RouteLifecyclePublished         RouteLifecycleStatus = "published"
+	RouteLifecyclePaused            RouteLifecycleStatus = "paused"
+	RouteLifecycleArchived          RouteLifecycleStatus = "archived"
+	RouteLifecycleEmergencyDisabled RouteLifecycleStatus = "emergency_disabled"
+)
+
 // PaidRouteParams contains the inputs required to publish a paid API route.
 type PaidRouteParams struct {
 	RouteID                 domain.ID
@@ -66,22 +77,23 @@ type PaidRouteParams struct {
 
 // PaidRoute is a seller-owned API operation with an exact payment requirement.
 type PaidRoute struct {
-	RouteID                 domain.ID        `json:"routeId"`
-	SellerID                domain.ID        `json:"sellerId"`
-	Method                  RouteMethod      `json:"method"`
-	PathPattern             string           `json:"pathPattern"`
-	Description             string           `json:"description"`
-	MIMEType                string           `json:"mimeType"`
-	Amount                  domain.Amount    `json:"amount"`
-	Asset                   string           `json:"asset"`
-	Network                 string           `json:"network"`
-	PayTo                   string           `json:"payTo"`
-	ApprovalThresholdAmount *domain.Amount   `json:"approvalThresholdAmount,omitempty"`
-	UpstreamTimeoutSeconds  int              `json:"upstreamTimeoutSeconds"`
-	Enabled                 bool             `json:"enabled"`
-	CreatedAt               domain.Timestamp `json:"createdAt"`
-	UpdatedAt               domain.Timestamp `json:"updatedAt"`
-	Version                 uint64           `json:"version"`
+	RouteID                 domain.ID            `json:"routeId"`
+	SellerID                domain.ID            `json:"sellerId"`
+	Method                  RouteMethod          `json:"method"`
+	PathPattern             string               `json:"pathPattern"`
+	Description             string               `json:"description"`
+	MIMEType                string               `json:"mimeType"`
+	Amount                  domain.Amount        `json:"amount"`
+	Asset                   string               `json:"asset"`
+	Network                 string               `json:"network"`
+	PayTo                   string               `json:"payTo"`
+	ApprovalThresholdAmount *domain.Amount       `json:"approvalThresholdAmount,omitempty"`
+	UpstreamTimeoutSeconds  int                  `json:"upstreamTimeoutSeconds"`
+	LifecycleStatus         RouteLifecycleStatus `json:"lifecycleStatus"`
+	Enabled                 bool                 `json:"enabled"`
+	CreatedAt               domain.Timestamp     `json:"createdAt"`
+	UpdatedAt               domain.Timestamp     `json:"updatedAt"`
+	Version                 uint64               `json:"version"`
 }
 
 // SellerResponse is the public seller representation without private ownership fields.
@@ -117,12 +129,23 @@ type CreateRouteRequest struct {
 	PayTo                   string         `json:"payTo"`
 	ApprovalThresholdAmount *domain.Amount `json:"approvalThresholdAmount"`
 	UpstreamTimeoutSeconds  int            `json:"upstreamTimeoutSeconds"`
+	PublishImmediately      *bool          `json:"publishImmediately,omitempty"`
 }
 
 // UpdateRoutePriceRequest is the route-price mutation HTTP request.
 type UpdateRoutePriceRequest struct {
 	Amount          domain.Amount `json:"amount"`
 	ExpectedVersion uint64        `json:"expectedVersion"`
+}
+
+// RouteVersionRequest guards a route lifecycle mutation with optimistic concurrency.
+type RouteVersionRequest struct {
+	ExpectedVersion uint64 `json:"expectedVersion"`
+}
+
+// PaidRouteList contains all seller-owned routes visible to the dashboard.
+type PaidRouteList struct {
+	Items []PaidRoute `json:"items"`
 }
 
 // ConfigureStorefrontRequest contains safe mutable seller configuration.

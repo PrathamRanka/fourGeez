@@ -66,6 +66,199 @@ func TestSellerRoutesCreateAndUpdateCatalog(t *testing.T) {
 	}
 }
 
+// TestSellerRouteManagementLifecycle verifies dashboard route reads and guarded controls.
+func TestSellerRouteManagementLifecycle(t *testing.T) {
+	t.Parallel()
+
+	handler, repository := newCatalogHandlerWithRepository(t)
+	sellerResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers",
+		"seller-lifecycle-create",
+		`{"name":"Lifecycle Demo","slug":"lifecycle-demo","upstreamBaseUrl":"https://seller.example"}`,
+	)
+	var seller catalog.SellerResponse
+	decodeCatalogResponse(t, sellerResponse, &seller)
+
+	draftResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes",
+		"route-draft-create",
+		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20,"publishImmediately":false}`,
+	)
+	if draftResponse.Code != http.StatusCreated {
+		t.Fatalf("draft status = %d, body = %s", draftResponse.Code, draftResponse.Body.String())
+	}
+	var draft catalog.PaidRoute
+	decodeCatalogResponse(t, draftResponse, &draft)
+	if draft.LifecycleStatus != catalog.RouteLifecycleDraft || draft.Enabled {
+		t.Fatalf("draft route = %#v", draft)
+	}
+
+	listResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodGet,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes",
+		"",
+		"",
+	)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("list status = %d, body = %s", listResponse.Code, listResponse.Body.String())
+	}
+	var routeList catalog.PaidRouteList
+	decodeCatalogResponse(t, listResponse, &routeList)
+	if len(routeList.Items) != 1 || routeList.Items[0].RouteID != draft.RouteID {
+		t.Fatalf("route list = %#v", routeList)
+	}
+
+	storedSeller, err := repository.GetSeller(t.Context(), seller.SellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storedSeller.Activate(
+		"secret/seller/lifecycle-demo",
+		domain.NewTimestamp(time.Date(2026, time.September, 18, 10, 1, 0, 0, time.UTC)),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.UpdateSeller(
+		t.Context(),
+		storedSeller,
+		seller.Version,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	validationResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodGet,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/validation",
+		"",
+		"",
+	)
+	if validationResponse.Code != http.StatusOK {
+		t.Fatalf("validation status = %d, body = %s", validationResponse.Code, validationResponse.Body.String())
+	}
+	var validation catalog.RouteValidationResult
+	decodeCatalogResponse(t, validationResponse, &validation)
+	if !validation.Valid {
+		t.Fatalf("validation = %#v", validation)
+	}
+
+	publishedResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/publish",
+		"route-publish",
+		`{"expectedVersion":1}`,
+	)
+	if publishedResponse.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, body = %s", publishedResponse.Code, publishedResponse.Body.String())
+	}
+	var published catalog.PaidRoute
+	decodeCatalogResponse(t, publishedResponse, &published)
+	if published.LifecycleStatus != catalog.RouteLifecyclePublished || !published.Enabled {
+		t.Fatalf("published route = %#v", published)
+	}
+
+	pausedResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/pause",
+		"route-pause",
+		`{"expectedVersion":2}`,
+	)
+	if pausedResponse.Code != http.StatusOK {
+		t.Fatalf("pause status = %d, body = %s", pausedResponse.Code, pausedResponse.Body.String())
+	}
+	var paused catalog.PaidRoute
+	decodeCatalogResponse(t, pausedResponse, &paused)
+	if paused.LifecycleStatus != catalog.RouteLifecyclePaused || paused.Enabled {
+		t.Fatalf("paused route = %#v", paused)
+	}
+
+	archivedResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/archive",
+		"route-archive",
+		`{"expectedVersion":3}`,
+	)
+	if archivedResponse.Code != http.StatusOK {
+		t.Fatalf("archive status = %d, body = %s", archivedResponse.Code, archivedResponse.Body.String())
+	}
+	var archived catalog.PaidRoute
+	decodeCatalogResponse(t, archivedResponse, &archived)
+	if archived.LifecycleStatus != catalog.RouteLifecycleArchived {
+		t.Fatalf("archived route = %#v", archived)
+	}
+
+	invalidResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/publish",
+		"route-invalid-republish",
+		`{"expectedVersion":4}`,
+	)
+	if invalidResponse.Code != http.StatusConflict {
+		t.Fatalf("invalid transition status = %d, want %d", invalidResponse.Code, http.StatusConflict)
+	}
+}
+
+// TestSellerEmergencyDisableRoute verifies the urgent route stop remains distinct from pause.
+func TestSellerEmergencyDisableRoute(t *testing.T) {
+	t.Parallel()
+
+	handler := newCatalogHandler(t)
+	sellerResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers",
+		"seller-emergency-create",
+		`{"name":"Emergency Demo","slug":"emergency-demo","upstreamBaseUrl":"https://seller.example"}`,
+	)
+	var seller catalog.SellerResponse
+	decodeCatalogResponse(t, sellerResponse, &seller)
+	routeResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes",
+		"route-emergency-create",
+		`{"method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`,
+	)
+	var route catalog.PaidRoute
+	decodeCatalogResponse(t, routeResponse, &route)
+
+	disableResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+route.RouteID.String()+"/emergency-disable",
+		"route-emergency-disable",
+		`{"expectedVersion":1}`,
+	)
+	if disableResponse.Code != http.StatusOK {
+		t.Fatalf("disable status = %d, body = %s", disableResponse.Code, disableResponse.Body.String())
+	}
+	var disabled catalog.PaidRoute
+	decodeCatalogResponse(t, disableResponse, &disabled)
+	if disabled.LifecycleStatus != catalog.RouteLifecycleEmergencyDisabled || disabled.Enabled {
+		t.Fatalf("disabled route = %#v", disabled)
+	}
+}
+
 // TestSellerCreationReplaysIdempotentResponse verifies stable mutation replay.
 func TestSellerCreationReplaysIdempotentResponse(t *testing.T) {
 	t.Parallel()
@@ -177,6 +370,16 @@ func TestStorefrontDiscoveryReturnsNotFound(t *testing.T) {
 func newCatalogHandler(t *testing.T) http.Handler {
 	t.Helper()
 
+	handler, _ := newCatalogHandlerWithRepository(t)
+	return handler
+}
+
+// newCatalogHandlerWithRepository exposes persistence for lifecycle fixture setup.
+func newCatalogHandlerWithRepository(
+	t *testing.T,
+) (http.Handler, *memory.CatalogRepository) {
+	t.Helper()
+
 	repository := memory.NewCatalogRepository()
 	idempotencyStore := memory.NewIdempotencyStore()
 	clock := domain.FixedClock{
@@ -191,10 +394,11 @@ func newCatalogHandler(t *testing.T) http.Handler {
 	controller := catalog.NewHTTPController(service, idempotencyStore)
 	mux := http.NewServeMux()
 	controller.RegisterRoutes(mux)
-	return api.Middleware(
+	handler := api.Middleware(
 		api.Config{Authenticator: api.NewStaticAuthenticator("seller-secret", "agent-secret")},
 		mux,
 	)
+	return handler, repository
 }
 
 // performCatalogRequest sends an authenticated catalog mutation.

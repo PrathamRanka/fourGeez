@@ -169,3 +169,209 @@ func TestDraftPaidRoutePublication(t *testing.T) {
 		t.Fatalf("second Publish() error = %v", err)
 	}
 }
+
+// TestPaidRouteLifecycleTransitions verifies every documented route state change.
+func TestPaidRouteLifecycleTransitions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		start       RouteLifecycleStatus
+		transition  func(*PaidRoute, domain.Timestamp) error
+		want        RouteLifecycleStatus
+		wantEnabled bool
+	}{
+		{
+			name:  "draft publishes",
+			start: RouteLifecycleDraft,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Publish(changedAt)
+			},
+			want:        RouteLifecyclePublished,
+			wantEnabled: true,
+		},
+		{
+			name:  "published pauses",
+			start: RouteLifecyclePublished,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Pause(changedAt)
+			},
+			want:        RouteLifecyclePaused,
+			wantEnabled: false,
+		},
+		{
+			name:  "paused resumes",
+			start: RouteLifecyclePaused,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Publish(changedAt)
+			},
+			want:        RouteLifecyclePublished,
+			wantEnabled: true,
+		},
+		{
+			name:  "published emergency disables",
+			start: RouteLifecyclePublished,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.EmergencyDisable(changedAt)
+			},
+			want:        RouteLifecycleEmergencyDisabled,
+			wantEnabled: false,
+		},
+		{
+			name:  "emergency disabled route resumes",
+			start: RouteLifecycleEmergencyDisabled,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Publish(changedAt)
+			},
+			want:        RouteLifecyclePublished,
+			wantEnabled: true,
+		},
+		{
+			name:  "draft archives",
+			start: RouteLifecycleDraft,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Archive(changedAt)
+			},
+			want:        RouteLifecycleArchived,
+			wantEnabled: false,
+		},
+		{
+			name:  "paused archives",
+			start: RouteLifecyclePaused,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Archive(changedAt)
+			},
+			want:        RouteLifecycleArchived,
+			wantEnabled: false,
+		},
+		{
+			name:  "emergency disabled route archives",
+			start: RouteLifecycleEmergencyDisabled,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Archive(changedAt)
+			},
+			want:        RouteLifecycleArchived,
+			wantEnabled: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			route := newLifecycleTestRoute(t, test.start)
+			previousVersion := route.Version
+			changedAt := route.UpdatedAt.Add(time.Minute)
+
+			if err := test.transition(&route, changedAt); err != nil {
+				t.Fatalf("transition error = %v", err)
+			}
+			if route.LifecycleStatus != test.want {
+				t.Fatalf("LifecycleStatus = %q, want %q", route.LifecycleStatus, test.want)
+			}
+			if route.Enabled != test.wantEnabled {
+				t.Fatalf("Enabled = %v, want %v", route.Enabled, test.wantEnabled)
+			}
+			if route.Version != previousVersion+1 {
+				t.Fatalf("Version = %d, want %d", route.Version, previousVersion+1)
+			}
+			if route.UpdatedAt != changedAt {
+				t.Fatalf("UpdatedAt = %s, want %s", route.UpdatedAt, changedAt)
+			}
+		})
+	}
+}
+
+// TestPaidRouteRejectsInvalidLifecycleTransitions protects terminal and unsafe states.
+func TestPaidRouteRejectsInvalidLifecycleTransitions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		start      RouteLifecycleStatus
+		transition func(*PaidRoute, domain.Timestamp) error
+	}{
+		{
+			name:  "draft cannot pause",
+			start: RouteLifecycleDraft,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Pause(changedAt)
+			},
+		},
+		{
+			name:  "draft cannot emergency disable",
+			start: RouteLifecycleDraft,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.EmergencyDisable(changedAt)
+			},
+		},
+		{
+			name:  "published cannot archive",
+			start: RouteLifecyclePublished,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Archive(changedAt)
+			},
+		},
+		{
+			name:  "archived cannot publish",
+			start: RouteLifecycleArchived,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Publish(changedAt)
+			},
+		},
+		{
+			name:  "paused cannot pause again",
+			start: RouteLifecyclePaused,
+			transition: func(route *PaidRoute, changedAt domain.Timestamp) error {
+				return route.Pause(changedAt)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			route := newLifecycleTestRoute(t, test.start)
+			before := route
+
+			err := test.transition(&route, route.UpdatedAt.Add(time.Minute))
+			if !errors.Is(err, ErrRouteLifecycleTransition) {
+				t.Fatalf("transition error = %v, want ErrRouteLifecycleTransition", err)
+			}
+			if route != before {
+				t.Fatalf("failed transition mutated route: %#v", route)
+			}
+		})
+	}
+}
+
+// newLifecycleTestRoute creates one valid route in the requested lifecycle state.
+func newLifecycleTestRoute(t *testing.T, status RouteLifecycleStatus) PaidRoute {
+	t.Helper()
+
+	createdAt := domain.NewTimestamp(
+		time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC),
+	)
+	route, err := NewDraftPaidRoute(PaidRouteParams{
+		RouteID:                mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
+		SellerID:               mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		Method:                 RouteMethodPost,
+		PathPattern:            "/research",
+		Description:            "Generate market research",
+		MIMEType:               "application/json",
+		Amount:                 domain.MustParseAmount("35000000"),
+		Asset:                  "test-usdc",
+		Network:                "test-network",
+		PayTo:                  "0x1234567890abcdef",
+		UpstreamTimeoutSeconds: 20,
+		CreatedAt:              createdAt,
+	})
+	if err != nil {
+		t.Fatalf("NewDraftPaidRoute() error = %v", err)
+	}
+
+	route.LifecycleStatus = status
+	route.Enabled = status == RouteLifecyclePublished
+	return route
+}

@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -32,10 +33,201 @@ func NewHTTPController(
 // RegisterRoutes registers seller and paid-route mutation endpoints.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sellers", api.RequireSeller(http.HandlerFunc(controller.createSeller)))
+	mux.Handle("GET /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.listRoutes)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.createRoute)))
+	mux.Handle("GET /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.getRoute)))
 	mux.Handle("PATCH /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.updateRoutePrice)))
+	mux.Handle("GET /v1/sellers/{sellerId}/routes/{routeId}/validation", api.RequireSeller(http.HandlerFunc(controller.validateRoute)))
+	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/publish", api.RequireSeller(http.HandlerFunc(controller.publishRoute)))
+	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/pause", api.RequireSeller(http.HandlerFunc(controller.pauseRoute)))
+	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/archive", api.RequireSeller(http.HandlerFunc(controller.archiveRoute)))
+	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/emergency-disable", api.RequireSeller(http.HandlerFunc(controller.emergencyDisableRoute)))
 	mux.HandleFunc("GET /store/{slug}/manifest.json", controller.getStorefrontManifest)
 	mux.HandleFunc("GET /store/{slug}/llms.txt", controller.getStorefrontLLMSText)
+}
+
+// listRoutes returns every paid route owned by the authenticated seller.
+func (controller *HTTPController) listRoutes(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sellerID, err := domain.ParseID(
+		request.PathValue("sellerId"),
+		domain.SellerIDPrefix,
+	)
+	if err != nil {
+		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid seller ID", nil)
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	routes, err := controller.service.ListSellerRoutes(
+		request.Context(),
+		principal.Subject,
+		sellerID,
+	)
+	if err != nil {
+		controller.writeServiceError(response, request, err)
+		return
+	}
+	_ = api.WriteJSON(response, http.StatusOK, routes)
+}
+
+// getRoute returns one seller-owned paid route.
+func (controller *HTTPController) getRoute(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sellerID, routeID, ok := controller.parseRoutePathIDs(response, request)
+	if !ok {
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	route, err := controller.service.GetSellerRoute(
+		request.Context(),
+		principal.Subject,
+		sellerID,
+		routeID,
+	)
+	if err != nil {
+		controller.writeServiceError(response, request, err)
+		return
+	}
+	_ = api.WriteJSON(response, http.StatusOK, route)
+}
+
+// validateRoute returns current deterministic publication checks.
+func (controller *HTTPController) validateRoute(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sellerID, routeID, ok := controller.parseRoutePathIDs(response, request)
+	if !ok {
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	validation, err := controller.service.ValidateSellerRoute(
+		request.Context(),
+		principal.Subject,
+		sellerID,
+		routeID,
+	)
+	if err != nil {
+		controller.writeServiceError(response, request, err)
+		return
+	}
+	_ = api.WriteJSON(response, http.StatusOK, validation)
+}
+
+// publishRoute validates and publishes or resumes a seller route.
+func (controller *HTTPController) publishRoute(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	controller.executeRouteVersionMutation(
+		response,
+		request,
+		"publishPaidRoute",
+		controller.service.PublishSellerRoute,
+	)
+}
+
+// pauseRoute stops a published seller route until it is resumed.
+func (controller *HTTPController) pauseRoute(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	controller.executeRouteVersionMutation(
+		response,
+		request,
+		"pausePaidRoute",
+		controller.service.PauseSellerRoute,
+	)
+}
+
+// archiveRoute permanently retires a non-published seller route.
+func (controller *HTTPController) archiveRoute(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	controller.executeRouteVersionMutation(
+		response,
+		request,
+		"archivePaidRoute",
+		controller.service.ArchiveSellerRoute,
+	)
+}
+
+// emergencyDisableRoute immediately stops a published seller route.
+func (controller *HTTPController) emergencyDisableRoute(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	controller.executeRouteVersionMutation(
+		response,
+		request,
+		"emergencyDisablePaidRoute",
+		controller.service.EmergencyDisableSellerRoute,
+	)
+}
+
+// executeRouteVersionMutation applies strict JSON and idempotency to one route transition.
+func (controller *HTTPController) executeRouteVersionMutation(
+	response http.ResponseWriter,
+	request *http.Request,
+	scope string,
+	execute func(
+		context.Context,
+		string,
+		domain.ID,
+		domain.ID,
+		RouteVersionRequest,
+	) (PaidRoute, error),
+) {
+	sellerID, routeID, ok := controller.parseRoutePathIDs(response, request)
+	if !ok {
+		return
+	}
+	var input RouteVersionRequest
+	controller.executeMutation(
+		response,
+		request,
+		scope+":"+routeID.String(),
+		&input,
+		func(principal api.Principal) (any, error) {
+			return execute(
+				request.Context(),
+				principal.Subject,
+				sellerID,
+				routeID,
+				input,
+			)
+		},
+		http.StatusOK,
+	)
+}
+
+// parseRoutePathIDs validates the seller and route identifiers in one route URL.
+func (controller *HTTPController) parseRoutePathIDs(
+	response http.ResponseWriter,
+	request *http.Request,
+) (domain.ID, domain.ID, bool) {
+	sellerID, err := domain.ParseID(
+		request.PathValue("sellerId"),
+		domain.SellerIDPrefix,
+	)
+	if err != nil {
+		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid seller ID", nil)
+		return "", "", false
+	}
+	routeID, err := domain.ParseID(
+		request.PathValue("routeId"),
+		domain.RouteIDPrefix,
+	)
+	if err != nil {
+		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid route ID", nil)
+		return "", "", false
+	}
+	return sellerID, routeID, true
 }
 
 // getStorefrontManifest returns public machine-readable seller discovery.
@@ -187,6 +379,12 @@ func (controller *HTTPController) writeServiceError(response http.ResponseWriter
 	} else if errors.Is(err, persistence.ErrAlreadyExists) || errors.Is(err, persistence.ErrConditionFailed) {
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
+	} else if errors.Is(err, ErrRouteLifecycleTransition) || errors.Is(err, ErrRoutePublished) {
+		status = http.StatusConflict
+		code = api.ErrorCodeConflict
+	} else if errors.Is(err, ErrRouteValidation) {
+		status = http.StatusUnprocessableEntity
+		code = api.ErrorCodeUnprocessable
 	}
 	api.WriteError(response, request, status, code, err.Error(), nil)
 }

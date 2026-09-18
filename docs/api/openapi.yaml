@@ -168,6 +168,28 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/sellers/{sellerId}/routes:
+    get:
+      summary: List paid routes owned by a seller
+      tags: [Sellers]
+      operationId: listPaidRoutes
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+      responses:
+        '200':
+          description: Seller-owned paid routes
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
       summary: Add a paid route to a seller
       tags: [Sellers]
@@ -470,6 +492,22 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /v1/sellers/{sellerId}/routes/{routeId}:
+    get:
+      summary: Get one seller-owned paid route
+      tags: [Sellers]
+      operationId: getPaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+      responses:
+        '200':
+          description: Seller-owned paid route
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       summary: Update the price used by future purchase intents
       tags: [Sellers]
@@ -487,6 +525,120 @@ paths:
       responses:
         '200':
           description: Route price updated; existing unexpired purchase intents keep their frozen quote
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/routes/{routeId}/validation:
+    get:
+      summary: Validate one paid route against current publication requirements
+      tags: [Sellers]
+      operationId: validatePaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+      responses:
+        '200':
+          description: Current deterministic validation result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteValidationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/sellers/{sellerId}/routes/{routeId}/publish:
+    post:
+      summary: Publish or resume a validated paid route
+      tags: [Sellers]
+      operationId: publishPaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteVersionRequest' }
+      responses:
+        '200':
+          description: Published paid route
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /v1/sellers/{sellerId}/routes/{routeId}/pause:
+    post:
+      summary: Pause a published paid route
+      tags: [Sellers]
+      operationId: pausePaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteVersionRequest' }
+      responses:
+        '200':
+          description: Paused paid route
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/routes/{routeId}/archive:
+    post:
+      summary: Permanently archive a non-published paid route
+      tags: [Sellers]
+      operationId: archivePaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteVersionRequest' }
+      responses:
+        '200':
+          description: Archived paid route
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaidRoute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/sellers/{sellerId}/routes/{routeId}/emergency-disable:
+    post:
+      summary: Immediately disable a published paid route
+      tags: [Sellers]
+      operationId: emergencyDisablePaidRoute
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/RouteId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteVersionRequest' }
+      responses:
+        '200':
+          description: Emergency-disabled paid route
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
@@ -989,6 +1141,10 @@ components:
         payTo: { type: string, minLength: 1, maxLength: 160 }
         approvalThresholdAmount: { oneOf: [{ $ref: '#/components/schemas/AtomicAmount' }, { type: 'null' }] }
         upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 30, default: 20 }
+        publishImmediately:
+          type: boolean
+          default: true
+          description: Set false to create a dashboard-managed draft without publishing it.
     CreatePaymentDestinationRequest:
       type: object
       additionalProperties: false
@@ -1134,10 +1290,11 @@ components:
       allOf:
         - { $ref: '#/components/schemas/CreateRouteRequest' }
         - type: object
-          required: [routeId, sellerId, enabled, createdAt, updatedAt, version]
+          required: [routeId, sellerId, lifecycleStatus, enabled, createdAt, updatedAt, version]
           properties:
             routeId: { type: string }
             sellerId: { type: string }
+            lifecycleStatus: { type: string, enum: [draft, published, paused, archived, emergency_disabled] }
             enabled: { type: boolean }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
@@ -1149,6 +1306,31 @@ components:
       properties:
         amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
         expectedVersion: { type: integer, minimum: 1 }
+    RouteVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+    RouteValidationResult:
+      type: object
+      additionalProperties: false
+      required: [sellerId, routeId, valid, checks, version]
+      properties:
+        sellerId: { type: string }
+        routeId: { type: string }
+        valid: { type: boolean }
+        checks:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, passed, message]
+            properties:
+              name: { type: string }
+              passed: { type: boolean }
+              message: { type: string }
+        version: { type: integer, minimum: 1 }
     CreateIntentRequest:
       type: object
       additionalProperties: false

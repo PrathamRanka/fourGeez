@@ -71,8 +71,7 @@ export type CreateIntegrationCredentialInput = {
   sellerId: string;
 };
 
-export type ActionResult<Value> =
-  { ok: true; value: Value } | { ok: false; error: string };
+export type { ActionResult } from "@/lib/agentpay-api";
 
 export type OnboardingActions = {
   createStorefront: (
@@ -108,3 +107,4 @@ export function createMCPConfiguration(apiOrigin: string, token: string) {
     2,
   );
 }
+import type { ActionResult } from "@/lib/agentpay-api";

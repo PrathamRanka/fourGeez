@@ -57,7 +57,7 @@ func TestCatalogServiceAuditsDirectRoutePublicationAndPricing(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock.now = clock.now.Add(time.Minute)
-	if _, err := service.UpdateRoutePrice(
+	updatedRoute, err := service.UpdateRoutePrice(
 		t.Context(),
 		"owner-123",
 		seller.SellerID,
@@ -66,13 +66,37 @@ func TestCatalogServiceAuditsDirectRoutePublicationAndPricing(t *testing.T) {
 			Amount:          domain.MustParseAmount("200"),
 			ExpectedVersion: route.Version,
 		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock.now = clock.now.Add(time.Minute)
+	pausedRoute, err := service.PauseSellerRoute(
+		t.Context(),
+		"owner-123",
+		seller.SellerID,
+		route.RouteID,
+		catalog.RouteVersionRequest{ExpectedVersion: updatedRoute.Version},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock.now = clock.now.Add(time.Minute)
+	if _, err := service.ArchiveSellerRoute(
+		t.Context(),
+		"owner-123",
+		seller.SellerID,
+		route.RouteID,
+		catalog.RouteVersionRequest{ExpectedVersion: pausedRoute.Version},
 	); err != nil {
 		t.Fatal(err)
 	}
 
-	if len(recorder.requests) != 2 ||
+	if len(recorder.requests) != 4 ||
 		recorder.requests[0].Action != audit.ActionRoutePublished ||
-		recorder.requests[1].Action != audit.ActionRoutePriceChanged {
+		recorder.requests[1].Action != audit.ActionRoutePriceChanged ||
+		recorder.requests[2].Action != audit.ActionRoutePaused ||
+		recorder.requests[3].Action != audit.ActionRouteArchived {
 		t.Fatalf("audit requests = %#v", recorder.requests)
 	}
 }

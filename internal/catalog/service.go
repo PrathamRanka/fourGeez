@@ -28,10 +28,11 @@ const (
 )
 
 var (
-	sellerSlugPattern  = regexp.MustCompile(`^[a-z0-9-]{3,48}$`)
-	routePathPattern   = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
-	ErrRoutePublished  = errors.New("paid route is already published")
-	ErrRouteValidation = errors.New("paid route failed publication validation")
+	sellerSlugPattern           = regexp.MustCompile(`^[a-z0-9-]{3,48}$`)
+	routePathPattern            = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
+	ErrRoutePublished           = errors.New("paid route is already published")
+	ErrRouteValidation          = errors.New("paid route failed publication validation")
+	ErrRouteLifecycleTransition = errors.New("paid route lifecycle transition is not allowed")
 )
 
 // PublishedRouteQuota checks seller capacity before route publication.
@@ -129,7 +130,11 @@ func (service *Service) CreateRoute(
 	if err != nil {
 		return PaidRoute{}, err
 	}
-	route, err := NewPaidRoute(PaidRouteParams{
+	createRoute := NewPaidRoute
+	if request.PublishImmediately != nil && !*request.PublishImmediately {
+		createRoute = NewDraftPaidRoute
+	}
+	route, err := createRoute(PaidRouteParams{
 		RouteID:                 routeID,
 		SellerID:                sellerID,
 		Method:                  request.Method,
@@ -150,11 +155,15 @@ func (service *Service) CreateRoute(
 	if err := service.repository.CreateRoute(ctx, route); err != nil {
 		return PaidRoute{}, err
 	}
+	action := audit.ActionRoutePublished
+	if route.LifecycleStatus == RouteLifecycleDraft {
+		action = audit.ActionRouteDraftCreated
+	}
 	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
 		SellerID:   sellerID,
 		ActorType:  audit.ActorTypeSellerUser,
 		ActorID:    ownerSubject,
-		Action:     audit.ActionRoutePublished,
+		Action:     action,
 		TargetType: audit.TargetTypePaidRoute,
 		TargetID:   route.RouteID.String(),
 		Outcome:    audit.OutcomeSucceeded,
@@ -169,6 +178,7 @@ func (service *Service) CreateRoute(
 			"payTo",
 			"approvalThresholdAmount",
 			"upstreamTimeoutSeconds",
+			"lifecycleStatus",
 			"enabled",
 		},
 	}); err != nil {
@@ -220,6 +230,208 @@ func (service *Service) UpdateRoutePrice(
 		return PaidRoute{}, err
 	}
 	return route, nil
+}
+
+// ListSellerRoutes returns every route owned by the authenticated seller.
+func (service *Service) ListSellerRoutes(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+) (PaidRouteList, error) {
+	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return PaidRouteList{}, err
+	}
+	routes, err := service.repository.ListRoutesBySeller(ctx, sellerID)
+	if err != nil {
+		return PaidRouteList{}, err
+	}
+	for index := range routes {
+		routes[index].normalizeLifecycleStatus()
+	}
+	return PaidRouteList{Items: routes}, nil
+}
+
+// GetSellerRoute returns one route only when it belongs to the authenticated seller.
+func (service *Service) GetSellerRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+) (PaidRoute, error) {
+	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
+	return service.ownedRoute(ctx, sellerID, routeID)
+}
+
+// ValidateSellerRoute computes current publication checks for an authenticated seller.
+func (service *Service) ValidateSellerRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+) (RouteValidationResult, error) {
+	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return RouteValidationResult{}, err
+	}
+	return service.ValidateRouteForIntegration(ctx, sellerID, routeID)
+}
+
+// PublishSellerRoute validates and publishes or resumes one seller route.
+func (service *Service) PublishSellerRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request RouteVersionRequest,
+) (PaidRoute, error) {
+	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
+	route, err := service.PublishRouteForIntegration(
+		ctx,
+		sellerID,
+		routeID,
+		request.ExpectedVersion,
+	)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.recordSellerRouteLifecycle(
+		ctx,
+		ownerSubject,
+		route,
+		audit.ActionRoutePublished,
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// PauseSellerRoute stops a published route through a guarded seller mutation.
+func (service *Service) PauseSellerRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request RouteVersionRequest,
+) (PaidRoute, error) {
+	return service.mutateSellerRouteLifecycle(
+		ctx,
+		ownerSubject,
+		sellerID,
+		routeID,
+		request.ExpectedVersion,
+		audit.ActionRoutePaused,
+		func(route *PaidRoute, changedAt domain.Timestamp) error {
+			return route.Pause(changedAt)
+		},
+	)
+}
+
+// ArchiveSellerRoute permanently retires a non-published seller route.
+func (service *Service) ArchiveSellerRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request RouteVersionRequest,
+) (PaidRoute, error) {
+	return service.mutateSellerRouteLifecycle(
+		ctx,
+		ownerSubject,
+		sellerID,
+		routeID,
+		request.ExpectedVersion,
+		audit.ActionRouteArchived,
+		func(route *PaidRoute, changedAt domain.Timestamp) error {
+			return route.Archive(changedAt)
+		},
+	)
+}
+
+// EmergencyDisableSellerRoute immediately stops a published seller route.
+func (service *Service) EmergencyDisableSellerRoute(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request RouteVersionRequest,
+) (PaidRoute, error) {
+	return service.mutateSellerRouteLifecycle(
+		ctx,
+		ownerSubject,
+		sellerID,
+		routeID,
+		request.ExpectedVersion,
+		audit.ActionRouteEmergencyDisabled,
+		func(route *PaidRoute, changedAt domain.Timestamp) error {
+			return route.EmergencyDisable(changedAt)
+		},
+	)
+}
+
+// mutateSellerRouteLifecycle applies one authorized non-publication transition.
+func (service *Service) mutateSellerRouteLifecycle(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	expectedVersion uint64,
+	action audit.Action,
+	transition func(*PaidRoute, domain.Timestamp) error,
+) (PaidRoute, error) {
+	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
+	route, err := service.ownedRoute(ctx, sellerID, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := transition(
+		&route,
+		domain.NewTimestamp(service.clock.Now()),
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.UpdateRoute(
+		ctx,
+		route,
+		expectedVersion,
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.recordSellerRouteLifecycle(
+		ctx,
+		ownerSubject,
+		route,
+		action,
+	); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
+// recordSellerRouteLifecycle appends safe lifecycle metadata to seller history.
+func (service *Service) recordSellerRouteLifecycle(
+	ctx context.Context,
+	ownerSubject string,
+	route PaidRoute,
+	action audit.Action,
+) error {
+	return service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:   route.SellerID,
+		ActorType:  audit.ActorTypeSellerUser,
+		ActorID:    ownerSubject,
+		Action:     action,
+		TargetType: audit.TargetTypePaidRoute,
+		TargetID:   route.RouteID.String(),
+		Outcome:    audit.OutcomeSucceeded,
+		ChangedFields: []string{
+			"lifecycleStatus",
+			"enabled",
+		},
+	})
 }
 
 // ConfigureStorefrontForIntegration updates the credential-bound seller.
@@ -343,6 +555,11 @@ func (service *Service) ValidateRouteForIntegration(
 			Passed:  len(validatePaidRouteParams(routeParams(route))) == 0,
 			Message: "stored route must satisfy current validation",
 		},
+		{
+			Name:    "route_not_archived",
+			Passed:  route.LifecycleStatus != RouteLifecycleArchived,
+			Message: "archived routes cannot be published",
+		},
 	}
 	valid := true
 	for _, check := range checks {
@@ -366,6 +583,16 @@ func (service *Service) PublishRouteForIntegration(
 	routeID domain.ID,
 	expectedVersion uint64,
 ) (PaidRoute, error) {
+	route, err := service.ownedRoute(ctx, sellerID, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if route.LifecycleStatus == RouteLifecyclePublished {
+		return PaidRoute{}, ErrRoutePublished
+	}
+	if route.LifecycleStatus == RouteLifecycleArchived {
+		return PaidRoute{}, ErrRouteLifecycleTransition
+	}
 	validation, err := service.ValidateRouteForIntegration(ctx, sellerID, routeID)
 	if err != nil {
 		return PaidRoute{}, err
@@ -373,17 +600,14 @@ func (service *Service) PublishRouteForIntegration(
 	if !validation.Valid {
 		return PaidRoute{}, ErrRouteValidation
 	}
-	route, err := service.ownedRoute(ctx, sellerID, routeID)
-	if err != nil {
-		return PaidRoute{}, err
-	}
 	routes, err := service.repository.ListRoutesBySeller(ctx, sellerID)
 	if err != nil {
 		return PaidRoute{}, err
 	}
 	var publishedRouteCount uint64
 	for _, sellerRoute := range routes {
-		if sellerRoute.Enabled {
+		sellerRoute.normalizeLifecycleStatus()
+		if sellerRoute.LifecycleStatus == RouteLifecyclePublished {
 			publishedRouteCount++
 		}
 	}
@@ -422,6 +646,7 @@ func (service *Service) ownedRoute(
 	if route.SellerID != sellerID {
 		return PaidRoute{}, persistence.ErrNotFound
 	}
+	route.normalizeLifecycleStatus()
 	return route, nil
 }
 
@@ -460,6 +685,7 @@ func (service *Service) GetStorefrontManifest(
 
 	enabledRoutes := make([]PaidRoute, 0, len(routes))
 	for _, route := range routes {
+		route.normalizeLifecycleStatus()
 		if route.Enabled {
 			enabledRoutes = append(enabledRoutes, route)
 		}
@@ -564,6 +790,11 @@ func newPaidRoute(params PaidRouteParams, enabled bool) (PaidRoute, error) {
 		approvalThreshold = &thresholdCopy
 	}
 
+	lifecycleStatus := RouteLifecycleDraft
+	if enabled {
+		lifecycleStatus = RouteLifecyclePublished
+	}
+
 	return PaidRoute{
 		RouteID:                 params.RouteID,
 		SellerID:                params.SellerID,
@@ -577,6 +808,7 @@ func newPaidRoute(params PaidRouteParams, enabled bool) (PaidRoute, error) {
 		PayTo:                   strings.TrimSpace(params.PayTo),
 		ApprovalThresholdAmount: approvalThreshold,
 		UpstreamTimeoutSeconds:  params.UpstreamTimeoutSeconds,
+		LifecycleStatus:         lifecycleStatus,
 		Enabled:                 enabled,
 		CreatedAt:               params.CreatedAt,
 		UpdatedAt:               params.CreatedAt,
@@ -688,9 +920,70 @@ func (paidRoute *PaidRoute) ChangePrice(
 
 // Publish enables a validated draft route for new purchase intents.
 func (paidRoute *PaidRoute) Publish(changedAt domain.Timestamp) error {
-	if paidRoute.Enabled {
+	status := paidRoute.effectiveLifecycleStatus()
+	if status == RouteLifecyclePublished {
 		return ErrRoutePublished
 	}
+	if status != RouteLifecycleDraft &&
+		status != RouteLifecyclePaused &&
+		status != RouteLifecycleEmergencyDisabled {
+		return ErrRouteLifecycleTransition
+	}
+	return paidRoute.transitionLifecycle(RouteLifecyclePublished, changedAt)
+}
+
+// Pause removes a published route from new purchase flows until it is resumed.
+func (paidRoute *PaidRoute) Pause(changedAt domain.Timestamp) error {
+	if paidRoute.effectiveLifecycleStatus() != RouteLifecyclePublished {
+		return ErrRouteLifecycleTransition
+	}
+	return paidRoute.transitionLifecycle(RouteLifecyclePaused, changedAt)
+}
+
+// Archive permanently retires a route after it has stopped accepting purchases.
+func (paidRoute *PaidRoute) Archive(changedAt domain.Timestamp) error {
+	status := paidRoute.effectiveLifecycleStatus()
+	if status != RouteLifecycleDraft &&
+		status != RouteLifecyclePaused &&
+		status != RouteLifecycleEmergencyDisabled {
+		return ErrRouteLifecycleTransition
+	}
+	return paidRoute.transitionLifecycle(RouteLifecycleArchived, changedAt)
+}
+
+// EmergencyDisable records an urgent stop separately from a planned pause.
+func (paidRoute *PaidRoute) EmergencyDisable(changedAt domain.Timestamp) error {
+	if paidRoute.effectiveLifecycleStatus() != RouteLifecyclePublished {
+		return ErrRouteLifecycleTransition
+	}
+	return paidRoute.transitionLifecycle(
+		RouteLifecycleEmergencyDisabled,
+		changedAt,
+	)
+}
+
+// effectiveLifecycleStatus reads legacy records through the documented compatibility rule.
+func (paidRoute *PaidRoute) effectiveLifecycleStatus() RouteLifecycleStatus {
+	if paidRoute.LifecycleStatus != "" {
+		return paidRoute.LifecycleStatus
+	}
+	if paidRoute.Enabled {
+		return RouteLifecyclePublished
+	}
+	return RouteLifecycleDraft
+}
+
+// normalizeLifecycleStatus writes the compatibility-derived state into API responses and updates.
+func (paidRoute *PaidRoute) normalizeLifecycleStatus() {
+	paidRoute.LifecycleStatus = paidRoute.effectiveLifecycleStatus()
+	paidRoute.Enabled = paidRoute.LifecycleStatus == RouteLifecyclePublished
+}
+
+// transitionLifecycle applies one validated lifecycle change atomically in memory.
+func (paidRoute *PaidRoute) transitionLifecycle(
+	status RouteLifecycleStatus,
+	changedAt domain.Timestamp,
+) error {
 	if changedAt.Before(paidRoute.UpdatedAt) {
 		return domain.NewValidationError(
 			"updatedAt",
@@ -698,7 +991,8 @@ func (paidRoute *PaidRoute) Publish(changedAt domain.Timestamp) error {
 			"cannot occur before the previous update",
 		)
 	}
-	paidRoute.Enabled = true
+	paidRoute.LifecycleStatus = status
+	paidRoute.Enabled = status == RouteLifecyclePublished
 	paidRoute.UpdatedAt = changedAt
 	paidRoute.Version++
 	return nil

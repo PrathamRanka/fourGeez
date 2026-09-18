@@ -1,21 +1,8 @@
-import {
-  BarChart3,
-  Boxes,
-  CheckCircle2,
-  FileCheck2,
-  LifeBuoy,
-  Settings,
-} from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { DashboardNavigation } from "@/components/dashboard/dashboard-navigation";
 import { BrandMark } from "@/components/site/brand-mark";
-
-const dashboardLinks = [
-  { href: "/dashboard/onboarding", label: "Onboarding", icon: CheckCircle2 },
-  { href: "/dashboard/products", label: "Products", icon: Boxes },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard/transactions", label: "Transactions", icon: FileCheck2 },
-] as const;
+import { ThemeCycleButton } from "@/components/ui/theme-cycle-button";
 
 type DashboardShellProps = {
   children: ReactNode;
@@ -33,32 +20,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
         >
           <BrandMark />
         </Link>
-        <nav aria-label="Seller dashboard">
-          {dashboardLinks.map((link) => {
-            const Icon = link.icon;
-
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="dashboard-nav-link"
-              >
-                <Icon aria-hidden="true" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="dashboard-sidebar-footer">
-          <Link href="/docs" className="dashboard-nav-link">
-            <LifeBuoy aria-hidden="true" />
-            Documentation
-          </Link>
-          <span className="dashboard-nav-link" aria-disabled="true">
-            <Settings aria-hidden="true" />
-            Settings
-          </span>
-        </div>
+        <Suspense fallback={null}>
+          <DashboardNavigation />
+        </Suspense>
       </aside>
       <div className="dashboard-workspace">
         <header className="dashboard-topbar">
@@ -66,7 +30,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <span className="dashboard-environment-dot" aria-hidden="true" />
             Demo environment
           </div>
-          <span>Seller workspace</span>
+          <div>
+            <span>Seller workspace</span>
+            <ThemeCycleButton />
+          </div>
         </header>
         <main id="main-content" className="dashboard-main">
           {children}
