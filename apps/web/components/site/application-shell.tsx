@@ -18,10 +18,10 @@ export function ApplicationShell({ children }: ApplicationShellProps) {
   }
 
   return (
-    <>
+    <div className="public-shell">
       <SiteHeader />
       {children}
       <SiteFooter />
-    </>
+    </div>
   );
 }

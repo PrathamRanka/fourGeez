@@ -1,6 +1,7 @@
-import { ShieldCheck } from "lucide-react";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { BrandMark } from "@/components/site/brand-mark";
+import { CloudShader } from "@/components/ui/cloud-shader";
 
 const footerGroups = [
   {
@@ -32,10 +33,29 @@ const footerGroups = [
   },
 ] as const;
 
-// SiteFooter adapts the MIT Ruixen enterprise footer to AgentPay's public navigation.
 export function SiteFooter() {
   return (
     <footer className="site-footer">
+      <div className="site-container footer-cta-wrap">
+        <CloudShader
+          className="footer-cloud"
+          speed={0.14}
+          count={4}
+          cloudColor="#e5f4ff"
+          skyTopColor="#173b7a"
+          skyBottomColor="#5aa7d8"
+        >
+          <div className="footer-cta-content">
+            <p className="footer-cta-eyebrow">Agent commerce infrastructure</p>
+            <h2>Turn your API into a storefront.</h2>
+            <Link href="/sign-up" className="footer-cta-link">
+              Create your storefront
+              <ArrowUpRight aria-hidden="true" className="size-4" />
+            </Link>
+          </div>
+        </CloudShader>
+      </div>
+
       <div className="site-container footer-layout">
         <div>
           <BrandMark />
