@@ -37,14 +37,20 @@ export async function runBuyerActivity(
     };
   }
   const products = discovery.manifest.products;
-  const selectedProduct = products[0];
+  const selectedProduct = products.find(
+    (product) => product.asset === "USDC" && product.network === "eip155:84532",
+  );
   return {
     ok: true,
     value: {
       mode: "deterministic",
+      sellerSlug: slug,
+      selectedProduct: selectedProduct ?? null,
       response: selectedProduct
         ? `I found ${products.length} published product${products.length === 1 ? "" : "s"}. The deterministic fallback selected ${selectedProduct.displayName} by catalog order; review its price before purchasing.`
-        : "I found no published products in this storefront.",
+        : products.length > 0
+          ? "I found published products, but none support the Base Sepolia USDC checkout used by this demo."
+          : "I found no published products in this storefront.",
       activities: [
         {
           tool: "getStorefrontManifest",
@@ -56,7 +62,7 @@ export async function runBuyerActivity(
           status: selectedProduct ? "completed" : "blocked",
           detail: selectedProduct
             ? `Selected ${selectedProduct.displayName} using deterministic catalog order`
-            : "No eligible published route was available",
+            : "No Base Sepolia USDC product was available",
         },
       ],
     },

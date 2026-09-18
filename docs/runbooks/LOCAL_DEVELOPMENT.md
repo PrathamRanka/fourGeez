@@ -9,7 +9,7 @@ npm run dev:local
 The launcher starts and supervises:
 
 - Next.js at `http://localhost:3000`;
-- the real Go API and approval WebSocket transport at `http://127.0.0.1:8080`;
+- the real Go API at `http://127.0.0.1:8080`;
 - the demo seller at `http://127.0.0.1:8090`; and
 - the local mock facilitator at `http://127.0.0.1:8091`.
 
@@ -21,13 +21,13 @@ probe.
 Process liveness is available at `GET /health/live`. Transaction-path
 readiness is available at `GET /health/ready` and fails with `503` unless the
 configured in-memory repository, evidence and seller-request signing, mock
-x402 facilitator, demo seller forwarding target, and approval WebSocket store
-all pass bounded checks. Responses report only dependency names and
+x402 facilitator, and demo seller forwarding target all pass bounded checks.
+Responses report only dependency names and
 `ready`/`unavailable`; dependency errors, URLs, response bodies, and credentials
 are never returned. `GET /health` remains the legacy liveness contract.
 
 The `launch-ready` profile is loaded automatically. It includes a complete demo
-seller, an incomplete seller, below-threshold and approval-required products,
+seller, an incomplete seller, fixed-price products,
 representative transaction and evidence states, webhook delivery history, and
 asset/network-separated analytics. Inspect its stable public identifiers at:
 

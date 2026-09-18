@@ -1,0 +1,16 @@
+{
+  "routes": [
+    { "name": "landing", "path": "/" },
+    { "name": "storefront", "path": "/store/demo-seller" },
+    {
+      "name": "product",
+      "path": "/store/demo-seller/products/market-snapshot"
+    },
+    { "name": "sign-in", "path": "/sign-in" }
+  ],
+  "minimumScores": {
+    "accessibility": 0.95,
+    "best-practices": 0.9
+  },
+  "informationalScores": ["performance"]
+}

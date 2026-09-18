@@ -1,4 +1,5 @@
 import {
+  createHmac,
   randomBytes,
   randomUUID,
   scryptSync,
@@ -12,9 +13,12 @@ import type {
 } from "@/features/auth/model";
 
 const challengeLifetimeMilliseconds = 10 * 60 * 1_000;
-const accessLifetimeMilliseconds = 8 * 60 * 60 * 1_000;
+const accessLifetimeMilliseconds = 60 * 60 * 1_000;
 const passwordSaltBytes = 16;
 const passwordHashBytes = 32;
+const localTokenPrefix = "apls1";
+const minimumSigningSecretBytes = 32;
+const maximumSigningSecretBytes = 4096;
 
 type LocalAccount = {
   email: string;
@@ -43,7 +47,8 @@ type LocalIdentityState = {
 
 type LocalIdentityOptions = {
   now?: () => number;
-  sellerAccessToken: string;
+  sellerAccessToken?: string;
+  sellerTokenSigningSecret?: string;
 };
 
 function normalizeEmail(email: string): string {
@@ -78,9 +83,55 @@ function principalFromAccount(account: LocalAccount): SellerPrincipal {
   };
 }
 
+function encodeTokenValue(value: string): string {
+  return Buffer.from(value, "utf8").toString("base64url");
+}
+
+function mintSellerAccessToken(
+  account: LocalAccount,
+  signingSecret: string,
+  issuedAtMilliseconds: number,
+): { accessToken: string; expiresAt: string } {
+  const issuedAt = Math.floor(issuedAtMilliseconds / 1_000);
+  const expiresAt = Math.floor(
+    (issuedAtMilliseconds + accessLifetimeMilliseconds) / 1_000,
+  );
+  const unsignedToken = [
+    localTokenPrefix,
+    encodeTokenValue(account.subject),
+    encodeTokenValue(`local-token:${randomUUID()}`),
+    encodeTokenValue(`local-session:${randomUUID()}`),
+    String(issuedAt),
+    String(expiresAt),
+  ].join(".");
+  const signature = createHmac("sha256", signingSecret)
+    .update(unsignedToken)
+    .digest("base64url");
+  return {
+    accessToken: `${unsignedToken}.${signature}`,
+    expiresAt: new Date(expiresAt * 1_000).toISOString(),
+  };
+}
+
 // createLocalIdentityAdapter provides production-shaped account semantics without AWS.
 export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
   const now = options.now ?? Date.now;
+  const signingSecret = options.sellerTokenSigningSecret ?? "";
+  const signingSecretBytes = Buffer.byteLength(signingSecret, "utf8");
+  if (
+    signingSecret &&
+    (signingSecretBytes < minimumSigningSecretBytes ||
+      signingSecretBytes > maximumSigningSecretBytes)
+  ) {
+    throw new Error(
+      "Local identity signing secret must contain 32 to 4096 bytes.",
+    );
+  }
+  if (!signingSecret && !options.sellerAccessToken) {
+    throw new Error(
+      "Local identity requires a signing secret or compatibility token.",
+    );
+  }
   const state: LocalIdentityState = {
     accessTokens: new Map(),
     accounts: new Map(),
@@ -199,9 +250,16 @@ export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
           error: "Verify your email before signing in.",
         };
       }
+      const token = signingSecret
+        ? mintSellerAccessToken(account, signingSecret, now())
+        : {
+            accessToken: options.sellerAccessToken as string,
+            expiresAt: new Date(
+              now() + accessLifetimeMilliseconds,
+            ).toISOString(),
+          };
       const authentication: IdentityAuthentication = {
-        accessToken: options.sellerAccessToken,
-        expiresAt: new Date(now() + accessLifetimeMilliseconds).toISOString(),
+        ...token,
         principal: principalFromAccount(account),
       };
       state.accessTokens.set(authentication.accessToken, authentication);

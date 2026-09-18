@@ -2,10 +2,8 @@ import {
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
-  Bot,
   Clock3,
   ShieldCheck,
-  WalletCards,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -15,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
+import { CommerceCheckout } from "@/features/commerce/view/commerce-checkout";
 import type {
   DiscoverySignature,
   PublicProduct,
@@ -163,25 +162,12 @@ export function ProductDetail({
             </AccordionItem>
           </Accordion>
         </article>
-        <aside aria-labelledby="checkout-title">
-          <WalletCards aria-hidden="true" />
-          <p>Agent Checkout</p>
-          <h2 id="checkout-title">
-            Pay exactly {formatAtomicPrice(product.amount, product.asset)}
-          </h2>
-          <ol>
-            <li>Create a fixed purchase request for this product.</li>
-            <li>Complete approval if the purchase requires it.</li>
-            <li>Pay the exact amount before AgentPay delivers the result.</li>
-          </ol>
-          <div>
-            <ShieldCheck aria-hidden="true" /> Payment and delivery proof are
-            verified before fulfillment.
-          </div>
-          <div>
-            <Bot aria-hidden="true" /> Discovery describes this product;
-            AgentPay rechecks availability before every purchase.
-          </div>
+        <aside>
+          <CommerceCheckout
+            channel="browser"
+            product={product}
+            sellerSlug={sellerSlug}
+          />
         </aside>
       </div>
     </main>

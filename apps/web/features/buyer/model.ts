@@ -1,4 +1,5 @@
 import type { ActionResult } from "@/lib/agentpay-api";
+import type { PublicProduct } from "@/features/storefront/model";
 
 export type BuyerActivityEntry = {
   tool: string;
@@ -8,6 +9,8 @@ export type BuyerActivityEntry = {
 
 export type BuyerActivityResult = {
   mode: "deterministic";
+  sellerSlug: string;
+  selectedProduct: PublicProduct | null;
   response: string;
   activities: BuyerActivityEntry[];
 };

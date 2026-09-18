@@ -53,11 +53,21 @@ test("local runtime config starts every production-shaped dependency", () => {
     assert.match(processSpecification.env.GOCACHE, /\.cache[\\/]go-build$/i);
   }
   assert.equal(config.processes[2].env.AGENTPAY_WEB_ORIGIN, "http://localhost:3000");
-  assert.equal(config.processes[3].env.AGENTPAY_WS_ORIGIN, "ws://127.0.0.1:8080");
+  assert.equal("AGENTPAY_WS_ORIGIN" in config.processes[3].env, false);
   assert.equal(
     config.processes[3].env.AGENTPAY_SELLER_BEARER_TOKEN,
     config.processes[2].env.AGENTPAY_LOCAL_SELLER_TOKEN,
   );
+  assert.equal(
+    config.processes[3].env.AGENTPAY_LOCAL_AGENT_KEY,
+    config.processes[2].env.AGENTPAY_LOCAL_AGENT_KEY,
+  );
+  assert.equal(
+    config.processes[3].env.AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET,
+    config.processes[2].env.AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET,
+  );
+  assert.equal(config.urls.buyer, "http://localhost:3000/demo/agent-checkout");
+  assert.equal("approvalWebSocket" in config.urls, false);
   assert.equal(config.processes[3].command, process.execPath);
   assert.match(config.processes[3].args[0], /npm-cli\.js$/i);
   assert.deepEqual(

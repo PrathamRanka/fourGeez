@@ -32,6 +32,12 @@ M1 acceptance: a clean checkout can install dependencies and run all empty-proje
 
 ## Milestone M2 — Go domain and persistence
 
+Historical note: BE-004 and BE-005 record completed hackathon/M2 work. Their
+buyer-side threshold and multi-person approval runtime is deferred and disabled
+for Lean V1 under ADR-043. The code and records may remain for compatibility
+tests, but no active V1 route, WebSocket, challenge, or transaction depends on
+them.
+
 - [x] **BE-001** Implement shared IDs, money type, UTC timestamps, validation errors, and idempotency interface.
 - [x] **BE-002** Implement seller and paid-route domain models.
 - [x] **BE-003** Implement immutable purchase intents and canonical request hashing.
@@ -46,6 +52,10 @@ M1 acceptance: a clean checkout can install dependencies and run all empty-proje
 M2 acceptance: domain tests cover valid transitions, invalid transitions, replay, expiration, modified intents, chain tampering, and every dispute rule.
 
 ## Milestone M3 — HTTP and WebSocket API
+
+Historical note: API-005 and API-006 record completed M3 approval work. Those
+approval REST and WebSocket surfaces are not part of the active Lean V1
+OpenAPI/AsyncAPI runtime contract and must not be started by the launch stack.
 
 - [x] **API-001** Add request IDs, structured errors, panic recovery, CORS, logging, and authentication middleware.
 - [x] **API-002** Implement seller onboarding and route configuration endpoints.
@@ -65,7 +75,7 @@ M3 acceptance: generated requests from the OpenAPI examples pass against the loc
 - [x] **PAY-002** Implement a payment adapter interface and deterministic mock adapter.
 - [x] **PAY-003** Implement x402 testnet challenge creation using the verified SDK.
 - [x] **PAY-004** Implement facilitator verification with timeout, retry classification, and proof replay protection.
-- [x] **PAY-005** Implement paid-route resolution and approval precondition handling.
+- [x] **PAY-005** Implement paid-route resolution and historical approval precondition handling. The approval branch is disabled for Lean V1.
 - [x] **PAY-006** Implement SSRF-safe upstream forwarding with method/path allowlisting and response-size limits.
 - [x] **PAY-007** Implement per-seller HMAC request signatures.
 - [x] **PAY-008** Enforce exactly-once forwarding through conditional transaction claims.
@@ -142,7 +152,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **WEB-005** Implement transaction detail, evidence verification, webhook delivery history, and receipt download views.
 - [x] **WEB-006** Implement seller-branded storefront and product-detail pages with wallet/x402 purchase instructions and generated SEO/AEO metadata.
 - [x] **WEB-007** Implement buyer chat/tool activity view with deterministic fallback indicator.
-- [x] **WEB-008** Implement live approval page, decision controls, REST fallback, and expiration state.
+- [x] **WEB-008** Implement the historical live approval page, decision controls, REST fallback, and expiration state. This surface is disabled and excluded from Lean V1.
 - [x] **WEB-009** Implement evidence verification and dispute creation/resolution views.
 - [x] **WEB-010** Add loading, empty, retryable error, terminal error, disabled, permission-denied, quota, and suspended-seller states.
 
@@ -166,17 +176,17 @@ MCP connector and seller request-verification package.
 - [x] **LCH-001** Reconcile `README.md`, `PRODUCT.md`, `ARCHITECTURE.md`, `DATA_MODEL.md`, `SECURITY.md`, `TEST_PLAN.md`, `DECISIONS.md`, the API contracts, and this ledger so that launch status, authentication, subscription enforcement, buyer channels, storefront routes, and current limitations agree. Depends on WEB-010.
 - [x] **LCH-002** Lock the public information architecture: the public site explains AgentPay, the authenticated dashboard serves sellers, `/store/{sellerSlug}` represents one seller, `/store/{sellerSlug}/products/{productSlug}` represents one product, human checkout lives on the product page, and the current buyer page becomes the clearly labeled `/demo/agent-checkout` agent-channel demonstration. Depends on LCH-001.
 - [x] **LCH-003** Extend the catalog contract and data model with a seller-approved human product display name and readable public product slug while preserving `routeId`, `pathPattern`, method, MIME type, and upstream details as explicit technical fields. Define uniqueness, normalization, immutable references, migration, SEO metadata, manifest, and historical receipt behavior. Depends on LCH-001.
-- [x] **LCH-004** Update OpenAPI, MCP, AsyncAPI when affected, seller verification, discovery, receipt, and webhook contracts for short-lived capabilities, entitlement revisions, inactive discovery responses, execution authorization, revocation, and the complete documented error taxonomy. The contracts preserve the M7 development migration baseline, use `/v1/integration-access-tokens` for project-key bootstrap, require the connector for Lean V1 MCP installations, and define durable browser/approval authorization and retry-safe credential rotation. Depends on LCH-001–LCH-003.
+- [x] **LCH-004** Update OpenAPI, MCP, AsyncAPI when affected, seller verification, discovery, receipt, and webhook contracts for short-lived capabilities, entitlement revisions, inactive discovery responses, execution authorization, revocation, and the complete documented error taxonomy. The contracts preserve the M7 development migration baseline, use `/v1/integration-access-tokens` for project-key bootstrap, require the connector for Lean V1 MCP installations, define durable browser purchase authorization and retry-safe credential rotation, and retain the historical approval AsyncAPI only as explicitly disabled design documentation. Depends on LCH-001–LCH-003.
 - [x] **LCH-005** Define the seller subscription and entitlement lifecycle independently from buyer settlement: `active`, bounded read-only `grace`, `suspended`, `cancelled` with exact `accessEndsAt`, and `closed`; document Stripe Billing event reconciliation, cancellation-at-period-end, non-payment suspension, reactivation, credential rotation, fraud quarantine, historical read-only access, and finalized-payment obligations. Stripe Billing is the verified initial seller-subscription provider; provider callbacks are implemented in LCH-009 and AWS-013. Depends on LCH-001.
 - [x] **LCH-006** Define the non-bypassable seller-MCP security boundary: seller-hosted code is untrusted, the official MCP remains cloud-authoritative, the seller API key is only a bootstrap credential, discovery never authorizes transactions, and no seller-side fork receives signing, payment, publication, or transaction authority. Production MCP mutations require a cloud-issued, one-time confirmation grant bound to the seller, credential, tool, target, canonical arguments, resource version, and expiry; caller-asserted confirmation remains development-only. Depends on LCH-004–LCH-005.
-- [x] **LCH-007** Provide one supervised local launcher for Next.js, the real Go API, demo seller, mock x402 facilitator, approval WebSocket, deterministic buyer fallback, and disposable in-memory persistence. It validates configuration and readiness, prints useful URLs, surfaces failures, and terminates every child after one Ctrl+C on Windows. Depends on LCH-004.
-- [x] **LCH-008** Finish the guarded `launch-ready` development seed and dependency health checks. Include active and incomplete sellers, below-threshold and approval-required products, successful/pending/failed/disputed transactions, evidence and webhook examples, reset support, and fail-closed readiness for transaction-critical dependencies. Depends on LCH-007.
+- [x] **LCH-007** Provide one supervised local launcher for Next.js, the real Go API, demo seller, mock x402 facilitator, deterministic buyer fallback, and disposable in-memory persistence. The Lean V1 launcher does not start the historical approval WebSocket. It validates configuration and readiness, prints useful URLs, surfaces failures, and terminates every child after one Ctrl+C on Windows. Depends on LCH-004.
+- [x] **LCH-008** Finish the guarded `launch-ready` development seed and dependency health checks. Include active and incomplete sellers, fixed-price products, successful/pending/failed/disputed transactions, evidence and webhook examples, reset support, and fail-closed readiness for transaction-critical dependencies. Depends on LCH-007.
 - [x] **LCH-009** Implement launch subscription enforcement and credential revocation: authoritative `SellerEntitlement`, authenticated/idempotent Stripe events, exact `accessEndsAt`, hardened `apc2` project keys, rotation/revocation, quotas, and append-only security audit. Missing or unavailable entitlement state must fail closed. Lean V1 does not cache transaction-critical authorization. Depends on LCH-005–LCH-006.
 - [x] **LCH-010** Implement the required local MCP connector and cloud authorization path: project-key bootstrap, 2–5 minute ES256 access capabilities, JWKS rotation, exact per-tool scopes, authoritative entitlement and credential checks on every request, seller-issued mutation confirmation, ownership, idempotency, quota, and bounded JSON-RPC. Project keys are never accepted by `/mcp`; direct OAuth MCP clients are deferred. Depends on LCH-009.
 - [x] **LCH-011** Implement seller identity and the essential operating journey: Cognito production authentication plus a contract-equivalent local adapter, secure cookie/BFF sessions and CSRF, claim-derived ownership, deterministic redirects, persisted resumable onboarding, Stripe plan/portal state, and an authenticated dashboard for products, transactions, evidence, webhooks, billing, credentials, and settings. One seller owner per account is the V1 limit. Depends on LCH-009–LCH-010.
 - [x] **LCH-012** Implement authoritative publication and discovery: verified payment destination and service endpoint, publication readiness, short-lived signed AgentPay-hosted seller/product manifests, inactive tombstones, readable storefront URLs, and fresh entitlement/product checks before intent or challenge creation. Seller-hosted metadata is only a discovery hint; the global marketplace directory and ranking are deferred. Depends on LCH-009–LCH-011.
-- [ ] **LCH-013** Complete the shared browser and agent x402 commerce path: immutable intent and quote, optional approval, official SDK challenge/verification/settlement, exact amount/asset/network/destination/resource checks, replay protection, cancellation race policy, atomic finalized-to-forwarding claim, short-lived ES256 execution capability, maintained seller verification packages, exactly-once fulfillment, receipt/evidence, and a bounded manual remediation/refund-recording flow. Depends on LCH-009–LCH-012.
-- [ ] **LCH-014** Complete the launch surface and release gate: accessible responsive public pages, authentication, onboarding, dashboard, storefront checkout, agent demo, approval, payment, fulfillment, receipts, evidence, disputes, billing and support; consistent documented error states; required security notifications; an audited operator suspension/replay runbook; privacy/terms/security pages; full real-runtime browser E2E; cancellation/fork/replay/concurrency tests; screenshots at 360/768/1280/1440; Lighthouse budgets; and the full lint/typecheck/test/build baseline. Depends on LCH-008–LCH-013.
+- [x] **LCH-013** Complete the shared browser and agent x402 commerce path: immutable intent and fixed seller quote, buyer-maximum enforcement without buyer-side approval, official SDK challenge/verification/settlement, exact amount/asset/network/destination/resource checks, replay protection, cancellation race policy, atomic finalized-to-forwarding claim, short-lived ES256 execution capability, maintained seller verification packages, exactly-once fulfillment, receipt/evidence, and the seller-authenticated idempotent `POST /v1/sellers/{sellerId}/disputes/{disputeId}/refund-records` flow. The endpoint records one external full refund only for a finalized `refund_recommended` dispute and never moves funds. Depends on LCH-009–LCH-012.
+- [x] **LCH-014** Complete the launch surface and release gate: accessible responsive public pages, authentication, onboarding, dashboard, storefront checkout, agent demo, wallet authorization, payment, fulfillment, receipts, evidence, disputes, manual refund recording, billing and support; consistent documented error states; required security notifications; an audited operator suspension/replay runbook; privacy/terms/security pages; full real-runtime browser E2E; cancellation/fork/replay/concurrency tests; screenshots at 360/768/1280/1440; Lighthouse budgets; and the full lint/typecheck/test/build baseline. Buyer-side approval UI, REST, and WebSocket runtime are excluded. Depends on LCH-008–LCH-013.
 
 M7.1 acceptance: one clean command starts and seeds the production-shaped local
 system and one Ctrl+C removes it; a seller can register, subscribe, resume
@@ -213,10 +223,10 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 
 ## Milestone M9 — Demo and release gate
 
-- [ ] **REL-001** Seed the demo seller and two routes: below-threshold and approval-required.
+- [ ] **REL-001** Seed the demo seller with fixed-price active and inactive routes.
 - [ ] **REL-002** Run unit, integration, contract, web accessibility, and end-to-end suites.
 - [ ] **REL-003** Complete one real x402 testnet transaction and preserve its evidence bundle.
-- [ ] **REL-004** Demonstrate two-person approval on separate clients.
+- [ ] **REL-004** Demonstrate buyer-maximum rejection and exact wallet authorization without a buyer-approval step.
 - [ ] **REL-005** Demonstrate duplicate, non-delivery, and quality dispute outcomes.
 - [ ] **REL-006** Rehearse deterministic fallback and AWS dependency failures.
 - [ ] **REL-007** Connect a coding agent, generate a seller integration, approve publication, and pass the sandbox validator.
@@ -258,7 +268,7 @@ Use Conventional Commits with one logical change per commit:
 docs: define API and architecture contracts
 feat(api): add purchase intent creation
 feat(payments): verify x402 testnet proof
-test(approvals): cover expired and vetoed sessions
+test(payments): reject a quote above the buyer maximum
 fix(proxy): prevent duplicate upstream forwarding
 ```
 

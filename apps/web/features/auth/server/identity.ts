@@ -35,8 +35,15 @@ export function getIdentityAdapter(): IdentityAdapter {
   if (identityMode !== "local") {
     return unavailableIdentity;
   }
+  const sellerTokenSigningSecret =
+    process.env.AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET ?? "";
+  const sellerAccessToken = process.env.AGENTPAY_SELLER_BEARER_TOKEN ?? "";
+  if (!sellerTokenSigningSecret && !sellerAccessToken) {
+    return unavailableIdentity;
+  }
   globalThis.agentPayLocalIdentity ??= createLocalIdentityAdapter({
-    sellerAccessToken: process.env.AGENTPAY_SELLER_BEARER_TOKEN ?? "",
+    sellerTokenSigningSecret,
+    sellerAccessToken,
   });
   return globalThis.agentPayLocalIdentity;
 }

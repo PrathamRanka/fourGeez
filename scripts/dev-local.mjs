@@ -49,6 +49,7 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
   const apiOrigin = `http://127.0.0.1:${ports.api}`;
   const sellerToken = createSecret("local_seller", randomBytes);
   const agentKey = createSecret("local_agent", randomBytes);
+  const identitySigningSecret = createSecret("local_identity", randomBytes);
   const goBuildCache = resolve(repositoryRoot, ".cache", "go-build");
   const apiEnvironment = {
     AGENTPAY_ENV: "local",
@@ -64,9 +65,9 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_BEDROCK_MODE: "disabled",
     AGENTPAY_BUYER_MODE: "deterministic",
     AGENTPAY_LOCAL_SELLER_TOKEN: sellerToken,
+    AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET: identitySigningSecret,
     AGENTPAY_LOCAL_AGENT_KEY: agentKey,
     AGENTPAY_LOCAL_SELLER_SIGNING_SECRET: createSecret("seller_signing", randomBytes),
-    AGENTPAY_LOCAL_APPROVAL_TOKEN_SECRET: createSecret("approval_signing", randomBytes),
     AGENTPAY_LOCAL_EVIDENCE_KEY_ID: "local-evidence-key-v1",
     AGENTPAY_LOCAL_EVIDENCE_SIGNING_SECRET: createSecret("evidence_signing", randomBytes),
     AGENTPAY_LOCAL_WEBHOOK_SIGNING_SECRET: createSecret("webhook_signing", randomBytes),
@@ -77,8 +78,9 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_ENV: "local",
     AGENTPAY_API_ORIGIN: apiOrigin,
     AGENTPAY_WEB_ORIGIN: webOrigin,
-    AGENTPAY_WS_ORIGIN: `ws://127.0.0.1:${ports.api}`,
     AGENTPAY_SELLER_BEARER_TOKEN: sellerToken,
+    AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET: identitySigningSecret,
+    AGENTPAY_LOCAL_AGENT_KEY: agentKey,
     AGENTPAY_DEMO_SELLER_ID: launchReadySellerID,
     AGENTPAY_BEDROCK_MODE: "disabled",
     AGENTPAY_BUYER_MODE: "deterministic",
@@ -170,11 +172,10 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     ],
     urls: {
       web: webOrigin,
-      buyer: `${webOrigin}/buyer`,
+      buyer: `${webOrigin}/demo/agent-checkout`,
       apiHealth: `${apiOrigin}/health/ready`,
       seller: `http://127.0.0.1:${ports.seller}/research/basic`,
       facilitator: `http://127.0.0.1:${ports.facilitator}/verify`,
-      approvalWebSocket: `ws://127.0.0.1:${ports.api}/ws/approval-sessions/{sessionId}`,
       seedProfile: `${apiOrigin}/__dev/seed-profile`,
       seedReset: `${apiOrigin}/__dev/seed-profile/reset`,
     },
@@ -545,7 +546,6 @@ function printReady(config, output) {
   output.write(`API health:          ${config.urls.apiHealth}\n`);
   output.write(`Demo seller:         ${config.urls.seller}\n`);
   output.write(`Mock facilitator:    ${config.urls.facilitator}\n`);
-  output.write(`Approval WebSocket:  ${config.urls.approvalWebSocket}\n`);
   output.write(`Seed profile:        ${config.urls.seedProfile}\n`);
   output.write(`Reset seed (POST):   ${config.urls.seedReset}\n`);
   output.write("Press Ctrl+C once to stop every process.\n\n");

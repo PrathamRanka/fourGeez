@@ -90,7 +90,11 @@ describe("seller storefront", () => {
     expect(
       screen.getByRole("heading", { name: "Research Report" }),
     ).toBeVisible();
-    expect(screen.getByText("Pay exactly 35 USDC")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Secure checkout" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Maximum spend")).toHaveValue("35");
+    expect(screen.queryByText(/complete approval/i)).not.toBeInTheDocument();
     expect(
       screen.getByText("/store/northstar/products/research-report"),
     ).toBeVisible();

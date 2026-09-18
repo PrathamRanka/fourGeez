@@ -7,7 +7,7 @@ const footerGroups = [
     label: "Product links",
     title: "Product",
     links: [
-      { href: "/#product", label: "Agent Checkout" },
+      { href: "/demo/agent-checkout", label: "Agent Checkout" },
       { href: "/#product", label: "Revenue Lens" },
       { href: "/#security", label: "Trust Gate" },
     ],

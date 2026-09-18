@@ -4,26 +4,30 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 
 ## Current delivery status
 
-Milestones M0 through M7 are implemented as a development preview. Milestone
-M7.1 is now a fourteen-task Lean V1 launch program focused on production seller
-authentication, subscription enforcement, cloud-authoritative MCP access, the
-existing x402 commerce path, exactly-once fulfillment, the essential seller
-dashboard, and full-system verification. M8 infrastructure and M9 release
-verification have not started. Until those milestones pass, AgentPay supports
-local mock and x402 testnet use only and must not be represented as a
-production-ready paid service.
+Milestones M0 through M7 and the fourteen-task M7.1 Lean V1 launch core are
+implemented and verified locally. M7.1 provides seller authentication,
+subscription enforcement, cloud-authoritative MCP access, the shared browser
+and agent x402 commerce path, exactly-once fulfillment, the essential seller
+dashboard, and full-system browser verification. M8 infrastructure and M9
+deployed release verification have not started. Until those milestones pass,
+AgentPay supports local mock and x402 testnet use only and must not be
+represented as a production-ready paid service.
 
-OpenAPI 0.4 and the LCH-004 companion contracts are the locked M7.1 production
-target, not a claim about the current binary. They are marked target-state and
-must be enabled only after their dependent implementation and migration tests
-pass. The current Go runtime remains a development-only M7 compatibility
-baseline:
+OpenAPI 0.5 and the LCH-004 companion contracts describe the implemented M7.1
+runtime boundary. Production activation still depends on M8 infrastructure,
+external security/legal review, and M9 deployed verification.
 
-| Surface | Current M7 development behavior | Required M7.1 production target |
+Lean V1 intentionally excludes buyer-side multi-person approval. Historical
+M2/M3 approval code and contract history are retained for compatibility, but
+the launch runtime exposes no buyer approval REST, cookie, token, WebSocket,
+UI, or `428` payment branch. Seller confirmation for MCP commercial mutations
+remains required and is a separate authorization boundary.
+
+| Surface | Historical M7 behavior | Implemented Lean V1 behavior |
 |---|---|---|
 | Seller project credential | `apc1` credential used directly by MCP | `apc2` bootstrap through `/v1/integration-access-tokens`; required local connector and short-lived access token at `/mcp` |
 | MCP mutation confirmation | Caller-supplied boolean, summary, and timestamp | Seller-session-issued one-time grant bound to the exact mutation |
-| Approval invitation | Query token | Fragment exchange into multi-session HttpOnly grant plus CSRF |
+| Buyer approval | M2 threshold/two-person runtime | Deferred and disabled for Lean V1; wallet authorization plus the buyer maximum is the buyer consent boundary |
 | Browser purchase | Buyer-agent key only | Durable opaque purchase cookie, bounded commerce window, and payer-wallet recovery |
 | Seller forwarding | Per-seller HMAC | Finality-gated ES256 execution capability |
 | Seller entitlement | `active`/`suspended` plan projection | Full entitlement projection and epoch checks |
@@ -47,10 +51,11 @@ The complete gap analysis and reference security design are recorded in
 | [SUBSCRIPTION_LIFECYCLE.md](SUBSCRIPTION_LIFECYCLE.md) | Stripe Billing adapter, entitlement states, expiry, recovery, revocation, and historical access |
 | [MCP_SECURITY_BOUNDARY.md](MCP_SECURITY_BOUNDARY.md) | Cloud-authoritative MCP, one-time seller confirmation, discovery separation, and fork resistance |
 | [TEST_PLAN.md](TEST_PLAN.md) | Test levels, required scenarios, fixtures, and release gates |
+| [runbooks/OPERATOR_SUSPENSION_REPLAY.md](runbooks/OPERATOR_SUSPENSION_REPLAY.md) | Suspension, cancellation, replay response, evidence preservation, and recovery procedure |
 | [DECISIONS.md](DECISIONS.md) | Locked decisions, assumptions, deferred choices, and change procedure |
 | [SOURCES.md](SOURCES.md) | External protocol and platform sources that must be verified before implementation |
 | [api/openapi.yaml](api/openapi.yaml) | REST/HTTP API contract |
-| [api/asyncapi.yaml](api/asyncapi.yaml) | WebSocket event contract |
+| [api/asyncapi.yaml](api/asyncapi.yaml) | Deferred historical approval WebSocket contract; no Lean V1 runtime channel |
 | [api/mcp.md](api/mcp.md) | Remote MCP transport, authentication, and resource contract |
 | [api/webhooks.md](api/webhooks.md) | Seller webhook event envelope and signature contract |
 | [api/receipts.md](api/receipts.md) | Versioned buyer and seller purchase receipt contract |
@@ -62,7 +67,7 @@ The complete gap analysis and reference security design are recorded in
 | [../scripts/flaws.md](../scripts/flaws.md) | Consolidated launch gaps, subscription-enforcement design, and implementation reference |
 | [uml/system-context.puml](uml/system-context.puml) | System context diagram |
 | [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
-| [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Purchase and approval sequence |
+| [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Lean V1 purchase and x402 sequence |
 | [uml/seller-integration-sequence.puml](uml/seller-integration-sequence.puml) | Coding-agent seller integration and publication sequence |
 | [uml/browser-wallet-purchase-sequence.puml](uml/browser-wallet-purchase-sequence.puml) | Browser-wallet x402 purchase through the shared commerce pipeline |
 | [uml/dispute-sequence.puml](uml/dispute-sequence.puml) | Dispute sequence |

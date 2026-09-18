@@ -1,13 +1,12 @@
 # Test and release plan
 
-Status: **Locked for the current M0–M7 backend; M7.1 test expansion is required before the MVP release**.
+Status: **Locked; the M7.1 local launch gate passes and M9 remains the deployed release gate**.
 
-The passing unit and contract suites do not by themselves prove launch
-readiness. LCH-014 adds production-shaped browser E2E plus subscription-expiry,
-revocation, stale-discovery, x402 race, exactly-once forwarding, and
-fork-resistance coverage. Redis/outbox-specific testing is deferred because
-Lean V1 performs transaction-critical authorization against authoritative
-persistence. M9 remains the final deployed release gate.
+The M7.1 unit, contract, integration, browser E2E, responsive, and Lighthouse
+checks prove the local launch core. They do not prove AWS production readiness.
+Redis/outbox-specific testing is deferred because Lean V1 performs
+transaction-critical authorization against authoritative persistence. M9
+remains the final deployed release gate.
 
 ## Test layers
 
@@ -18,17 +17,17 @@ Run without AWS or network access.
 - Money parsing/comparison with no floating-point conversion.
 - Canonical JSON and request hashing fixtures.
 - Purchase-intent validation and expiration.
-- Policy threshold boundary: below, equal, and above.
-- Approval approve/approve, approve/veto, duplicate decision, wrong invitation, expiration, and changed intent.
-- Approval fragment exchange, concurrent grant-set bindings, CSRF/Origin
-  rejection, WebSocket Origin checks, and purchase-owner-only completion-token
-  issuance/reissuance.
+- Buyer maximum boundary: quote below, equal to, and above `maximumAmount`.
 - Browser purchase commerce/access expiry boundaries, reload persistence,
   single-intent consumption, payer-wallet binding, one-time recovery challenge,
   and recovery that cannot restore payment authority.
 - Every legal and illegal transaction state transition.
 - Evidence chain construction and tamper detection.
 - Every dispute rule and fallback to seller review.
+- Manual refund recording: seller ownership concealment, finalized-payment and
+  `refund_recommended` preconditions, exact amount/asset/network matching,
+  bounded reference validation, one record per dispute, exact idempotent replay,
+  and changed replay conflict.
 - Header and log redaction.
 - URL and IP SSRF rejection.
 - Payment-destination challenge expiry, invalid signatures, replay, activation,
@@ -67,8 +66,11 @@ Run without AWS or network access.
 - Snapshot machine error codes, not prose-only messages.
 - Validate receipt schemas 1 and 2 independently and reject a version-1
   document containing required version-2 semantics.
-- Assert every authenticated commerce/approval operation documents its
-  applicable 401, 403, 404, 409, 410, 422, 428, 429, and 503 outcomes.
+- Assert every authenticated commerce operation documents its applicable 401,
+  403, 404, 409, 410, 422, 429, and 503 outcomes.
+- Validate the manual refund-record route requires `sellerBearer` and
+  `Idempotency-Key`, rejects unknown request fields, returns the same `201`
+  body for an exact replay, and returns the documented 404/409/422 taxonomy.
 - Validate MCP protected-resource metadata and the `WWW-Authenticate`
   resource-metadata challenge independently from the proprietary project-key
   bootstrap endpoint.
@@ -87,7 +89,6 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 - DynamoDB conditional writes permit one forwarding claimant only when status
   is `PAYMENT_VERIFIED` and `paymentFinality=finalized`.
 - S3 event objects are append-only and verify against KMS signatures.
-- WebSocket reconnect receives a complete session snapshot.
 - Facilitator timeout and rejection never call the seller.
 - Seller timeout records delivery failure.
 - MCP credentials cannot cross seller boundaries or exceed their scopes.
@@ -121,33 +122,37 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 
 ### End-to-end tests
 
-1. Discover storefront, create below-threshold intent, receive 402, pay on testnet, and receive seller response.
-2. Create above-threshold intent, approve from two browser contexts, then pay and receive seller response.
-3. Veto from one browser and prove no payment challenge is issued.
-4. Expire a session and prove old links and tokens fail.
-5. Replay the paid request and prove the seller was invoked once.
-6. Raise `not_delivered` dispute after a seller timeout and receive `refund_recommended`.
-7. Raise `quality_or_output` dispute and receive `seller_review`.
-8. Disable Bedrock and complete the purchase through deterministic fallback.
-9. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
-10. Buy the same published product through a browser wallet and an agent/x402
+1. Discover a storefront, create an intent whose fixed quote is within the
+   buyer maximum, receive 402, authorize the exact wallet payment, and receive
+   the seller response without any buyer-approval step.
+2. Submit a quote above `maximumAmount` and prove no payment challenge is issued.
+3. Replay the paid request and prove the seller was invoked once.
+4. Raise `not_delivered` after a seller timeout and receive `refund_recommended`.
+5. As the owning seller, record the exact finalized refund reference, replay it
+   idempotently, and prove changed input, cross-seller access, unfinalized
+   payment, and a non-recommended dispute fail with the documented taxonomy.
+6. Raise `quality_or_output` and receive `seller_review`.
+7. Disable Bedrock and complete the purchase through deterministic fallback.
+8. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
+9. Buy the same published product through a browser wallet and an agent/x402
     flow and verify both sales appear once in the seller dashboard.
-11. Rotate the seller payment destination and prove existing intents retain the
+10. Rotate the seller payment destination and prove existing intents retain the
     old frozen destination while new intents use the verified replacement.
-12. Disable seller webhooks, complete a purchase, and prove the dashboard and
+11. Disable seller webhooks, complete a purchase, and prove the dashboard and
     evidence remain authoritative.
-13. Generate a supported-stack storefront and validate canonical metadata,
+12. Generate a supported-stack storefront and validate canonical metadata,
     structured data, sitemap, robots, manifest, and `llms.txt` consistency.
-14. Reload during browser checkout, complete payment, later recover receipt and
+13. Reload during browser checkout, complete payment, later recover receipt and
     dispute access with the finalized payer wallet, and prove recovery cannot
     create a second intent or payment.
-15. Exchange multiple approval invitations in one browser, decide each with
-    CSRF protection, and prove only each purchase owner can claim its completion
-    token.
-16. Leave the official connector and a modified fork running, revoke or expire
+14. Leave the official connector and a modified fork running, revoke or expire
     the seller entitlement, and prove both lose MCP, publication, discovery,
     intent, x402, and transaction authority while historical access follows the
     subscription contract.
+
+Historical M2 approval tests remain regression coverage for dormant code only.
+They are not Lean V1 acceptance tests, no approval server is started, and no
+checkout may depend on them.
 
 ## Web quality checks
 
@@ -158,9 +163,9 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
   unavailable states.
 - Marketing motion is progressive, uses transform or opacity where possible,
   and is removed when `prefers-reduced-motion` is enabled.
-- Keyboard-only operation for onboarding, buyer, approval, and dispute flows.
+- Keyboard-only operation for onboarding, buyer checkout, and dispute flows.
 - Visible focus and correctly associated labels/errors.
-- Approval status announced through an ARIA live region.
+- Payment and fulfillment status announced through an ARIA live region.
 - Reduced-motion mode removes nonessential transitions.
 - Layout checks at 360, 768, 1280, and 1440 pixel widths.
 - No horizontal page overflow.
@@ -177,14 +182,12 @@ These are hackathon engineering targets, not customer SLAs:
 - Control API p95 under 700 ms excluding Bedrock.
 - Payment verification timeout at 8 seconds.
 - Seller upstream timeout configurable from 1–30 seconds; demo default 20 seconds.
-- Browser receives approval update within 2 seconds under normal demo conditions.
 - Load test proves 20 concurrent purchase attempts without duplicate seller invocation.
 
 ## Required fixtures
 
-- Seller with below-threshold and approval-required routes.
+- Seller with active and inactive fixed-price routes.
 - Valid and invalid agent API keys.
-- Two approval invitations.
 - Mock facilitator outcomes: success, rejection, timeout, duplicate proof.
 - Mock seller outcomes: 200, 400, 500, timeout, oversized response.
 - Fixed canonical-hash and evidence-signature golden fixtures.
@@ -211,9 +214,8 @@ End-to-end testnet payment is a demo-release gate, not a per-commit gate.
 - [ ] No undocumented console changes are required.
 - [ ] All unit, contract, integration, accessibility, and E2E tests pass.
 - [ ] One real testnet transaction has a valid evidence chain.
-- [ ] Two-device approval works after reconnecting either client.
 - [ ] Duplicate forwarding test shows one seller invocation.
-- [ ] Simulated refund is visibly labeled as simulated.
+- [ ] Manual refund records are visibly labeled as seller-reported and never as AgentPay-executed refunds.
 - [ ] Bedrock fallback is tested immediately before presentation.
 - [ ] Coding-agent setup produces a reviewable diff and cannot publish without confirmation.
 - [ ] Human and agent purchases appear in one seller transaction history.

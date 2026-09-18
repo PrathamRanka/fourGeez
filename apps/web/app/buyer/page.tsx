@@ -1,12 +1,5 @@
-import type { Metadata } from "next";
-import { runBuyerActivity } from "@/features/buyer/controller";
-import { BuyerActivity } from "@/features/buyer/view/buyer-activity";
-
-export const metadata: Metadata = {
-  title: "Buyer activity",
-  description: "Inspect an AgentPay storefront with visible, deterministic tool activity.",
-};
+import { redirect } from "next/navigation";
 
 export default function BuyerPage() {
-  return <BuyerActivity run={runBuyerActivity} />;
+  redirect("/demo/agent-checkout");
 }
