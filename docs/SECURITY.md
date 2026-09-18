@@ -2,6 +2,13 @@
 
 Status: **Required for every implementation task**.
 
+Implementation status: the existing controls cover the M0–M7 development
+preview. M7.1 adds the production subscription and seller-controlled-MCP threat
+model, short-lived capabilities, entitlement epochs, Redis/outbox revocation,
+signed discovery status, execution capabilities, authenticated seller
+sessions, operator controls, and their required failure tests. Until M7.1,
+M8, and M9 pass, cancellation-safe production access is not implemented.
+
 ## Security goals
 
 - A model cannot authorize or execute a purchase by itself.

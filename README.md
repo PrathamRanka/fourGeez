@@ -16,12 +16,23 @@ The repository is documentation-first. Implementation must follow the numbered t
 
 ## Current status
 
-- Product and technical planning: updated for the dual-channel MVP
-- Repository foundations through the buyer backend (M1-M5): complete
-- Seller automation, web application, human checkout, and deployment: planned
-- Web application: not started
-- AWS deployment: not started
-- Real-money processing: explicitly out of scope for the first milestone
+- Product and technical contracts through M7: implemented and covered by the
+  existing unit and contract suites.
+- Public site, seller workflows, storefronts, buyer demonstration, approvals,
+  transactions, evidence, analytics, webhooks, and disputes: implemented as a
+  development preview.
+- M7.1 launch hardening: not started. Production authentication, subscription
+  enforcement, short-lived MCP capabilities, integrated local runtime, complete
+  browser checkout, operator tooling, and full-system E2E verification remain
+  required.
+- AWS deployment and Cognito configuration in M8: not started.
+- Release gates in M9: not started.
+- Payment scope: mock and x402 testnet only until every production gate passes.
+
+The current development preview is not a production-ready paid service. Use
+[`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) for authoritative task
+status and [`scripts/flaws.md`](scripts/flaws.md) for the consolidated launch
+gap and security analysis.
 
 ## Working rules
 

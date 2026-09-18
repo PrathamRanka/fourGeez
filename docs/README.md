@@ -2,6 +2,21 @@
 
 This directory is the implementation source of truth for AgentPay. The older `*_FINAL.md` files remain useful product inputs, but this documentation resolves their conflicts and separates hackathon scope from post-hackathon scope.
 
+## Current delivery status
+
+Milestones M0 through M7 are implemented as a development preview. Milestone
+M7.1 is the mandatory launch-hardening program for production authentication,
+subscription enforcement, cloud-authoritative MCP access, complete frontend and
+backend integration, buyer checkout, operational readiness, and E2E coverage.
+M8 infrastructure and M9 release verification have not started. Until those
+milestones pass, AgentPay supports local mock and x402 testnet use only and must
+not be represented as a production-ready paid service.
+
+The API contracts describe the currently implemented pre-M7.1 wire behavior
+until their numbered M7.1 contract tasks update them. The complete gap analysis
+and reference security design are recorded in
+[`../scripts/flaws.md`](../scripts/flaws.md).
+
 ## Authoritative documents
 
 | Document | Purpose |
@@ -24,6 +39,7 @@ This directory is the implementation source of truth for AgentPay. The older `*_
 | [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md) | Pre-publication seller integration validation contract |
 | [STOREFRONT_VALIDATION.md](STOREFRONT_VALIDATION.md) | Deterministic SEO, AEO, discovery, accessibility, and performance checks |
 | [INTEGRATION_RECIPES.md](INTEGRATION_RECIPES.md) | Maintained stack recipes, middleware order, generated files, and fixture gates |
+| [../scripts/flaws.md](../scripts/flaws.md) | Consolidated launch gaps, subscription-enforcement design, and implementation reference |
 | [uml/system-context.puml](uml/system-context.puml) | System context diagram |
 | [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
 | [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Purchase and approval sequence |

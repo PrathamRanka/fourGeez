@@ -1,6 +1,13 @@
 # Data model and state machines
 
-Status: **Locked for the implemented backend; planned M6/M7 additions are explicitly labeled**.
+Status: **Locked through the implemented M7 backend; M7.1 additions are planned and must be documented here before persistence changes**.
+
+The current schema does not yet contain the complete launch-hardening model for
+subscription lifecycle, entitlement epochs, short-lived capabilities, signed
+discovery revisions, execution-token replay, operator actions, remediation,
+or data-lifecycle requests. Those fields, states, keys, indexes, migration
+rules, and retention effects are introduced only through LCH-003, LCH-005,
+LCH-010, and the dependent contract tasks.
 
 ## Conventions
 

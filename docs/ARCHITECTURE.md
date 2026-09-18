@@ -1,6 +1,13 @@
 # System architecture
 
-Status: **Locked for the implemented backend and approved MVP direction**.
+Status: **Locked for the implemented M0–M7 backend and approved MVP direction**.
+
+Implementation status: M7.1 is required before production launch. The current
+local API uses in-memory persistence and static development credentials, and
+the current web authentication entry points are previews. Short-lived MCP
+capabilities, subscription-expiry enforcement, Redis invalidation, integrated
+local services, complete browser checkout, operator tooling, and production
+identity are planned in M7.1 and must not be represented as already deployed.
 
 ## Purpose
 

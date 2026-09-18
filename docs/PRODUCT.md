@@ -2,6 +2,13 @@
 
 Status: **Locked for the AgentPay MVP direction**.
 
+Implementation status: the M0–M7 development preview exists, but the product
+is not launch-ready. M7.1 must complete real seller authentication,
+subscription enforcement, cloud-authoritative MCP capabilities, integrated
+browser and agent checkout, operational tooling, and full-system verification.
+M8 deployment and M9 release gates remain incomplete. Current payment support
+is mock or x402 testnet only.
+
 ## Product promise
 
 AgentPay turns an existing API or digital service into a storefront that can

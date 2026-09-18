@@ -1,6 +1,15 @@
 # Architecture decisions and assumptions
 
-Last reviewed: 2026-09-17.
+Last reviewed: 2026-09-18.
+
+## Delivery status
+
+The locked decisions below describe the product direction and implemented
+M0–M7 boundaries. They do not imply production readiness. M7.1 must resolve and
+record the remaining decisions for subscription lifecycle, short-lived MCP
+capabilities, signed discovery, transaction execution authorization, seller
+authentication, billing-provider integration, buyer remediation, operator
+access, and data lifecycle before dependent code is implemented.
 
 ## Locked decisions
 

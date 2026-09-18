@@ -1,6 +1,12 @@
 # Test and release plan
 
-Status: **Locked for the current backend and planned MVP release**.
+Status: **Locked for the current M0–M7 backend; M7.1 test expansion is required before the MVP release**.
+
+The passing unit and contract suites do not by themselves prove launch
+readiness. LCH-039 and LCH-040 add production-shaped browser E2E,
+subscription-expiry, revocation, stale-discovery, Redis/outbox, x402 race,
+fork-resistance, and exactly-once integration coverage. M9 remains the final
+deployed release gate.
 
 ## Test layers
 

@@ -2,6 +2,12 @@
 
 Status: **Locked through SEO-002**.
 
+Implementation status: this document describes the currently implemented
+M0–M7 direct integration-credential transport. It is not the production
+cancellation-enforcement design. LCH-012 through LCH-018 will replace ordinary
+MCP use of permanent credentials with short-lived, seller-scoped access tokens
+and current entitlement checks while preserving the official MCP transport.
+
 AgentPay exposes the official Model Context Protocol `2026-07-28` over
 stateless Streamable HTTP at `POST /mcp`. Requests and responses use the
 official MCP JSON-RPC schemas. The server does not create HTTP sessions and
