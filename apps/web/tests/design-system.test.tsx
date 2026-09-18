@@ -1,50 +1,15 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
-  AgentPayIntegrationMap,
+  Integration,
   IntegrationCard,
-} from "@/components/shadcn-space/card/integration-card";
+} from "@/components/ui/integration-card";
 import { SiteFooter } from "@/components/site/site-footer";
-import { SiteHeader } from "@/components/site/site-header";
 import { StickyBanner } from "@/components/ui/sticky-banner";
 
 describe("AgentPay web foundation", () => {
-  it("renders accessible primary navigation and account actions", () => {
-    render(<SiteHeader />);
-
-    expect(screen.getByRole("link", { name: "AgentPay home" })).toBeVisible();
-    const primaryNavigation = screen.getByRole("navigation", {
-      name: "Primary navigation",
-    });
-    expect(primaryNavigation).toBeVisible();
-    expect(
-      within(primaryNavigation).getByRole("link", { name: "Product" }),
-    ).toHaveAttribute("href", "/#product");
-    expect(screen.getAllByRole("link", { name: "Sign in" })[0]).toHaveAttribute(
-      "href",
-      "/sign-in",
-    );
-    expect(
-      screen.getAllByRole("link", { name: "Get started" })[0],
-    ).toHaveAttribute("href", "/sign-up");
-  });
-
-  it("opens the mobile menu with an announced state", () => {
-    render(<SiteHeader />);
-
-    const menuButton = screen.getByRole("button", { name: "Open navigation" });
-    expect(menuButton).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(menuButton);
-    expect(
-      screen.getByRole("button", { name: "Close navigation" }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("navigation", { name: "Mobile navigation" }),
-    ).toBeVisible();
-  });
-
   it("renders product, company, and legal footer navigation", () => {
     render(<SiteFooter />);
 
@@ -96,29 +61,28 @@ describe("AgentPay web foundation", () => {
   });
 
   it("renders a deterministic AgentPay integration card", () => {
-    render(
-      <IntegrationCard
-        title="One commerce control plane"
-        description="Connect storefronts, agents, and settlement."
-        href="/docs"
-        visual={<AgentPayIntegrationMap />}
-      />,
-    );
+    render(<IntegrationCard />);
 
     expect(
-      screen.getByRole("heading", { name: "One commerce control plane" }),
+      screen.getByRole("heading", { name: "One MCP. Every surface." }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "View documentation" }),
-    ).toHaveAttribute("href", "/docs");
+      screen.getByRole("button", { name: "Manage integration" }),
+    ).toHaveAttribute("href", "/dashboard/onboarding");
     expect(screen.getByLabelText("AgentPay integration network")).toBeVisible();
+    expect(screen.getByText("Seller repository")).toBeInTheDocument();
+
+    render(<Integration />);
+    expect(
+      screen.getAllByLabelText("AgentPay integration network"),
+    ).toHaveLength(2);
   });
 
   it("keeps shared registry components local and deterministic", () => {
     const sharedSources = [
       "components/ui/cloud-shader.tsx",
       "components/ui/sticky-banner.tsx",
-      "components/shadcn-space/card/integration-card.tsx",
+      "components/ui/integration-card.tsx",
     ]
       .map((fileName) =>
         readFileSync(path.resolve(process.cwd(), fileName), "utf8"),

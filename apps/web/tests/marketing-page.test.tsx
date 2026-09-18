@@ -10,7 +10,7 @@ describe("AgentPay public site", () => {
       screen.getByRole("heading", { name: "Sell to agents. Settle on-chain." }),
     ).toBeVisible();
     expect(
-      screen.getByText(/one integration turns your existing api/i),
+      screen.getByText(/the next visitor to your site will be an ai agent/i),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Start selling" })).toHaveAttribute(
       "href",
@@ -46,9 +46,8 @@ describe("AgentPay public site", () => {
     expect(
       screen.getByRole("heading", { name: "One integration. Every sale." }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Built for both sides." }),
-    ).toBeVisible();
+    expect(screen.getByLabelText("AgentPay integration network")).toBeVisible();
+    expect(screen.queryByText("Seller API")).not.toBeInTheDocument();
   });
 
   it("switches the commerce demonstration between buyer and seller views", () => {
@@ -72,7 +71,7 @@ describe("AgentPay public site", () => {
       screen.getByText(/funds settle directly to your verified wallet/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/discovery never authorizes a transaction/i),
+      screen.getByText(/without taking custody of buyer funds/i),
     ).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Create your storefront" }),

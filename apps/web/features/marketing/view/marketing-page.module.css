@@ -861,112 +861,17 @@
   text-decoration: none;
 }
 
-.integrationDiagram {
-  position: relative;
-  min-height: 40rem;
-  overflow: hidden;
-  background:
-    radial-gradient(
-      circle at center,
-      color-mix(in srgb, var(--marketing-blue) 12%, transparent),
-      transparent 44%
-    ),
-    linear-gradient(var(--marketing-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--marketing-line) 1px, transparent 1px);
-  background-size:
-    auto,
-    4rem 4rem,
-    4rem 4rem;
-}
-
-.integrationDiagram > svg {
-  position: absolute;
-  width: min(38rem, 92%);
-  height: min(38rem, 92%);
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  fill: none;
-  stroke: var(--marketing-line-strong);
-  stroke-dasharray: 4 8;
-}
-
-.centerNode,
-.integrationNode {
-  position: absolute;
+.integrationCardFrame {
   display: flex;
+  min-width: 0;
   align-items: center;
-  justify-content: center;
-  border: 1px solid var(--marketing-line-strong);
-  background: color-mix(in srgb, var(--marketing-panel) 91%, transparent);
-  box-shadow: 0 1rem 4rem -2.5rem var(--marketing-blue);
-  backdrop-filter: blur(0.8rem);
+  padding: clamp(1rem, 3vw, 2.5rem);
+  background: var(--marketing-panel);
 }
 
-.centerNode {
-  width: 10rem;
-  height: 10rem;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  flex-direction: column;
-}
-
-.logoGlyph {
-  display: grid;
-  width: 2.3rem;
-  height: 2.3rem;
-  place-items: center;
-  border: 1px solid var(--marketing-line-strong);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-}
-
-.centerNode strong {
-  margin-top: 0.65rem;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-}
-
-.centerNode small {
-  margin-top: 0.15rem;
-  color: var(--marketing-muted);
-  font-family: var(--font-mono);
-  font-size: 0.54rem;
-}
-
-.integrationNode {
-  width: 8.5rem;
-  min-height: 3rem;
-  gap: 0.55rem;
-  padding: 0.7rem;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-}
-
-.integrationNode svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  color: var(--marketing-blue);
-}
-
-.nodeTop {
-  top: 7%;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.nodeRight {
-  top: 50%;
-  right: 6%;
-  transform: translateY(-50%);
-}
-.nodeBottom {
-  bottom: 7%;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.nodeLeft {
-  top: 50%;
-  left: 6%;
-  transform: translateY(-50%);
+.integrationCardFrame > * {
+  max-width: 42rem;
+  margin-inline: auto;
 }
 
 .networkSection {
@@ -1454,9 +1359,6 @@
     border-right: 0;
     border-bottom: 1px solid var(--marketing-line);
   }
-  .integrationDiagram {
-    min-height: 34rem;
-  }
   .pricingGrid {
     grid-template-columns: 1fr;
   }
@@ -1567,21 +1469,8 @@
   .faqIntro {
     padding: 3.75rem 1.25rem;
   }
-  .integrationDiagram {
-    min-height: 28rem;
-  }
-  .integrationDiagram > svg {
-    width: 30rem;
-    height: 30rem;
-  }
-  .integrationNode {
-    width: 7.4rem;
-  }
-  .nodeRight {
-    right: 1rem;
-  }
-  .nodeLeft {
-    left: 1rem;
+  .integrationCardFrame {
+    padding: 0.75rem;
   }
   .orbitVisual {
     aspect-ratio: 4 / 5;

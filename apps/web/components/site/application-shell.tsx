@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { SiteFooter } from "@/components/site/site-footer";
 
 type ApplicationShellProps = {
   children: ReactNode;

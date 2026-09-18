@@ -1,29 +1,23 @@
 import {
   ArrowRight,
-  Bot,
-  Braces,
   Check,
   CircleDollarSign,
   Cloud,
   Code2,
   FileCheck2,
-  Globe2,
   KeyRound,
   LockKeyhole,
   Radar,
   ReceiptText,
   ShieldCheck,
-  Store,
-  TerminalSquare,
-  WalletCards,
   Webhook,
 } from "lucide-react";
 import Link from "next/link";
+import { IntegrationCard } from "@/components/ui/integration-card";
 import { ThemeCycleButton } from "@/components/ui/theme-cycle-button";
 import {
   agentPayPlans,
   launchSignals,
-  supportedAgents,
   supportedStacks,
 } from "@/features/marketing/model";
 import { CommerceDemo } from "@/features/marketing/view/commerce-demo";
@@ -34,13 +28,6 @@ const setupSteps = [
   ["01", "Connect", "Add one project key to your coding agent."],
   ["02", "Review", "Approve routes, prices, and deployment changes."],
   ["03", "Publish", "Open a verified storefront to people and agents."],
-] as const;
-
-const integrationNodes = [
-  { label: "Coding agent", icon: TerminalSquare, position: styles.nodeTop },
-  { label: "Storefront", icon: Store, position: styles.nodeRight },
-  { label: "Seller API", icon: Braces, position: styles.nodeBottom },
-  { label: "Wallet", icon: WalletCards, position: styles.nodeLeft },
 ] as const;
 
 function ArrowLink({ href, children }: { href: string; children: string }) {
@@ -68,8 +55,8 @@ function HeroSection() {
         <p className={styles.kicker}>Commerce infrastructure for software</p>
         <h1 id="hero-title">Sell to agents. Settle on-chain.</h1>
         <p className={styles.heroDescription}>
-          One integration turns your existing API into a verified storefront
-          with discovery, x402 payment, and signed fulfillment.
+          The next visitor to your site will be an AI agent.
+          Make them your next customer.
         </p>
         <div className={styles.heroActions}>
           <Link className={styles.primaryAction} href="/sign-up">
@@ -350,81 +337,8 @@ function IntegrationSection() {
         <ArrowLink href="/docs">Read the integration guide</ArrowLink>
       </div>
 
-      <div
-        className={styles.integrationDiagram}
-        aria-label="AgentPay integration diagram"
-      >
-        <svg viewBox="0 0 600 600" aria-hidden="true">
-          <circle cx="300" cy="300" r="190" />
-          <circle cx="300" cy="300" r="110" />
-          <path d="M300 110V190M410 300H490M300 410V490M110 300H190" />
-        </svg>
-        <div className={styles.centerNode}>
-          <span className={styles.logoGlyph}>A</span>
-          <strong>AgentPay</strong>
-          <small>Control plane</small>
-        </div>
-        {integrationNodes.map(({ label, icon: Icon, position }) => (
-          <div className={`${styles.integrationNode} ${position}`} key={label}>
-            <Icon aria-hidden="true" />
-            <span>{label}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function NetworkSection() {
-  return (
-    <section className={styles.networkSection} aria-labelledby="network-title">
-      <header className={styles.sectionHeading}>
-        <p className={styles.kicker}>Shared commerce rail</p>
-        <h2 id="network-title">Built for both sides.</h2>
-        <p>One authoritative purchase path for software agents and people.</p>
-      </header>
-      <div
-        className={styles.orbitVisual}
-        aria-label="Buyer and seller channels connected through AgentPay"
-      >
-        <div
-          className={`${styles.orbitRing} ${styles.orbitOuter}`}
-          aria-hidden="true"
-        />
-        <div
-          className={`${styles.orbitRing} ${styles.orbitInner}`}
-          aria-hidden="true"
-        />
-        <div className={styles.orbitCore}>
-          <span>A</span>
-          <strong>AgentPay</strong>
-          <small>Verify · settle · fulfill</small>
-        </div>
-        <div className={`${styles.orbitNode} ${styles.orbitAgent}`}>
-          <Bot aria-hidden="true" />
-          <span>Buyer agent</span>
-        </div>
-        <div className={`${styles.orbitNode} ${styles.orbitBrowser}`}>
-          <Globe2 aria-hidden="true" />
-          <span>Browser buyer</span>
-        </div>
-        <div className={`${styles.orbitNode} ${styles.orbitSeller}`}>
-          <Store aria-hidden="true" />
-          <span>Seller service</span>
-        </div>
-        <div className={`${styles.orbitNode} ${styles.orbitWallet}`}>
-          <WalletCards aria-hidden="true" />
-          <span>Seller wallet</span>
-        </div>
-      </div>
-      <p className={styles.networkTruth}>
-        Discovery never authorizes a transaction. AgentPay rechecks entitlement,
-        product state, quote, payment, and replay protection before fulfillment.
-      </p>
-      <div className={styles.agentList} aria-label="Supported coding agents">
-        {supportedAgents.map((agent) => (
-          <span key={agent}>{agent}</span>
-        ))}
+      <div className={styles.integrationCardFrame}>
+        <IntegrationCard />
       </div>
     </section>
   );
@@ -514,7 +428,6 @@ export function MarketingPage() {
         <SignalStrip />
         <ProductBento />
         <IntegrationSection />
-        {/* <NetworkSection /> */}
         <PricingSection />
         <FrequentlyAskedQuestions />
         <ClosingSection />

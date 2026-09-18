@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ApplicationShell } from "@/components/site/application-shell";
+import { SmoothScroll } from "@/components/site/smooth-scroll";
 import "./globals.css";
+import "lenis/dist/lenis.css";
 
 const themeInitializationScript = `
 try {
@@ -31,6 +33,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <SmoothScroll />
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
