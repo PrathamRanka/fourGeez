@@ -503,12 +503,14 @@ buyers may download only receipts whose `buyerId` matches their subject;
 browser grants may download only receipts whose `purchaseSessionId` is one of
 their active or recovered read-authority bindings.
 
-### SellerPlan
+### SellerEntitlement
 
 AgentPay billing is independent from buyer-to-seller settlement. The versioned
 V1 plan catalog contains `starter`, `growth`, and `scale`. Plan definitions have
 operational limits and feature flags only; they never contain buyer payment
 amounts, payment destinations, wallet material, or settlement instructions.
+Stripe Billing is the initial seller-subscription provider. The exact lifecycle
+and provider mapping are locked in `SUBSCRIPTION_LIFECYCLE.md`.
 
 | Limit | Starter | Growth | Scale |
 |---|---:|---:|---:|
@@ -530,19 +532,40 @@ Each seller has one authoritative entitlement projection at
 `SellerEntitlement` and stores `sellerId`, `planId`, `planVersion`, `status`,
 UTC period start/end, exact `accessEndsAt`, nullable `graceEndsAt`,
 `cancelAtPeriodEnd`, monotonically increasing `entitlementEpoch`, provider
-`source`, opaque ordered `sourceRevision`, nullable `suspensionReason`,
+`source`, opaque ordered `sourceRevision`, nullable `statusReason`,
+`providerCustomerId`, `providerSubscriptionId`, `providerPriceId`, nullable
+`lastProviderEventId`, `lastReconciledAt`, `credentialRotationRequired`,
 assignment timestamps, and optimistic `version`. Status vocabulary is
-`active`, `grace`, `suspended`, `cancelled`, or `closed`; LCH-005 owns the
-transition matrix and provider-event mapping. A missing production record is
-not auto-created and transaction-critical authorization fails closed. Buyer
-settlement state remains independent.
+`active`, `grace`, `suspended`, `cancelled`, or `closed`. A missing production
+record is not auto-created and transaction-critical authorization fails closed.
+Buyer settlement state remains independent.
+
+Only `status=active` with `now < accessEndsAt` grants network authority.
+`grace` begins exactly at an unpaid `accessEndsAt`, ends exactly 72 hours later,
+and permits billing recovery and historical reads only. Scheduled cancellation
+keeps `status=active` and `cancelAtPeriodEnd=true` until `accessEndsAt`, then
+becomes `cancelled` without grace. Authorization compares the current UTC time
+to `accessEndsAt` directly, so delayed events or jobs cannot extend service.
 
 `entitlementEpoch` increments whenever all existing seller capabilities must be
-invalidated, including suspension, closure, administrative quarantine, and a
-reactivation that requires credential rotation. `sourceRevision` orders
-authenticated provider or operator events so stale events cannot overwrite
-newer entitlement state. Redis may cache this projection, but the database is
-authoritative.
+invalidated, including entry into grace, suspension, cancellation, closure,
+administrative/fraud quarantine, and reactivation. Reactivation from a
+non-active state sets `credentialRotationRequired=true`; existing project keys
+cannot exchange tokens until replaced through the seller session.
+`sourceRevision` is a zero-padded local reconciliation sequence. Stripe event
+timestamps are audit facts, not ordering authority. Redis may cache this
+projection, but the database is authoritative.
+
+### SubscriptionProviderEvent
+
+Stripe webhooks enter a durable inbox before processing. Each record contains
+provider `eventId`, event type, payload hash, livemode/environment, API version,
+provider creation time, received time, customer/subscription/invoice IDs,
+processing state, attempt count, and applied entitlement version. The event ID
+is unique. An exact duplicate succeeds without reapplying effects; the same ID
+with a different hash is quarantined as a security incident. Workers fetch the
+current Stripe objects and conditionally commit a complete entitlement snapshot
+instead of applying events in arrival order.
 
 ### StorefrontDiscoveryDocument
 
@@ -732,6 +755,8 @@ PK=SELLER#sel_123       SK=WEBHOOK#whk_123
 PK=SELLER#sel_123       SK=WEBHOOK_DELIVERY#whd_123
 PK=SELLER#sel_123       SK=WEBHOOK_EVENT#whk_123#evt_123
 PK=SELLER#sel_123       SK=BILLING_PLAN
+PK=STRIPE_EVENT#evt_123 SK=INBOX
+PK=SELLER#sel_123       SK=SUBSCRIPTION_RECONCILIATION#<sourceRevision>
 PK=SELLER#sel_123       SK=QUOTA#2026-09#api_request
 PK=SELLER#sel_123       SK=QUOTA_CLAIM#2026-09#webhook_delivery#<sha256(source)>
 PK=SELLER#sel_123       SK=AUDIT#<createdAt>#aud_123

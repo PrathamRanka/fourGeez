@@ -35,6 +35,14 @@ Run without AWS or network access.
 - Asset/network-separated aggregate updates and duplicate-event rejection.
 - Webhook signature, retry, dead-letter, redelivery, and SSRF behavior.
 - Plan quota boundaries and immutable usage-meter events.
+- Seller entitlement transitions at one nanosecond before, exactly at, and
+  after `accessEndsAt`; grace is always recovery/read-only and expires after
+  exactly 72 hours.
+- Stripe webhook raw-body signature verification, event-ID deduplication,
+  conflicting duplicate quarantine, out-of-order delivery reconciliation,
+  cancellation-at-period-end, failed renewal, and missed-event sweeps.
+- Reactivation increments the entitlement epoch and requires project-key
+  rotation; fraud quarantine cannot be cleared by a Stripe payment event.
 - Atomic UTC-month API and MCP counters, retry-safe webhook-delivery claims,
   static route/subscription limits, suspended plans, and stable 403/429 codes.
 - Audit action vocabulary, changed-field allowlists, append-only persistence,

@@ -42,6 +42,7 @@ The complete gap analysis and reference security design are recorded in
 | [DATA_MODEL.md](DATA_MODEL.md) | Entities, state machines, identifiers, indexes, and retention |
 | [AWS_SETUP.md](AWS_SETUP.md) | AWS accounts, services, IAM, deployment order, configuration, and teardown |
 | [SECURITY.md](SECURITY.md) | Threat model, secrets, evidence integrity, privacy, and production gates |
+| [SUBSCRIPTION_LIFECYCLE.md](SUBSCRIPTION_LIFECYCLE.md) | Stripe Billing adapter, entitlement states, expiry, recovery, revocation, and historical access |
 | [TEST_PLAN.md](TEST_PLAN.md) | Test levels, required scenarios, fixtures, and release gates |
 | [DECISIONS.md](DECISIONS.md) | Locked decisions, assumptions, deferred choices, and change procedure |
 | [SOURCES.md](SOURCES.md) | External protocol and platform sources that must be verified before implementation |

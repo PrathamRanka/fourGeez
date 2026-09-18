@@ -39,6 +39,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 
 	operations := readOpenAPIOperations(t)
 	expected := map[string][]string{
+		"acceptStripeBillingEvent":               {"204", "400", "401", "409", "429", "503"},
 		"archivePaidRoute":                       {"200", "400", "401", "403", "404", "409", "429", "503"},
 		"createApprovalCompletionToken":          {"201", "400", "401", "403", "404", "409", "410", "429", "503"},
 		"createApprovalSession":                  {"201", "400", "401", "403", "404", "409", "410", "422", "429", "503"},

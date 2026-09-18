@@ -41,6 +41,16 @@ Protocol rule: `docs/api/openapi.yaml` defines AgentPay's surrounding API, but t
 |---|---|---|
 | ZeroClick public architecture and capabilities | https://docs.zeroclick.ai/llms.txt | Behavioral reference only; do not copy source code, branding, text, private APIs, or undocumented behavior. |
 
+## Seller subscription billing
+
+| Topic | Official source | Key implementation consequence |
+|---|---|---|
+| Stripe subscription webhooks | https://docs.stripe.com/billing/subscriptions/webhooks | Verified 2026-09-18: subscription and invoice changes are asynchronous; `invoice.paid` confirms a paid period, while failures require recovery handling. |
+| Stripe subscription status | https://docs.stripe.com/api/subscriptions/object | Verified 2026-09-18: adapter inputs include `incomplete`, `incomplete_expired`, `trialing`, `active`, `past_due`, `canceled`, `unpaid`, and `paused`; AgentPay maps these into its own entitlement states. |
+| Stripe cancellation | https://docs.stripe.com/billing/subscriptions/cancel | Verified 2026-09-18: `cancel_at_period_end` preserves the subscription through the current paid period; AgentPay independently enforces its exact `accessEndsAt`. |
+| Stripe webhook signatures | https://docs.stripe.com/webhooks/signature | Verified 2026-09-18: verify `Stripe-Signature` against the exact raw request body with the endpoint secret. |
+| Stripe webhook delivery behavior | https://docs.stripe.com/webhooks | Verified 2026-09-18: duplicate delivery can occur and event ordering is not guaranteed; persist event IDs and reconcile current provider state. |
+
 ## Seller automation
 
 | Topic | Official source | Key implementation consequence |

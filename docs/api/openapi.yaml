@@ -111,6 +111,25 @@ paths:
         '403': { $ref: '#/components/responses/PermissionDenied' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/billing/providers/stripe/webhooks:
+    post:
+      summary: Accept and durably enqueue a Stripe Billing event
+      description: Verifies Stripe-Signature against the exact raw body. Duplicate event IDs with the same payload hash return success; events are reconciled asynchronously and never applied in arrival order.
+      tags: [Billing]
+      operationId: acceptStripeBillingEvent
+      security: [{ stripeWebhookSignature: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '204': { description: Authenticated event durably stored or exact duplicate already stored }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/approval-invitations/exchange:
     post:
       summary: Exchange one approval invitation fragment token for an approval cookie
@@ -1459,6 +1478,11 @@ components:
       in: cookie
       name: __Host-agentpay_approvals
       description: Opaque browser grant set created by exchanging one or more approval invitation fragment tokens.
+    stripeWebhookSignature:
+      type: apiKey
+      in: header
+      name: Stripe-Signature
+      description: Stripe-generated signature verified against the exact raw request body and the environment-specific webhook endpoint secret.
   parameters:
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
     SellerId: { name: sellerId, in: path, required: true, schema: { type: string, pattern: '^sel_[A-Za-z0-9]+$' } }
@@ -1672,7 +1696,7 @@ components:
     SellerEntitlement:
       type: object
       additionalProperties: false
-      required: [sellerId, planId, planVersion, status, billingPeriodStart, billingPeriodEnd, accessEndsAt, cancelAtPeriodEnd, entitlementEpoch, source, sourceRevision, assignedAt, updatedAt, version]
+      required: [sellerId, planId, planVersion, status, billingPeriodStart, billingPeriodEnd, accessEndsAt, cancelAtPeriodEnd, entitlementEpoch, source, sourceRevision, credentialRotationRequired, networkAccess, dashboardAccess, assignedAt, updatedAt, version]
       properties:
         sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         planId: { type: string, enum: [starter, growth, scale] }
@@ -1686,9 +1710,14 @@ components:
         entitlementEpoch: { type: integer, minimum: 1 }
         source: { type: string, enum: [billing_provider, operator, local] }
         sourceRevision: { type: string, minLength: 1, maxLength: 256 }
-        suspensionReason:
+        statusReason:
           type: [string, 'null']
-          enum: [payment_failed, cancelled, administrative, fraud_quarantine, account_closed, null]
+          enum: [payment_failed, payment_action_required, cancellation_requested, cancelled, administrative, fraud_quarantine, account_closed, provider_incomplete, null]
+        credentialRotationRequired: { type: boolean }
+        networkAccess: { type: string, enum: [enabled, blocked], description: Enabled only for active status while current UTC time is before accessEndsAt and no quarantine applies. }
+        dashboardAccess: { type: string, enum: [full, recovery_read_only, closed] }
+        provider: { type: string, enum: [stripe, local, operator] }
+        lastReconciledAt: { type: [string, 'null'], format: date-time }
         assignedAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 1 }

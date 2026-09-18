@@ -75,6 +75,10 @@ transaction authority.
 | Webhook SSRF | Apply the seller-proxy public-address, DNS-rebinding, redirect, timeout, and response-size controls to webhook destinations |
 | SEO/AEO abuse | Require visible-content consistency, prohibit fabricated claims and keyword stuffing, validate structured data, and never promise ranking |
 | Tenant resource exhaustion | Apply seller-scoped quotas and rate limits to API, MCP, route, analytics, and webhook operations |
+| Unpaid seller retains network access | Require `status=active` and `now < accessEndsAt` at every privileged boundary; grace is recovery/read-only and never paid-network authority |
+| Forged or replayed Stripe webhook | Verify `Stripe-Signature` over exact raw bytes, bind the endpoint secret to environment/account, deduplicate provider event IDs, and reconcile current provider objects instead of trusting arrival order |
+| Stripe outage or missed webhook | Enforce the local `accessEndsAt` independently, fail closed for new commerce, and recover through the durable inbox plus scheduled reconciliation |
+| Fraudulent reactivation | Give fraud quarantine precedence over provider state and require operator clearance plus project-key rotation before access resumes |
 
 ## Canonical hashing
 
@@ -210,7 +214,12 @@ Forbidden:
   or `payment_rejected`; and `503` for `dependency_unavailable`.
 - Authenticate and authorize the seller before consuming seller-scoped API
   quota so an attacker cannot exhaust another tenant's allowance.
-- Return `permission_denied` for suspended plans and static entitlements, and
+- Network authorization requires `status=active` and current UTC time strictly
+  before `accessEndsAt`. `grace`, `suspended`, `cancelled`, and `closed` return
+  `subscription_inactive`; grace never authorizes MCP, discovery, publication,
+  intent creation, challenge issuance, verification, settlement, or new
+  execution.
+- Return `permission_denied` for static entitlements, and
   `rate_limited` for exhausted monthly counters; neither response may reveal
   another seller's plan or usage.
 - CORS limited to configured web origins.

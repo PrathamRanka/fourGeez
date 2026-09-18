@@ -204,7 +204,10 @@ The initial revenue model is seller-funded software and usage billing:
 Buyer funds continue directly to the seller under the x402 flow. AgentPay does
 not custody or redistribute seller funds in V1. AgentPay subscriptions and
 metered usage are accounted for separately from buyer settlement and may be
-invoiced through a future billing adapter. Card settlement, platform fees,
+invoiced through the Stripe Billing adapter. Paid network participation ends
+exactly at `accessEndsAt`; the fixed 72-hour grace period is billing-recovery
+and historical-read-only access, not MCP, discovery, publication, or commerce
+authority. Card settlement, platform fees,
 refunds, tax responsibility, and merchant-of-record status must be explicitly
 decided before enabling production card payments.
 

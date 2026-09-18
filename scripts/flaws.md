@@ -766,10 +766,12 @@ The billing domain needs a documented entitlement state separate from provider
 invoice terminology:
 
 - `active`: new MCP operations and transactions are allowed;
-- `grace`: allowed only when the commercial policy explicitly grants a bounded
-  grace period;
+- `grace`: fixed 72-hour billing-recovery and historical-read-only period;
+  it grants no MCP, discovery, publication, or new-commerce authority;
 - `suspended`: new privileged operations and transactions are denied;
-- `cancelled`: access may continue only until `accessEndsAt`;
+- `cancelled`: voluntary cancellation is effective and network access is denied;
+  scheduled cancellation remains `active` with `cancelAtPeriodEnd=true` until
+  `accessEndsAt`;
 - `closed`: all credentials are revoked and no new access is allowed.
 
 `cancelAtPeriodEnd` does not stop access immediately. The entitlement remains
@@ -778,7 +780,7 @@ abuse, or administrator suspension can stop new operations immediately.
 
 Cancellation checkpoints:
 
-| Operation | Active/grace | Access ended/suspended/closed |
+| Operation | Active before `accessEndsAt` | Grace/suspended/cancelled/closed |
 |---|---:|---:|
 | Read public discovery | Allowed | Return inactive/tombstone state; remove from network index |
 | Read private MCP resources | Allowed | Denied |
@@ -1242,14 +1244,7 @@ export class EntitlementService {
     const accessEnded =
       entitlement.accessEndsAt !== null &&
       new Date(entitlement.accessEndsAt) <= now;
-    const cancelledAccessRemains =
-      entitlement.status === "cancelled" &&
-      entitlement.accessEndsAt !== null &&
-      new Date(entitlement.accessEndsAt) > now;
-    const statusAllowsAccess =
-      entitlement.status === "active" ||
-      entitlement.status === "grace" ||
-      cancelledAccessRemains;
+    const statusAllowsAccess = entitlement.status === "active";
 
     if (!statusAllowsAccess || accessEnded) {
       throw new AuthorizationError(

@@ -82,9 +82,20 @@ One deployable Go binary owns all authoritative business rules through isolated 
   tenant-scoped reads.
 
 The billing package owns a versioned static plan catalog plus one seller plan
-assignment record. Other packages may read entitlements through a narrow
-billing interface, but billing cannot mutate purchase intents, transactions,
-payment destinations, facilitator state, or seller payout configuration.
+assignment record. Stripe Billing is the initial seller-subscription provider,
+but provider events enter a durable inbox and are reconciled into AgentPay's
+authoritative entitlement projection before they affect access. Other packages
+may read entitlements through a narrow billing interface, but billing cannot
+mutate purchase intents, transactions, payment destinations, facilitator state,
+or seller payout configuration.
+
+Only an `active` entitlement before its exclusive `accessEndsAt` grants MCP,
+active discovery, publication or new-commerce authority. A failed renewal does
+not extend that deadline. At the boundary the seller enters a fixed 72-hour
+read-only `grace` for billing recovery, then `suspended`; voluntary
+cancel-at-period-end remains active until the boundary and then becomes
+`cancelled` without grace. Authorization enforces the timestamp directly even
+if Stripe delivery or the transition worker is late.
 
 The operations package reads the resolved seller plan and owns atomic monthly
 quota counters. Consumer packages own narrow interfaces for the quota operation
@@ -295,6 +306,10 @@ or replay checks.
 | Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
 | Seller entitlement inactive or expired | Return `403 subscription_inactive` for authenticated seller/MCP operations, `410 seller_inactive` for public discovery, and reject new intent, challenge, verification, and settlement authorization. |
+| Stripe renewal payment fails | Do not extend `accessEndsAt`; notify the seller, block network participation exactly at the existing boundary, permit only 72 hours of billing recovery/historical reads, then suspend. |
+| Stripe events arrive late, duplicated, or out of order | Verify and durably deduplicate the event, fetch current provider state, and conditionally replace the complete entitlement projection using a local monotonic reconciliation revision. |
+| Seller reactivates after access stopped | Require confirmed paid state, increment the entitlement epoch, invalidate caches/discovery, and require project-key rotation before credential-backed access resumes. |
+| Fraud quarantine | Suspend immediately regardless of Stripe state; Stripe events cannot clear it, and finalized unfulfilled buyer payments enter the explicit incident/refund path. |
 | Project key revoked or rotated | Deny bootstrap exchange; reject access tokens naming the revoked predecessor credential. |
 | Stale capability epoch | Return `401 token_revoked`; do not consume quota or perform the operation. |
 | Redis unavailable on a transaction-critical check | Fail closed with `503 dependency_unavailable`; public discovery may return only an unexpired signed document or inactive result. |
