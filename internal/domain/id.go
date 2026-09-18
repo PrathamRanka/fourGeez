@@ -13,24 +13,28 @@ import (
 type IDPrefix string
 
 const (
-	SellerIDPrefix              IDPrefix = "sel_"
-	CredentialIDPrefix          IDPrefix = "key_"
-	PaymentDestinationIDPrefix  IDPrefix = "dst_"
-	WebhookSubscriptionIDPrefix IDPrefix = "whk_"
-	WebhookDeliveryIDPrefix     IDPrefix = "whd_"
-	AuditEventIDPrefix          IDPrefix = "aud_"
-	UsageMeterEventIDPrefix     IDPrefix = "mtr_"
-	RouteIDPrefix               IDPrefix = "rte_"
-	IntentIDPrefix              IDPrefix = "int_"
-	ApprovalIDPrefix            IDPrefix = "aps_"
-	TransactionIDPrefix         IDPrefix = "txn_"
-	EvidenceIDPrefix            IDPrefix = "evt_"
-	DisputeIDPrefix             IDPrefix = "dsp_"
+	SellerIDPrefix               IDPrefix = "sel_"
+	CredentialIDPrefix           IDPrefix = "key_"
+	CapabilityIDPrefix           IDPrefix = "cap_"
+	MCPConfirmationGrantIDPrefix IDPrefix = "mcg_"
+	PaymentDestinationIDPrefix   IDPrefix = "dst_"
+	WebhookSubscriptionIDPrefix  IDPrefix = "whk_"
+	WebhookDeliveryIDPrefix      IDPrefix = "whd_"
+	AuditEventIDPrefix           IDPrefix = "aud_"
+	UsageMeterEventIDPrefix      IDPrefix = "mtr_"
+	RouteIDPrefix                IDPrefix = "rte_"
+	IntentIDPrefix               IDPrefix = "int_"
+	ApprovalIDPrefix             IDPrefix = "aps_"
+	TransactionIDPrefix          IDPrefix = "txn_"
+	EvidenceIDPrefix             IDPrefix = "evt_"
+	DisputeIDPrefix              IDPrefix = "dsp_"
 )
 
 var supportedIDPrefixes = []IDPrefix{
 	SellerIDPrefix,
 	CredentialIDPrefix,
+	CapabilityIDPrefix,
+	MCPConfirmationGrantIDPrefix,
 	PaymentDestinationIDPrefix,
 	WebhookSubscriptionIDPrefix,
 	WebhookDeliveryIDPrefix,

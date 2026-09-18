@@ -1,6 +1,7 @@
 package main
 
 import (
+	cryptorand "crypto/rand"
 	"log/slog"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/audit"
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
@@ -46,6 +48,7 @@ func main() {
 	evidenceRepository := memory.NewEvidenceRepository()
 	disputeRepository := memory.NewDisputeRepository()
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
+	confirmationGrantRepository := memory.NewConfirmationGrantRepository()
 	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
@@ -149,6 +152,9 @@ func main() {
 		integrations.NewSecureTokenGenerator(nil),
 		clock,
 		auditAppender,
+		integrations.WithCredentialDigester(integrations.NewHMACCredentialDigester(
+			integrations.StaticCredentialPepperProvider{Value: mustRandomSecret("credential pepper")},
+		)),
 		integrations.WithExchangeAuthorization(
 			billingService,
 			memory.NewProjectKeyExchangeRateLimiter(
@@ -163,6 +169,44 @@ func main() {
 		integrationService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
+	capabilityKeys, err := authorization.NewLocalES256KeyRing(clock)
+	if err != nil {
+		slog.Error("failed to initialize local capability signer", "error", err)
+		os.Exit(1)
+	}
+	apiOrigin := os.Getenv("AGENTPAY_API_ORIGIN")
+	if apiOrigin == "" {
+		apiOrigin = "http://localhost:8080"
+	}
+	accessTokenService := authorization.NewAccessTokenService(
+		authorization.AccessTokenConfig{
+			Issuer: apiOrigin, Audience: authorization.MCPAudience,
+			Lifetime: authorization.MinimumAccessTokenLifetime,
+		},
+		integrationService,
+		integrationCredentialRepository,
+		billingService,
+		capabilityKeys,
+		capabilityKeys,
+		idGenerator,
+		clock,
+	)
+	authorization.NewHTTPController(accessTokenService).RegisterRoutes(mux)
+	confirmationGrantService := authorization.NewConfirmationGrantService(
+		confirmationGrantRepository,
+		catalogService,
+		integrationCredentialRepository,
+		billingService,
+		catalogRepository,
+		idGenerator,
+		integrations.NewSecureTokenGenerator(nil),
+		integrations.NewHMACCredentialDigester(
+			integrations.StaticCredentialPepperProvider{Value: mustRandomSecret("confirmation grant pepper")},
+		),
+		clock,
+		auditAppender,
+	)
+	authorization.NewConfirmationGrantHTTPController(confirmationGrantService).RegisterRoutes(mux)
 	notificationService := notifications.NewService(
 		webhookSubscriptionRepository,
 		catalogService,
@@ -192,7 +236,7 @@ func main() {
 		idempotencyStore,
 	).RegisterRoutes(mux)
 	mcpController := mcpserver.NewHTTPController(
-		integrationService,
+		accessTokenService,
 		mcpserver.NewService(
 			catalogRepository,
 			transactionRepository,
@@ -203,6 +247,7 @@ func main() {
 			clock,
 			sandboxService,
 			auditAppender,
+			confirmationGrantService,
 		),
 		analyzer.NewService(),
 	)
@@ -282,6 +327,7 @@ func main() {
 			WebhookDeliveries:      webhookDeliveryRepository,
 			WebhookSecrets:         webhookSecretStore,
 			IntegrationCredentials: integrationCredentialRepository,
+			ConfirmationGrants:     confirmationGrantRepository,
 			SellerEntitlements:     sellerPlanRepository,
 			ProviderEvents:         providerEventRepository,
 			AuditEvents:            auditEventRepository,
@@ -385,4 +431,13 @@ func main() {
 		slog.Error("AgentPay API stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+func mustRandomSecret(name string) []byte {
+	secret := make([]byte, 32)
+	if _, err := cryptorand.Read(secret); err != nil {
+		slog.Error("failed to initialize local secret", "name", name, "error", err)
+		os.Exit(1)
+	}
+	return secret
 }

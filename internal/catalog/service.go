@@ -444,6 +444,15 @@ func (service *Service) recordSellerRouteLifecycle(
 }
 
 // ConfigureStorefrontForIntegration updates the credential-bound seller.
+func (service *Service) GetSellerForIntegration(ctx context.Context, sellerID domain.ID) (SellerResponse, error) {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return SellerResponse{}, err
+	}
+	return sellerResponse(seller), nil
+}
+
+// ConfigureStorefrontForIntegration updates the credential-bound seller.
 func (service *Service) ConfigureStorefrontForIntegration(
 	ctx context.Context,
 	sellerID domain.ID,

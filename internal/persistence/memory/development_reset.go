@@ -7,6 +7,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/audit"
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
@@ -32,6 +33,7 @@ type DevelopmentRepositories struct {
 	WebhookDeliveries      *WebhookDeliveryRepository
 	WebhookSecrets         *WebhookSecretStore
 	IntegrationCredentials *IntegrationCredentialRepository
+	ConfirmationGrants     *ConfirmationGrantRepository
 	SellerEntitlements     *SellerEntitlementRepository
 	ProviderEvents         *ProviderEventRepository
 	AuditEvents            *AuditEventRepository
@@ -61,6 +63,7 @@ func (resetter *DevelopmentResetter) Reset(_ context.Context) error {
 	resetWebhookDeliveries(resetter.repositories.WebhookDeliveries)
 	resetWebhookSecrets(resetter.repositories.WebhookSecrets)
 	resetIntegrationCredentials(resetter.repositories.IntegrationCredentials)
+	resetConfirmationGrants(resetter.repositories.ConfirmationGrants)
 	resetSellerEntitlements(resetter.repositories.SellerEntitlements)
 	resetProviderEvents(resetter.repositories.ProviderEvents)
 	resetAuditEvents(resetter.repositories.AuditEvents)
@@ -191,6 +194,16 @@ func resetIntegrationCredentials(repository *IntegrationCredentialRepository) {
 	defer repository.mutex.Unlock()
 	repository.credentials = make(map[domain.ID]integrations.Snapshot)
 	repository.rotationReplays = make(map[string]integrations.RotationReplay)
+}
+
+func resetConfirmationGrants(repository *ConfirmationGrantRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.grants = make(map[domain.ID]authorization.ConfirmationGrant)
+	repository.bindings = make(map[string]domain.ID)
 }
 
 func resetAuditEvents(repository *AuditEventRepository) {

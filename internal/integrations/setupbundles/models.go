@@ -8,8 +8,9 @@ import (
 const (
 	SchemaVersionV1                = "agentpay.setup.v1"
 	SchemaVersionV2                = "agentpay.setup.v2"
-	MCPEndpointEnvironmentVariable = "AGENTPAY_MCP_URL"
-	CredentialEnvironmentVariable  = "AGENTPAY_INTEGRATION_TOKEN"
+	MCPEndpointEnvironmentVariable = "AGENTPAY_API_BASE_URL"
+	CredentialEnvironmentVariable  = "AGENTPAY_PROJECT_KEY"
+	connectorPackage               = "@agentpay/local-mcp-connector@0.1.0"
 	verificationPackageVersion     = "0.1.0"
 )
 

@@ -34,6 +34,7 @@ func configureDevelopmentSeed(
 		WebhookDeliveries:      repositories.WebhookDeliveries,
 		WebhookSecrets:         repositories.WebhookSecrets,
 		IntegrationCredentials: repositories.IntegrationCredentials,
+		ConfirmationGrants:     repositories.ConfirmationGrants,
 		SellerEntitlements:     repositories.SellerEntitlements,
 		ProviderEvents:         repositories.ProviderEvents,
 		AuditEvents:            repositories.AuditEvents,

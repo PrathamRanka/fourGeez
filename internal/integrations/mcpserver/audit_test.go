@@ -26,6 +26,7 @@ func TestMutationServiceAuditsCredentialBoundRouteChanges(t *testing.T) {
 		clock,
 		&testSandboxValidator{valid: true},
 		recorder,
+		&testConfirmationConsumer{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -34,8 +35,9 @@ func TestMutationServiceAuditsCredentialBoundRouteChanges(t *testing.T) {
 	}
 
 	input := ConfigureRouteInput{
-		IdempotencyKey: "audit-route-create-001",
-		Confirmation:   validConfirmation(clock.Now()),
+		IdempotencyKey:        "audit-route-create-001",
+		ConfirmationGrant:     "mcg1.test.secret",
+		ExpectedSellerVersion: 1,
 		Route: RouteConfiguration{
 			DisplayName:            "Research Report",
 			ProductSlug:            "research-report",

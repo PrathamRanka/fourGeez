@@ -161,10 +161,12 @@ func configurationForHost(host Host) (Configuration, error) {
 			Template: `{
   "mcpServers": {
     "agentpay": {
-      "type": "http",
-      "url": "${AGENTPAY_MCP_URL}",
-      "headers": {
-        "Authorization": "Bearer ${AGENTPAY_INTEGRATION_TOKEN}"
+      "type": "stdio",
+      "command": "npx",
+      "args": ["--yes", "@agentpay/local-mcp-connector@0.1.0"],
+      "env": {
+        "AGENTPAY_API_BASE_URL": "${AGENTPAY_API_BASE_URL}",
+        "AGENTPAY_PROJECT_KEY": "${AGENTPAY_PROJECT_KEY}"
       }
     }
   }
@@ -174,8 +176,9 @@ func configurationForHost(host Host) (Configuration, error) {
 		return Configuration{
 			Path: ".codex/config.toml",
 			Template: `[mcp_servers.agentpay]
-url = "<AGENTPAY_MCP_URL>"
-bearer_token_env_var = "AGENTPAY_INTEGRATION_TOKEN"
+command = "npx"
+args = ["--yes", "@agentpay/local-mcp-connector@0.1.0"]
+env_vars = ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY", "AGENTPAY_MCP_SCOPES"]
 required = true
 default_tools_approval_mode = "writes"`,
 		}, nil
@@ -185,12 +188,10 @@ default_tools_approval_mode = "writes"`,
 			Template: `{
   "schemaVersion": "agentpay.mcp-connection.v1",
   "name": "agentpay",
-  "transport": "streamable-http",
-  "urlEnvironmentVariable": "AGENTPAY_MCP_URL",
-  "authorization": {
-    "type": "bearer",
-    "tokenEnvironmentVariable": "AGENTPAY_INTEGRATION_TOKEN"
-  }
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["--yes", "@agentpay/local-mcp-connector@0.1.0"],
+  "environmentVariables": ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY", "AGENTPAY_MCP_SCOPES"]
 }`,
 		}, nil
 	default:

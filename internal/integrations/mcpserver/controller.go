@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
@@ -31,7 +32,7 @@ type OperationQuota interface {
 
 // HTTPController authenticates and serves the remote MCP endpoint.
 type HTTPController struct {
-	authenticator    CredentialAuthenticator
+	authenticator    AccessTokenAuthorizer
 	resourceService  *Service
 	mutationService  *MutationService
 	analyzerService  *analyzer.Service
@@ -49,7 +50,7 @@ func (controller *HTTPController) SetDiscoveryValidator(
 
 // NewHTTPController creates an authenticated stateless MCP controller.
 func NewHTTPController(
-	authenticator CredentialAuthenticator,
+	authenticator AccessTokenAuthorizer,
 	resourceService *Service,
 	mutationService *MutationService,
 	analyzerService *analyzer.Service,
@@ -89,15 +90,15 @@ func (controller *HTTPController) ServeHTTP(
 ) {
 	rawToken, ok := bearerToken(request.Header.Get("Authorization"))
 	if !ok {
-		http.Error(response, "integration credential is required", http.StatusUnauthorized)
+		controller.writeAuthenticationError(response, request, authorization.ErrInvalidAccessToken)
 		return
 	}
-	principal, err := controller.authenticator.AuthenticateToken(
+	principal, err := controller.authenticator.AuthorizeAccessToken(
 		request.Context(),
 		rawToken,
 	)
 	if err != nil {
-		controller.writeAuthenticationError(response, err)
+		controller.writeAuthenticationError(response, request, err)
 		return
 	}
 	if request.Method == http.MethodPost && controller.quotaEnforcer != nil {
@@ -105,7 +106,7 @@ func (controller *HTTPController) ServeHTTP(
 			request.Context(),
 			principal.SellerID,
 		); err != nil {
-			controller.writeQuotaError(response, err)
+			controller.writeQuotaError(response, request, err)
 			return
 		}
 	}
@@ -123,19 +124,20 @@ func (controller *HTTPController) ServeHTTP(
 // writeQuotaError maps MCP quota failures to deterministic HTTP statuses.
 func (controller *HTTPController) writeQuotaError(
 	response http.ResponseWriter,
+	request *http.Request,
 	err error,
 ) {
 	response.Header().Set("Cache-Control", "no-store")
 	if errors.Is(err, domain.ErrPermissionDenied) {
-		http.Error(response, api.ErrorCodePermissionDenied, http.StatusForbidden)
+		api.WriteError(response, request, http.StatusForbidden, api.ErrorCodePermissionDenied, "MCP operation is not permitted", nil)
 		return
 	}
 	if errors.Is(err, domain.ErrRateLimitExceeded) {
 		response.Header().Set("Retry-After", "1")
-		http.Error(response, api.ErrorCodeRateLimited, http.StatusTooManyRequests)
+		api.WriteError(response, request, http.StatusTooManyRequests, api.ErrorCodeRateLimited, "MCP operation quota exceeded", nil)
 		return
 	}
-	http.Error(response, "quota enforcement failed", http.StatusInternalServerError)
+	api.WriteError(response, request, http.StatusServiceUnavailable, api.ErrorCodeDependencyUnavailable, "quota state is unavailable", nil)
 }
 
 // serverForRequest binds all resources to the authenticated seller principal.
@@ -480,6 +482,8 @@ func safeMutationError(err error) error {
 		errors.As(err, &validationErrors) ||
 		errors.Is(err, integrations.ErrScopeDenied) ||
 		errors.Is(err, domain.ErrPermissionDenied) ||
+		errors.Is(err, authorization.ErrConfirmationDenied) ||
+		errors.Is(err, authorization.ErrConfirmationReplayed) ||
 		errors.Is(err, domain.ErrRateLimitExceeded) ||
 		errors.Is(err, api.ErrIdempotencyConflict) ||
 		errors.Is(err, catalog.ErrRouteValidation) ||
@@ -498,20 +502,29 @@ func safeMutationError(err error) error {
 // writeAuthenticationError maps credential failures without leaking internals.
 func (controller *HTTPController) writeAuthenticationError(
 	response http.ResponseWriter,
+	request *http.Request,
 	err error,
 ) {
 	response.Header().Set("Cache-Control", "no-store")
-	if errors.Is(err, integrations.ErrScopeDenied) {
-		http.Error(response, "integration credential lacks read scope", http.StatusForbidden)
-		return
+	status := http.StatusServiceUnavailable
+	code := api.ErrorCodeDependencyUnavailable
+	message := "authorization state is unavailable"
+	switch {
+	case errors.Is(err, authorization.ErrInvalidAccessToken), errors.Is(err, integrations.ErrCredentialInvalid):
+		status, code, message = http.StatusUnauthorized, api.ErrorCodeInvalidCredential, "access token is invalid"
+	case errors.Is(err, authorization.ErrAccessTokenExpired), errors.Is(err, integrations.ErrCredentialExpired):
+		status, code, message = http.StatusUnauthorized, api.ErrorCodeTokenExpired, "access token has expired"
+	case errors.Is(err, authorization.ErrAccessTokenRevoked), errors.Is(err, integrations.ErrCredentialRevoked):
+		status, code, message = http.StatusUnauthorized, api.ErrorCodeTokenRevoked, "access token has been revoked"
+	case errors.Is(err, authorization.ErrSubscriptionInactive), errors.Is(err, integrations.ErrSubscriptionInactive):
+		status, code, message = http.StatusForbidden, api.ErrorCodeSubscriptionInactive, "seller subscription is inactive"
+	case errors.Is(err, authorization.ErrInsufficientScope), errors.Is(err, integrations.ErrScopeDenied):
+		status, code, message = http.StatusForbidden, api.ErrorCodeInsufficientScope, "access token has insufficient scope"
 	}
-	if errors.Is(err, integrations.ErrCredentialInvalid) ||
-		errors.Is(err, integrations.ErrCredentialExpired) ||
-		errors.Is(err, integrations.ErrCredentialRevoked) {
-		http.Error(response, "integration credential is invalid", http.StatusUnauthorized)
-		return
+	if status == http.StatusUnauthorized {
+		response.Header().Set("WWW-Authenticate", `Bearer realm="agentpay-mcp"`)
 	}
-	http.Error(response, "credential verification failed", http.StatusInternalServerError)
+	api.WriteError(response, request, status, code, message, nil)
 }
 
 // bearerToken parses one strict HTTP bearer authorization value.

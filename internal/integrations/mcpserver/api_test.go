@@ -11,6 +11,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/audit"
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
@@ -90,6 +91,9 @@ func TestHTTPControllerConsumesAuthenticatedMCPQuota(t *testing.T) {
 
 	if response.Code != http.StatusTooManyRequests || quota.calls != 1 {
 		t.Fatalf("status/calls = %d/%d", response.Code, quota.calls)
+	}
+	if !strings.Contains(response.Body.String(), `"code":"rate_limited"`) {
+		t.Fatalf("quota error body = %s", response.Body.String())
 	}
 }
 
@@ -215,9 +219,11 @@ func TestHTTPControllerRequiresReadableCredential(t *testing.T) {
 		name       string
 		token      string
 		wantStatus int
+		wantCode   string
 	}{
-		{name: "missing", wantStatus: http.StatusUnauthorized},
-		{name: "invalid", token: "invalid-token", wantStatus: http.StatusUnauthorized},
+		{name: "missing", wantStatus: http.StatusUnauthorized, wantCode: api.ErrorCodeInvalidCredential},
+		{name: "invalid", token: "invalid-token", wantStatus: http.StatusUnauthorized, wantCode: api.ErrorCodeInvalidCredential},
+		{name: "project key rejected", token: "apc2.key.secret", wantStatus: http.StatusUnauthorized, wantCode: api.ErrorCodeInvalidCredential},
 	}
 
 	for _, testCase := range testCases {
@@ -244,6 +250,12 @@ func TestHTTPControllerRequiresReadableCredential(t *testing.T) {
 					response.Body.String(),
 				)
 			}
+			if !strings.Contains(response.Body.String(), `"code":"`+testCase.wantCode+`"`) {
+				t.Fatalf("error body = %s, want code %q", response.Body.String(), testCase.wantCode)
+			}
+			if response.Header().Get("WWW-Authenticate") == "" {
+				t.Fatal("missing Bearer challenge")
+			}
 		})
 	}
 }
@@ -264,6 +276,7 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 			clock,
 			&testSandboxValidator{valid: true},
 			audit.NoopRecorder{},
+			&testConfirmationConsumer{},
 		),
 		nil,
 	)
@@ -307,12 +320,9 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 		&protocol.CallToolParams{
 			Name: "configure_route",
 			Arguments: map[string]any{
-				"idempotencyKey": "route-create-003",
-				"confirmation": map[string]any{
-					"approved":    true,
-					"summary":     "Create the reviewed paid research route",
-					"confirmedAt": clock.Now().Format(time.RFC3339),
-				},
+				"idempotencyKey":        "route-create-003",
+				"confirmationGrant":     "mcg1.test.secret",
+				"expectedSellerVersion": 1,
 				"route": map[string]any{
 					"displayName":             "Research Report",
 					"productSlug":             "research-report",
@@ -344,14 +354,11 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 		&protocol.CallToolParams{
 			Name: "configure_route",
 			Arguments: map[string]any{
-				"idempotencyKey": "route-create-004",
-				"confirmation": map[string]any{
-					"approved":    true,
-					"summary":     "Create the reviewed paid research route",
-					"confirmedAt": clock.Now().Format(time.RFC3339),
-				},
-				"route": map[string]any{},
-				"admin": true,
+				"idempotencyKey":        "route-create-004",
+				"confirmationGrant":     "mcg1.test.secret",
+				"expectedSellerVersion": 1,
+				"route":                 map[string]any{},
+				"admin":                 true,
 			},
 		},
 	)
@@ -439,6 +446,7 @@ func TestHTTPControllerRunsSandboxValidation(t *testing.T) {
 			clock,
 			&testSandboxValidator{valid: true},
 			audit.NoopRecorder{},
+			&testConfirmationConsumer{},
 		),
 		nil,
 	)
@@ -566,6 +574,12 @@ func TestMutationToolResultRedactsUnexpectedErrors(t *testing.T) {
 	if err == nil || strings.Contains(err.Error(), repositoryError.Error()) {
 		t.Fatalf("mutationToolResult() error = %v", err)
 	}
+	for _, expected := range []error{authorization.ErrConfirmationDenied, authorization.ErrConfirmationReplayed} {
+		_, _, err := mutationToolResult(MutationResult{}, expected)
+		if !errors.Is(err, expected) {
+			t.Fatalf("mutationToolResult() error = %v, want %v", err, expected)
+		}
+	}
 }
 
 // TestHTTPControllerRedactsCredentialRepositoryFailures verifies safe errors.
@@ -585,8 +599,8 @@ func TestHTTPControllerRedactsCredentialRepositoryFailures(t *testing.T) {
 
 	controller.ServeHTTP(response, request)
 
-	if response.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusInternalServerError)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
 	}
 	if strings.Contains(response.Body.String(), repositoryError.Error()) {
 		t.Fatalf("response exposed repository failure: %s", response.Body.String())
@@ -625,7 +639,7 @@ type testCredentialAuthenticator struct {
 }
 
 // Authenticate returns deterministic credential outcomes for transport tests.
-func (authenticator *testCredentialAuthenticator) AuthenticateToken(
+func (authenticator *testCredentialAuthenticator) AuthorizeAccessToken(
 	_ context.Context,
 	rawToken string,
 ) (integrations.Principal, error) {

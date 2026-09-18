@@ -79,9 +79,9 @@ type TransactionSummaryItem struct {
 	UpdatedAt     domain.Timestamp               `json:"updatedAt"`
 }
 
-// CredentialAuthenticator validates one integration credential and scope.
-type CredentialAuthenticator interface {
-	AuthenticateToken(context.Context, string) (integrations.Principal, error)
+// AccessTokenAuthorizer verifies one short-lived capability and current state.
+type AccessTokenAuthorizer interface {
+	AuthorizeAccessToken(context.Context, string) (integrations.Principal, error)
 }
 
 // CatalogReader reads seller-owned catalog records without mutating them.

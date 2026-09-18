@@ -133,6 +133,14 @@ func idempotencyPartitionKey(scope string) string {
 	return "IDEMPOTENCY#" + scope
 }
 
+func mcpConfirmationPartitionKey(grantID string) string {
+	return "MCP_CONFIRMATION#" + grantID
+}
+
+func mcpConfirmationBindingSortKey(bindingHash string) string {
+	return "MCP_CONFIRMATION_BINDING#" + bindingHash
+}
+
 // paymentPartitionKey returns the payment-identifier uniqueness key.
 func paymentPartitionKey(paymentIdentifier string) string {
 	return "PAYMENT#" + paymentIdentifier

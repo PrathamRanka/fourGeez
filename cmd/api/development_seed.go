@@ -24,6 +24,7 @@ type developmentSeedRepositories struct {
 	WebhookDeliveries      *memory.WebhookDeliveryRepository
 	WebhookSecrets         *memory.WebhookSecretStore
 	IntegrationCredentials *memory.IntegrationCredentialRepository
+	ConfirmationGrants     *memory.ConfirmationGrantRepository
 	SellerEntitlements     *memory.SellerEntitlementRepository
 	ProviderEvents         *memory.ProviderEventRepository
 	AuditEvents            *memory.AuditEventRepository

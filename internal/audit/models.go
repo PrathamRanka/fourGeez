@@ -31,6 +31,9 @@ const (
 	ActionCredentialExchangeSucceeded Action = "credential.exchange_succeeded"
 	ActionCredentialExchangeDenied    Action = "credential.exchange_denied"
 	ActionEntitlementChanged          Action = "entitlement.changed"
+	ActionMCPConfirmationIssued       Action = "mcp_confirmation.issued"
+	ActionMCPConfirmationConsumed     Action = "mcp_confirmation.consumed"
+	ActionMCPConfirmationDenied       Action = "mcp_confirmation.denied"
 	ActionPaymentDestinationCreated   Action = "payment_destination.created"
 	ActionPaymentDestinationVerified  Action = "payment_destination.verified"
 	ActionPaymentDestinationDisabled  Action = "payment_destination.disabled"
@@ -52,6 +55,7 @@ type TargetType string
 
 const (
 	TargetTypeIntegrationCredential TargetType = "integration_credential"
+	TargetTypeMCPConfirmationGrant  TargetType = "mcp_confirmation_grant"
 	TargetTypePaymentDestination    TargetType = "payment_destination"
 	TargetTypePaidRoute             TargetType = "paid_route"
 	TargetTypeWebhookSubscription   TargetType = "webhook_subscription"

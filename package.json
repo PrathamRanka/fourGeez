@@ -5,6 +5,7 @@
   "workspaces": [
     "apps/web",
     "infra",
+    "packages/local-mcp-connector",
     "verification/node"
   ],
   "scripts": {
@@ -13,22 +14,25 @@
     "dev:api": "go run ./cmd/api",
     "dev:seller": "go run ./examples/demo-seller",
     "dev:facilitator": "go run ./examples/mock-facilitator",
-    "build": "npm run build:web && npm run build:api && npm run build:verification && npm run build:infra",
+    "build": "npm run build:web && npm run build:api && npm run build:verification && npm run build:infra && npm run build:mcp-connector",
     "build:web": "npm run build --workspace @agentpay/web",
     "build:api": "node scripts/go-tool.mjs build ./cmd/... ./internal/... ./examples/... ./verification/go",
     "build:verification": "npm run build --workspace @agentpay/verify-node && npm run test:verification:extended",
     "build:infra": "npm run build --workspace @agentpay/infra",
+    "build:mcp-connector": "npm run build --workspace @agentpay/local-mcp-connector",
     "lint": "npm run lint:web && npm run lint:contracts && npm run lint:go",
     "lint:web": "npm run lint --workspace @agentpay/web",
     "lint:go": "node scripts/go-tool.mjs vet ./cmd/... ./internal/... ./examples/... ./verification/go",
     "lint:contracts": "redocly lint docs/api/openapi.yaml && node scripts/validate-asyncapi.mjs",
-    "test": "npm run test:dev-local && npm run test:web && npm run test:go && npm run test:verification",
+    "test": "npm run test:dev-local && npm run test:web && npm run test:go && npm run test:verification && npm run test:mcp-connector",
     "test:dev-local": "node --test scripts/dev-local.test.mjs",
     "test:web": "npm run test --workspace @agentpay/web",
     "test:go": "node scripts/go-tool.mjs test ./cmd/... ./internal/... ./examples/... ./verification/go",
     "test:verification": "npm run test --workspace @agentpay/verify-node && node scripts/run-python-verification-tests.mjs && npm run test:verification:extended",
     "test:verification:extended": "node scripts/run-extended-verification-tests.mjs",
-    "typecheck": "npm run typecheck --workspace @agentpay/web && npm run typecheck --workspace @agentpay/verify-node && npm run typecheck --workspace @agentpay/infra",
+    "test:mcp-connector": "npm run test --workspace @agentpay/local-mcp-connector",
+    "typecheck": "npm run typecheck --workspace @agentpay/web && npm run typecheck --workspace @agentpay/verify-node && npm run typecheck --workspace @agentpay/infra && npm run typecheck:mcp-connector",
+    "typecheck:mcp-connector": "npm run typecheck --workspace @agentpay/local-mcp-connector",
     "cdk:synth": "npm run synth --workspace @agentpay/infra"
   },
   "devDependencies": {

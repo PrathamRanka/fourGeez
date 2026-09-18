@@ -1,6 +1,6 @@
 # Coding-agent setup bundle contract
 
-Status: **Locked through SEO-002**.
+Status: **Locked through LCH-010**.
 
 AgentPay publishes deterministic setup bundles for Claude Code, Codex, and
 generic Model Context Protocol hosts. Bundle schema versions are independent
@@ -29,7 +29,7 @@ Each JSON resource contains:
 
 - the bundle schema version and target host;
 - the MCP configuration path and a configuration template;
-- the environment-variable names for the MCP URL and integration credential;
+- the environment-variable names for the AgentPay API base URL and project key;
 - pinned verification-package installation instructions for Go, Node.js, and
   Python;
 - a framework-specific focused test command;
@@ -42,21 +42,28 @@ stack-native integration notes, and the required SEO/AEO validation checklist.
 Unsupported stacks remain visible in the matrix but have no verification setup
 and cannot be selected by the setup prompt.
 
-Templates may contain `${AGENTPAY_MCP_URL}` and
-`${AGENTPAY_INTEGRATION_TOKEN}` references. They never contain a resolved
-credential, seller signing secret, wallet material, approval token, or
-deployment credential.
+Templates launch the pinned `@agentpay/local-mcp-connector@0.1.0` package over
+stdio and may contain `${AGENTPAY_API_BASE_URL}` and `${AGENTPAY_PROJECT_KEY}`
+references. `AGENTPAY_MCP_SCOPES` is optional. Templates never contain a
+resolved credential, seller signing secret, wallet material, approval token,
+or deployment credential.
 
 ## Host configuration
 
-- Claude Code uses a project-scoped `.mcp.json` entry with `type: "http"` and
-  environment-variable expansion in `url` and `headers`.
-- Codex uses project-scoped `.codex/config.toml` with a Streamable HTTP `url`
-  and `bearer_token_env_var = "AGENTPAY_INTEGRATION_TOKEN"`.
-- Generic hosts receive an AgentPay-neutral JSON descriptor that names the
-  Streamable HTTP transport, endpoint environment variable, and bearer-token
-  environment variable. The host must map those values into its own supported
-  configuration format.
+- Claude Code uses a project-scoped `.mcp.json` stdio entry that runs the local
+  connector with `npx` and passes the API base URL and project key as process
+  environment variables.
+- Codex uses project-scoped `.codex/config.toml` with the same stdio command and
+  allowlisted environment-variable names.
+- Generic hosts receive an AgentPay-neutral JSON descriptor naming the stdio
+  command, pinned connector package, and required environment variables. The
+  host must map those values into its supported local-process configuration.
+
+The connector exchanges the project key only at
+`POST /v1/integration-access-tokens`, keeps the returned 2-5 minute capability
+in process memory, and relays bounded JSON-RPC to `/mcp`. The project key is
+never sent to `/mcp`, and direct remote OAuth configuration is not published in
+Lean V1.
 
 ## Setup prompt
 

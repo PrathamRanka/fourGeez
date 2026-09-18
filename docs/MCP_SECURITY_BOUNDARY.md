@@ -51,12 +51,12 @@ exchange verifies the keyed credential digest, current credential state,
 current active entitlement, `now < accessEndsAt`, requested scope, quota, and
 rate limits before issuing a 120-300 second access token.
 
-Project-key installations use the AgentPay connector. Direct standards-capable
-MCP clients use the OAuth authorization servers advertised by
-`/.well-known/oauth-protected-resource/mcp` and never receive a project key.
-Both paths produce a bearer capability whose seller, credential or delegated
-client, scopes, audience, expiry, JTI, and entitlement epoch are revalidated by
-the cloud on every request. Signature validity alone is insufficient.
+Project-key installations use the AgentPay connector. Direct remote MCP OAuth
+clients and OAuth protected-resource metadata are deferred in Lean V1. The
+connector exchanges the project key for a bearer capability whose seller,
+credential, scopes, audience, expiry, JTI, and entitlement epoch are
+revalidated by the cloud on every request. Signature validity alone is
+insufficient.
 
 Every MCP operation derives seller identity from the verified capability. A
 caller-supplied seller identifier, repository setting, manifest, prompt, or

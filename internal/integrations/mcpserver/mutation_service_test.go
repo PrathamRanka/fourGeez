@@ -3,16 +3,38 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/audit"
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 )
+
+func TestMutationServiceRequiresServerIssuedConfirmationGrant(t *testing.T) {
+	t.Parallel()
+	clock := domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)}
+	consumer := &testConfirmationConsumer{err: authorization.ErrConfirmationDenied}
+	mutator := &testCatalogMutator{}
+	service := NewMutationService(mutator, memory.NewIdempotencyStore(), clock, &testSandboxValidator{valid: true}, audit.NoopRecorder{}, consumer)
+	principal := integrations.Principal{
+		SellerID: domain.ID(testSellerID), CredentialID: domain.ID(testCredentialID),
+		Scopes: []integrations.Scope{integrations.ScopeConfigure},
+	}
+	_, err := service.ConfigureRoute(t.Context(), principal, ConfigureRouteInput{
+		IdempotencyKey: "route-create-grant", ConfirmationGrant: "mcg1.mcg_01K5D09YJ0C0M7RJM4FWQ0K9HA." + strings.Repeat("s", 43),
+		ExpectedSellerVersion: 1,
+		Route:                 RouteConfiguration{DisplayName: "Research", ProductSlug: "research", Method: catalog.RouteMethodPost, PathPattern: "/research", Description: "Research", MIMEType: "application/json", Amount: "100", Asset: "USDC", Network: "eip155:84532", PayTo: "0x123", UpstreamTimeoutSeconds: 20},
+	})
+	if !errors.Is(err, authorization.ErrConfirmationDenied) || mutator.createCalls != 0 || consumer.calls != 1 {
+		t.Fatalf("ConfigureRoute() = %v, create calls=%d confirmation calls=%d", err, mutator.createCalls, consumer.calls)
+	}
+}
 
 // TestMutationServiceCreatesDraftRouteIdempotently verifies confirmation and replay.
 func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
@@ -28,6 +50,7 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 		clock,
 		&testSandboxValidator{valid: true},
 		audit.NoopRecorder{},
+		&testConfirmationConsumer{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -35,8 +58,9 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 		Scopes:       []integrations.Scope{integrations.ScopeConfigure},
 	}
 	input := ConfigureRouteInput{
-		IdempotencyKey: "route-create-001",
-		Confirmation:   validConfirmation(clock.Now()),
+		IdempotencyKey:        "route-create-001",
+		ConfirmationGrant:     "mcg1.test.secret",
+		ExpectedSellerVersion: 1,
 		Route: RouteConfiguration{
 			DisplayName:            "Research Report",
 			ProductSlug:            "research-report",
@@ -82,23 +106,26 @@ func TestMutationServiceCreatesDraftRouteIdempotently(t *testing.T) {
 	}
 }
 
-// TestMutationServiceRequiresScopeAndFreshConfirmation verifies authorization.
-func TestMutationServiceRequiresScopeAndFreshConfirmation(t *testing.T) {
+// TestMutationServiceRequiresScopeAndServerConfirmation verifies authorization.
+func TestMutationServiceRequiresScopeAndServerConfirmation(t *testing.T) {
 	t.Parallel()
 
 	clock := domain.FixedClock{
 		Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
 	}
+	consumer := &testConfirmationConsumer{}
 	service := NewMutationService(
 		&testCatalogMutator{},
 		memory.NewIdempotencyStore(),
 		clock,
 		&testSandboxValidator{valid: true},
 		audit.NoopRecorder{},
+		consumer,
 	)
 	input := ConfigureRouteInput{
-		IdempotencyKey: "route-create-002",
-		Confirmation:   validConfirmation(clock.Now()),
+		IdempotencyKey:        "route-create-002",
+		ConfirmationGrant:     "mcg1.test.secret",
+		ExpectedSellerVersion: 1,
 	}
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -114,13 +141,13 @@ func TestMutationServiceRequiresScopeAndFreshConfirmation(t *testing.T) {
 	}
 
 	principal.Scopes = []integrations.Scope{integrations.ScopeConfigure}
-	input.Confirmation.ConfirmedAt = clock.Now().Add(-11 * time.Minute).Format(time.RFC3339)
+	consumer.err = authorization.ErrConfirmationDenied
 	if _, err := service.ConfigureRoute(
 		t.Context(),
 		principal,
 		input,
 	); err == nil {
-		t.Fatal("ConfigureRoute() accepted stale confirmation")
+		t.Fatal("ConfigureRoute() accepted a denied confirmation grant")
 	}
 }
 
@@ -139,6 +166,7 @@ func TestMutationServiceRequiresPassingSandboxBeforePublication(t *testing.T) {
 		clock,
 		validator,
 		audit.NoopRecorder{},
+		&testConfirmationConsumer{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -146,10 +174,10 @@ func TestMutationServiceRequiresPassingSandboxBeforePublication(t *testing.T) {
 		Scopes:       []integrations.Scope{integrations.ScopePublish},
 	}
 	input := PublishRouteInput{
-		IdempotencyKey:  "route-publish-sandbox-001",
-		Confirmation:    validConfirmation(clock.Now()),
-		RouteID:         testRouteID,
-		ExpectedVersion: 1,
+		IdempotencyKey:    "route-publish-sandbox-001",
+		ConfirmationGrant: "mcg1.test.secret",
+		RouteID:           testRouteID,
+		ExpectedVersion:   1,
 	}
 
 	if _, err := service.PublishRoute(
@@ -194,6 +222,7 @@ func TestMutationServiceRejectsSandboxResultForAnotherRouteVersion(t *testing.T)
 		clock,
 		&testSandboxValidator{valid: true, routeVersion: 2},
 		audit.NoopRecorder{},
+		&testConfirmationConsumer{},
 	)
 	principal := integrations.Principal{
 		SellerID:     domain.ID(testSellerID),
@@ -204,10 +233,10 @@ func TestMutationServiceRejectsSandboxResultForAnotherRouteVersion(t *testing.T)
 		t.Context(),
 		principal,
 		PublishRouteInput{
-			IdempotencyKey:  "route-publish-sandbox-version",
-			Confirmation:    validConfirmation(clock.Now()),
-			RouteID:         testRouteID,
-			ExpectedVersion: 1,
+			IdempotencyKey:    "route-publish-sandbox-version",
+			ConfirmationGrant: "mcg1.test.secret",
+			RouteID:           testRouteID,
+			ExpectedVersion:   1,
 		},
 	)
 	if !errors.Is(err, ErrSandboxValidationStale) {
@@ -215,19 +244,14 @@ func TestMutationServiceRejectsSandboxResultForAnotherRouteVersion(t *testing.T)
 	}
 }
 
-// validConfirmation creates seller-approved metadata within the allowed window.
-func validConfirmation(now time.Time) Confirmation {
-	return Confirmation{
-		Approved:    true,
-		Summary:     "Create the reviewed paid research route",
-		ConfirmedAt: now.UTC().Format(time.RFC3339),
-	}
-}
-
 type testCatalogMutator struct {
 	createCalls       int
 	publishCalls      int
 	lastCreateRequest catalog.CreateRouteRequest
+}
+
+func (*testCatalogMutator) GetSellerForIntegration(_ context.Context, sellerID domain.ID) (catalog.SellerResponse, error) {
+	return catalog.SellerResponse{SellerID: sellerID, Version: 1}, nil
 }
 
 // ConfigureStorefrontForIntegration returns the configured seller fixture.
@@ -241,6 +265,22 @@ func (*testCatalogMutator) ConfigureStorefrontForIntegration(
 		Name:     request.Name,
 		Version:  request.ExpectedVersion + 1,
 	}, nil
+}
+
+type testConfirmationConsumer struct {
+	calls int
+	err   error
+	last  authorization.ConfirmationConsumption
+}
+
+func (consumer *testConfirmationConsumer) Consume(
+	_ context.Context,
+	_ integrations.Principal,
+	request authorization.ConfirmationConsumption,
+) error {
+	consumer.calls++
+	consumer.last = request
+	return consumer.err
 }
 
 // CreateDraftRouteForIntegration returns one unpublished route fixture.

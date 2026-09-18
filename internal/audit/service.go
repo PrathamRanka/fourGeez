@@ -28,10 +28,16 @@ var actionDefinitions = map[Action]actionDefinition{
 	ActionCredentialExchangeSucceeded: newActionDefinition(TargetTypeIntegrationCredential, "lastUsedAt"),
 	ActionCredentialExchangeDenied:    newActionDefinition(TargetTypeIntegrationCredential, "authorization"),
 	ActionEntitlementChanged:          newActionDefinition(TargetTypeSeller, "status", "accessEndsAt", "entitlementEpoch", "sourceRevision", "credentialRotationRequired"),
-	ActionPaymentDestinationCreated:   newActionDefinition(TargetTypePaymentDestination, "asset", "network", "address", "status"),
-	ActionPaymentDestinationVerified:  newActionDefinition(TargetTypePaymentDestination, "status", "verifiedAt"),
-	ActionPaymentDestinationDisabled:  newActionDefinition(TargetTypePaymentDestination, "status"),
-	ActionPaymentDestinationRotated:   newActionDefinition(TargetTypePaymentDestination, "status"),
+	ActionMCPConfirmationIssued: newActionDefinition(
+		TargetTypeMCPConfirmationGrant,
+		"credentialId", "tool", "targetType", "targetId", "argumentsSha256", "expectedResourceVersion", "expiresAt",
+	),
+	ActionMCPConfirmationConsumed:    newActionDefinition(TargetTypeMCPConfirmationGrant, "consumedAt", "consumedByIdempotencyKeyHash"),
+	ActionMCPConfirmationDenied:      newActionDefinition(TargetTypeMCPConfirmationGrant, "authorization"),
+	ActionPaymentDestinationCreated:  newActionDefinition(TargetTypePaymentDestination, "asset", "network", "address", "status"),
+	ActionPaymentDestinationVerified: newActionDefinition(TargetTypePaymentDestination, "status", "verifiedAt"),
+	ActionPaymentDestinationDisabled: newActionDefinition(TargetTypePaymentDestination, "status"),
+	ActionPaymentDestinationRotated:  newActionDefinition(TargetTypePaymentDestination, "status"),
 	ActionRouteDraftCreated: newActionDefinition(
 		TargetTypePaidRoute,
 		"displayName",
@@ -346,6 +352,8 @@ func validateTargetID(targetType TargetType, targetID string) *domain.Validation
 	switch targetType {
 	case TargetTypeIntegrationCredential:
 		prefix = domain.CredentialIDPrefix
+	case TargetTypeMCPConfirmationGrant:
+		prefix = domain.MCPConfirmationGrantIDPrefix
 	case TargetTypePaymentDestination:
 		prefix = domain.PaymentDestinationIDPrefix
 	case TargetTypePaidRoute:

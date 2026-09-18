@@ -3,30 +3,26 @@ package mcpserver
 import (
 	"context"
 
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 )
 
-// Confirmation records the seller action authorizing one exact MCP change.
-type Confirmation struct {
-	Approved    bool   `json:"approved"`
-	Summary     string `json:"summary"`
-	ConfirmedAt string `json:"confirmedAt"`
-}
-
 // ConfigureStorefrontInput updates the existing credential-bound storefront.
 type ConfigureStorefrontInput struct {
-	IdempotencyKey string                             `json:"idempotencyKey"`
-	Confirmation   Confirmation                       `json:"confirmation"`
-	Storefront     catalog.ConfigureStorefrontRequest `json:"storefront"`
+	IdempotencyKey    string                             `json:"idempotencyKey"`
+	ConfirmationGrant string                             `json:"confirmationGrant"`
+	Storefront        catalog.ConfigureStorefrontRequest `json:"storefront"`
 }
 
 // ConfigureRouteInput creates one unpublished paid-route draft.
 type ConfigureRouteInput struct {
-	IdempotencyKey string             `json:"idempotencyKey"`
-	Confirmation   Confirmation       `json:"confirmation"`
-	Route          RouteConfiguration `json:"route"`
+	IdempotencyKey        string             `json:"idempotencyKey"`
+	ConfirmationGrant     string             `json:"confirmationGrant"`
+	ExpectedSellerVersion uint64             `json:"expectedSellerVersion"`
+	Route                 RouteConfiguration `json:"route"`
 }
 
 // RouteConfiguration is the MCP wire model for atomic-unit route values.
@@ -47,10 +43,10 @@ type RouteConfiguration struct {
 
 // ChangeRoutePriceInput updates future-intent pricing for one route.
 type ChangeRoutePriceInput struct {
-	IdempotencyKey string                  `json:"idempotencyKey"`
-	Confirmation   Confirmation            `json:"confirmation"`
-	RouteID        string                  `json:"routeId"`
-	Price          RoutePriceConfiguration `json:"price"`
+	IdempotencyKey    string                  `json:"idempotencyKey"`
+	ConfirmationGrant string                  `json:"confirmationGrant"`
+	RouteID           string                  `json:"routeId"`
+	Price             RoutePriceConfiguration `json:"price"`
 }
 
 // RoutePriceConfiguration is the MCP wire model for a guarded price update.
@@ -61,9 +57,7 @@ type RoutePriceConfiguration struct {
 
 // ValidateRouteInput runs deterministic publication checks.
 type ValidateRouteInput struct {
-	IdempotencyKey string       `json:"idempotencyKey"`
-	Confirmation   Confirmation `json:"confirmation"`
-	RouteID        string       `json:"routeId"`
+	RouteID string `json:"routeId"`
 }
 
 // SandboxValidateRouteInput runs the pre-publication seller probes.
@@ -73,10 +67,10 @@ type SandboxValidateRouteInput struct {
 
 // PublishRouteInput conditionally publishes one validated route draft.
 type PublishRouteInput struct {
-	IdempotencyKey  string       `json:"idempotencyKey"`
-	Confirmation    Confirmation `json:"confirmation"`
-	RouteID         string       `json:"routeId"`
-	ExpectedVersion uint64       `json:"expectedVersion"`
+	IdempotencyKey    string `json:"idempotencyKey"`
+	ConfirmationGrant string `json:"confirmationGrant"`
+	RouteID           string `json:"routeId"`
+	ExpectedVersion   uint64 `json:"expectedVersion"`
 }
 
 // MutationResult is the stable replayable output shared by MCP mutations.
@@ -95,6 +89,7 @@ type SandboxValidator interface {
 
 // CatalogMutator is the bounded catalog boundary used by MCP tools.
 type CatalogMutator interface {
+	GetSellerForIntegration(context.Context, domain.ID) (catalog.SellerResponse, error)
 	ConfigureStorefrontForIntegration(
 		context.Context,
 		domain.ID,
@@ -122,4 +117,8 @@ type CatalogMutator interface {
 		domain.ID,
 		uint64,
 	) (catalog.PaidRoute, error)
+}
+
+type ConfirmationConsumer interface {
+	Consume(context.Context, integrations.Principal, authorization.ConfirmationConsumption) error
 }

@@ -24,9 +24,10 @@ func TestServicePublishesVersionedHostBundles(t *testing.T) {
 			host:           HostClaudeCode,
 			wantConfigPath: ".mcp.json",
 			wantConfigFragments: []string{
-				`"type": "http"`,
-				`${AGENTPAY_MCP_URL}`,
-				`Bearer ${AGENTPAY_INTEGRATION_TOKEN}`,
+				`"type": "stdio"`,
+				`"command": "npx"`,
+				`@agentpay/local-mcp-connector@0.1.0`,
+				`${AGENTPAY_PROJECT_KEY}`,
 			},
 		},
 		{
@@ -35,7 +36,8 @@ func TestServicePublishesVersionedHostBundles(t *testing.T) {
 			wantConfigPath: ".codex/config.toml",
 			wantConfigFragments: []string{
 				`[mcp_servers.agentpay]`,
-				`bearer_token_env_var = "AGENTPAY_INTEGRATION_TOKEN"`,
+				`command = "npx"`,
+				`AGENTPAY_PROJECT_KEY`,
 			},
 		},
 		{
@@ -43,8 +45,9 @@ func TestServicePublishesVersionedHostBundles(t *testing.T) {
 			host:           HostGenericMCP,
 			wantConfigPath: "agentpay.mcp.json",
 			wantConfigFragments: []string{
-				`"transport": "streamable-http"`,
-				`"tokenEnvironmentVariable": "AGENTPAY_INTEGRATION_TOKEN"`,
+				`"transport": "stdio"`,
+				`"command": "npx"`,
+				`"AGENTPAY_PROJECT_KEY"`,
 			},
 		},
 	}
@@ -100,6 +103,9 @@ func TestServicePublishesVersionedHostBundles(t *testing.T) {
 			}
 			if strings.Contains(bundle.Configuration.Template, "integration_test_token") {
 				t.Fatal("configuration embedded raw credential material")
+			}
+			if strings.Contains(bundle.Configuration.Template, "Authorization") || strings.Contains(bundle.Configuration.Template, "Bearer") {
+				t.Fatal("configuration bypassed the local connector")
 			}
 		})
 	}

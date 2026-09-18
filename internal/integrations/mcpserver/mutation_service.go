@@ -5,21 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/audit"
+	"github.com/fourgeez/agentpay/internal/authorization"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
-)
-
-const (
-	minimumConfirmationSummaryLength = 10
-	maximumConfirmationSummaryLength = 500
-	maximumConfirmationAge           = 10 * time.Minute
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 // ErrMutationConflict reports idempotency-key reuse with different arguments.
@@ -33,11 +27,12 @@ var (
 
 // MutationService executes confirmed, scoped, and replay-safe MCP operations.
 type MutationService struct {
-	catalogMutator   CatalogMutator
-	idempotencyStore domain.IdempotencyStore
-	clock            domain.Clock
-	sandboxValidator SandboxValidator
-	auditRecorder    audit.Recorder
+	catalogMutator       CatalogMutator
+	idempotencyStore     domain.IdempotencyStore
+	clock                domain.Clock
+	sandboxValidator     SandboxValidator
+	auditRecorder        audit.Recorder
+	confirmationConsumer ConfirmationConsumer
 }
 
 // NewMutationService creates the MCP catalog mutation service.
@@ -47,13 +42,15 @@ func NewMutationService(
 	clock domain.Clock,
 	sandboxValidator SandboxValidator,
 	auditRecorder audit.Recorder,
+	confirmationConsumer ConfirmationConsumer,
 ) *MutationService {
 	return &MutationService{
-		catalogMutator:   catalogMutator,
-		idempotencyStore: idempotencyStore,
-		clock:            clock,
-		sandboxValidator: sandboxValidator,
-		auditRecorder:    auditRecorder,
+		catalogMutator:       catalogMutator,
+		idempotencyStore:     idempotencyStore,
+		clock:                clock,
+		sandboxValidator:     sandboxValidator,
+		auditRecorder:        auditRecorder,
+		confirmationConsumer: confirmationConsumer,
 	}
 }
 
@@ -91,9 +88,11 @@ func (service *MutationService) ConfigureStorefront(
 		principal,
 		integrations.ScopeConfigure,
 		"configure_storefront",
-		principal.SellerID.String(),
+		authorization.ConfirmationTargetSeller,
+		principal.SellerID,
+		input.Storefront.ExpectedVersion,
 		input.IdempotencyKey,
-		input.Confirmation,
+		input.ConfirmationGrant,
 		input,
 		func() (MutationResult, error) {
 			seller, err := service.catalogMutator.ConfigureStorefrontForIntegration(
@@ -120,11 +119,20 @@ func (service *MutationService) ConfigureRoute(
 		principal,
 		integrations.ScopeConfigure,
 		"configure_route",
-		"new",
+		authorization.ConfirmationTargetSeller,
+		principal.SellerID,
+		input.ExpectedSellerVersion,
 		input.IdempotencyKey,
-		input.Confirmation,
+		input.ConfirmationGrant,
 		input,
 		func() (MutationResult, error) {
+			seller, err := service.catalogMutator.GetSellerForIntegration(ctx, principal.SellerID)
+			if err != nil {
+				return MutationResult{}, err
+			}
+			if seller.Version != input.ExpectedSellerVersion {
+				return MutationResult{}, persistence.ErrConditionFailed
+			}
 			routeRequest, err := routeRequest(input.Route)
 			if err != nil {
 				return MutationResult{}, err
@@ -187,9 +195,11 @@ func (service *MutationService) ChangeRoutePrice(
 		principal,
 		integrations.ScopeConfigure,
 		"change_route_price",
-		routeID.String(),
+		authorization.ConfirmationTargetPaidRoute,
+		routeID,
+		input.Price.ExpectedVersion,
 		input.IdempotencyKey,
-		input.Confirmation,
+		input.ConfirmationGrant,
 		input,
 		func() (MutationResult, error) {
 			route, err := service.catalogMutator.UpdateRoutePriceForIntegration(
@@ -263,27 +273,14 @@ func (service *MutationService) ValidateRoute(
 	if err != nil {
 		return MutationResult{}, err
 	}
-	return service.execute(
-		ctx,
-		principal,
-		integrations.ScopeValidate,
-		"validate_route",
-		routeID.String(),
-		input.IdempotencyKey,
-		input.Confirmation,
-		input,
-		func() (MutationResult, error) {
-			validation, err := service.catalogMutator.ValidateRouteForIntegration(
-				ctx,
-				principal.SellerID,
-				routeID,
-			)
-			if err != nil {
-				return MutationResult{}, err
-			}
-			return MutationResult{Operation: "validate_route", Validation: &validation}, nil
-		},
-	)
+	if !principal.HasScope(integrations.ScopeValidate) {
+		return MutationResult{}, integrations.ErrScopeDenied
+	}
+	validation, err := service.catalogMutator.ValidateRouteForIntegration(ctx, principal.SellerID, routeID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	return MutationResult{Operation: "validate_route", Validation: &validation}, nil
 }
 
 // PublishRoute validates and conditionally enables one route draft.
@@ -301,9 +298,11 @@ func (service *MutationService) PublishRoute(
 		principal,
 		integrations.ScopePublish,
 		"publish_route",
-		routeID.String(),
+		authorization.ConfirmationTargetPaidRoute,
+		routeID,
+		input.ExpectedVersion,
 		input.IdempotencyKey,
-		input.Confirmation,
+		input.ConfirmationGrant,
 		input,
 		func() (MutationResult, error) {
 			if service.sandboxValidator == nil {
@@ -357,26 +356,28 @@ func (service *MutationService) execute(
 	principal integrations.Principal,
 	requiredScope integrations.Scope,
 	operation string,
-	target string,
+	targetType authorization.ConfirmationTargetType,
+	targetID domain.ID,
+	expectedResourceVersion uint64,
 	idempotencyKey string,
-	confirmation Confirmation,
+	confirmationGrant string,
 	input any,
 	execute func() (MutationResult, error),
 ) (MutationResult, error) {
 	if !principal.HasScope(requiredScope) {
 		return MutationResult{}, integrations.ErrScopeDenied
 	}
-	requestBody, err := json.Marshal(input)
+	argumentsHash, err := authorization.HashMutationArguments(input)
 	if err != nil {
 		return MutationResult{}, err
 	}
-	scope := principal.CredentialID.String() + ":" + operation + ":" + target
+	scope := principal.CredentialID.String() + ":" + operation + ":" + targetID.String()
 	decision, err := api.CheckIdempotency(
 		ctx,
 		service.idempotencyStore,
 		scope,
 		idempotencyKey,
-		requestBody,
+		[]byte(argumentsHash),
 	)
 	if err != nil {
 		return MutationResult{}, err
@@ -388,7 +389,15 @@ func (service *MutationService) execute(
 		}
 		return result, nil
 	}
-	if err := service.validateConfirmation(confirmation); err != nil {
+	if service.confirmationConsumer == nil {
+		return MutationResult{}, authorization.ErrConfirmationDenied
+	}
+	if err := service.confirmationConsumer.Consume(ctx, principal, authorization.ConfirmationConsumption{
+		ConfirmationGrant: confirmationGrant,
+		Tool:              authorization.ConfirmationTool(operation), TargetType: targetType, TargetID: targetID,
+		ArgumentsSHA256: argumentsHash, ExpectedResourceVersion: expectedResourceVersion,
+		IdempotencyKey: idempotencyKey,
+	}); err != nil {
 		return MutationResult{}, err
 	}
 	result, err := execute()
@@ -411,44 +420,4 @@ func (service *MutationService) execute(
 		return MutationResult{}, err
 	}
 	return result, nil
-}
-
-// validateConfirmation rejects fabricated, stale, or ambiguous approval data.
-func (service *MutationService) validateConfirmation(
-	confirmation Confirmation,
-) error {
-	if !confirmation.Approved {
-		return domain.NewValidationError(
-			"confirmation.approved",
-			"required",
-			"must be explicitly approved",
-		)
-	}
-	summary := strings.TrimSpace(confirmation.Summary)
-	if len(summary) < minimumConfirmationSummaryLength ||
-		len(summary) > maximumConfirmationSummaryLength {
-		return domain.NewValidationError(
-			"confirmation.summary",
-			"length",
-			"must contain 10-500 characters",
-		)
-	}
-	now := service.clock.Now()
-	confirmedAt, err := domain.ParseTimestamp(confirmation.ConfirmedAt)
-	if err != nil {
-		return domain.NewValidationError(
-			"confirmation.confirmedAt",
-			"rfc3339",
-			"must be a valid RFC 3339 timestamp",
-		)
-	}
-	if confirmedAt.Time().After(now) ||
-		now.Sub(confirmedAt.Time()) > maximumConfirmationAge {
-		return domain.NewValidationError(
-			"confirmation.confirmedAt",
-			"freshness",
-			"must be within the previous ten minutes",
-		)
-	}
-	return nil
 }

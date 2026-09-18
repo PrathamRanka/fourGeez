@@ -152,10 +152,9 @@ AgentPay JWKS `kid`. Authorization checks current credential revocation and
 entitlement epoch; signature validity alone never authorizes a request.
 
 This proprietary capability is used only by the mandatory AgentPay connector
-for project-key installations. Standards-compatible clients connecting
-directly to the remote `/mcp` resource discover its OAuth authorization servers
-through `/.well-known/oauth-protected-resource/mcp` and never submit a project
-key to the MCP endpoint.
+for project-key installations. Direct remote MCP OAuth clients and OAuth
+protected-resource metadata are deferred in Lean V1. Project keys are never
+accepted by the remote `/mcp` endpoint.
 
 ### MCPConfirmationGrant
 
@@ -797,6 +796,7 @@ PK=SELLER#sel_123       SK=CREDENTIAL#key_123
 PK=CREDENTIAL#key_123   SK=LOOKUP
 PK=CREDENTIAL#key_123   SK=RATE_LIMIT#PROJECT_KEY_EXCHANGE#<windowStart>
 PK=MCP_CONFIRMATION#mcg_123 SK=PROFILE
+PK=SELLER#sel_123       SK=MCP_CONFIRMATION_BINDING#<bindingHash>
 PK=SELLER#sel_123       SK=DESTINATION#dst_123
 PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>
 PK=SELLER#sel_123       SK=AGGREGATE#2026-09-17#USDC#eip155:84532#ALL

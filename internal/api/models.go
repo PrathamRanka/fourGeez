@@ -26,6 +26,13 @@ const (
 	ErrorCodeUnprocessable         = "unprocessable_entity"
 	ErrorCodeInternal              = "internal_error"
 	ErrorCodeDependencyUnavailable = "dependency_unavailable"
+	ErrorCodeInvalidCredential     = "invalid_credential"
+	ErrorCodeTokenExpired          = "token_expired"
+	ErrorCodeTokenRevoked          = "token_revoked"
+	ErrorCodeSubscriptionInactive  = "subscription_inactive"
+	ErrorCodeInsufficientScope     = "insufficient_scope"
+	ErrorCodeIdempotencyConflict   = "idempotency_conflict"
+	ErrorCodeTokenReplayed         = "token_replayed"
 )
 
 // IdempotencyDecision contains either a replay or permission to execute.

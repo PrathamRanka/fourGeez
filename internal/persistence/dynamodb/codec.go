@@ -12,22 +12,23 @@ import (
 
 // storedRecord is the shared single-table DynamoDB envelope.
 type storedRecord struct {
-	PartitionKey  string `dynamodbav:"PK"`
-	SortKey       string `dynamodbav:"SK"`
-	Entity        string `dynamodbav:"entity"`
-	Payload       []byte `dynamodbav:"payload"`
-	Version       uint64 `dynamodbav:"version,omitempty"`
-	Status        string `dynamodbav:"status,omitempty"`
-	EventHash     string `dynamodbav:"eventHash,omitempty"`
-	DestinationID string `dynamodbav:"destinationId,omitempty"`
-	GSI1PK        string `dynamodbav:"GSI1PK,omitempty"`
-	GSI1SK        string `dynamodbav:"GSI1SK,omitempty"`
-	GSI2PK        string `dynamodbav:"GSI2PK,omitempty"`
-	GSI2SK        string `dynamodbav:"GSI2SK,omitempty"`
-	GSI3PK        string `dynamodbav:"GSI3PK,omitempty"`
-	GSI3SK        string `dynamodbav:"GSI3SK,omitempty"`
-	GSI4PK        string `dynamodbav:"GSI4PK,omitempty"`
-	GSI4SK        string `dynamodbav:"GSI4SK,omitempty"`
+	PartitionKey        string `dynamodbav:"PK"`
+	SortKey             string `dynamodbav:"SK"`
+	Entity              string `dynamodbav:"entity"`
+	Payload             []byte `dynamodbav:"payload"`
+	Version             uint64 `dynamodbav:"version,omitempty"`
+	Status              string `dynamodbav:"status,omitempty"`
+	EventHash           string `dynamodbav:"eventHash,omitempty"`
+	DestinationID       string `dynamodbav:"destinationId,omitempty"`
+	ConfirmationGrantID string `dynamodbav:"confirmationGrantId,omitempty"`
+	GSI1PK              string `dynamodbav:"GSI1PK,omitempty"`
+	GSI1SK              string `dynamodbav:"GSI1SK,omitempty"`
+	GSI2PK              string `dynamodbav:"GSI2PK,omitempty"`
+	GSI2SK              string `dynamodbav:"GSI2SK,omitempty"`
+	GSI3PK              string `dynamodbav:"GSI3PK,omitempty"`
+	GSI3SK              string `dynamodbav:"GSI3SK,omitempty"`
+	GSI4PK              string `dynamodbav:"GSI4PK,omitempty"`
+	GSI4SK              string `dynamodbav:"GSI4SK,omitempty"`
 }
 
 // newStoredRecord serializes a domain snapshot into the shared envelope.
