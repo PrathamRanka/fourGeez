@@ -1,41 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { safeRelativeReturnPath } from "@/features/auth/policy";
+import { SignUpForm } from "@/features/auth/view/auth-forms";
 import { PublicInfoPage } from "@/features/marketing/view/public-info-page";
 
 export const metadata: Metadata = {
   title: "Start selling",
 };
 
-// SignUpPage presents the early-access entry state without pretending account creation is live.
-export default function SignUpPage() {
+type SignUpPageProps = { searchParams?: Promise<{ returnTo?: string }> };
+
+export default async function SignUpPage({
+  searchParams,
+}: SignUpPageProps = {}) {
+  const parameters = (await searchParams) ?? {};
+  const returnTo = safeRelativeReturnPath(parameters.returnTo);
   return (
     <PublicInfoPage
-      eyebrow="Seller early access"
+      eyebrow="Seller registration"
       title="Open your AgentPay storefront."
-      summary="Seller registration follows with the dashboard. This preview does not submit or retain personal information."
+      summary="Create one verified owner account, then resume setup from the first incomplete storefront step."
     >
-      <div className="grid gap-5 rounded-3xl border border-border bg-card p-[clamp(1.5rem,5vw,3rem)] shadow-[var(--shadow-panel)] sm:grid-cols-2">
-        <div>
-          <p className="section-kicker">What you prepare</p>
-          <h2 className="mt-3">An existing HTTPS service and a repository.</h2>
-        </div>
-        <div>
+      <div className="auth-page-grid">
+        <SignUpForm returnTo={returnTo} />
+        <aside className="auth-aside" aria-label="Registration details">
+          <h2>One owner for Lean V1</h2>
           <p>
-            You will create a project, verify a payment destination, connect
-            your coding agent, and approve every generated route before it
-            becomes purchasable.
+            Your account controls storefront setup, products, credentials, and
+            seller billing.
           </p>
-          <Link
-            href="/dashboard/onboarding"
-            className={buttonVariants({
-              size: "lg",
-              className: "mt-6 h-11 px-4",
-            })}
-          >
-            Start seller setup
+          <p>Already registered?</p>
+          <Link href={`/sign-in?returnTo=${encodeURIComponent(returnTo)}`}>
+            Sign in
           </Link>
-        </div>
+        </aside>
       </div>
     </PublicInfoPage>
   );

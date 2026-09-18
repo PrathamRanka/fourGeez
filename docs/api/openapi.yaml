@@ -197,6 +197,202 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+  /v1/me/seller:
+    get:
+      summary: Get the seller owned by the authenticated account
+      description: Resolves the seller only from the verified seller subject. Query parameters and request bodies cannot select or override seller ownership.
+      tags: [Sellers]
+      operationId: getCurrentSeller
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200':
+          description: Current seller storefront without private ownership or secret fields
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Seller' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/session:
+    delete:
+      summary: Revoke the authenticated seller session
+      description: Revokes the current Cognito token family or local equivalent through its hashed session identifier until the access-token expiry. Raw bearer tokens are never persisted.
+      tags: [Authorization, Sellers]
+      operationId: revokeCurrentSellerSession
+      security: [{ sellerBearer: [] }]
+      responses:
+        '204':
+          description: Current seller session revoked
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/onboarding:
+    get:
+      summary: Get server-authoritative onboarding and publication prerequisites
+      tags: [Sellers]
+      operationId: getCurrentSellerOnboarding
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200':
+          description: Resumable onboarding state derived from current authoritative seller records
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SellerOnboarding' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard:
+    get:
+      summary: Get the current seller operating overview
+      tags: [Sellers]
+      operationId: getCurrentSellerDashboard
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200':
+          description: Bounded product, transaction, evidence, webhook, billing, credential, and settings summaries
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SellerDashboardOverview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard/products:
+    get:
+      summary: Get current seller product counts
+      tags: [Sellers]
+      operationId: getCurrentSellerProductSummary
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Product lifecycle counts, content: { application/json: { schema: { $ref: '#/components/schemas/ProductSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard/transactions:
+    get:
+      summary: Get current seller transaction counts
+      tags: [Sellers]
+      operationId: getCurrentSellerTransactionSummary
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Bounded transaction status counts, content: { application/json: { schema: { $ref: '#/components/schemas/TransactionSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard/evidence:
+    get:
+      summary: Get current seller evidence counts
+      tags: [Sellers]
+      operationId: getCurrentSellerEvidenceSummary
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Bounded evidence-chain counts, content: { application/json: { schema: { $ref: '#/components/schemas/EvidenceSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard/webhooks:
+    get:
+      summary: Get current seller webhook health counts
+      tags: [Sellers]
+      operationId: getCurrentSellerWebhookSummary
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Subscription and bounded delivery-health counts, content: { application/json: { schema: { $ref: '#/components/schemas/WebhookSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard/billing:
+    get:
+      summary: Get current seller entitlement and Stripe plan state
+      tags: [Billing]
+      operationId: getCurrentSellerBillingSummary
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Authoritative entitlement plus provider portal availability, content: { application/json: { schema: { $ref: '#/components/schemas/BillingSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/dashboard/credentials:
+    get:
+      summary: Get current seller project-key counts
+      tags: [Integrations]
+      operationId: getCurrentSellerCredentialSummary
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Redacted credential lifecycle counts, content: { application/json: { schema: { $ref: '#/components/schemas/CredentialSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/settings:
+    get:
+      summary: Get current seller operating settings
+      tags: [Sellers]
+      operationId: getCurrentSellerSettings
+      security: [{ sellerBearer: [] }]
+      responses:
+        '200': { description: Seller operating settings, content: { application/json: { schema: { $ref: '#/components/schemas/SellerSettings' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+    patch:
+      summary: Update current seller operating settings
+      tags: [Sellers]
+      operationId: updateCurrentSellerSettings
+      security: [{ sellerBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSellerSettingsRequest' }
+      responses:
+        '200': { description: Updated seller settings, content: { application/json: { schema: { $ref: '#/components/schemas/SellerSettings' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/billing/portal-sessions:
+    post:
+      summary: Create a short-lived Stripe customer portal session for the current seller
+      tags: [Billing]
+      operationId: createCurrentSellerBillingPortalSession
+      security: [{ sellerBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBillingPortalSessionRequest' }
+      responses:
+        '201':
+          description: Short-lived provider-hosted billing portal session
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingPortalSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers:
     post:
       summary: Create a seller storefront
@@ -1697,6 +1893,150 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         slug: { type: string, pattern: '^[a-z0-9-]{3,48}$' }
         upstreamBaseUrl: { type: string, format: uri }
+    OnboardingStep:
+      type: object
+      additionalProperties: false
+      required: [name, status, blocking, message]
+      properties:
+        name: { type: string, enum: [account_verified, storefront_created, service_connection_verified, subscription_active, payment_destination_verified, project_key_created, connector_verified, product_configured, sandbox_purchase, storefront_previewed] }
+        status: { type: string, enum: [complete, incomplete, blocked] }
+        blocking: { type: boolean }
+        message: { type: string }
+    PublicationReadiness:
+      type: object
+      additionalProperties: false
+      required: [allowed, blockers]
+      properties:
+        allowed: { type: boolean }
+        blockers:
+          type: array
+          items: { type: string, enum: [account_verified, storefront_created, service_connection_verified, subscription_active, payment_destination_verified, project_key_created, connector_verified, product_configured, sandbox_purchase, storefront_previewed] }
+    SellerOnboarding:
+      type: object
+      additionalProperties: false
+      required: [sellerId, complete, steps, publication, version]
+      properties:
+        sellerId: { type: [string, 'null'], pattern: '^sel_[A-Za-z0-9]+$' }
+        complete: { type: boolean }
+        currentStep: { type: string }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/OnboardingStep' }
+        publication: { $ref: '#/components/schemas/PublicationReadiness' }
+        version: { type: integer, minimum: 0 }
+        updatedAt: { type: [string, 'null'], format: date-time }
+    ProductSummary:
+      type: object
+      additionalProperties: false
+      required: [total, draft, published, paused, archived, emergencyDisabled]
+      properties:
+        total: { type: integer, minimum: 0 }
+        draft: { type: integer, minimum: 0 }
+        published: { type: integer, minimum: 0 }
+        paused: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+        emergencyDisabled: { type: integer, minimum: 0 }
+    TransactionSummary:
+      type: object
+      additionalProperties: false
+      required: [total, pending, fulfilled, failed, disputed]
+      properties:
+        total: { type: integer, minimum: 0, maximum: 1000 }
+        pending: { type: integer, minimum: 0 }
+        fulfilled: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+        disputed: { type: integer, minimum: 0 }
+    EvidenceSummary:
+      type: object
+      additionalProperties: false
+      required: [transactionChains, eventCount]
+      properties:
+        transactionChains: { type: integer, minimum: 0, maximum: 1000 }
+        eventCount: { type: integer, minimum: 0 }
+    WebhookSummary:
+      type: object
+      additionalProperties: false
+      required: [subscriptions, activeSubscriptions, pendingDeliveries, deadLetterDeliveries]
+      properties:
+        subscriptions: { type: integer, minimum: 0 }
+        activeSubscriptions: { type: integer, minimum: 0 }
+        pendingDeliveries: { type: integer, minimum: 0, maximum: 100 }
+        deadLetterDeliveries: { type: integer, minimum: 0, maximum: 100 }
+    CredentialSummary:
+      type: object
+      additionalProperties: false
+      required: [total, active, expired, revoked]
+      properties:
+        total: { type: integer, minimum: 0 }
+        active: { type: integer, minimum: 0 }
+        expired: { type: integer, minimum: 0 }
+        revoked: { type: integer, minimum: 0 }
+    ProviderPlanState:
+      type: object
+      additionalProperties: false
+      required: [provider, portalAvailable]
+      properties:
+        provider: { type: string, enum: [stripe, local, operator] }
+        customerId: { type: string }
+        subscriptionId: { type: string }
+        priceId: { type: string }
+        portalAvailable: { type: boolean }
+    BillingSummary:
+      type: object
+      additionalProperties: false
+      required: [provider, portalAvailable, unavailable]
+      properties:
+        entitlement: { $ref: '#/components/schemas/SellerEntitlement' }
+        plan: { $ref: '#/components/schemas/PlanDefinition' }
+        provider: { $ref: '#/components/schemas/ProviderPlanState' }
+        portalAvailable: { type: boolean }
+        unavailable: { type: boolean }
+    SellerSettings:
+      type: object
+      additionalProperties: false
+      required: [supportEmail, securityNotificationEmail, webhookFailureNotifications, version, updatedAt]
+      properties:
+        supportEmail: { type: string, format: email }
+        securityNotificationEmail: { type: string, format: email }
+        webhookFailureNotifications: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        updatedAt: { type: string, format: date-time }
+    UpdateSellerSettingsRequest:
+      type: object
+      additionalProperties: false
+      required: [supportEmail, securityNotificationEmail, webhookFailureNotifications, expectedVersion]
+      properties:
+        supportEmail: { type: string, format: email }
+        securityNotificationEmail: { type: string, format: email }
+        webhookFailureNotifications: { type: boolean }
+        expectedVersion: { type: integer, minimum: 1 }
+    CreateBillingPortalSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [returnUrl]
+      properties:
+        returnUrl: { type: string, format: uri }
+    BillingPortalSession:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    SellerDashboardOverview:
+      type: object
+      additionalProperties: false
+      required: [seller, onboarding, products, transactions, evidence, webhooks, billing, credentials, settings]
+      properties:
+        seller: { $ref: '#/components/schemas/Seller' }
+        onboarding: { $ref: '#/components/schemas/SellerOnboarding' }
+        products: { $ref: '#/components/schemas/ProductSummary' }
+        transactions: { $ref: '#/components/schemas/TransactionSummary' }
+        evidence: { $ref: '#/components/schemas/EvidenceSummary' }
+        webhooks: { $ref: '#/components/schemas/WebhookSummary' }
+        billing: { $ref: '#/components/schemas/BillingSummary' }
+        credentials: { $ref: '#/components/schemas/CredentialSummary' }
+        settings: { $ref: '#/components/schemas/SellerSettings' }
     Seller:
       type: object
       required: [sellerId, name, slug, upstreamBaseUrl, status, createdAt, updatedAt, version]

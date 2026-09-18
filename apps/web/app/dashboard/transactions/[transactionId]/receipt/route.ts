@@ -14,7 +14,13 @@ export async function GET(_request: Request, context: ReceiptRouteContext) {
     `/v1/transactions/${encodeURIComponent(transactionId)}/receipt`,
   );
   if (!result.ok) {
-    return Response.json({ error: result.error }, { status: 409 });
+    return Response.json(
+      { error: result.error },
+      {
+        status: result.status ?? 409,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   }
   return new Response(result.value.body, {
     headers: {

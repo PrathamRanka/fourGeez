@@ -5,40 +5,42 @@ import {
   Boxes,
   CheckCircle2,
   FileCheck2,
+  LayoutDashboard,
   LifeBuoy,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 const dashboardLinks = [
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/onboarding", label: "Onboarding", icon: CheckCircle2 },
   { href: "/dashboard/products", label: "Products", icon: Boxes },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/dashboard/transactions", label: "Transactions", icon: FileCheck2 },
 ] as const;
 
-// DashboardNavigation preserves seller context and marks the current workspace route.
+// DashboardNavigation marks the current route without placing seller identity in URLs.
 export function DashboardNavigation() {
   const pathname = usePathname();
-  const searchParameters = useSearchParams();
-  const sellerId = searchParameters.get("sellerId");
 
   return (
     <>
       <nav aria-label="Seller dashboard">
         {dashboardLinks.map((link) => {
           const Icon = link.icon;
-          const href = sellerId
-            ? `${link.href}?sellerId=${encodeURIComponent(sellerId)}`
-            : link.href;
-
           return (
             <Link
               key={link.href}
-              href={href}
+              href={link.href}
               className="dashboard-nav-link"
-              aria-current={pathname === link.href ? "page" : undefined}
+              aria-current={
+                pathname === link.href ||
+                (link.href !== "/dashboard" &&
+                  pathname.startsWith(`${link.href}/`))
+                  ? "page"
+                  : undefined
+              }
             >
               <Icon aria-hidden="true" />
               {link.label}

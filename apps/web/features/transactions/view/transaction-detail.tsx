@@ -247,7 +247,6 @@ export function TransactionDetail({
       </section>
       {createDispute ? (
         <DisputePanel
-          sellerId={snapshot.sellerId}
           transactionId={transaction.transactionId}
           transactionStatus={transaction.status}
           evidenceValid={evidence.valid}

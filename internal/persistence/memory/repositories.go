@@ -21,6 +21,7 @@ type CatalogRepository struct {
 	mutex                sync.RWMutex
 	sellers              map[domain.ID]catalog.Seller
 	sellerBySlug         map[string]domain.ID
+	sellerByOwnerSubject map[string]domain.ID
 	routes               map[domain.ID]catalog.PaidRoute
 	routesBySeller       map[domain.ID][]domain.ID
 	productSlugsBySeller map[domain.ID]map[string]domain.ID
@@ -30,6 +31,7 @@ func NewCatalogRepository() *CatalogRepository {
 	return &CatalogRepository{
 		sellers:              make(map[domain.ID]catalog.Seller),
 		sellerBySlug:         make(map[string]domain.ID),
+		sellerByOwnerSubject: make(map[string]domain.ID),
 		routes:               make(map[domain.ID]catalog.PaidRoute),
 		routesBySeller:       make(map[domain.ID][]domain.ID),
 		productSlugsBySeller: make(map[domain.ID]map[string]domain.ID),
@@ -45,9 +47,23 @@ func (repository *CatalogRepository) CreateSeller(_ context.Context, seller cata
 	if _, exists := repository.sellerBySlug[seller.Slug]; exists {
 		return persistence.ErrAlreadyExists
 	}
+	if _, exists := repository.sellerByOwnerSubject[seller.OwnerSubject]; exists {
+		return persistence.ErrAlreadyExists
+	}
 	repository.sellers[seller.SellerID] = seller
 	repository.sellerBySlug[seller.Slug] = seller.SellerID
+	repository.sellerByOwnerSubject[seller.OwnerSubject] = seller.SellerID
 	return nil
+}
+
+func (repository *CatalogRepository) ResolveSellerByOwnerSubject(_ context.Context, ownerSubject string) (catalog.Seller, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+	sellerID, exists := repository.sellerByOwnerSubject[ownerSubject]
+	if !exists {
+		return catalog.Seller{}, persistence.ErrNotFound
+	}
+	return repository.sellers[sellerID], nil
 }
 
 func (repository *CatalogRepository) GetSeller(_ context.Context, sellerID domain.ID) (catalog.Seller, error) {

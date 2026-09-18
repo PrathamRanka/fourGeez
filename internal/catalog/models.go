@@ -193,6 +193,7 @@ type StorefrontManifest struct {
 type Repository interface {
 	CreateSeller(ctx context.Context, seller Seller) error
 	GetSeller(ctx context.Context, sellerID domain.ID) (Seller, error)
+	ResolveSellerByOwnerSubject(ctx context.Context, ownerSubject string) (Seller, error)
 	ResolveSellerBySlug(ctx context.Context, slug string) (Seller, error)
 	UpdateSeller(ctx context.Context, seller Seller, expectedVersion uint64) error
 	CreateRoute(ctx context.Context, route PaidRoute) error

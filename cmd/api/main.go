@@ -16,6 +16,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
+	"github.com/fourgeez/agentpay/internal/identity"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/integrations/discovery"
@@ -28,6 +29,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
 	"github.com/fourgeez/agentpay/internal/realtime"
+	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
@@ -56,11 +58,26 @@ func main() {
 	providerEventRepository := memory.NewProviderEventRepository()
 	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
 	quotaCounterRepository := memory.NewQuotaCounterRepository()
+	sellerSessionRevocationRepository := memory.NewSellerSessionRevocationRepository()
+	sellerWorkspaceRepository := memory.NewSellerWorkspaceRepository()
 	auditEventRepository := memory.NewAuditEventRepository()
 	webhookSecretStore := memory.NewWebhookSecretStore()
 	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
+	sellerIdentityService, err := newSellerIdentityService(
+		sellerIdentityConfig{
+			Environment: os.Getenv("AGENTPAY_ENV"), LocalToken: os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
+			LocalSubject: os.Getenv("AGENTPAY_LOCAL_SELLER_SUBJECT"), AWSRegion: os.Getenv("AWS_REGION"),
+			UserPoolID: os.Getenv("AGENTPAY_SELLER_USER_POOL_ID"), ClientID: os.Getenv("AGENTPAY_SELLER_USER_POOL_CLIENT_ID"),
+		},
+		sellerSessionRevocationRepository,
+		clock,
+	)
+	if err != nil {
+		slog.Error("invalid seller identity configuration", "error", err)
+		os.Exit(1)
+	}
 	auditAppender := audit.NewAppender(
 		auditEventRepository,
 		idGenerator,
@@ -88,6 +105,7 @@ func main() {
 	)
 	catalogController := catalog.NewHTTPController(catalogService, idempotencyStore)
 	catalogController.RegisterRoutes(mux)
+	identity.NewHTTPController(sellerIdentityService, catalogService).RegisterRoutes(mux)
 	audit.NewHTTPController(
 		audit.NewService(
 			auditEventRepository,
@@ -235,6 +253,23 @@ func main() {
 		deliveryService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
+	workspaceService := sellerworkspace.NewService(sellerworkspace.Dependencies{
+		Workspaces: sellerWorkspaceRepository, Sellers: catalogRepository, Products: catalogRepository,
+		PaymentDestinations: sellerworkspace.NewPaymentDestinationRepositoryReader(paymentDestinationRepository),
+		Credentials:         sellerworkspace.NewCredentialRepositoryReader(integrationCredentialRepository),
+		Transactions:        sellerworkspace.NewTransactionRepositoryReader(transactionRepository), Evidence: evidenceRepository,
+		WebhookSubscriptions: sellerworkspace.NewWebhookSubscriptionRepositoryReader(webhookSubscriptionRepository),
+		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
+		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{}, Clock: clock,
+	})
+	catalogService.SetPublicationAuthorizer(workspaceService)
+	sellerworkspace.NewHTTPController(
+		workspaceService,
+		sellerworkspace.NewContextPrincipalSource(
+			catalogService,
+			sellerworkspace.StaticAccountVerification(os.Getenv("AGENTPAY_ENV") == "local"),
+		),
+	).RegisterRoutes(mux)
 	mcpController := mcpserver.NewHTTPController(
 		accessTokenService,
 		mcpserver.NewService(
@@ -316,22 +351,23 @@ func main() {
 			WebhookSigningSecret: os.Getenv("AGENTPAY_LOCAL_WEBHOOK_SIGNING_SECRET"),
 		},
 		developmentSeedRepositories{
-			Catalog:                catalogRepository,
-			PurchaseIntents:        intentRepository,
-			Approvals:              approvalRepository,
-			Transactions:           transactionRepository,
-			Evidence:               evidenceRepository,
-			Disputes:               disputeRepository,
-			PaymentDestinations:    paymentDestinationRepository,
-			WebhookSubscriptions:   webhookSubscriptionRepository,
-			WebhookDeliveries:      webhookDeliveryRepository,
-			WebhookSecrets:         webhookSecretStore,
-			IntegrationCredentials: integrationCredentialRepository,
-			ConfirmationGrants:     confirmationGrantRepository,
-			SellerEntitlements:     sellerPlanRepository,
-			ProviderEvents:         providerEventRepository,
-			AuditEvents:            auditEventRepository,
-			Idempotency:            idempotencyStore,
+			Catalog:                  catalogRepository,
+			PurchaseIntents:          intentRepository,
+			Approvals:                approvalRepository,
+			Transactions:             transactionRepository,
+			Evidence:                 evidenceRepository,
+			Disputes:                 disputeRepository,
+			PaymentDestinations:      paymentDestinationRepository,
+			WebhookSubscriptions:     webhookSubscriptionRepository,
+			WebhookDeliveries:        webhookDeliveryRepository,
+			WebhookSecrets:           webhookSecretStore,
+			IntegrationCredentials:   integrationCredentialRepository,
+			ConfirmationGrants:       confirmationGrantRepository,
+			SellerEntitlements:       sellerPlanRepository,
+			ProviderEvents:           providerEventRepository,
+			AuditEvents:              auditEventRepository,
+			Idempotency:              idempotencyStore,
+			SellerSessionRevocations: sellerSessionRevocationRepository,
 		},
 		evidenceSigner,
 	); err != nil {
@@ -418,9 +454,9 @@ func main() {
 	disputeController.RegisterRoutes(mux)
 	handler := api.Middleware(api.Config{
 		AllowedOrigin: os.Getenv("AGENTPAY_WEB_ORIGIN"),
-		Authenticator: api.NewStaticAuthenticator(
-			os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
-			os.Getenv("AGENTPAY_LOCAL_AGENT_KEY"),
+		Authenticator: identity.NewHTTPAuthenticator(
+			sellerIdentityService,
+			api.NewStaticAuthenticator("", os.Getenv("AGENTPAY_LOCAL_AGENT_KEY")),
 		),
 		SellerRequestLimiter: quotaService,
 		SellerAuthorizer:     catalogService,

@@ -62,6 +62,19 @@ func (repository *CatalogRepository) CreateSeller(ctx context.Context, seller ca
 	if err != nil {
 		return err
 	}
+	ownerClaim, err := newStoredRecord(
+		ownerSubjectPartitionKey(seller.OwnerSubject),
+		ownerSubjectSellerSortKey,
+		"sellerOwnerClaim",
+		seller.SellerID.String(),
+	)
+	if err != nil {
+		return err
+	}
+	ownerClaimItem, err := marshalStoredRecord(ownerClaim)
+	if err != nil {
+		return err
+	}
 
 	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
 		TransactItems: []types.TransactWriteItem{
@@ -69,6 +82,13 @@ func (repository *CatalogRepository) CreateSeller(ctx context.Context, seller ca
 				Put: &types.Put{
 					TableName:           &repository.tableName,
 					Item:                slugClaimItem,
+					ConditionExpression: stringPointer(createClaimCondition),
+				},
+			},
+			{
+				Put: &types.Put{
+					TableName:           &repository.tableName,
+					Item:                ownerClaimItem,
 					ConditionExpression: stringPointer(createClaimCondition),
 				},
 			},
@@ -86,6 +106,27 @@ func (repository *CatalogRepository) CreateSeller(ctx context.Context, seller ca
 	}
 
 	return err
+}
+
+// ResolveSellerByOwnerSubject loads the one seller bound to an identity subject.
+func (repository *CatalogRepository) ResolveSellerByOwnerSubject(ctx context.Context, ownerSubject string) (catalog.Seller, error) {
+	claimOutput, err := repository.client.GetItem(ctx, &awssdk.GetItemInput{
+		TableName:      &repository.tableName,
+		Key:            primaryKey(ownerSubjectPartitionKey(ownerSubject), ownerSubjectSellerSortKey),
+		ConsistentRead: boolPointer(true),
+	})
+	if err != nil {
+		return catalog.Seller{}, err
+	}
+	var rawSellerID string
+	if err := unmarshalPayload(claimOutput.Item, &rawSellerID); err != nil {
+		return catalog.Seller{}, err
+	}
+	sellerID, err := domain.ParseID(rawSellerID, domain.SellerIDPrefix)
+	if err != nil {
+		return catalog.Seller{}, err
+	}
+	return repository.GetSeller(ctx, sellerID)
 }
 
 // GetSeller loads a seller by identifier using a strongly consistent read.

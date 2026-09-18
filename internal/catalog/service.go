@@ -45,13 +45,18 @@ type PublishedRouteQuota interface {
 	AllowPublishedRoute(context.Context, domain.ID, uint64) error
 }
 
+type PublicationAuthorizer interface {
+	AuthorizePublication(context.Context, domain.ID) error
+}
+
 // Service coordinates catalog domain rules with persistence boundaries.
 type Service struct {
-	repository    Repository
-	idGenerator   domain.IDGenerator
-	clock         domain.Clock
-	auditRecorder audit.Recorder
-	quotaEnforcer PublishedRouteQuota
+	repository            Repository
+	idGenerator           domain.IDGenerator
+	clock                 domain.Clock
+	auditRecorder         audit.Recorder
+	quotaEnforcer         PublishedRouteQuota
+	publicationAuthorizer PublicationAuthorizer
 }
 
 // NewService creates the catalog application service.
@@ -74,6 +79,10 @@ func (service *Service) SetQuotaEnforcer(quotaEnforcer PublishedRouteQuota) {
 	service.quotaEnforcer = quotaEnforcer
 }
 
+func (service *Service) SetPublicationAuthorizer(authorizer PublicationAuthorizer) {
+	service.publicationAuthorizer = authorizer
+}
+
 // AuthorizeSeller verifies ownership without exposing another seller's record.
 func (service *Service) AuthorizeSeller(
 	ctx context.Context,
@@ -88,6 +97,23 @@ func (service *Service) AuthorizeSeller(
 		return persistence.ErrNotFound
 	}
 	return nil
+}
+
+// GetCurrentSeller returns the seller owned by the authenticated subject.
+func (service *Service) GetCurrentSeller(ctx context.Context, ownerSubject string) (SellerResponse, error) {
+	if !validIdentityValue(ownerSubject) {
+		return SellerResponse{}, persistence.ErrNotFound
+	}
+	seller, err := service.repository.ResolveSellerByOwnerSubject(ctx, ownerSubject)
+	if err != nil {
+		return SellerResponse{}, err
+	}
+	return sellerResponse(seller), nil
+}
+
+func validIdentityValue(ownerSubject string) bool {
+	trimmed := strings.TrimSpace(ownerSubject)
+	return trimmed != "" && trimmed == ownerSubject && len(ownerSubject) <= maximumOwnerSubjectLength
 }
 
 // CreateSeller creates a seller owned by the authenticated subject.
@@ -603,6 +629,11 @@ func (service *Service) PublishRouteForIntegration(
 	routeID domain.ID,
 	expectedVersion uint64,
 ) (PaidRoute, error) {
+	if service.publicationAuthorizer != nil {
+		if err := service.publicationAuthorizer.AuthorizePublication(ctx, sellerID); err != nil {
+			return PaidRoute{}, err
+		}
+	}
 	route, err := service.ownedRoute(ctx, sellerID, routeID)
 	if err != nil {
 		return PaidRoute{}, err

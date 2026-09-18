@@ -49,6 +49,48 @@ are complete.
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
 
+### SellerWorkspace
+
+`SellerWorkspace` stores only resumable seller-operating preferences and
+system-attested onboarding progress. Payment, entitlement, credential,
+product, transaction, evidence, and webhook facts remain authoritative in
+their owning records and are re-read when the dashboard or publication gate is
+evaluated.
+
+| Field | Type | Notes |
+|---|---|---|
+| `sellerId` | string | Owning seller; `PK=SELLER#<sellerId>`, `SK=WORKSPACE` |
+| `ownerSubjectHash` | string | SHA-256 of the authenticated owner subject; raw identity claims are not duplicated |
+| `connectorVerifiedAt` | timestamp/null | Written only after a cloud-observed connector verification |
+| `sandboxPurchaseTransactionId` | string/null | Must name an authoritative fulfilled transaction owned by the seller |
+| `storefrontPreviewedAt` | timestamp/null | Server-recorded completion of the preview step |
+| `settings.supportEmail` | string | Optional seller support address |
+| `settings.securityNotificationEmail` | string | Optional security-notification address |
+| `settings.webhookFailureNotifications` | boolean | Seller preference for delivery-failure notices |
+| `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
+| `version` | integer | Optimistic concurrency version shared by onboarding progress and settings |
+
+Browser state never marks account verification, subscription, payment
+destination, credential, product, sandbox transaction, or publication
+readiness as complete. Those checks are derived from the identity principal and
+the owning authoritative records. Publication fails closed when any required
+record is missing or unavailable.
+
+Lean V1 permits exactly one seller for each normalized identity-provider
+subject. Creation atomically reserves
+`PK=SELLER_OWNER#<sha256("agentpay.seller-owner.v1" + NUL + ownerSubject)>`,
+`SK=SELLER` with the seller ID; current-seller lookup reads this claim and then
+strongly reads the seller profile. Raw subjects never appear in DynamoDB keys.
+
+### SellerSessionRevocation
+
+Seller access tokens are validated against the exact Cognito issuer, app-client
+ID, `token_use=access`, signature, issue time, expiry, subject, token JTI, and
+token-family `origin_jti`. Immediate sign-out stores only a domain-separated
+SHA-256 digest of `origin_jti` (falling back to `jti` for a provider-equivalent
+local session) until the token expiry. A matching unexpired record denies every
+seller API request; a persistence failure fails authentication closed.
+
 ### PaymentDestination
 
 A payment destination belongs to one seller and one exact asset/network pair.
@@ -790,6 +832,8 @@ Examples:
 
 ```text
 PK=SELLER#sel_123       SK=PROFILE
+PK=SELLER_OWNER#<subjectDigest> SK=SELLER
+PK=SELLER_SESSION#<sessionDigest> SK=REVOCATION
 PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=SELLER#sel_123       SK=PRODUCT_SLUG#<productSlug>
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123

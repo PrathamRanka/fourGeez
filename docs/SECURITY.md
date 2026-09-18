@@ -60,6 +60,7 @@ transaction authority.
 | Evidence tampering | Append-only object keys, Object Lock, versioning, canonical hashes, previous hash, KMS signature, separate verifier role |
 | Secret leakage | Secrets Manager, log redaction, no secret env values where avoidable, browser bundle scan, rotation procedure |
 | Tenant data access | Cognito subject-to-seller authorization on every seller route; no caller-supplied tenant trust |
+| Seller session replay | Validate exact Cognito issuer, client ID, access-token use, RS256 signature, timestamps, JTI, and token-family identifier; check a hashed server-side revocation record on every request |
 | Duplicate mutation | Required idempotency key bound to caller, operation, and request hash |
 | WebSocket impersonation | Validate invitation token on connect, bind connection to session, authorize every callback, expire connections |
 | Denial of service | API throttles, body limits, route limits, Lambda concurrency, upstream timeout, Bedrock call budget |

@@ -5,12 +5,21 @@ import type {
   AnalyticsSnapshot,
   SalesAggregate,
 } from "@/features/analytics/model";
+import { authenticatedSellerId } from "@/features/auth/server/authorization";
 import { requestAgentPay } from "@/lib/agentpay-api";
 
 // loadAnalyticsSnapshot starts independent summary and route requests together.
-export async function loadAnalyticsSnapshot(
-  sellerId: string,
-): Promise<AnalyticsSnapshot> {
+export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) {
+    return {
+      sellerId: "",
+      transactionCount: 0,
+      aggregates: [],
+      routes: [],
+      error: "Your seller session has expired. Sign in again.",
+    };
+  }
   const encodedSellerId = encodeURIComponent(sellerId);
   const [summaryResult, routeResult] = await Promise.all([
     requestAgentPay<{

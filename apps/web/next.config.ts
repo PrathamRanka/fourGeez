@@ -17,6 +17,22 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/:path(sign-in|sign-up|verify|recover|dashboard)/:rest*",
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+      {
+        source: "/api/auth/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
     ];
   },
 };

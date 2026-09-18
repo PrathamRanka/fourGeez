@@ -50,6 +50,27 @@ func TestCatalogRepositoryEnforcesIDsAndSlugUniqueness(t *testing.T) {
 	}
 }
 
+func TestCatalogRepositoryResolvesOneSellerByOwnerSubject(t *testing.T) {
+	t.Parallel()
+
+	repository := NewCatalogRepository()
+	first := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", "owner-store")
+	first.OwnerSubject = "owner-subject"
+	if err := repository.CreateSeller(t.Context(), first); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := repository.ResolveSellerByOwnerSubject(t.Context(), "owner-subject")
+	if err != nil || resolved.SellerID != first.SellerID {
+		t.Fatalf("resolved = %#v, error = %v", resolved, err)
+	}
+
+	second := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8", "second-store")
+	second.OwnerSubject = "owner-subject"
+	if err := repository.CreateSeller(t.Context(), second); !errors.Is(err, persistence.ErrAlreadyExists) {
+		t.Fatalf("duplicate owner error = %v", err)
+	}
+}
+
 func TestCatalogRepositoryEnforcesSellerScopedProductSlugUniqueness(t *testing.T) {
 	t.Parallel()
 
@@ -57,6 +78,7 @@ func TestCatalogRepositoryEnforcesSellerScopedProductSlugUniqueness(t *testing.T
 	ctx := context.Background()
 	firstSeller := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", "first-seller")
 	secondSeller := testSeller(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8", "second-seller")
+	secondSeller.OwnerSubject = "owner-456"
 	if err := repository.CreateSeller(ctx, firstSeller); err != nil {
 		t.Fatal(err)
 	}

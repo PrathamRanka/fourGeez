@@ -126,6 +126,6 @@ describe("seller analytics dashboard", () => {
     expect(screen.getByText("No sales in this window yet")).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Review products" }),
-    ).toHaveAttribute("href", `/dashboard/products?sellerId=${sellerId}`);
+    ).toHaveAttribute("href", "/dashboard/products");
   });
 });

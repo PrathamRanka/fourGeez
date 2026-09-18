@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.69.0
 	github.com/ethereum/go-ethereum v1.16.7
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gowebpki/jcs v1.0.1
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/oklog/ulid/v2 v2.1.2

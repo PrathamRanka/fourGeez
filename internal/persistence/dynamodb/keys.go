@@ -52,6 +52,19 @@ func sellerPartitionKey(sellerID string) string {
 	return "SELLER#" + sellerID
 }
 
+func ownerSubjectPartitionKey(ownerSubject string) string {
+	digest := sha256.Sum256([]byte("agentpay.seller-owner.v1\x00" + ownerSubject))
+	return "SELLER_OWNER#" + hex.EncodeToString(digest[:])
+}
+
+const ownerSubjectSellerSortKey = "SELLER"
+
+func sellerSessionPartitionKey(sessionDigest string) string {
+	return "SELLER_SESSION#" + sessionDigest
+}
+
+const sellerSessionRevocationSortKey = "REVOCATION"
+
 // routeSortKey returns the documented paid-route sort key.
 func routeSortKey(routeID string) string {
 	return "ROUTE#" + routeID

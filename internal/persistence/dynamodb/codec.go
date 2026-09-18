@@ -21,6 +21,7 @@ type storedRecord struct {
 	EventHash           string `dynamodbav:"eventHash,omitempty"`
 	DestinationID       string `dynamodbav:"destinationId,omitempty"`
 	ConfirmationGrantID string `dynamodbav:"confirmationGrantId,omitempty"`
+	ExpiresAt           int64  `dynamodbav:"expiresAt,omitempty"`
 	GSI1PK              string `dynamodbav:"GSI1PK,omitempty"`
 	GSI1SK              string `dynamodbav:"GSI1SK,omitempty"`
 	GSI2PK              string `dynamodbav:"GSI2PK,omitempty"`

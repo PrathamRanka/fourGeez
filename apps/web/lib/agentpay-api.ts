@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getSellerSession } from "@/features/auth/server/session";
+
 const maximumResponseBytes = 1_048_576;
 const requestTimeoutMilliseconds = 10_000;
 
@@ -74,17 +76,21 @@ function failureFromResponse(
 }
 
 // getAPIConfiguration returns server-only credentials without serializing them to React.
-function getAPIConfiguration(): ActionResult<{
-  apiOrigin: string;
-  sellerToken: string;
-}> {
+async function getAPIConfiguration(): Promise<
+  ActionResult<{
+    apiOrigin: string;
+    sellerToken: string;
+  }>
+> {
   const apiOrigin = process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080";
-  const sellerToken = process.env.AGENTPAY_SELLER_BEARER_TOKEN;
+  const sellerToken = (await getSellerSession())?.accessToken;
 
   if (!sellerToken) {
     return {
       ok: false,
       error: "Seller authentication is not configured for this environment.",
+      code: "unauthorized",
+      status: 401,
     };
   }
 
@@ -129,7 +135,7 @@ export async function requestAgentPay<Value>(
   path: string,
   request: AgentPayRequest,
 ): Promise<ActionResult<Value>> {
-  const configuration = getAPIConfiguration();
+  const configuration = await getAPIConfiguration();
   if (!configuration.ok) {
     return configuration;
   }
@@ -176,7 +182,7 @@ export async function requestAgentPay<Value>(
 export async function downloadAgentPayFile(
   path: string,
 ): Promise<ActionResult<AgentPayFile>> {
-  const configuration = getAPIConfiguration();
+  const configuration = await getAPIConfiguration();
   if (!configuration.ok) {
     return configuration;
   }

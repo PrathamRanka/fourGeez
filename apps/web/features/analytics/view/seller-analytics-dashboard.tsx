@@ -62,13 +62,7 @@ export function SellerAnalyticsDashboard({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              render={
-                <Link
-                  href={`/dashboard/products?sellerId=${encodeURIComponent(snapshot.sellerId)}`}
-                />
-              }
-            >
+            <Button render={<Link href="/dashboard/products" />}>
               Review products
               <ArrowUpRight aria-hidden="true" />
             </Button>

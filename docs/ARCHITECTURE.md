@@ -86,6 +86,9 @@ One deployable Go binary owns all authoritative business rules through isolated 
   route and webhook-subscription entitlement enforcement.
 - `audit`: immutable seller-visible control-plane change history and bounded
   tenant-scoped reads.
+- `sellerworkspace`: current-seller onboarding progress, settings, dashboard
+  read models, Stripe plan/portal projection, and the fail-closed publication
+  prerequisite gate. It reads owning domains but does not write their records.
 
 The billing package owns a versioned static plan catalog plus one seller plan
 assignment record. Stripe Billing is the initial seller-subscription provider,
@@ -244,7 +247,19 @@ for ownership and persistence.
 ### Authorization surfaces
 
 - Seller browser sessions use Cognito-backed secure cookies and derive seller
-  ownership from claims.
+  ownership from verified access-token claims. The BFF sends the token only in
+  the `Authorization` header; it is never placed in URLs, browser storage, or
+  logs. The Go identity boundary pins the Cognito issuer, app-client ID,
+  `token_use=access`, RS256 algorithm, JWKS key ID, timestamps, subject, token
+  JTI, and token-family identifier. Local development uses an opaque adapter
+  that produces the same normalized claims.
+- `GET /v1/me/seller` resolves the one seller mapped to the authenticated
+  subject. Seller IDs in resource paths are locators, never authority; every
+  seller path is re-authorized against the verified subject and cross-tenant
+  records are concealed as `404`.
+- `DELETE /v1/me/session` records a hashed token-family revocation until expiry.
+  Revocation persistence is checked on every seller authentication and fails
+  closed when unavailable.
 - Seller project keys are accepted only by
   `POST /v1/integration-access-tokens`, which is a proprietary bootstrap
   exchange and not an OAuth token endpoint.

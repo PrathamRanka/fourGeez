@@ -10,12 +10,23 @@ import type {
   RouteVersionInput,
   UpdateRoutePriceInput,
 } from "@/features/products/model";
+import {
+  authenticatedSellerId,
+  sellerSessionRequired,
+} from "@/features/auth/server/authorization";
 import { requestAgentPay, type ActionResult } from "@/lib/agentpay-api";
 
 // loadProductRouteSnapshot loads independent route and history data in parallel.
-export async function loadProductRouteSnapshot(
-  sellerId: string,
-): Promise<ProductRouteSnapshot> {
+export async function loadProductRouteSnapshot(): Promise<ProductRouteSnapshot> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) {
+    return {
+      sellerId: "",
+      routes: [],
+      auditEvents: [],
+      error: "Your seller session has expired. Sign in again.",
+    };
+  }
   const encodedSellerId = encodeURIComponent(sellerId);
   const [routeResult, auditResult] = await Promise.all([
     requestAgentPay<{ items: PaidRoute[] }>(
@@ -46,8 +57,10 @@ export async function loadProductRouteSnapshot(
 export async function createDraft(
   input: CreateRouteDraftInput,
 ): Promise<ActionResult<PaidRoute>> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
   return requestAgentPay<PaidRoute>(
-    `/v1/sellers/${encodeURIComponent(input.sellerId)}/routes`,
+    `/v1/sellers/${encodeURIComponent(sellerId)}/routes`,
     {
       method: "POST",
       body: {
@@ -72,7 +85,9 @@ export async function createDraft(
 export async function updatePrice(
   input: UpdateRoutePriceInput,
 ): Promise<ActionResult<PaidRoute>> {
-  return requestAgentPay<PaidRoute>(routePath(input), {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
+  return requestAgentPay<PaidRoute>(routePath(sellerId, input), {
     method: "PATCH",
     body: {
       amount: input.amount,
@@ -85,8 +100,10 @@ export async function updatePrice(
 export async function validateRoute(
   input: RouteIdentityInput,
 ): Promise<ActionResult<RouteValidationResult>> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
   return requestAgentPay<RouteValidationResult>(
-    `${routePath(input)}/validation`,
+    `${routePath(sellerId, input)}/validation`,
     { method: "GET" },
   );
 }
@@ -124,13 +141,15 @@ async function mutateLifecycle(
   input: RouteVersionInput,
   action: "archive" | "emergency-disable" | "pause" | "publish",
 ): Promise<ActionResult<PaidRoute>> {
-  return requestAgentPay<PaidRoute>(`${routePath(input)}/${action}`, {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
+  return requestAgentPay<PaidRoute>(`${routePath(sellerId, input)}/${action}`, {
     method: "POST",
     body: { expectedVersion: input.expectedVersion },
   });
 }
 
 // routePath builds an encoded seller-owned route resource path.
-function routePath(input: RouteIdentityInput): string {
-  return `/v1/sellers/${encodeURIComponent(input.sellerId)}/routes/${encodeURIComponent(input.routeId)}`;
+function routePath(sellerId: string, input: RouteIdentityInput): string {
+  return `/v1/sellers/${encodeURIComponent(sellerId)}/routes/${encodeURIComponent(input.routeId)}`;
 }

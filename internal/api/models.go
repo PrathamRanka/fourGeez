@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/domain"
 )
@@ -67,8 +68,11 @@ const (
 
 // Principal is the authenticated identity available to controllers.
 type Principal struct {
-	Kind    PrincipalKind
-	Subject string
+	Kind      PrincipalKind
+	Subject   string
+	TokenID   string
+	SessionID string
+	ExpiresAt time.Time
 }
 
 // Authenticator validates seller and agent credentials.

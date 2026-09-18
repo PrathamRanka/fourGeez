@@ -106,11 +106,7 @@ export function SellerOnboarding({
     }
 
     setSeller(result.value);
-    window.history.replaceState(
-      null,
-      "",
-      `/dashboard/onboarding?sellerId=${encodeURIComponent(result.value.sellerId)}`,
-    );
+    window.history.replaceState(null, "", "/dashboard/onboarding");
   }
 
   // connectWallet requests an address and signature without exposing private key material.

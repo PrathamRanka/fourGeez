@@ -11,24 +11,43 @@ import type {
   Seller,
   VerifyPaymentDestinationInput,
 } from "@/features/onboarding/model";
+import {
+  authenticatedSellerId,
+  sellerSessionRequired,
+} from "@/features/auth/server/authorization";
+import {
+  getSellerSession,
+  updateCurrentSellerPrincipal,
+} from "@/features/auth/server/session";
 import { requestAgentPay, type ActionResult } from "@/lib/agentpay-api";
 
 // createStorefront creates the seller record that owns every later onboarding resource.
 export async function createStorefront(
   input: CreateStorefrontInput,
 ): Promise<ActionResult<Seller>> {
-  return requestAgentPay<Seller>("/v1/sellers", {
+  if (!(await getSellerSession())) return sellerSessionRequired();
+  const result = await requestAgentPay<Seller>("/v1/sellers", {
     method: "POST",
     body: input,
   });
+  if (result.ok) {
+    await updateCurrentSellerPrincipal({
+      sellerId: result.value.sellerId,
+      onboardingComplete: false,
+      storefront: result.value,
+    });
+  }
+  return result;
 }
 
 // preparePaymentDestination creates a pending destination and its ownership challenge.
 export async function preparePaymentDestination(
   input: PreparePaymentDestinationInput,
 ): Promise<ActionResult<PreparedPaymentDestination>> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
   const destinationResult = await requestAgentPay<PaymentDestination>(
-    `/v1/sellers/${encodeURIComponent(input.sellerId)}/payment-destinations`,
+    `/v1/sellers/${encodeURIComponent(sellerId)}/payment-destinations`,
     {
       method: "POST",
       body: {
@@ -43,7 +62,7 @@ export async function preparePaymentDestination(
   }
 
   const challengeResult = await requestAgentPay<{ challenge: string }>(
-    `/v1/sellers/${encodeURIComponent(input.sellerId)}/payment-destinations/${encodeURIComponent(destinationResult.value.destinationId)}/ownership-challenges`,
+    `/v1/sellers/${encodeURIComponent(sellerId)}/payment-destinations/${encodeURIComponent(destinationResult.value.destinationId)}/ownership-challenges`,
     { method: "POST", body: {} },
   );
   if (!challengeResult.ok) {
@@ -63,8 +82,10 @@ export async function preparePaymentDestination(
 export async function verifyPaymentDestination(
   input: VerifyPaymentDestinationInput,
 ): Promise<ActionResult<PaymentDestination>> {
-  return requestAgentPay<PaymentDestination>(
-    `/v1/sellers/${encodeURIComponent(input.sellerId)}/payment-destinations/${encodeURIComponent(input.destinationId)}/verify`,
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
+  const result = await requestAgentPay<PaymentDestination>(
+    `/v1/sellers/${encodeURIComponent(sellerId)}/payment-destinations/${encodeURIComponent(input.destinationId)}/verify`,
     {
       method: "POST",
       body: {
@@ -74,14 +95,19 @@ export async function verifyPaymentDestination(
       },
     },
   );
+  if (result.ok) await refreshOnboardingCompletion(sellerId);
+  return result;
 }
 
 // createIntegrationCredential issues the project key once with minimum onboarding scopes.
 export async function createIntegrationCredential(
-  input: CreateIntegrationCredentialInput,
+  _input: CreateIntegrationCredentialInput,
 ): Promise<ActionResult<CredentialCreated>> {
-  return requestAgentPay<CredentialCreated>(
-    `/v1/sellers/${encodeURIComponent(input.sellerId)}/integration-credentials`,
+  void _input;
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
+  const result = await requestAgentPay<CredentialCreated>(
+    `/v1/sellers/${encodeURIComponent(sellerId)}/integration-credentials`,
     {
       method: "POST",
       body: {
@@ -91,13 +117,19 @@ export async function createIntegrationCredential(
       },
     },
   );
+  if (result.ok) await refreshOnboardingCompletion(sellerId);
+  return result;
 }
 
 // listOnboardingResources restores non-secret wallet and credential status.
-export async function listOnboardingResources(sellerId: string): Promise<{
+export async function listOnboardingResources(): Promise<{
   paymentDestinations: PaymentDestination[];
   credentials: IntegrationCredential[];
 }> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) {
+    return { paymentDestinations: [], credentials: [] };
+  }
   const encodedSellerId = encodeURIComponent(sellerId);
   const [paymentResult, credentialResult] = await Promise.all([
     requestAgentPay<{ items: PaymentDestination[] }>(
@@ -114,4 +146,33 @@ export async function listOnboardingResources(sellerId: string): Promise<{
     paymentDestinations: paymentResult.ok ? paymentResult.value.items : [],
     credentials: credentialResult.ok ? credentialResult.value.items : [],
   };
+}
+
+async function refreshOnboardingCompletion(sellerId: string): Promise<void> {
+  const encodedSellerId = encodeURIComponent(sellerId);
+  const [paymentResult, credentialResult] = await Promise.all([
+    requestAgentPay<{ items: PaymentDestination[] }>(
+      `/v1/sellers/${encodedSellerId}/payment-destinations`,
+      { method: "GET" },
+    ),
+    requestAgentPay<{ items: IntegrationCredential[] }>(
+      `/v1/sellers/${encodedSellerId}/integration-credentials`,
+      { method: "GET" },
+    ),
+  ]);
+  const paymentDestinations =
+    paymentResult.ok && Array.isArray(paymentResult.value.items)
+      ? paymentResult.value.items
+      : [];
+  const credentials =
+    credentialResult.ok && Array.isArray(credentialResult.value.items)
+      ? credentialResult.value.items
+      : [];
+  const onboardingComplete =
+    paymentDestinations.some(
+      (destination) => destination.status === "active",
+    ) && credentials.some((credential) => !credential.revokedAt);
+  if (onboardingComplete) {
+    await updateCurrentSellerPrincipal({ sellerId, onboardingComplete: true });
+  }
 }

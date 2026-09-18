@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getSellerSession } from "@/features/auth/server/session";
 import {
   archiveRoute,
   createDraft,
@@ -17,10 +18,6 @@ export const metadata: Metadata = {
   title: "Products",
 };
 
-type ProductRoutesPageProps = {
-  searchParams: Promise<{ sellerId?: string }>;
-};
-
 const productRouteActions = {
   createDraft,
   updatePrice,
@@ -32,11 +29,9 @@ const productRouteActions = {
 };
 
 // ProductRoutesPage loads seller routes server-side without exposing API credentials.
-export default async function ProductRoutesPage({
-  searchParams,
-}: ProductRoutesPageProps) {
-  const parameters = await searchParams;
-  const sellerId = parameters.sellerId ?? process.env.AGENTPAY_DEMO_SELLER_ID;
+export default async function ProductRoutesPage() {
+  const session = await getSellerSession();
+  const sellerId = session?.principal.sellerId;
 
   if (!sellerId) {
     return (
@@ -54,7 +49,7 @@ export default async function ProductRoutesPage({
     );
   }
 
-  const snapshot = await loadProductRouteSnapshot(sellerId);
+  const snapshot = await loadProductRouteSnapshot();
   return (
     <ProductRouteWorkspace
       actions={productRouteActions}

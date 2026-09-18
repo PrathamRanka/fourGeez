@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/audit"
@@ -22,22 +23,23 @@ import (
 
 // DevelopmentRepositories identifies disposable repositories owned by the local API.
 type DevelopmentRepositories struct {
-	Catalog                *CatalogRepository
-	PurchaseIntents        *PurchaseIntentRepository
-	Approvals              *ApprovalRepository
-	Transactions           *TransactionRepository
-	Evidence               *EvidenceRepository
-	Disputes               *DisputeRepository
-	PaymentDestinations    *PaymentDestinationRepository
-	WebhookSubscriptions   *WebhookSubscriptionRepository
-	WebhookDeliveries      *WebhookDeliveryRepository
-	WebhookSecrets         *WebhookSecretStore
-	IntegrationCredentials *IntegrationCredentialRepository
-	ConfirmationGrants     *ConfirmationGrantRepository
-	SellerEntitlements     *SellerEntitlementRepository
-	ProviderEvents         *ProviderEventRepository
-	AuditEvents            *AuditEventRepository
-	Idempotency            *IdempotencyStore
+	Catalog                  *CatalogRepository
+	PurchaseIntents          *PurchaseIntentRepository
+	Approvals                *ApprovalRepository
+	Transactions             *TransactionRepository
+	Evidence                 *EvidenceRepository
+	Disputes                 *DisputeRepository
+	PaymentDestinations      *PaymentDestinationRepository
+	WebhookSubscriptions     *WebhookSubscriptionRepository
+	WebhookDeliveries        *WebhookDeliveryRepository
+	WebhookSecrets           *WebhookSecretStore
+	IntegrationCredentials   *IntegrationCredentialRepository
+	ConfirmationGrants       *ConfirmationGrantRepository
+	SellerEntitlements       *SellerEntitlementRepository
+	ProviderEvents           *ProviderEventRepository
+	AuditEvents              *AuditEventRepository
+	Idempotency              *IdempotencyStore
+	SellerSessionRevocations *SellerSessionRevocationRepository
 }
 
 // DevelopmentResetter clears process-local state without exposing production stores.
@@ -68,6 +70,7 @@ func (resetter *DevelopmentResetter) Reset(_ context.Context) error {
 	resetProviderEvents(resetter.repositories.ProviderEvents)
 	resetAuditEvents(resetter.repositories.AuditEvents)
 	resetIdempotency(resetter.repositories.Idempotency)
+	resetSellerSessionRevocations(resetter.repositories.SellerSessionRevocations)
 	return nil
 }
 
@@ -98,9 +101,19 @@ func resetCatalog(repository *CatalogRepository) {
 	defer repository.mutex.Unlock()
 	repository.sellers = make(map[domain.ID]catalog.Seller)
 	repository.sellerBySlug = make(map[string]domain.ID)
+	repository.sellerByOwnerSubject = make(map[string]domain.ID)
 	repository.routes = make(map[domain.ID]catalog.PaidRoute)
 	repository.routesBySeller = make(map[domain.ID][]domain.ID)
 	repository.productSlugsBySeller = make(map[domain.ID]map[string]domain.ID)
+}
+
+func resetSellerSessionRevocations(repository *SellerSessionRevocationRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.revocations = make(map[string]time.Time)
 }
 
 func resetPurchaseIntents(repository *PurchaseIntentRepository) {

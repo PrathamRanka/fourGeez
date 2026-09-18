@@ -129,6 +129,42 @@ func TestCatalogRepositoryAtomicallyClaimsSellerProductSlug(t *testing.T) {
 	}
 }
 
+func TestCatalogRepositoryClaimsAndResolvesOwnerSubject(t *testing.T) {
+	t.Parallel()
+
+	seller, err := catalog.NewSeller(catalog.SellerParams{
+		SellerID:     mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		OwnerSubject: "owner-123", Slug: "owner-store", Name: "Owner Store",
+		UpstreamBaseURL: "https://seller.example", CreatedAt: testDynamoTime(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{}
+	repository := NewCatalogRepository(client, "agentpay-dev")
+	if err := repository.CreateSeller(t.Context(), seller); err != nil {
+		t.Fatal(err)
+	}
+	transaction := client.transactWriteInput
+	if transaction == nil || len(transaction.TransactItems) != 3 {
+		t.Fatalf("seller transaction = %#v", transaction)
+	}
+	ownerClaim := transaction.TransactItems[1].Put
+	if readStringAttribute(ownerClaim.Item["PK"]) != ownerSubjectPartitionKey("owner-123") ||
+		readStringAttribute(ownerClaim.Item["SK"]) != ownerSubjectSellerSortKey {
+		t.Fatalf("owner claim = %#v", ownerClaim)
+	}
+
+	client.getOutputs = []*awssdk.GetItemOutput{
+		{Item: ownerClaim.Item},
+		{Item: transaction.TransactItems[2].Put.Item},
+	}
+	resolved, err := repository.ResolveSellerByOwnerSubject(t.Context(), "owner-123")
+	if err != nil || resolved.SellerID != seller.SellerID {
+		t.Fatalf("resolved = %#v, error = %v", resolved, err)
+	}
+}
+
 func TestCatalogRepositoryBackfillsLegacyProductIdentityAtomically(t *testing.T) {
 	t.Parallel()
 

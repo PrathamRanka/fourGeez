@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 // Config contains dependencies shared by HTTP middleware.
@@ -80,26 +81,24 @@ func Middleware(config Config, next http.Handler) http.Handler {
 				time.Since(startedAt).Milliseconds(),
 			)
 		}()
-		if config.SellerRequestLimiter != nil {
-			if sellerID, ok := sellerIDFromPath(request.URL.Path); ok {
-				token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
-				principal, valid := authenticateSeller(request.Context(), config.Authenticator, token)
-				if valid {
-					request = request.WithContext(context.WithValue(request.Context(), principalContextKey{}, principal))
-					if config.SellerAuthorizer != nil {
-						if err := config.SellerAuthorizer.AuthorizeSeller(
-							request.Context(),
-							principal.Subject,
-							sellerID,
-						); err != nil {
-							next.ServeHTTP(statusResponse, request)
-							return
-						}
-					}
-					if err := config.SellerRequestLimiter.ConsumeAPIRequest(request.Context(), sellerID); err != nil {
-						writeQuotaError(statusResponse, request, err)
-						return
-					}
+		if sellerID, ok := sellerIDFromPath(request.URL.Path); ok {
+			token, validBearer := bearerToken(request.Header.Get("Authorization"))
+			principal, valid := authenticateSeller(request.Context(), config.Authenticator, token)
+			if !validBearer || !valid {
+				writeSellerAuthenticationError(statusResponse, request)
+				return
+			}
+			request = request.WithContext(context.WithValue(request.Context(), principalContextKey{}, principal))
+			if config.SellerAuthorizer != nil {
+				if err := config.SellerAuthorizer.AuthorizeSeller(request.Context(), principal.Subject, sellerID); err != nil {
+					writeSellerAuthorizationError(statusResponse, request, err)
+					return
+				}
+			}
+			if config.SellerRequestLimiter != nil {
+				if err := config.SellerRequestLimiter.ConsumeAPIRequest(request.Context(), sellerID); err != nil {
+					writeQuotaError(statusResponse, request, err)
+					return
 				}
 			}
 		}
@@ -116,17 +115,10 @@ func RequireSeller(next http.Handler) http.Handler {
 			return
 		}
 		authenticator := authenticatorFromContext(request.Context())
-		token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
+		token, validBearer := bearerToken(request.Header.Get("Authorization"))
 		principal, valid := authenticateSeller(request.Context(), authenticator, token)
-		if !valid {
-			WriteError(
-				response,
-				request,
-				http.StatusUnauthorized,
-				ErrorCodeUnauthorized,
-				"seller authentication is required",
-				nil,
-			)
+		if !validBearer || !valid {
+			writeSellerAuthenticationError(response, request)
 			return
 		}
 
@@ -204,8 +196,10 @@ func RequireAgentOrSeller(next http.Handler) http.Handler {
 			request.Header.Get(AgentKeyHeader),
 		)
 		if !valid {
-			token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
-			principal, valid = authenticateSeller(request.Context(), authenticator, token)
+			token, validBearer := bearerToken(request.Header.Get("Authorization"))
+			if validBearer {
+				principal, valid = authenticateSeller(request.Context(), authenticator, token)
+			}
 		}
 		if !valid {
 			WriteError(response, request, http.StatusUnauthorized, ErrorCodeUnauthorized, "authentication is required", nil)
@@ -231,6 +225,32 @@ func RequestIDFromContext(ctx context.Context) (string, bool) {
 func PrincipalFromContext(ctx context.Context) (Principal, bool) {
 	principal, ok := ctx.Value(principalContextKey{}).(Principal)
 	return principal, ok
+}
+
+func bearerToken(authorization string) (string, bool) {
+	parts := strings.Fields(authorization)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		return "", false
+	}
+	return parts[1], true
+}
+
+func writeSellerAuthenticationError(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("WWW-Authenticate", `Bearer realm="agentpay-seller"`)
+	response.Header().Set("Cache-Control", "no-store")
+	WriteError(response, request, http.StatusUnauthorized, ErrorCodeUnauthorized, "seller authentication is required", nil)
+}
+
+func writeSellerAuthorizationError(response http.ResponseWriter, request *http.Request, err error) {
+	if errors.Is(err, persistence.ErrNotFound) {
+		WriteError(response, request, http.StatusNotFound, ErrorCodeNotFound, "seller was not found", nil)
+		return
+	}
+	if errors.Is(err, domain.ErrPermissionDenied) {
+		WriteError(response, request, http.StatusForbidden, ErrorCodePermissionDenied, "seller access is denied", nil)
+		return
+	}
+	WriteError(response, request, http.StatusServiceUnavailable, ErrorCodeDependencyUnavailable, "seller authorization is unavailable", nil)
 }
 
 // authenticatorFromContext returns the configured authentication boundary.
@@ -279,7 +299,7 @@ func handleCORS(
 		)
 		response.Header().Set(
 			"Access-Control-Allow-Methods",
-			"GET, POST, PATCH, OPTIONS",
+			"DELETE, GET, POST, PATCH, OPTIONS",
 		)
 	}
 	if request.Method == http.MethodOptions {

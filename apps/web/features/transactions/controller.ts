@@ -6,12 +6,20 @@ import type {
   TransactionListSnapshot,
   WebhookDelivery,
 } from "@/features/transactions/model";
+import { authenticatedSellerId } from "@/features/auth/server/authorization";
 import { requestAgentPay } from "@/lib/agentpay-api";
 
 // loadTransactionList returns the newest bounded seller transaction page.
-export async function loadTransactionList(
-  sellerId: string,
-): Promise<TransactionListSnapshot> {
+export async function loadTransactionList(): Promise<TransactionListSnapshot> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) {
+    return {
+      sellerId: "",
+      transactions: [],
+      error: "Your seller session has expired. Sign in again.",
+      failure: { code: "unauthorized", status: 401 },
+    };
+  }
   const result = await requestAgentPay<{ items: Transaction[] }>(
     `/v1/sellers/${encodeURIComponent(sellerId)}/transactions?limit=50`,
     { method: "GET" },
@@ -32,9 +40,10 @@ export async function loadTransactionList(
 
 // loadTransactionDetail fetches independent evidence detail and delivery history in parallel.
 export async function loadTransactionDetail(
-  sellerId: string,
   transactionId: string,
 ): Promise<TransactionDetailSnapshot | null> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return null;
   const [detailResult, deliveryResult] = await Promise.all([
     requestAgentPay<
       Pick<TransactionDetailSnapshot, "transaction" | "evidence">

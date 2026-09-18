@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getSellerSession } from "@/features/auth/server/session";
 import { loadAnalyticsSnapshot } from "@/features/analytics/controller";
 import { SellerAnalyticsDashboard } from "@/features/analytics/view/seller-analytics-dashboard";
 
@@ -8,14 +9,10 @@ export const metadata: Metadata = {
   title: "Revenue Lens",
 };
 
-type AnalyticsPageProps = {
-  searchParams: Promise<{ sellerId?: string }>;
-};
-
 // AnalyticsPage loads authoritative seller reporting without exposing credentials.
-export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
-  const parameters = await searchParams;
-  const sellerId = parameters.sellerId ?? process.env.AGENTPAY_DEMO_SELLER_ID;
+export default async function AnalyticsPage() {
+  const session = await getSellerSession();
+  const sellerId = session?.principal.sellerId;
 
   if (!sellerId) {
     return (
@@ -32,6 +29,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     );
   }
 
-  const snapshot = await loadAnalyticsSnapshot(sellerId);
+  const snapshot = await loadAnalyticsSnapshot();
   return <SellerAnalyticsDashboard snapshot={snapshot} />;
 }

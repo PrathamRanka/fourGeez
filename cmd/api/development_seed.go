@@ -13,20 +13,21 @@ type developmentSeedConfig struct {
 
 // developmentSeedRepositories exposes the existing API repository instances.
 type developmentSeedRepositories struct {
-	Catalog                *memory.CatalogRepository
-	PurchaseIntents        *memory.PurchaseIntentRepository
-	Approvals              *memory.ApprovalRepository
-	Transactions           *memory.TransactionRepository
-	Evidence               *memory.EvidenceRepository
-	Disputes               *memory.DisputeRepository
-	PaymentDestinations    *memory.PaymentDestinationRepository
-	WebhookSubscriptions   *memory.WebhookSubscriptionRepository
-	WebhookDeliveries      *memory.WebhookDeliveryRepository
-	WebhookSecrets         *memory.WebhookSecretStore
-	IntegrationCredentials *memory.IntegrationCredentialRepository
-	ConfirmationGrants     *memory.ConfirmationGrantRepository
-	SellerEntitlements     *memory.SellerEntitlementRepository
-	ProviderEvents         *memory.ProviderEventRepository
-	AuditEvents            *memory.AuditEventRepository
-	Idempotency            *memory.IdempotencyStore
+	Catalog                  *memory.CatalogRepository
+	PurchaseIntents          *memory.PurchaseIntentRepository
+	Approvals                *memory.ApprovalRepository
+	Transactions             *memory.TransactionRepository
+	Evidence                 *memory.EvidenceRepository
+	Disputes                 *memory.DisputeRepository
+	PaymentDestinations      *memory.PaymentDestinationRepository
+	WebhookSubscriptions     *memory.WebhookSubscriptionRepository
+	WebhookDeliveries        *memory.WebhookDeliveryRepository
+	WebhookSecrets           *memory.WebhookSecretStore
+	IntegrationCredentials   *memory.IntegrationCredentialRepository
+	ConfirmationGrants       *memory.ConfirmationGrantRepository
+	SellerEntitlements       *memory.SellerEntitlementRepository
+	ProviderEvents           *memory.ProviderEventRepository
+	AuditEvents              *memory.AuditEventRepository
+	Idempotency              *memory.IdempotencyStore
+	SellerSessionRevocations *memory.SellerSessionRevocationRepository
 }

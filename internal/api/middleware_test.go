@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 // TestMiddlewareAddsRequestIDAndRecoversPanics verifies stable error responses.
@@ -62,6 +66,9 @@ func TestMiddlewareRestrictsCORS(t *testing.T) {
 	}
 	if allowedResponse.Header().Get("Access-Control-Allow-Origin") != "https://app.example" {
 		t.Fatal("configured origin was not allowed")
+	}
+	if !strings.Contains(allowedResponse.Header().Get("Access-Control-Allow-Methods"), http.MethodDelete) {
+		t.Fatal("seller session revocation method was not allowed")
 	}
 
 	rejectedRequest := httptest.NewRequest(http.MethodOptions, "/v1/intents", nil)
@@ -187,4 +194,61 @@ func TestRequestIDPreservesTrustedIncomingValue(t *testing.T) {
 // contextWithAuthenticator attaches an authenticator for direct middleware tests.
 func contextWithAuthenticator(ctx context.Context, authenticator Authenticator) context.Context {
 	return context.WithValue(ctx, authenticatorContextKey{}, authenticator)
+}
+
+func TestMiddlewareRejectsCrossSellerPathBeforeController(t *testing.T) {
+	t.Parallel()
+
+	sellerID, err := domain.ParseID("sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name       string
+		authorize  error
+		wantStatus int
+		wantCode   string
+	}{
+		{name: "other tenant concealed", authorize: persistence.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: ErrorCodeNotFound},
+		{name: "seller forbidden", authorize: domain.ErrPermissionDenied, wantStatus: http.StatusForbidden, wantCode: ErrorCodePermissionDenied},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			called := false
+			handler := Middleware(Config{
+				Authenticator:    NewStaticAuthenticator("seller-secret", "agent-secret"),
+				SellerAuthorizer: fixedSellerAuthorizer{sellerID: sellerID, err: test.authorize},
+			}, RequireSeller(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })))
+			request := httptest.NewRequest(http.MethodGet, "/v1/sellers/"+sellerID.String()+"/routes", nil)
+			request.Header.Set("Authorization", "Bearer seller-secret")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if called {
+				t.Fatal("controller was called")
+			}
+			if response.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d", response.Code, test.wantStatus)
+			}
+			var body ErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if body.Error.Code != test.wantCode {
+				t.Fatalf("code = %q, want %q", body.Error.Code, test.wantCode)
+			}
+		})
+	}
+}
+
+type fixedSellerAuthorizer struct {
+	sellerID domain.ID
+	err      error
+}
+
+func (authorizer fixedSellerAuthorizer) AuthorizeSeller(_ context.Context, _ string, sellerID domain.ID) error {
+	if sellerID != authorizer.sellerID {
+		return errors.New("unexpected seller")
+	}
+	return authorizer.err
 }
