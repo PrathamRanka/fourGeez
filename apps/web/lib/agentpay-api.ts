@@ -18,6 +18,11 @@ type AgentPayRequest = {
   method: "GET" | "PATCH" | "POST";
 };
 
+export type AgentPayFile = {
+  body: string;
+  contentType: string;
+};
+
 // getAPIErrorMessage extracts only the documented public API error shape.
 function getAPIErrorMessage(responseBody: unknown): string | null {
   if (typeof responseBody !== "object" || responseBody === null) {
@@ -120,6 +125,54 @@ export async function requestAgentPay<Value>(
     }
 
     return { ok: true, value: responseBody as Value };
+  } catch {
+    return {
+      ok: false,
+      error: "AgentPay API is unavailable. Check the API and try again.",
+    };
+  }
+}
+
+// downloadAgentPayFile returns one bounded authenticated file response.
+export async function downloadAgentPayFile(
+  path: string,
+): Promise<ActionResult<AgentPayFile>> {
+  const configuration = getAPIConfiguration();
+  if (!configuration.ok) {
+    return configuration;
+  }
+  try {
+    const response = await fetch(`${configuration.value.apiOrigin}${path}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${configuration.value.sellerToken}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMilliseconds),
+    });
+    const body = await readBoundedResponse(response);
+    if (!response.ok) {
+      let responseBody: unknown = {};
+      try {
+        responseBody = body ? JSON.parse(body) : {};
+      } catch {
+        responseBody = {};
+      }
+      return {
+        ok: false,
+        error:
+          getAPIErrorMessage(responseBody) ??
+          "AgentPay could not prepare this download.",
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        body,
+        contentType:
+          response.headers.get("Content-Type") ?? "application/octet-stream",
+      },
+    };
   } catch {
     return {
       ok: false,

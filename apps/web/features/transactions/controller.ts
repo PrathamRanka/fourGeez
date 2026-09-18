@@ -1,0 +1,52 @@
+"use server";
+
+import type {
+  Transaction,
+  TransactionDetailSnapshot,
+  TransactionListSnapshot,
+  WebhookDelivery,
+} from "@/features/transactions/model";
+import { requestAgentPay } from "@/lib/agentpay-api";
+
+// loadTransactionList returns the newest bounded seller transaction page.
+export async function loadTransactionList(
+  sellerId: string,
+): Promise<TransactionListSnapshot> {
+  const result = await requestAgentPay<{ items: Transaction[] }>(
+    `/v1/sellers/${encodeURIComponent(sellerId)}/transactions?limit=50`,
+    { method: "GET" },
+  );
+  return {
+    sellerId,
+    transactions: result.ok ? result.value.items : [],
+    error: result.ok ? undefined : result.error,
+  };
+}
+
+// loadTransactionDetail fetches independent evidence detail and delivery history in parallel.
+export async function loadTransactionDetail(
+  sellerId: string,
+  transactionId: string,
+): Promise<TransactionDetailSnapshot | null> {
+  const [detailResult, deliveryResult] = await Promise.all([
+    requestAgentPay<
+      Pick<TransactionDetailSnapshot, "transaction" | "evidence">
+    >(`/v1/transactions/${encodeURIComponent(transactionId)}`, {
+      method: "GET",
+    }),
+    requestAgentPay<{ items: WebhookDelivery[] }>(
+      `/v1/sellers/${encodeURIComponent(sellerId)}/webhook-deliveries?limit=50`,
+      { method: "GET" },
+    ),
+  ]);
+
+  if (!detailResult.ok) {
+    return null;
+  }
+  return {
+    sellerId,
+    ...detailResult.value,
+    webhookDeliveries: deliveryResult.ok ? deliveryResult.value.items : [],
+    error: deliveryResult.ok ? undefined : deliveryResult.error,
+  };
+}
