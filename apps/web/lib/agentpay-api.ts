@@ -180,3 +180,49 @@ export async function downloadAgentPayFile(
     };
   }
 }
+
+// requestPublicAgentPay reads one bounded unauthenticated storefront response.
+export async function requestPublicAgentPay<Value>(
+  path: string,
+): Promise<ActionResult<Value>> {
+  const apiOrigin = process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080";
+  try {
+    const response = await fetch(`${apiOrigin}${path}`, {
+      method: "GET",
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMilliseconds),
+    });
+    const responseText = await readBoundedResponse(response);
+    const responseBody: unknown = responseText ? JSON.parse(responseText) : {};
+    if (!response.ok) {
+      return {
+        ok: false,
+        error:
+          getAPIErrorMessage(responseBody) ?? "This storefront is unavailable.",
+      };
+    }
+    return { ok: true, value: responseBody as Value };
+  } catch {
+    return { ok: false, error: "This storefront is unavailable." };
+  }
+}
+
+// requestPublicAgentPayText reads one bounded public discovery document.
+export async function requestPublicAgentPayText(
+  path: string,
+): Promise<ActionResult<string>> {
+  const apiOrigin = process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080";
+  try {
+    const response = await fetch(`${apiOrigin}${path}`, {
+      method: "GET",
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMilliseconds),
+    });
+    const body = await readBoundedResponse(response);
+    return response.ok
+      ? { ok: true, value: body }
+      : { ok: false, error: "This discovery document is unavailable." };
+  } catch {
+    return { ok: false, error: "This discovery document is unavailable." };
+  }
+}

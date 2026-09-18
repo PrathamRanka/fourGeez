@@ -2716,6 +2716,249 @@
     font-size: 0.64rem;
   }
 
+  .seller-storefront,
+  .storefront-product-detail {
+    width: min(100%, 78rem);
+    margin-inline: auto;
+    padding: clamp(3rem, 7vw, 6rem) var(--page-gutter);
+  }
+
+  .storefront-hero {
+    display: grid;
+    min-height: 25rem;
+    align-content: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .storefront-hero > p,
+  .storefront-products > div:first-child > p,
+  .storefront-product-detail article > p,
+  .storefront-product-detail aside > p {
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .storefront-hero h1 {
+    max-width: 14ch;
+    margin-top: 0.8rem;
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 560;
+    line-height: 0.92;
+    letter-spacing: -0.075em;
+  }
+
+  .storefront-hero > span {
+    max-width: 42rem;
+    margin-top: 1.4rem;
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .storefront-hero nav {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-decoration: underline;
+    text-underline-offset: 0.3rem;
+  }
+
+  .storefront-products {
+    padding-block: clamp(3rem, 7vw, 6rem);
+  }
+
+  .storefront-products h2 {
+    margin-top: 0.6rem;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    letter-spacing: -0.06em;
+  }
+
+  .storefront-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .storefront-product-grid article {
+    display: grid;
+    min-height: 22rem;
+    align-content: start;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    padding: 1.35rem;
+  }
+
+  .storefront-product-grid article > span {
+    width: fit-content;
+    border-radius: 999px;
+    background: var(--foreground);
+    padding: 0.35rem 0.5rem;
+    color: var(--background);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+  }
+
+  .storefront-product-grid h3 {
+    margin-top: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 1.35rem;
+  }
+
+  .storefront-product-grid article > p {
+    margin-top: 0.8rem;
+    color: var(--muted-foreground);
+    line-height: 1.65;
+  }
+
+  .storefront-product-grid article > div {
+    display: grid;
+    gap: 0.2rem;
+    margin-block: auto 1rem;
+    padding-top: 1.5rem;
+  }
+
+  .storefront-product-grid article > div strong {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+  }
+
+  .storefront-product-grid article > div small {
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+  }
+
+  .storefront-product-detail > a {
+    color: var(--muted-foreground);
+    font-size: 0.76rem;
+  }
+
+  .storefront-product-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(20rem, 0.75fr);
+    gap: clamp(2rem, 6vw, 6rem);
+    align-items: start;
+    margin-top: clamp(3rem, 7vw, 6rem);
+  }
+
+  .storefront-product-detail article h1 {
+    margin-top: 0.8rem;
+    font-family: var(--font-mono);
+    font-size: clamp(2.4rem, 6vw, 5.5rem);
+    font-weight: 500;
+    letter-spacing: -0.07em;
+  }
+
+  .storefront-product-detail article > span {
+    display: block;
+    max-width: 42rem;
+    margin-top: 1.2rem;
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .storefront-product-detail dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 2rem;
+    border-block: 1px solid var(--border);
+  }
+
+  .storefront-product-detail dl > div {
+    border-right: 1px solid var(--border);
+    padding: 1rem;
+  }
+
+  .storefront-product-detail dl > div:last-child {
+    border-right: 0;
+  }
+
+  .storefront-product-detail dt {
+    color: var(--muted-foreground);
+    font-size: 0.65rem;
+  }
+
+  .storefront-product-detail dd {
+    margin-top: 0.3rem;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .storefront-product-detail aside {
+    position: sticky;
+    top: 6rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    padding: 1.4rem;
+  }
+
+  .storefront-product-detail aside > svg {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+
+  .storefront-product-detail aside > p {
+    margin-top: 1.2rem;
+  }
+
+  .storefront-product-detail aside h2 {
+    margin-top: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    letter-spacing: -0.045em;
+  }
+
+  .storefront-product-detail aside ol {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 1.2rem;
+    padding-left: 1.2rem;
+    color: var(--muted-foreground);
+    font-size: 0.76rem;
+    line-height: 1.55;
+  }
+
+  .storefront-product-detail aside code {
+    display: block;
+    margin-top: 1.2rem;
+    overflow-wrap: anywhere;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
+    background: var(--background);
+    padding: 0.8rem;
+    font-size: 0.64rem;
+    line-height: 1.6;
+  }
+
+  .storefront-product-detail aside > div {
+    display: flex;
+    gap: 0.55rem;
+    margin-top: 0.8rem;
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+
+  .storefront-product-detail aside > div svg {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex: none;
+    margin-top: 0.1rem;
+  }
+
 }
 
 @keyframes hero-enter {
@@ -3082,6 +3325,27 @@
 
   .transaction-list article > a {
     width: 100%;
+  }
+
+  .storefront-product-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .storefront-product-detail dl {
+    grid-template-columns: 1fr;
+  }
+
+  .storefront-product-detail dl > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .storefront-product-detail dl > div:last-child {
+    border-bottom: 0;
+  }
+
+  .storefront-product-detail aside {
+    position: static;
   }
 
   .product-detail-heading > div:last-child {
