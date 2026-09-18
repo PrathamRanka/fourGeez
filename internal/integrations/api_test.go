@@ -137,6 +137,39 @@ func TestCredentialHTTPRejectsMalformedSellerID(t *testing.T) {
 	}
 }
 
+func TestCredentialHTTPRotatesPredecessorAtomically(t *testing.T) {
+	t.Parallel()
+
+	service, handler := newIntegrationHandler(t)
+	createdResponse := performIntegrationRequest(t, handler, http.MethodPost, "/v1/sellers/"+testIntegrationSellerID+"/integration-credentials", "credential-create-rotation", `{"label":"Connector","scopes":["read"]}`)
+	var created integrations.CredentialCreated
+	decodeIntegrationResponse(t, createdResponse, &created)
+	rotationResponse := performIntegrationRequest(
+		t, handler, http.MethodPost,
+		"/v1/sellers/"+testIntegrationSellerID+"/integration-credentials/"+created.CredentialID.String()+"/rotate",
+		"credential-rotate-1", `{"expectedVersion":1}`,
+	)
+	if rotationResponse.Code != http.StatusCreated || rotationResponse.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("rotate response = %d %s", rotationResponse.Code, rotationResponse.Body.String())
+	}
+	var rotation integrations.CredentialRotation
+	decodeIntegrationResponse(t, rotationResponse, &rotation)
+	if rotation.Predecessor.RevokedAt == nil || rotation.Successor.CredentialID == rotation.Predecessor.CredentialID || rotation.Token == "" {
+		t.Fatalf("rotation = %#v", rotation)
+	}
+	if _, err := service.AuthenticateToken(t.Context(), created.Token); !errors.Is(err, integrations.ErrCredentialRevoked) {
+		t.Fatalf("predecessor authentication error = %v", err)
+	}
+	replayResponse := performIntegrationRequest(
+		t, handler, http.MethodPost,
+		"/v1/sellers/"+testIntegrationSellerID+"/integration-credentials/"+created.CredentialID.String()+"/rotate",
+		"credential-rotate-1", `{"expectedVersion":1}`,
+	)
+	if replayResponse.Code != http.StatusCreated || replayResponse.Body.String() != rotationResponse.Body.String() {
+		t.Fatalf("rotation replay = %d %s, want exact %s", replayResponse.Code, replayResponse.Body.String(), rotationResponse.Body.String())
+	}
+}
+
 const testIntegrationSellerID = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 
 // newIntegrationHandler creates the AUT-002 HTTP test server.
@@ -225,12 +258,16 @@ func (integrationSellerAuthorizer) AuthorizeSeller(
 	return nil
 }
 
-type integrationIDGenerator struct{}
+type integrationIDGenerator struct{ calls int }
 
 // New returns a stable credential identifier for API tests.
-func (*integrationIDGenerator) New(
+func (generator *integrationIDGenerator) New(
 	_ domain.IDPrefix,
 ) (domain.ID, error) {
+	generator.calls++
+	if generator.calls > 1 {
+		return domain.ID("key_01K5D09YJ0C0M7RJM4FWQ0K9H9"), nil
+	}
 	return domain.ID("key_01K5D09YJ0C0M7RJM4FWQ0K9H8"), nil
 }
 

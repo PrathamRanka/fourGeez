@@ -92,12 +92,14 @@ never persisted.
 |---|---|---|
 | `credentialId` | string | `key_` prefixed ULID |
 | `sellerId` | string | The only seller this credential may access |
-| `tokenHash` | string | SHA-256 or stronger one-way token digest |
+| `tokenHash` | string | HMAC-SHA-256 digest of the complete token using a cloud-held pepper; the pepper is never persisted with the record |
 | `label` | string | Seller-visible installation name |
 | `scopes` | string array | Explicit read, configure, publish, validate, or rotate permissions |
+| `entitlementEpoch` | integer | Entitlement epoch at issuance; bootstrap exchange requires an exact match with the current authoritative entitlement |
 | `expiresAt` | timestamp/null | Required for temporary setup credentials |
 | `revokedAt` | timestamp/null | Revocation makes the credential unusable immediately |
 | `lastUsedAt` | timestamp/null | Last successful bootstrap exchange; ordinary MCP use does not update it |
+| `replacedByCredentialId` | string/null | Successor created by an atomic rotation |
 | `createdAt`, `updatedAt` | timestamp | UTC lifecycle timestamps |
 | `version` | integer | Used for guarded rotation and revocation |
 
@@ -690,7 +692,9 @@ Outcome vocabulary is `succeeded`, `failed`, and `denied`.
 
 Action vocabulary is fixed to:
 
-- `credential.created` and `credential.revoked`;
+- `credential.created`, `credential.revoked`, `credential.rotated`,
+  `credential.exchange_succeeded`, and `credential.exchange_denied`;
+- `entitlement.changed`;
 - `mcp_confirmation.issued`, `mcp_confirmation.consumed`, and
   `mcp_confirmation.denied`;
 - `payment_destination.created`, `payment_destination.verified`,
@@ -791,6 +795,7 @@ PK=SELLER#sel_123       SK=ROUTE#rte_123
 PK=SELLER#sel_123       SK=PRODUCT_SLUG#<productSlug>
 PK=SELLER#sel_123       SK=CREDENTIAL#key_123
 PK=CREDENTIAL#key_123   SK=LOOKUP
+PK=CREDENTIAL#key_123   SK=RATE_LIMIT#PROJECT_KEY_EXCHANGE#<windowStart>
 PK=MCP_CONFIRMATION#mcg_123 SK=PROFILE
 PK=SELLER#sel_123       SK=DESTINATION#dst_123
 PK=SELLER#sel_123       SK=DESTINATION_ACTIVE#<sha256(asset + NUL + network)>

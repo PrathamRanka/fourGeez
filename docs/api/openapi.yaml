@@ -1811,7 +1811,7 @@ components:
         actorId: { type: string, minLength: 1, maxLength: 256 }
         action:
           type: string
-          enum: [credential.created, credential.revoked, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
+          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
         targetType: { type: string, enum: [integration_credential, payment_destination, paid_route, webhook_subscription, seller] }
         targetId: { type: string, minLength: 1, maxLength: 64 }
         outcome: { type: string, enum: [succeeded, failed, denied] }

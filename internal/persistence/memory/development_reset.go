@@ -7,6 +7,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/approvals"
 	"github.com/fourgeez/agentpay/internal/audit"
+	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -31,6 +32,8 @@ type DevelopmentRepositories struct {
 	WebhookDeliveries      *WebhookDeliveryRepository
 	WebhookSecrets         *WebhookSecretStore
 	IntegrationCredentials *IntegrationCredentialRepository
+	SellerEntitlements     *SellerEntitlementRepository
+	ProviderEvents         *ProviderEventRepository
 	AuditEvents            *AuditEventRepository
 	Idempotency            *IdempotencyStore
 }
@@ -58,9 +61,30 @@ func (resetter *DevelopmentResetter) Reset(_ context.Context) error {
 	resetWebhookDeliveries(resetter.repositories.WebhookDeliveries)
 	resetWebhookSecrets(resetter.repositories.WebhookSecrets)
 	resetIntegrationCredentials(resetter.repositories.IntegrationCredentials)
+	resetSellerEntitlements(resetter.repositories.SellerEntitlements)
+	resetProviderEvents(resetter.repositories.ProviderEvents)
 	resetAuditEvents(resetter.repositories.AuditEvents)
 	resetIdempotency(resetter.repositories.Idempotency)
 	return nil
+}
+
+func resetSellerEntitlements(repository *SellerEntitlementRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.entitlements = make(map[domain.ID]billing.SellerEntitlementSnapshot)
+	repository.reconciliations = make(map[domain.ID]map[string]billing.EntitlementReconciliation)
+}
+
+func resetProviderEvents(repository *ProviderEventRepository) {
+	if repository == nil {
+		return
+	}
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	repository.events = make(map[string]billing.SubscriptionProviderEvent)
 }
 
 func resetCatalog(repository *CatalogRepository) {
@@ -166,6 +190,7 @@ func resetIntegrationCredentials(repository *IntegrationCredentialRepository) {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 	repository.credentials = make(map[domain.ID]integrations.Snapshot)
+	repository.rotationReplays = make(map[string]integrations.RotationReplay)
 }
 
 func resetAuditEvents(repository *AuditEventRepository) {

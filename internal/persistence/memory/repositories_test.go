@@ -278,12 +278,13 @@ func TestIntegrationCredentialRepositoryEnforcesSellerScopeAndVersion(t *testing
 	)
 	credential, err := integrations.NewCredential(
 		integrations.CredentialParams{
-			CredentialID: credentialID,
-			SellerID:     sellerID,
-			TokenHash:    strings.Repeat("a", 64),
-			Label:        "Claude Code",
-			Scopes:       []integrations.Scope{integrations.ScopeRead},
-			CreatedAt:    testTime(),
+			CredentialID:     credentialID,
+			SellerID:         sellerID,
+			TokenHash:        strings.Repeat("a", 64),
+			Label:            "Claude Code",
+			Scopes:           []integrations.Scope{integrations.ScopeRead},
+			EntitlementEpoch: 1,
+			CreatedAt:        testTime(),
 		},
 	)
 	if err != nil {

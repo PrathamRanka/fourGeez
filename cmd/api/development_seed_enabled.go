@@ -34,6 +34,8 @@ func configureDevelopmentSeed(
 		WebhookDeliveries:      repositories.WebhookDeliveries,
 		WebhookSecrets:         repositories.WebhookSecrets,
 		IntegrationCredentials: repositories.IntegrationCredentials,
+		SellerEntitlements:     repositories.SellerEntitlements,
+		ProviderEvents:         repositories.ProviderEvents,
 		AuditEvents:            repositories.AuditEvents,
 		Idempotency:            repositories.Idempotency,
 	})
@@ -53,6 +55,7 @@ func configureDevelopmentSeed(
 		WebhookSubscriptions: repositories.WebhookSubscriptions,
 		WebhookDeliveries:    repositories.WebhookDeliveries,
 		WebhookSecrets:       repositories.WebhookSecrets,
+		SellerEntitlements:   repositories.SellerEntitlements,
 		Reset:                resetter.Reset,
 	}, signer)
 	if err != nil {

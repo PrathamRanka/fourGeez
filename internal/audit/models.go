@@ -27,6 +27,10 @@ type Action string
 const (
 	ActionCredentialCreated           Action = "credential.created"
 	ActionCredentialRevoked           Action = "credential.revoked"
+	ActionCredentialRotated           Action = "credential.rotated"
+	ActionCredentialExchangeSucceeded Action = "credential.exchange_succeeded"
+	ActionCredentialExchangeDenied    Action = "credential.exchange_denied"
+	ActionEntitlementChanged          Action = "entitlement.changed"
 	ActionPaymentDestinationCreated   Action = "payment_destination.created"
 	ActionPaymentDestinationVerified  Action = "payment_destination.verified"
 	ActionPaymentDestinationDisabled  Action = "payment_destination.disabled"

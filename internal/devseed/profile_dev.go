@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -85,6 +86,7 @@ type Repositories struct {
 	WebhookSubscriptions notifications.Repository
 	WebhookDeliveries    notifications.DeliveryRepository
 	WebhookSecrets       notifications.SecretStore
+	SellerEntitlements   billing.Repository
 	Reset                func(context.Context) error
 }
 
@@ -174,6 +176,9 @@ func (seeder *Seeder) seed(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := seeder.seedEntitlements(ctx); err != nil {
+		return err
+	}
 	if err := seeder.seedPaymentDestinations(ctx, launchReadySeller); err != nil {
 		return err
 	}
@@ -193,6 +198,34 @@ func (seeder *Seeder) seed(ctx context.Context) error {
 	}
 	if err := seeder.seedWebhookHistory(ctx, launchReadySeller, transactionFixtures); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (seeder *Seeder) seedEntitlements(ctx context.Context) error {
+	periodStart := domain.NewTimestamp(time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC))
+	periodEnd := domain.NewTimestamp(time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC))
+	candidates := []billing.EntitlementCandidate{
+		{
+			SellerID: seeder.metadata.LaunchReadySellerID, PlanID: billing.PlanGrowth, PlanVersion: 1,
+			Status: billing.EntitlementStatusActive, BillingPeriodStart: periodStart, BillingPeriodEnd: periodEnd, AccessEndsAt: periodEnd,
+			Source: billing.EntitlementSourceLocal, Provider: billing.EntitlementProviderLocal,
+		},
+		{
+			SellerID: seeder.metadata.IncompleteSellerID, PlanID: billing.PlanStarter, PlanVersion: 1,
+			Status: billing.EntitlementStatusSuspended, BillingPeriodStart: periodStart, BillingPeriodEnd: periodEnd, AccessEndsAt: fixedSeedTimestamp,
+			Source: billing.EntitlementSourceLocal, Provider: billing.EntitlementProviderLocal,
+			StatusReason: billing.EntitlementStatusReasonProviderIncomplete,
+		},
+	}
+	for _, candidate := range candidates {
+		entitlement, reconciliation, err := billing.ReconcileSellerEntitlement(nil, candidate, fixedSeedTimestamp)
+		if err != nil {
+			return err
+		}
+		if err := seeder.repositories.SellerEntitlements.Apply(ctx, entitlement, reconciliation, 0); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -723,6 +756,7 @@ func validateRepositories(repositories Repositories, signer evidence.Signer) err
 		repositories.WebhookSubscriptions == nil ||
 		repositories.WebhookDeliveries == nil ||
 		repositories.WebhookSecrets == nil ||
+		repositories.SellerEntitlements == nil ||
 		repositories.Reset == nil ||
 		signer == nil {
 		return errors.New("development seed repositories and signer are required")

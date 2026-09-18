@@ -260,7 +260,7 @@ Forbidden:
 - Every mutation requires idempotency and records the seller, credential, operation, target, and outcome without recording secrets or repository contents.
 - Every authenticated MCP POST consumes one seller-scoped monthly operation
   unit; invalid credentials do not consume quota.
-- Project credentials are seller-scoped, hashed at rest, revocable, and never committed to the seller repository.
+- Project credentials are seller-scoped, stored only as HMAC-SHA-256 digests using a cloud-held pepper, compared in constant time, revocable, and never committed to the seller repository.
 - Project credentials are accepted only by the proprietary bootstrap exchange;
   ordinary MCP requests require a short-lived access capability.
 - Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.

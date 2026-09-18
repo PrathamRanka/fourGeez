@@ -43,6 +43,49 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 		"POST /v1/sellers/{sellerId}/integration-credentials/{credentialId}/revoke",
 		api.RequireSeller(http.HandlerFunc(controller.revoke)),
 	)
+	mux.Handle(
+		"POST /v1/sellers/{sellerId}/integration-credentials/{credentialId}/rotate",
+		api.RequireSeller(http.HandlerFunc(controller.rotate)),
+	)
+}
+
+func (controller *HTTPController) rotate(response http.ResponseWriter, request *http.Request) {
+	sellerID, err := parseSellerID(request)
+	if err != nil {
+		controller.writeError(response, request, err)
+		return
+	}
+	credentialID, err := domain.ParseID(request.PathValue("credentialId"), domain.CredentialIDPrefix)
+	if err != nil {
+		controller.writeError(response, request, err)
+		return
+	}
+	request.Body = http.MaxBytesReader(response, request.Body, api.MaximumJSONBodyBytes)
+	requestBody, err := io.ReadAll(request.Body)
+	if err != nil {
+		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid request body", nil)
+		return
+	}
+	var input RotateCredentialRequest
+	if err := api.DecodeJSONBytes(requestBody, &input); err != nil {
+		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid request body", nil)
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	rotation, err := controller.service.Rotate(
+		request.Context(),
+		principal.Subject,
+		sellerID,
+		credentialID,
+		input,
+		RotationIdempotency{Key: request.Header.Get("Idempotency-Key"), RequestBody: requestBody},
+	)
+	if err != nil {
+		controller.writeError(response, request, err)
+		return
+	}
+	response.Header().Set("Cache-Control", "no-store")
+	_ = api.WriteJSON(response, http.StatusCreated, rotation)
 }
 
 // create issues a credential and returns raw token material once.
@@ -274,11 +317,20 @@ func credentialIdempotencyResult(
 	if !containsOneTimeToken {
 		return encodedResult, nil
 	}
-	created, ok := result.(CredentialCreated)
-	if !ok {
+	var redacted any
+	switch credentialResult := result.(type) {
+	case CredentialCreated:
+		redacted = credentialResult.CredentialView
+	case CredentialRotation:
+		redacted = struct {
+			Predecessor           CredentialView   `json:"predecessor"`
+			Successor             CredentialView   `json:"successor"`
+			SecretReplayExpiresAt domain.Timestamp `json:"secretReplayExpiresAt"`
+		}{credentialResult.Predecessor, credentialResult.Successor, credentialResult.SecretReplayExpiresAt}
+	default:
 		return nil, errors.New("one-time credential response has an unexpected type")
 	}
-	redactedResult, err := json.Marshal(created.CredentialView)
+	redactedResult, err := json.Marshal(redacted)
 	if err != nil {
 		return nil, err
 	}
@@ -301,8 +353,10 @@ func (controller *HTTPController) writeError(
 ) {
 	var validationError domain.ValidationError
 	var validationErrors domain.ValidationErrors
+	var recoveryError RotationRecoveryError
 	status := http.StatusInternalServerError
 	code := api.ErrorCodeInternal
+	var details map[string]any
 	if errors.As(err, &validationError) ||
 		errors.As(err, &validationErrors) {
 		status = http.StatusBadRequest
@@ -312,9 +366,17 @@ func (controller *HTTPController) writeError(
 		code = api.ErrorCodeNotFound
 	} else if errors.Is(err, persistence.ErrAlreadyExists) ||
 		errors.Is(err, persistence.ErrConditionFailed) ||
-		errors.Is(err, ErrCredentialRevoked) {
+		errors.Is(err, ErrCredentialRevoked) ||
+		errors.Is(err, ErrRotationIdempotencyConflict) {
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
+	} else if errors.As(err, &recoveryError) {
+		status = http.StatusConflict
+		code = api.ErrorCodeConflict
+		details = map[string]any{
+			"successorCredentialId": recoveryError.SuccessorCredentialID.String(),
+			"recoveryAction":        "rotate_successor",
+		}
 	}
-	api.WriteError(response, request, status, code, err.Error(), nil)
+	api.WriteError(response, request, status, code, err.Error(), details)
 }

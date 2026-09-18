@@ -22,12 +22,16 @@ type actionDefinition struct {
 }
 
 var actionDefinitions = map[Action]actionDefinition{
-	ActionCredentialCreated:          newActionDefinition(TargetTypeIntegrationCredential, "label", "scopes", "expiresAt"),
-	ActionCredentialRevoked:          newActionDefinition(TargetTypeIntegrationCredential, "revokedAt"),
-	ActionPaymentDestinationCreated:  newActionDefinition(TargetTypePaymentDestination, "asset", "network", "address", "status"),
-	ActionPaymentDestinationVerified: newActionDefinition(TargetTypePaymentDestination, "status", "verifiedAt"),
-	ActionPaymentDestinationDisabled: newActionDefinition(TargetTypePaymentDestination, "status"),
-	ActionPaymentDestinationRotated:  newActionDefinition(TargetTypePaymentDestination, "status"),
+	ActionCredentialCreated:           newActionDefinition(TargetTypeIntegrationCredential, "label", "scopes", "expiresAt"),
+	ActionCredentialRevoked:           newActionDefinition(TargetTypeIntegrationCredential, "revokedAt"),
+	ActionCredentialRotated:           newActionDefinition(TargetTypeIntegrationCredential, "revokedAt", "replacedByCredentialId"),
+	ActionCredentialExchangeSucceeded: newActionDefinition(TargetTypeIntegrationCredential, "lastUsedAt"),
+	ActionCredentialExchangeDenied:    newActionDefinition(TargetTypeIntegrationCredential, "authorization"),
+	ActionEntitlementChanged:          newActionDefinition(TargetTypeSeller, "status", "accessEndsAt", "entitlementEpoch", "sourceRevision", "credentialRotationRequired"),
+	ActionPaymentDestinationCreated:   newActionDefinition(TargetTypePaymentDestination, "asset", "network", "address", "status"),
+	ActionPaymentDestinationVerified:  newActionDefinition(TargetTypePaymentDestination, "status", "verifiedAt"),
+	ActionPaymentDestinationDisabled:  newActionDefinition(TargetTypePaymentDestination, "status"),
+	ActionPaymentDestinationRotated:   newActionDefinition(TargetTypePaymentDestination, "status"),
 	ActionRouteDraftCreated: newActionDefinition(
 		TargetTypePaidRoute,
 		"displayName",

@@ -9,63 +9,60 @@ import (
 	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
-// SellerPlanRepository stores seller plan assignments for local use.
-type SellerPlanRepository struct {
-	mutex       sync.RWMutex
-	assignments map[domain.ID]billing.SellerPlanSnapshot
+type SellerEntitlementRepository struct {
+	mutex           sync.RWMutex
+	entitlements    map[domain.ID]billing.SellerEntitlementSnapshot
+	reconciliations map[domain.ID]map[string]billing.EntitlementReconciliation
 }
 
-// NewSellerPlanRepository creates an empty seller plan repository.
-func NewSellerPlanRepository() *SellerPlanRepository {
-	return &SellerPlanRepository{
-		assignments: make(map[domain.ID]billing.SellerPlanSnapshot),
+type SellerPlanRepository = SellerEntitlementRepository
+
+func NewSellerEntitlementRepository() *SellerEntitlementRepository {
+	return &SellerEntitlementRepository{
+		entitlements:    make(map[domain.ID]billing.SellerEntitlementSnapshot),
+		reconciliations: make(map[domain.ID]map[string]billing.EntitlementReconciliation),
 	}
 }
 
-// Get returns one seller plan assignment.
-func (repository *SellerPlanRepository) Get(
-	_ context.Context,
-	sellerID domain.ID,
-) (billing.SellerPlan, error) {
+func NewSellerPlanRepository() *SellerPlanRepository { return NewSellerEntitlementRepository() }
+
+func (repository *SellerEntitlementRepository) Get(_ context.Context, sellerID domain.ID) (billing.SellerEntitlement, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
-	snapshot, exists := repository.assignments[sellerID]
+	snapshot, exists := repository.entitlements[sellerID]
 	if !exists {
-		return billing.SellerPlan{}, billing.ErrSellerPlanNotFound
+		return billing.SellerEntitlement{}, persistence.ErrNotFound
 	}
-	return billing.RestoreSellerPlan(snapshot)
+	return billing.RestoreSellerEntitlement(snapshot)
 }
 
-// CreateIfAbsent stores one default assignment without replacing existing state.
-func (repository *SellerPlanRepository) CreateIfAbsent(
+func (repository *SellerEntitlementRepository) Apply(
 	_ context.Context,
-	assignment billing.SellerPlan,
-) (billing.SellerPlan, bool, error) {
-	repository.mutex.Lock()
-	defer repository.mutex.Unlock()
-	if snapshot, exists := repository.assignments[assignment.SellerID()]; exists {
-		stored, err := billing.RestoreSellerPlan(snapshot)
-		return stored, false, err
-	}
-	repository.assignments[assignment.SellerID()] = assignment.Snapshot()
-	return assignment, true, nil
-}
-
-// Update replaces an assignment only when its stored version matches.
-func (repository *SellerPlanRepository) Update(
-	_ context.Context,
-	assignment billing.SellerPlan,
+	entitlement billing.SellerEntitlement,
+	reconciliation billing.EntitlementReconciliation,
 	expectedVersion uint64,
 ) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
-	stored, exists := repository.assignments[assignment.SellerID()]
-	if !exists {
-		return persistence.ErrNotFound
-	}
-	if stored.Version != expectedVersion || assignment.Version() != expectedVersion+1 {
+	stored, exists := repository.entitlements[entitlement.SellerID()]
+	if (!exists && expectedVersion != 0) ||
+		(exists && stored.Version != expectedVersion) ||
+		entitlement.Version() != expectedVersion+1 ||
+		reconciliation.SellerID != entitlement.SellerID() ||
+		reconciliation.SourceRevision != entitlement.SourceRevision() ||
+		reconciliation.AppliedVersion != entitlement.Version() {
 		return persistence.ErrConditionFailed
 	}
-	repository.assignments[assignment.SellerID()] = assignment.Snapshot()
+	if exists && entitlement.SourceRevision() <= stored.SourceRevision {
+		return persistence.ErrConditionFailed
+	}
+	if repository.reconciliations[entitlement.SellerID()] == nil {
+		repository.reconciliations[entitlement.SellerID()] = make(map[string]billing.EntitlementReconciliation)
+	}
+	if _, duplicate := repository.reconciliations[entitlement.SellerID()][reconciliation.SourceRevision]; duplicate {
+		return persistence.ErrConditionFailed
+	}
+	repository.entitlements[entitlement.SellerID()] = entitlement.Snapshot()
+	repository.reconciliations[entitlement.SellerID()][reconciliation.SourceRevision] = reconciliation
 	return nil
 }

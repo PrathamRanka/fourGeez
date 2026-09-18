@@ -48,7 +48,7 @@ func TestServiceCreatesAndAuthenticatesScopedCredential(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Token == "" || !strings.HasPrefix(created.Token, "apc1.") {
+	if created.Token == "" || !strings.HasPrefix(created.Token, "apc2.") {
 		t.Fatalf("token = %q", created.Token)
 	}
 	stored, err := repository.Get(
@@ -271,7 +271,6 @@ func TestServiceAuthenticatePropagatesRepositoryFailure(t *testing.T) {
 		audit.NoopRecorder{},
 	)
 	rawToken := credentialToken(
-		domain.ID(testSellerID),
 		domain.ID(testCredentialID),
 		strings.Repeat("s", 43),
 	)
@@ -373,14 +372,31 @@ func (generator *credentialTokenGenerator) NewToken() (string, error) {
 }
 
 type credentialRepository struct {
-	credentials map[domain.ID]Credential
-	getError    error
+	credentials     map[domain.ID]Credential
+	rotationReplays map[string]RotationReplay
+	getError        error
+	rotateCalls     int
+}
+
+func (repository *credentialRepository) GetByID(
+	_ context.Context,
+	credentialID domain.ID,
+) (Credential, error) {
+	if repository.getError != nil {
+		return Credential{}, repository.getError
+	}
+	credential, exists := repository.credentials[credentialID]
+	if !exists {
+		return Credential{}, persistence.ErrNotFound
+	}
+	return credential, nil
 }
 
 // newCredentialRepository creates the service-test repository.
 func newCredentialRepository() *credentialRepository {
 	return &credentialRepository{
-		credentials: make(map[domain.ID]Credential),
+		credentials:     make(map[domain.ID]Credential),
+		rotationReplays: make(map[string]RotationReplay),
 	}
 }
 
@@ -442,4 +458,38 @@ func (repository *credentialRepository) Update(
 	}
 	repository.credentials[credential.CredentialID()] = credential
 	return nil
+}
+
+func (repository *credentialRepository) Rotate(
+	_ context.Context,
+	predecessor Credential,
+	successor Credential,
+	expectedVersion uint64,
+	replay RotationReplay,
+) error {
+	stored, exists := repository.credentials[predecessor.CredentialID()]
+	if !exists || stored.Version() != expectedVersion || predecessor.Version() != expectedVersion+1 {
+		return persistence.ErrConditionFailed
+	}
+	if _, exists := repository.credentials[successor.CredentialID()]; exists {
+		return persistence.ErrAlreadyExists
+	}
+	replayKey := replay.Scope + "\x00" + string(replay.Key)
+	if _, exists := repository.rotationReplays[replayKey]; exists {
+		return persistence.ErrConditionFailed
+	}
+	repository.credentials[predecessor.CredentialID()] = predecessor
+	repository.credentials[successor.CredentialID()] = successor
+	repository.rotationReplays[replayKey] = replay
+	repository.rotateCalls++
+	return nil
+}
+
+func (repository *credentialRepository) LoadRotationReplay(
+	_ context.Context,
+	scope string,
+	key domain.IdempotencyKey,
+) (RotationReplay, bool, error) {
+	replay, found := repository.rotationReplays[scope+"\x00"+string(key)]
+	return replay, found, nil
 }

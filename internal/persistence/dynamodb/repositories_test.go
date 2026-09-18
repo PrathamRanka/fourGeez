@@ -37,6 +37,7 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "webhook delivery", got: webhookDeliverySortKey("whd_123"), want: "WEBHOOK_DELIVERY#whd_123"},
 		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
 		{name: "seller plan", got: sellerPlanSortKey, want: "BILLING_PLAN"},
+		{name: "subscription reconciliation", got: subscriptionReconciliationSortKey("00000000000000000007"), want: "SUBSCRIPTION_RECONCILIATION#00000000000000000007"},
 		{name: "quota counter", got: quotaCounterSortKey("2026-09", "api_request"), want: "QUOTA#2026-09#api_request"},
 		{name: "quota claim", got: quotaClaimSortKey("2026-09", "webhook_delivery", "source"), want: "QUOTA_CLAIM#2026-09#webhook_delivery#41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d"},
 		{name: "usage meter", got: usageMeterSortKey(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC), "mtr_123"), want: "METER#2026-09-17T10:00:00Z#mtr_123"},
@@ -218,21 +219,30 @@ func TestQuotaCounterRepositoryUsesConditionalAtomicWrites(t *testing.T) {
 	}
 }
 
-// TestSellerPlanRepositoryUsesSellerScopedConditionalWrites verifies plan storage.
-func TestSellerPlanRepositoryUsesSellerScopedConditionalWrites(t *testing.T) {
+// TestSellerEntitlementRepositoryAtomicallyWritesProjectionAndReconciliation verifies authoritative storage.
+func TestSellerEntitlementRepositoryAtomicallyWritesProjectionAndReconciliation(t *testing.T) {
 	t.Parallel()
 
 	client := &fakeClient{}
-	repository := NewSellerPlanRepository(client, "agentpay-dev")
-	assignment := testDynamoSellerPlan(t)
-	stored, created, err := repository.CreateIfAbsent(t.Context(), assignment)
-	if err != nil || !created || stored.SellerID() != assignment.SellerID() {
-		t.Fatalf("CreateIfAbsent() = (%#v, %v, %v)", stored, created, err)
+	repository := NewSellerEntitlementRepository(client, "agentpay-dev")
+	entitlement, reconciliation := testDynamoSellerEntitlement(t)
+	if err := repository.Apply(t.Context(), entitlement, reconciliation, 0); err != nil {
+		t.Fatal(err)
 	}
-	if client.putInput == nil ||
-		readStringAttribute(client.putInput.Item["PK"]) != sellerPartitionKey(assignment.SellerID().String()) ||
-		readStringAttribute(client.putInput.Item["SK"]) != sellerPlanSortKey {
-		t.Fatalf("seller plan item = %#v", client.putInput)
+	input := client.transactWriteInput
+	if input == nil || len(input.TransactItems) != 2 {
+		t.Fatalf("entitlement transaction = %#v", input)
+	}
+	history := input.TransactItems[0].Put
+	projection := input.TransactItems[1].Put
+	if readStringAttribute(history.Item["SK"]) != subscriptionReconciliationSortKey(entitlement.SourceRevision()) ||
+		history.ConditionExpression == nil || *history.ConditionExpression != createItemCondition {
+		t.Fatalf("reconciliation item = %#v", history)
+	}
+	if readStringAttribute(projection.Item["PK"]) != sellerPartitionKey(entitlement.SellerID().String()) ||
+		readStringAttribute(projection.Item["SK"]) != sellerPlanSortKey ||
+		projection.ConditionExpression == nil || *projection.ConditionExpression != createItemCondition {
+		t.Fatalf("entitlement item = %#v", projection)
 	}
 }
 
@@ -302,18 +312,24 @@ func TestIntegrationCredentialRepositoryUsesSellerScopedKeys(t *testing.T) {
 	if err := repository.Create(t.Context(), credential); err != nil {
 		t.Fatal(err)
 	}
-	if client.putInput == nil {
-		t.Fatal("Create() did not write a credential")
+	if client.transactWriteInput == nil || len(client.transactWriteInput.TransactItems) != 2 {
+		t.Fatalf("Create() transaction = %#v", client.transactWriteInput)
 	}
-	if readStringAttribute(client.putInput.Item["PK"]) !=
+	lookup := client.transactWriteInput.TransactItems[0].Put
+	credentialItem := client.transactWriteInput.TransactItems[1].Put
+	if readStringAttribute(lookup.Item["PK"]) != credentialPartitionKey(credential.CredentialID().String()) ||
+		readStringAttribute(lookup.Item["SK"]) != credentialLookupSortKey {
+		t.Fatalf("credential lookup = %#v", lookup.Item)
+	}
+	if readStringAttribute(credentialItem.Item["PK"]) !=
 		sellerPartitionKey(credential.SellerID().String()) ||
-		readStringAttribute(client.putInput.Item["SK"]) !=
+		readStringAttribute(credentialItem.Item["SK"]) !=
 			credentialSortKey(credential.CredentialID().String()) {
-		t.Fatalf("credential item = %#v", client.putInput.Item)
+		t.Fatalf("credential item = %#v", credentialItem.Item)
 	}
 
 	client.queryOutput = &awssdk.QueryOutput{
-		Items: []map[string]types.AttributeValue{client.putInput.Item},
+		Items: []map[string]types.AttributeValue{credentialItem.Item},
 	}
 	credentials, err := repository.ListBySeller(
 		t.Context(),
@@ -326,6 +342,27 @@ func TestIntegrationCredentialRepositoryUsesSellerScopedKeys(t *testing.T) {
 		client.queryInput.KeyConditionExpression == nil ||
 		!strings.Contains(*client.queryInput.KeyConditionExpression, "begins_with") {
 		t.Fatalf("query input = %#v", client.queryInput)
+	}
+}
+
+func TestIntegrationCredentialRepositoryResolvesPublicCredentialIDWithoutScan(t *testing.T) {
+	t.Parallel()
+
+	credential := testDynamoIntegrationCredential(t)
+	repository := NewIntegrationCredentialRepository(&fakeClient{}, "agentpay-dev")
+	lookupItem, err := repository.marshalCredentialLookup(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentialItem, err := repository.marshalCredential(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{getOutputs: []*awssdk.GetItemOutput{{Item: lookupItem}, {Item: credentialItem}}}
+	repository = NewIntegrationCredentialRepository(client, "agentpay-dev")
+	stored, err := repository.GetByID(t.Context(), credential.CredentialID())
+	if err != nil || stored.SellerID() != credential.SellerID() || client.getCallCount != 2 {
+		t.Fatalf("GetByID() = (%#v, %v), calls=%d", stored.Snapshot(), err, client.getCallCount)
 	}
 }
 
@@ -345,10 +382,11 @@ func testDynamoIntegrationCredential(t *testing.T) integrations.Credential {
 				"sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
 				domain.SellerIDPrefix,
 			),
-			TokenHash: strings.Repeat("a", 64),
-			Label:     "Codex",
-			Scopes:    []integrations.Scope{integrations.ScopeRead},
-			CreatedAt: testDynamoTime(),
+			TokenHash:        strings.Repeat("a", 64),
+			Label:            "Codex",
+			Scopes:           []integrations.Scope{integrations.ScopeRead},
+			EntitlementEpoch: 1,
+			CreatedAt:        testDynamoTime(),
 		},
 	)
 	if err != nil {
@@ -497,8 +535,12 @@ func TestConditionalErrorsAreStable(t *testing.T) {
 type fakeClient struct {
 	putInput           *awssdk.PutItemInput
 	putErr             error
+	putErrors          []error
+	putCallCount       int
 	getInput           *awssdk.GetItemInput
 	getOutput          *awssdk.GetItemOutput
+	getOutputs         []*awssdk.GetItemOutput
+	getCallCount       int
 	updateInput        *awssdk.UpdateItemInput
 	updateErr          error
 	queryInput         *awssdk.QueryInput
@@ -514,6 +556,12 @@ func (client *fakeClient) PutItem(
 	_ ...func(*awssdk.Options),
 ) (*awssdk.PutItemOutput, error) {
 	client.putInput = input
+	client.putCallCount++
+	if len(client.putErrors) > 0 {
+		err := client.putErrors[0]
+		client.putErrors = client.putErrors[1:]
+		return &awssdk.PutItemOutput{}, err
+	}
 	return &awssdk.PutItemOutput{}, client.putErr
 }
 
@@ -524,6 +572,12 @@ func (client *fakeClient) GetItem(
 	_ ...func(*awssdk.Options),
 ) (*awssdk.GetItemOutput, error) {
 	client.getInput = input
+	client.getCallCount++
+	if len(client.getOutputs) > 0 {
+		output := client.getOutputs[0]
+		client.getOutputs = client.getOutputs[1:]
+		return output, nil
+	}
 	if client.getOutput == nil {
 		return &awssdk.GetItemOutput{}, nil
 	}
@@ -615,23 +669,57 @@ func testDynamoWebhookDelivery(t *testing.T) notifications.Delivery {
 	return delivery
 }
 
-// testDynamoSellerPlan creates one valid seller plan fixture.
-func testDynamoSellerPlan(t *testing.T) billing.SellerPlan {
+// testDynamoSellerEntitlement creates one valid entitlement and history fixture.
+func testDynamoSellerEntitlement(t *testing.T) (billing.SellerEntitlement, billing.EntitlementReconciliation) {
 	t.Helper()
-	assignedAt := testDynamoTime()
-	assignment, err := billing.NewSellerPlan(billing.SellerPlanParams{
-		SellerID:           mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
-		PlanID:             billing.PlanStarter,
-		PlanVersion:        1,
-		Status:             billing.SellerPlanStatusActive,
+	entitlement, reconciliation, err := billing.ReconcileSellerEntitlement(nil, billing.EntitlementCandidate{
+		SellerID: mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		PlanID:   billing.PlanStarter, PlanVersion: 1, Status: billing.EntitlementStatusActive,
 		BillingPeriodStart: domain.NewTimestamp(time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)),
 		BillingPeriodEnd:   domain.NewTimestamp(time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)),
-		AssignedAt:         assignedAt,
+		AccessEndsAt:       domain.NewTimestamp(time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)),
+		Source:             billing.EntitlementSourceBillingProvider, Provider: billing.EntitlementProviderStripe,
+		ProviderCustomerID: "cus_123", ProviderSubscriptionID: "sub_123", ProviderPriceID: "price_123", LastProviderEventID: "evt_123",
+	}, testDynamoTime())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return entitlement, reconciliation
+}
+
+func TestIntegrationCredentialRepositoryRotatesAtomically(t *testing.T) {
+	t.Parallel()
+
+	predecessor := testDynamoIntegrationCredential(t)
+	successorID := mustDynamoID(t, "key_01K5D09YJ0C0M7RJM4FWQ0K9H9", domain.CredentialIDPrefix)
+	successor, err := integrations.NewCredential(integrations.CredentialParams{
+		CredentialID: successorID, SellerID: predecessor.SellerID(), TokenHash: strings.Repeat("b", 64),
+		Label: predecessor.Label(), Scopes: predecessor.Scopes(), EntitlementEpoch: predecessor.EntitlementEpoch(), CreatedAt: testDynamoTime().Add(time.Minute),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return assignment
+	if err := predecessor.Replace(successorID, testDynamoTime().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{}
+	repository := NewIntegrationCredentialRepository(client, "agentpay-dev")
+	replayKey, _ := domain.ParseIdempotencyKey("credential-rotate-1")
+	replay := integrations.RotationReplay{
+		Scope: "owner:rotate", Key: replayKey, RequestHash: strings.Repeat("c", 64),
+		ProtectedResponse: []byte("protected"), SuccessorCredentialID: successorID,
+		CreatedAt: testDynamoTime(), ExpiresAt: testDynamoTime().Add(10 * time.Minute),
+	}
+	if err := repository.Rotate(t.Context(), predecessor, successor, 1, replay); err != nil {
+		t.Fatal(err)
+	}
+	input := client.transactWriteInput
+	if input == nil || len(input.TransactItems) != 4 {
+		t.Fatalf("rotation transaction = %#v", input)
+	}
+	if input.TransactItems[0].Put.ConditionExpression == nil || *input.TransactItems[0].Put.ConditionExpression != "#version = :expectedVersion" {
+		t.Fatalf("predecessor condition = %#v", input.TransactItems[0].Put)
+	}
 }
 
 // testDynamoUsageMeterEvent creates one immutable usage fixture.

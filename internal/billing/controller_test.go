@@ -17,8 +17,10 @@ func TestPlanRoutesExposeCatalogAndSellerAssignment(t *testing.T) {
 	t.Parallel()
 
 	sellerID := mustBillingID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7")
+	repository := newBillingRepository()
+	seedBillingEntitlement(t, repository, sellerID, entitlementTime(2026, time.September, 17, 10))
 	service := NewService(
-		newBillingRepository(),
+		repository,
 		billingControllerAuthorizer{sellerID: sellerID},
 		domain.FixedClock{
 			Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
@@ -58,10 +60,8 @@ func TestInvoiceExportRouteReturnsBoundedUsage(t *testing.T) {
 	occurredAt := domain.NewTimestamp(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC))
 	transaction := fulfilledBillingTransaction(t, occurredAt)
 	planRepository := newBillingRepository()
+	seedBillingEntitlement(t, planRepository, transaction.SellerID(), occurredAt)
 	planService := NewService(planRepository, billingControllerAuthorizer{sellerID: transaction.SellerID()}, domain.FixedClock{Value: occurredAt.Time()})
-	if _, err := planService.GetSellerPlan(context.Background(), "local-seller", transaction.SellerID()); err != nil {
-		t.Fatal(err)
-	}
 	usageRepository := newUsageRepository()
 	usageService := NewUsageService(
 		usageRepository,

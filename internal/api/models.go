@@ -16,15 +16,16 @@ const (
 	// MaximumJSONBodyBytes limits control-plane JSON payloads to one MiB.
 	MaximumJSONBodyBytes int64 = 1 << 20
 
-	ErrorCodeBadRequest       = "bad_request"
-	ErrorCodeUnauthorized     = "unauthorized"
-	ErrorCodeConflict         = "conflict"
-	ErrorCodeGone             = "gone"
-	ErrorCodeNotFound         = "not_found"
-	ErrorCodePermissionDenied = "permission_denied"
-	ErrorCodeRateLimited      = "rate_limited"
-	ErrorCodeUnprocessable    = "unprocessable_entity"
-	ErrorCodeInternal         = "internal_error"
+	ErrorCodeBadRequest            = "bad_request"
+	ErrorCodeUnauthorized          = "unauthorized"
+	ErrorCodeConflict              = "conflict"
+	ErrorCodeGone                  = "gone"
+	ErrorCodeNotFound              = "not_found"
+	ErrorCodePermissionDenied      = "permission_denied"
+	ErrorCodeRateLimited           = "rate_limited"
+	ErrorCodeUnprocessable         = "unprocessable_entity"
+	ErrorCodeInternal              = "internal_error"
+	ErrorCodeDependencyUnavailable = "dependency_unavailable"
 )
 
 // IdempotencyDecision contains either a replay or permission to execute.

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/fourgeez/agentpay/internal/analytics"
+	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
@@ -98,6 +99,14 @@ func TestLaunchReadyProfileSeedsEveryRequiredLocalScenario(t *testing.T) {
 	assertSeedEvidence(t, fixture, metadata)
 	assertSeedWebhookAttempts(t, fixture, metadata)
 	assertSeedAnalyticsPairs(t, metadata.LaunchReadySellerID, transactionPage)
+	activeEntitlement, err := fixture.entitlements.Get(context.Background(), metadata.LaunchReadySellerID)
+	if err != nil || activeEntitlement.Status() != billing.EntitlementStatusActive {
+		t.Fatalf("launch-ready entitlement = (%#v, %v)", activeEntitlement.Snapshot(), err)
+	}
+	incompleteEntitlement, err := fixture.entitlements.Get(context.Background(), metadata.IncompleteSellerID)
+	if err != nil || incompleteEntitlement.Status() != billing.EntitlementStatusSuspended {
+		t.Fatalf("incomplete entitlement = (%#v, %v)", incompleteEntitlement.Snapshot(), err)
+	}
 }
 
 // TestResetEndpointClearsRuntimeChangesAndReappliesTheNamedProfile verifies disposal.
@@ -181,6 +190,7 @@ type seedFixture struct {
 	catalog             *memory.CatalogRepository
 	transactions        *memory.TransactionRepository
 	evidence            *memory.EvidenceRepository
+	entitlements        *memory.SellerEntitlementRepository
 	paymentDestinations *memory.PaymentDestinationRepository
 	webhookDeliveries   *memory.WebhookDeliveryRepository
 	signer              evidence.Signer
@@ -191,6 +201,7 @@ type seedRepositoriesFixture struct {
 	catalog      *memory.CatalogRepository
 	transactions *memory.TransactionRepository
 	evidence     *memory.EvidenceRepository
+	entitlements *memory.SellerEntitlementRepository
 	signer       evidence.Signer
 }
 
@@ -206,6 +217,7 @@ func newSeedFixture(t *testing.T) seedFixture {
 		catalog:             repositories.catalog,
 		transactions:        repositories.transactions,
 		evidence:            repositories.evidence,
+		entitlements:        repositories.entitlements,
 		paymentDestinations: repositories.repositories.PaymentDestinations.(*memory.PaymentDestinationRepository),
 		webhookDeliveries:   repositories.repositories.WebhookDeliveries.(*memory.WebhookDeliveryRepository),
 		signer:              repositories.signer,
@@ -219,6 +231,7 @@ func newSeedRepositories(t *testing.T) seedRepositoriesFixture {
 	approvalRepository := memory.NewApprovalRepository()
 	transactionRepository := memory.NewTransactionRepository()
 	evidenceRepository := memory.NewEvidenceRepository()
+	entitlementRepository := memory.NewSellerEntitlementRepository()
 	disputeRepository := memory.NewDisputeRepository()
 	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
@@ -231,6 +244,7 @@ func newSeedRepositories(t *testing.T) seedRepositoriesFixture {
 		Approvals:            approvalRepository,
 		Transactions:         transactionRepository,
 		Evidence:             evidenceRepository,
+		SellerEntitlements:   entitlementRepository,
 		Disputes:             disputeRepository,
 		PaymentDestinations:  paymentDestinationRepository,
 		WebhookSubscriptions: webhookSubscriptionRepository,
@@ -256,11 +270,13 @@ func newSeedRepositories(t *testing.T) seedRepositoriesFixture {
 			WebhookSubscriptions: webhookSubscriptionRepository,
 			WebhookDeliveries:    webhookDeliveryRepository,
 			WebhookSecrets:       webhookSecretStore,
+			SellerEntitlements:   entitlementRepository,
 			Reset:                resetter.Reset,
 		},
 		catalog:      catalogRepository,
 		transactions: transactionRepository,
 		evidence:     evidenceRepository,
+		entitlements: entitlementRepository,
 		signer:       signer,
 	}
 }

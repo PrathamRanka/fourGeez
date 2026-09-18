@@ -14,7 +14,10 @@ import (
 func TestServiceEnforcesMonthlyAndResourceQuotas(t *testing.T) {
 	sellerID := operationsID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix)
 	plan := billing.SellerPlanResponse{
-		Assignment: billing.SellerPlanView{SellerID: sellerID, Status: billing.SellerPlanStatusActive},
+		Assignment: billing.SellerPlanView{
+			SellerID: sellerID, Status: billing.EntitlementStatusActive,
+			AccessEndsAt: domain.NewTimestamp(time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)),
+		},
 		Plan: billing.PlanDefinition{
 			Limits: billing.PlanLimits{
 				APIRequestsPerMonth:       1,
@@ -60,12 +63,28 @@ func TestServiceDeniesSuspendedSeller(t *testing.T) {
 	service := NewService(
 		newQuotaRepository(),
 		quotaPlanResolver{response: billing.SellerPlanResponse{
-			Assignment: billing.SellerPlanView{SellerID: sellerID, Status: billing.SellerPlanStatusSuspended},
+			Assignment: billing.SellerPlanView{SellerID: sellerID, Status: billing.EntitlementStatusSuspended},
 		}},
 		domain.FixedClock{Value: time.Now().UTC()},
 	)
 	if err := service.ConsumeMCPOperation(t.Context(), sellerID); !errors.Is(err, domain.ErrPermissionDenied) {
 		t.Fatalf("suspended plan error = %v", err)
+	}
+}
+
+func TestServiceDeniesAtExactEntitlementBoundary(t *testing.T) {
+	t.Parallel()
+	sellerID := operationsID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix)
+	boundary := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
+	service := NewService(
+		newQuotaRepository(),
+		quotaPlanResolver{response: billing.SellerPlanResponse{Assignment: billing.SellerPlanView{
+			SellerID: sellerID, Status: billing.EntitlementStatusActive, AccessEndsAt: domain.NewTimestamp(boundary),
+		}}},
+		domain.FixedClock{Value: boundary},
+	)
+	if err := service.ConsumeMCPOperation(t.Context(), sellerID); !errors.Is(err, domain.ErrPermissionDenied) {
+		t.Fatalf("boundary error = %v", err)
 	}
 }
 

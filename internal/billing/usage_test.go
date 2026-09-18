@@ -19,18 +19,12 @@ func TestUsageServiceMetersSuccessfulTransactionExactlyOnce(t *testing.T) {
 	occurredAt := domain.NewTimestamp(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC))
 	transaction := fulfilledBillingTransaction(t, occurredAt)
 	planRepository := newBillingRepository()
+	seedBillingEntitlement(t, planRepository, transaction.SellerID(), occurredAt)
 	planService := NewService(
 		planRepository,
 		billingSellerAuthorizer{sellerID: transaction.SellerID()},
 		domain.FixedClock{Value: occurredAt.Time()},
 	)
-	if _, err := planService.GetSellerPlan(
-		context.Background(),
-		"seller-user",
-		transaction.SellerID(),
-	); err != nil {
-		t.Fatal(err)
-	}
 	usageRepository := newUsageRepository()
 	service := NewUsageService(
 		usageRepository,
@@ -72,14 +66,12 @@ func TestUsageServiceExportsPlanVersionedQuantities(t *testing.T) {
 	occurredAt := domain.NewTimestamp(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC))
 	transaction := fulfilledBillingTransaction(t, occurredAt)
 	planRepository := newBillingRepository()
+	seedBillingEntitlement(t, planRepository, transaction.SellerID(), occurredAt)
 	planService := NewService(
 		planRepository,
 		billingSellerAuthorizer{sellerID: transaction.SellerID()},
 		domain.FixedClock{Value: occurredAt.Time()},
 	)
-	if _, err := planService.GetSellerPlan(context.Background(), "seller-user", transaction.SellerID()); err != nil {
-		t.Fatal(err)
-	}
 	usageRepository := newUsageRepository()
 	service := NewUsageService(
 		usageRepository,

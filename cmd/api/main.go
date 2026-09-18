@@ -50,6 +50,7 @@ func main() {
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
+	providerEventRepository := memory.NewProviderEventRepository()
 	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
 	quotaCounterRepository := memory.NewQuotaCounterRepository()
 	auditEventRepository := memory.NewAuditEventRepository()
@@ -97,6 +98,7 @@ func main() {
 		catalogService,
 		clock,
 	)
+	billingService.SetAuditRecorder(auditAppender)
 	quotaService := operations.NewService(
 		quotaCounterRepository,
 		billingService,
@@ -104,6 +106,20 @@ func main() {
 	)
 	catalogService.SetQuotaEnforcer(quotaService)
 	billing.NewHTTPController(billingService).RegisterRoutes(mux)
+	billing.NewStripeProviderEventHTTPController(
+		billing.NewStripeProviderEventService(
+			billing.StripeProviderEventConfig{
+				ExpectedLivemode:   os.Getenv("AGENTPAY_STRIPE_LIVEMODE") == "true",
+				ExpectedAccountID:  os.Getenv("AGENTPAY_STRIPE_ACCOUNT_ID"),
+				ExpectedAPIVersion: os.Getenv("AGENTPAY_STRIPE_API_VERSION"),
+			},
+			billing.NewStripeWebhookVerifier(os.Getenv("AGENTPAY_STRIPE_WEBHOOK_SECRET"), 0),
+			providerEventRepository,
+			nil,
+			billingService,
+			clock,
+		),
+	).RegisterRoutes(mux)
 	usageService := billing.NewUsageService(
 		usageMeterEventRepository,
 		billingService,
@@ -133,6 +149,15 @@ func main() {
 		integrations.NewSecureTokenGenerator(nil),
 		clock,
 		auditAppender,
+		integrations.WithExchangeAuthorization(
+			billingService,
+			memory.NewProjectKeyExchangeRateLimiter(
+				clock,
+				integrations.DefaultProjectKeyExchangeAttempts,
+				integrations.DefaultProjectKeyExchangeWindow,
+			),
+			quotaService,
+		),
 	)
 	integrations.NewHTTPController(
 		integrationService,
@@ -257,6 +282,8 @@ func main() {
 			WebhookDeliveries:      webhookDeliveryRepository,
 			WebhookSecrets:         webhookSecretStore,
 			IntegrationCredentials: integrationCredentialRepository,
+			SellerEntitlements:     sellerPlanRepository,
+			ProviderEvents:         providerEventRepository,
 			AuditEvents:            auditEventRepository,
 			Idempotency:            idempotencyStore,
 		},

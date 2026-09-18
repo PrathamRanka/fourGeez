@@ -97,13 +97,15 @@ func (service *Service) consume(ctx context.Context, sellerID domain.ID, quotaNa
 	return err
 }
 
-// activePlan rejects suspended assignments.
+// activePlan enforces the authoritative exclusive entitlement boundary.
 func (service *Service) activePlan(ctx context.Context, sellerID domain.ID) (billing.SellerPlanResponse, error) {
 	plan, err := service.planResolver.ResolveSellerPlan(ctx, sellerID)
 	if err != nil {
 		return billing.SellerPlanResponse{}, err
 	}
-	if plan.Assignment.Status != billing.SellerPlanStatusActive {
+	if plan.Assignment.Status != billing.EntitlementStatusActive ||
+		!domain.NewTimestamp(service.clock.Now()).Before(plan.Assignment.AccessEndsAt) ||
+		plan.Assignment.CredentialRotationRequired {
 		return billing.SellerPlanResponse{}, domain.ErrPermissionDenied
 	}
 	return plan, nil

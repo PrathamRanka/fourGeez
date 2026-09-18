@@ -2,57 +2,66 @@ package billing
 
 import "github.com/fourgeez/agentpay/internal/domain"
 
-// SellerPlanSnapshot is the complete persisted assignment representation.
-type SellerPlanSnapshot struct {
-	SellerID           domain.ID        `json:"sellerId"`
-	PlanID             PlanID           `json:"planId"`
-	PlanVersion        uint64           `json:"planVersion"`
-	Status             SellerPlanStatus `json:"status"`
-	BillingPeriodStart domain.Timestamp `json:"billingPeriodStart"`
-	BillingPeriodEnd   domain.Timestamp `json:"billingPeriodEnd"`
-	AssignedAt         domain.Timestamp `json:"assignedAt"`
-	UpdatedAt          domain.Timestamp `json:"updatedAt"`
-	Version            uint64           `json:"version"`
+type SellerEntitlementSnapshot struct {
+	SellerID                   domain.ID               `json:"sellerId"`
+	PlanID                     PlanID                  `json:"planId"`
+	PlanVersion                uint64                  `json:"planVersion"`
+	Status                     EntitlementStatus       `json:"status"`
+	BillingPeriodStart         domain.Timestamp        `json:"billingPeriodStart"`
+	BillingPeriodEnd           domain.Timestamp        `json:"billingPeriodEnd"`
+	AccessEndsAt               domain.Timestamp        `json:"accessEndsAt"`
+	GraceEndsAt                *domain.Timestamp       `json:"graceEndsAt"`
+	CancelAtPeriodEnd          bool                    `json:"cancelAtPeriodEnd"`
+	EntitlementEpoch           uint64                  `json:"entitlementEpoch"`
+	Source                     EntitlementSource       `json:"source"`
+	SourceRevision             string                  `json:"sourceRevision"`
+	StatusReason               EntitlementStatusReason `json:"statusReason,omitempty"`
+	Provider                   EntitlementProvider     `json:"provider"`
+	ProviderCustomerID         string                  `json:"providerCustomerId"`
+	ProviderSubscriptionID     string                  `json:"providerSubscriptionId"`
+	ProviderPriceID            string                  `json:"providerPriceId"`
+	LastProviderEventID        string                  `json:"lastProviderEventId,omitempty"`
+	LastReconciledAt           *domain.Timestamp       `json:"lastReconciledAt"`
+	CredentialRotationRequired bool                    `json:"credentialRotationRequired"`
+	AssignedAt                 domain.Timestamp        `json:"assignedAt"`
+	UpdatedAt                  domain.Timestamp        `json:"updatedAt"`
+	Version                    uint64                  `json:"version"`
 }
 
-// Snapshot returns the complete plan assignment persistence representation.
-func (assignment SellerPlan) Snapshot() SellerPlanSnapshot {
-	return SellerPlanSnapshot{
-		SellerID:           assignment.sellerID,
-		PlanID:             assignment.planID,
-		PlanVersion:        assignment.planVersion,
-		Status:             assignment.status,
-		BillingPeriodStart: assignment.billingPeriodStart,
-		BillingPeriodEnd:   assignment.billingPeriodEnd,
-		AssignedAt:         assignment.assignedAt,
-		UpdatedAt:          assignment.updatedAt,
-		Version:            assignment.version,
+type SellerPlanSnapshot = SellerEntitlementSnapshot
+
+func (entitlement SellerEntitlement) Snapshot() SellerEntitlementSnapshot {
+	return SellerEntitlementSnapshot{
+		SellerID:                   entitlement.sellerID,
+		PlanID:                     entitlement.planID,
+		PlanVersion:                entitlement.planVersion,
+		Status:                     entitlement.status,
+		BillingPeriodStart:         entitlement.billingPeriodStart,
+		BillingPeriodEnd:           entitlement.billingPeriodEnd,
+		AccessEndsAt:               entitlement.accessEndsAt,
+		GraceEndsAt:                copyTimestamp(entitlement.graceEndsAt),
+		CancelAtPeriodEnd:          entitlement.cancelAtPeriodEnd,
+		EntitlementEpoch:           entitlement.entitlementEpoch,
+		Source:                     entitlement.source,
+		SourceRevision:             entitlement.sourceRevision,
+		StatusReason:               entitlement.statusReason,
+		Provider:                   entitlement.provider,
+		ProviderCustomerID:         entitlement.providerCustomerID,
+		ProviderSubscriptionID:     entitlement.providerSubscriptionID,
+		ProviderPriceID:            entitlement.providerPriceID,
+		LastProviderEventID:        entitlement.lastProviderEventID,
+		LastReconciledAt:           copyTimestamp(entitlement.lastReconciledAt),
+		CredentialRotationRequired: entitlement.credentialRotationRequired,
+		AssignedAt:                 entitlement.assignedAt,
+		UpdatedAt:                  entitlement.updatedAt,
+		Version:                    entitlement.version,
 	}
 }
 
-// RestoreSellerPlan recreates an assignment from trusted persistence.
+func RestoreSellerEntitlement(snapshot SellerEntitlementSnapshot) (SellerEntitlement, error) {
+	return NewSellerEntitlement(SellerEntitlementParams(snapshot))
+}
+
 func RestoreSellerPlan(snapshot SellerPlanSnapshot) (SellerPlan, error) {
-	assignment, err := NewSellerPlan(SellerPlanParams{
-		SellerID:           snapshot.SellerID,
-		PlanID:             snapshot.PlanID,
-		PlanVersion:        snapshot.PlanVersion,
-		Status:             snapshot.Status,
-		BillingPeriodStart: snapshot.BillingPeriodStart,
-		BillingPeriodEnd:   snapshot.BillingPeriodEnd,
-		AssignedAt:         snapshot.AssignedAt,
-	})
-	if err != nil {
-		return SellerPlan{}, err
-	}
-	if snapshot.Version == 0 || snapshot.UpdatedAt.Time().IsZero() ||
-		snapshot.UpdatedAt.Before(snapshot.AssignedAt) {
-		return SellerPlan{}, domain.NewValidationError(
-			"sellerPlan",
-			"persistence",
-			"stored seller plan metadata is invalid",
-		)
-	}
-	assignment.updatedAt = snapshot.UpdatedAt
-	assignment.version = snapshot.Version
-	return assignment, nil
+	return RestoreSellerEntitlement(snapshot)
 }

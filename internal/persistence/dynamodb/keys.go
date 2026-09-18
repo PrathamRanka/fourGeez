@@ -37,6 +37,16 @@ const profileSortKey = "PROFILE"
 
 const sellerPlanSortKey = "BILLING_PLAN"
 
+func subscriptionReconciliationSortKey(sourceRevision string) string {
+	return "SUBSCRIPTION_RECONCILIATION#" + sourceRevision
+}
+
+const providerEventInboxSortKey = "INBOX"
+
+func providerEventPartitionKey(eventID string) string {
+	return "STRIPE_EVENT#" + eventID
+}
+
 // sellerPartitionKey returns the documented seller partition key.
 func sellerPartitionKey(sellerID string) string {
 	return "SELLER#" + sellerID
@@ -55,6 +65,16 @@ func productSlugClaimSortKey(productSlug string) string {
 // credentialSortKey returns the documented integration-credential sort key.
 func credentialSortKey(credentialID string) string {
 	return "CREDENTIAL#" + credentialID
+}
+
+func credentialPartitionKey(credentialID string) string {
+	return "CREDENTIAL#" + credentialID
+}
+
+const credentialLookupSortKey = "LOOKUP"
+
+func projectKeyExchangeRateLimitSortKey(windowStart string) string {
+	return "RATE_LIMIT#PROJECT_KEY_EXCHANGE#" + windowStart
 }
 
 // webhookSubscriptionSortKey returns the seller webhook subscription key.

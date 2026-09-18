@@ -74,6 +74,35 @@ func TestNewEventEnforcesVocabularyAndChangedFieldAllowlists(t *testing.T) {
 	}
 }
 
+func TestNewEventAcceptsSubscriptionAndCredentialSecurityActions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		action        Action
+		targetType    TargetType
+		targetID      string
+		changedFields []string
+	}{
+		{action: ActionCredentialRotated, targetType: TargetTypeIntegrationCredential, targetID: "key_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"revokedAt", "replacedByCredentialId"}},
+		{action: ActionCredentialExchangeSucceeded, targetType: TargetTypeIntegrationCredential, targetID: "key_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"lastUsedAt"}},
+		{action: ActionCredentialExchangeDenied, targetType: TargetTypeIntegrationCredential, targetID: "key_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"authorization"}},
+		{action: ActionEntitlementChanged, targetType: TargetTypeSeller, targetID: "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8", changedFields: []string{"status", "accessEndsAt", "entitlementEpoch", "sourceRevision", "credentialRotationRequired"}},
+	}
+	for _, test := range tests {
+		_, err := NewEvent(EventParams{
+			AuditEventID: mustAuditID(t, "aud_01K5D09YJ0C0M7RJM4FWQ0K9H8", domain.AuditEventIDPrefix),
+			SellerID:     mustAuditID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8", domain.SellerIDPrefix),
+			ActorType:    ActorTypeSystem, ActorID: "authorization", Action: test.action,
+			TargetType: test.targetType, TargetID: test.targetID, Outcome: OutcomeSucceeded,
+			RequestID: "request-789", ChangedFields: test.changedFields,
+			OccurredAt: domain.NewTimestamp(time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)),
+		})
+		if err != nil {
+			t.Fatalf("NewEvent(%s) error = %v", test.action, err)
+		}
+	}
+}
+
 // TestServiceRecordsAndListsAuthorizedHistory verifies append and tenant checks.
 func TestServiceRecordsAndListsAuthorizedHistory(t *testing.T) {
 	t.Parallel()
