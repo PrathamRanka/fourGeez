@@ -6,7 +6,7 @@ Implementation status: the reduced M7.1 Lean V1 is implemented and verified in
 the production-shaped local runtime. The local API still uses in-memory
 persistence and development credentials; AWS deployment, production Cognito,
 managed signing keys, durable evidence storage, and real testnet release proof
-remain M8/M9 work. Redis, direct remote MCP OAuth, a global directory, and a
+remain M8/M9 work. Redis, direct remote MCP OAuth, cross-seller ranking, and a
 full operator console are post-launch scaling features rather than V1 blockers.
 
 ## Purpose

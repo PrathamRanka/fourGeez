@@ -5,11 +5,10 @@ info:
   description: |
     Seller commerce gateway, transaction, and dispute API. AgentPay is a working name.
     Version 0.6.0 extends the locked M7.1 production target with EXT-001 public
-    capability and deterministic product-directory contracts. The current
-    M7 Go runtime remains on the documented development compatibility baseline
-    until the dependent LCH implementation tasks land. Production deployment
-    must not advertise or partially enable this target contract before every
-    authorization and persistence precondition is implemented.
+    capability and deterministic product-directory contracts. The Go runtime
+    implements these public discovery endpoints in the development preview.
+    Production deployment must not advertise them before every authorization,
+    persistence, infrastructure, and release precondition is verified.
     Seller project keys are proprietary bootstrap credentials accepted only by
     POST /v1/integration-access-tokens; this is not an OAuth token endpoint.
     Lean V1 project-key installations use the required AgentPay connector.
@@ -24,7 +23,7 @@ info:
     issued through the authenticated seller browser/BFF boundary; caller-
     asserted confirmation fields are development compatibility only.
   x-agentpay-contract-stage: target-state
-  x-agentpay-runtime-baseline: m7-development-preview
+  x-agentpay-runtime-baseline: m7.1-plus-ext-001-api-development-preview
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary

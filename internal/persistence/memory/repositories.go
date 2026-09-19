@@ -25,6 +25,8 @@ type CatalogRepository struct {
 	routes               map[domain.ID]catalog.PaidRoute
 	routesBySeller       map[domain.ID][]domain.ID
 	productSlugsBySeller map[domain.ID]map[string]domain.ID
+	directoryProducts    map[string]catalog.PublicDirectoryProjection
+	directoryTerms       map[string]map[string]catalog.PublicDirectoryProjection
 }
 
 func NewCatalogRepository() *CatalogRepository {
@@ -35,6 +37,8 @@ func NewCatalogRepository() *CatalogRepository {
 		routes:               make(map[domain.ID]catalog.PaidRoute),
 		routesBySeller:       make(map[domain.ID][]domain.ID),
 		productSlugsBySeller: make(map[domain.ID]map[string]domain.ID),
+		directoryProducts:    make(map[string]catalog.PublicDirectoryProjection),
+		directoryTerms:       make(map[string]map[string]catalog.PublicDirectoryProjection),
 	}
 }
 
@@ -120,6 +124,7 @@ func (repository *CatalogRepository) CreateRoute(_ context.Context, route catalo
 	repository.routes[route.RouteID] = cloneRoute(route)
 	repository.routesBySeller[route.SellerID] = append(repository.routesBySeller[route.SellerID], route.RouteID)
 	productSlugs[route.ProductSlug] = route.RouteID
+	repository.replaceDirectoryProjection(route)
 	return nil
 }
 
@@ -156,6 +161,7 @@ func (repository *CatalogRepository) UpdateRoute(_ context.Context, route catalo
 	}
 	productSlugs[route.ProductSlug] = route.RouteID
 	repository.routes[route.RouteID] = cloneRoute(route)
+	repository.replaceDirectoryProjection(route)
 	return nil
 }
 
@@ -168,6 +174,82 @@ func (repository *CatalogRepository) ListRoutesBySeller(_ context.Context, selle
 		routes = append(routes, cloneRoute(repository.routes[routeID]))
 	}
 	return routes, nil
+}
+
+func (repository *CatalogRepository) ListPublicDirectoryCandidates(
+	_ context.Context,
+	query catalog.PublicDirectoryQuery,
+) (catalog.PublicDirectoryCandidatePage, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 24
+	}
+	projections := repository.directoryProducts
+	if query.SearchTerm != "" {
+		projections = repository.directoryTerms[query.SearchTerm]
+	}
+	keys := make([]string, 0, len(projections))
+	for key := range projections {
+		if key > query.After {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	exhausted := len(keys) <= limit
+	if len(keys) > limit {
+		keys = keys[:limit]
+	}
+	items := make([]catalog.PublicDirectoryCandidate, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, catalog.PublicDirectoryCandidate{Projection: projections[key], SortKey: key})
+	}
+	return catalog.PublicDirectoryCandidatePage{Items: items, Exhausted: exhausted}, nil
+}
+
+func (repository *CatalogRepository) GetPublicDirectoryRoute(
+	_ context.Context,
+	sellerID domain.ID,
+	routeID domain.ID,
+) (catalog.PaidRoute, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+	route, exists := repository.routes[routeID]
+	if !exists || route.SellerID != sellerID {
+		return catalog.PaidRoute{}, persistence.ErrNotFound
+	}
+	return cloneRoute(route), nil
+}
+
+func (repository *CatalogRepository) replaceDirectoryProjection(route catalog.PaidRoute) {
+	for key, projection := range repository.directoryProducts {
+		if projection.RouteID == route.RouteID {
+			delete(repository.directoryProducts, key)
+		}
+	}
+	for term, projections := range repository.directoryTerms {
+		for key, projection := range projections {
+			if projection.RouteID == route.RouteID {
+				delete(projections, key)
+			}
+		}
+		if len(projections) == 0 {
+			delete(repository.directoryTerms, term)
+		}
+	}
+	projection, published := catalog.NewPublicDirectoryProjection(route)
+	if !published {
+		return
+	}
+	key := projection.SortKey()
+	repository.directoryProducts[key] = projection
+	for _, term := range projection.SearchTerms {
+		if repository.directoryTerms[term] == nil {
+			repository.directoryTerms[term] = make(map[string]catalog.PublicDirectoryProjection)
+		}
+		repository.directoryTerms[term][key] = projection
+	}
 }
 
 type PurchaseIntentRepository struct {

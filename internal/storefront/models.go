@@ -14,11 +14,21 @@ import (
 )
 
 const (
-	DiscoverySchemaVersion   = "agentpay.discovery.v1"
-	DiscoveryDomainSeparator = "agentpay.discovery.v1"
-	DiscoveryLifetime        = 5 * time.Minute
-	AvailabilityActive       = "active"
-	AvailabilityInactive     = "inactive"
+	DiscoverySchemaVersion        = "agentpay.discovery.v1"
+	DiscoveryDomainSeparator      = "agentpay.discovery.v1"
+	DiscoveryLifetime             = 5 * time.Minute
+	PlatformManifestSchemaVersion = "agentpay.platform.v1"
+	DirectorySchemaVersion        = "agentpay.directory.v1"
+	PlatformStatusDevelopment     = "development_preview"
+	DirectoryOrderingLexical      = "lexical"
+	BuyerChannelAgent             = "agent"
+	BuyerChannelBrowser           = "browser"
+	PaymentProtocolX402           = "x402"
+	PaymentEnvironmentTestnet     = "testnet"
+	SupportedX402Network          = "eip155:84532"
+	FulfillmentModeSynchronous    = "synchronous_https"
+	AvailabilityActive            = "active"
+	AvailabilityInactive          = "inactive"
 )
 
 var (
@@ -53,6 +63,80 @@ type PublicProduct struct {
 	Availability            string    `json:"availability"`
 	CanonicalURL            string    `json:"canonicalUrl"`
 	PurchaseSessionEndpoint string    `json:"purchaseSessionEndpoint"`
+}
+
+type PlatformDiscoveryCapabilities struct {
+	PublicDirectory           bool `json:"publicDirectory"`
+	SignedStorefrontManifests bool `json:"signedStorefrontManifests"`
+	SignedProductDocuments    bool `json:"signedProductDocuments"`
+	LLMSText                  bool `json:"llmsText"`
+}
+
+type PlatformPaymentCapability struct {
+	Protocol    string `json:"protocol"`
+	Environment string `json:"environment"`
+	ExactPrice  bool   `json:"exactPrice"`
+	Network     string `json:"network"`
+}
+
+type PlatformCapabilities struct {
+	BuyerChannels []string                      `json:"buyerChannels"`
+	Discovery     PlatformDiscoveryCapabilities `json:"discovery"`
+	Payments      []PlatformPaymentCapability   `json:"payments"`
+	Ranking       bool                          `json:"ranking"`
+}
+
+type AgentPayPlatformManifest struct {
+	SchemaVersion     string               `json:"schemaVersion"`
+	Name              string               `json:"name"`
+	Status            string               `json:"status"`
+	CanonicalOrigin   string               `json:"canonicalOrigin"`
+	APIOrigin         string               `json:"apiOrigin"`
+	DirectoryEndpoint string               `json:"directoryEndpoint"`
+	JWKSURI           string               `json:"jwksUri"`
+	Capabilities      PlatformCapabilities `json:"capabilities"`
+}
+
+type PublicPaymentCapability struct {
+	Protocol    string `json:"protocol"`
+	Environment string `json:"environment"`
+	ExactPrice  bool   `json:"exactPrice"`
+	Asset       string `json:"asset"`
+	Network     string `json:"network"`
+}
+
+type PublicFulfillmentCapability struct {
+	Mode           string `json:"mode"`
+	OutputMIMEType string `json:"outputMimeType"`
+}
+
+type PublicProductCapabilities struct {
+	BuyerChannels []string                    `json:"buyerChannels"`
+	Payment       PublicPaymentCapability     `json:"payment"`
+	Fulfillment   PublicFulfillmentCapability `json:"fulfillment"`
+}
+
+type PublicProductDirectoryItem struct {
+	Seller       PublicSeller              `json:"seller"`
+	Product      PublicProduct             `json:"product"`
+	Capabilities PublicProductCapabilities `json:"capabilities"`
+}
+
+type PublicProductDirectoryPage struct {
+	SchemaVersion            string                       `json:"schemaVersion"`
+	Query                    string                       `json:"query,omitempty"`
+	Ordering                 string                       `json:"ordering"`
+	AuthoritativeForPurchase bool                         `json:"authoritativeForPurchase"`
+	Items                    []PublicProductDirectoryItem `json:"items"`
+	NextCursor               string                       `json:"nextCursor,omitempty"`
+}
+
+type PublicDirectoryRequest struct {
+	Query   string
+	Asset   string
+	Network string
+	Limit   int
+	Cursor  string
 }
 
 type StorefrontManifest struct {
@@ -141,6 +225,10 @@ type CatalogRepository interface {
 	ListRoutesBySeller(context.Context, domain.ID) ([]catalog.PaidRoute, error)
 }
 
+type DirectoryRepository interface {
+	catalog.PublicDirectoryRepository
+}
+
 type DestinationRepository interface {
 	ListBySeller(context.Context, domain.ID) ([]settlement.PaymentDestination, error)
 }
@@ -155,6 +243,7 @@ type PublicationReadiness interface {
 
 type Dependencies struct {
 	Catalog              CatalogRepository
+	Directory            DirectoryRepository
 	Destinations         DestinationRepository
 	Entitlements         EntitlementReader
 	PublicationReadiness PublicationReadiness

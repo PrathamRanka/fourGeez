@@ -194,6 +194,7 @@ type StorefrontManifest struct {
 
 // Repository is the persistence boundary consumed by catalog use cases.
 type Repository interface {
+	PublicDirectoryRepository
 	CreateSeller(ctx context.Context, seller Seller) error
 	GetSeller(ctx context.Context, sellerID domain.ID) (Seller, error)
 	ResolveSellerByOwnerSubject(ctx context.Context, ownerSubject string) (Seller, error)
