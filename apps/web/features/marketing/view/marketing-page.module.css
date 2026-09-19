@@ -50,8 +50,8 @@
   z-index: 1;
   inset: 0;
   background:
-    linear-gradient(180deg, transparent 0 62%, rgb(5 5 6 / 0.14) 78%, rgb(5 5 6 / 0.62) 100%),
-    radial-gradient(ellipse at 50% 14%, transparent 0 36%, rgb(5 5 6 / 0.12) 72%);
+    linear-gradient(180deg, transparent 0 72%, rgb(5 5 6 / 0.08) 100%),
+    radial-gradient(ellipse at 50% 14%, transparent 0 42%, rgb(5 5 6 / 0.05) 78%);
   content: "";
   pointer-events: none;
 }

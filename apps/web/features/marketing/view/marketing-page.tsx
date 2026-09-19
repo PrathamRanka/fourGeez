@@ -52,8 +52,7 @@ function HeroSection() {
         animationSpeed={0.025}
         breathingRange={6}
         containerClassName={styles.heroGradient}
-        startingGap={120}
-        topOffset={8}
+        startingGap={125}
       />
       <div className={styles.heroCopy}>
         <HeroMascot className={styles.heroMascot} />
