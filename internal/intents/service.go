@@ -280,8 +280,22 @@ func (service *Service) Cancel(ctx context.Context, intentID domain.ID, buyerID 
 		if purchaseIntent.Status() == PurchaseIntentStatusReady {
 			expectedVersion := purchaseIntent.Version()
 			if expireErr := purchaseIntent.Expire(now); expireErr == nil {
-				if updateErr := repository.Update(ctx, purchaseIntent, expectedVersion); updateErr != nil && !errors.Is(updateErr, persistence.ErrConditionFailed) {
-					return PurchaseIntent{}, updateErr
+				if updateErr := repository.Update(ctx, purchaseIntent, expectedVersion); updateErr != nil {
+					if !errors.Is(updateErr, persistence.ErrConditionFailed) {
+						return PurchaseIntent{}, updateErr
+					}
+					current, loadErr := repository.Get(ctx, intentID)
+					if loadErr != nil {
+						return PurchaseIntent{}, loadErr
+					}
+					switch current.Status() {
+					case PurchaseIntentStatusCancelled:
+						return current, nil
+					case PurchaseIntentStatusExecuted, PurchaseIntentStatusApprovalPending:
+						return PurchaseIntent{}, ErrIntentStateConflict
+					default:
+						return PurchaseIntent{}, ErrIntentExpired
+					}
 				}
 			}
 		}
@@ -301,6 +315,9 @@ func (service *Service) Cancel(ctx context.Context, intentID domain.ID, buyerID 
 		}
 		if current.Status() == PurchaseIntentStatusCancelled {
 			return current, nil
+		}
+		if current.Status() == PurchaseIntentStatusExpired {
+			return PurchaseIntent{}, ErrIntentExpired
 		}
 		return PurchaseIntent{}, ErrIntentStateConflict
 	}
