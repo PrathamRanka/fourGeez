@@ -252,6 +252,16 @@ products without a production table scan, follow canonical storefront/product
 links, and receive truthful supported-channel and x402 testnet capability
 metadata. Directory and manifest data remain non-authoritative for purchases.
 
+EXT-001 implementation status: the machine-readable runtime slice is implemented
+and verified locally. `/.well-known/agentpay` and
+`GET /v1/discovery/products` are wired into the Go API; published-route writes
+maintain bounded listing and exact-term DynamoDB projections atomically; and
+focused domain, persistence, service, transport, and OpenAPI tests cover stable
+ordering, cursor/filter binding, stale-candidate rejection, and fresh
+eligibility checks. The responsive public directory/search UI and its focused
+frontend tests remain pending, so EXT-001 stays in progress. AWS deployment and
+release verification remain M8/M9 work.
+
 - [x] **EXT-002** Preserve `purchaseIntent` and `transaction` as the canonical
   lifecycle while adding buyer-owned pre-checkout cancellation with an
   expiration-first conditional claim, deterministic single-product exact-price
