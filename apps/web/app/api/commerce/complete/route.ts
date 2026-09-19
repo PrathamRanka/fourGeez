@@ -23,7 +23,15 @@ export async function POST(request: Request) {
         headers: { "Cache-Control": "no-store" },
       })
     : NextResponse.json(
-        { error: { code: result.code, message: result.message } },
+        {
+          error: {
+            code: result.code,
+            message: result.message,
+            ...(result.recoveryAction
+              ? { details: { recoveryAction: result.recoveryAction } }
+              : {}),
+          },
+        },
         { status: result.status, headers: { "Cache-Control": "no-store" } },
       );
 }

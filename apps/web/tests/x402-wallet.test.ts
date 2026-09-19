@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   decodePaymentRequired,
   createX402PaymentSignature,
+  detectWalletCompatibility,
+  PaymentCapabilityError,
 } from "@/features/commerce/x402-wallet";
 
 const challenge = {
@@ -69,6 +71,79 @@ describe("x402 wallet", () => {
       3,
       expect.objectContaining({ method: "eth_signTypedData_v4" }),
     );
+    expect(payload.payload.authorization.nonce).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  it("detects wallet compatibility without requesting a signature", async () => {
+    await expect(detectWalletCompatibility(null)).resolves.toEqual({
+      compatible: false,
+      code: "wallet_missing",
+      message: "Install or open an EVM wallet to continue.",
+      recoveryAction: "connect_wallet",
+    });
+
+    const disconnected = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce("0x14a34")
+        .mockResolvedValueOnce([]),
+    };
+    await expect(detectWalletCompatibility(disconnected)).resolves.toEqual({
+      compatible: false,
+      code: "wallet_disconnected",
+      message: "Connect your wallet account to continue.",
+      recoveryAction: "connect_wallet",
+    });
+
+    const wrongNetwork = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce("0x1")
+        .mockResolvedValueOnce(["0x2222222222222222222222222222222222222222"]),
+    };
+    await expect(detectWalletCompatibility(wrongNetwork)).resolves.toEqual({
+      compatible: false,
+      code: "network_switch_required",
+      message: "Switch the wallet to Base Sepolia to continue.",
+      recoveryAction: "switch_network",
+    });
+  });
+
+  it("classifies unsupported network switching and typed-data signing", async () => {
+    const switchUnsupported = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce(["0x2222222222222222222222222222222222222222"])
+        .mockRejectedValueOnce({ code: 4902 }),
+    };
+    await expect(
+      createX402PaymentSignature(
+        btoa(JSON.stringify(challenge)),
+        switchUnsupported,
+        1_758_200_000,
+      ),
+    ).rejects.toMatchObject<Partial<PaymentCapabilityError>>({
+      code: "network_unsupported",
+      recoveryAction: "switch_network",
+    });
+
+    const signingUnsupported = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce(["0x2222222222222222222222222222222222222222"])
+        .mockResolvedValueOnce(null)
+        .mockRejectedValueOnce({ code: -32601 }),
+    };
+    await expect(
+      createX402PaymentSignature(
+        btoa(JSON.stringify(challenge)),
+        signingUnsupported,
+        1_758_200_000,
+      ),
+    ).rejects.toMatchObject<Partial<PaymentCapabilityError>>({
+      code: "typed_data_unsupported",
+      recoveryAction: "connect_wallet",
+    });
   });
 
   it("rejects a non-exact or unsupported challenge", () => {

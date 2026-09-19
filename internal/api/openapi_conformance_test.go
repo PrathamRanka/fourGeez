@@ -26,6 +26,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/notifications"
+	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -70,6 +71,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"getDispute":                              {"200", "401", "403", "404", "429", "503"},
 		"getHealth":                               {"200", "429", "503"},
 		"getPaidResource":                         {"200", "400", "401", "402", "403", "404", "409", "410", "422", "429", "503"},
+		"getPaymentCapabilities":                  {"200", "429"},
 		"getPaidRoute":                            {"200", "400", "401", "403", "404", "429", "503"},
 		"getPaymentDestination":                   {"200", "400", "401", "403", "404", "429", "503"},
 		"getPublicProduct":                        {"200", "404", "410", "429", "503"},
@@ -120,6 +122,7 @@ func TestImplementedM7OpenAPIRoutesAreRegistered(t *testing.T) {
 		wantStatus  int
 	}{
 		{operationID: "getHealth", method: http.MethodGet, path: "/health", wantStatus: http.StatusOK},
+		{operationID: "getPaymentCapabilities", method: http.MethodGet, path: "/v1/payment-capabilities", wantStatus: http.StatusOK},
 		{operationID: "createSeller", method: http.MethodPost, path: "/v1/sellers", wantStatus: http.StatusUnauthorized},
 		{operationID: "getCurrentSeller", method: http.MethodGet, path: "/v1/me/seller", wantStatus: http.StatusUnauthorized},
 		{operationID: "revokeCurrentSellerSession", method: http.MethodDelete, path: "/v1/me/session", wantStatus: http.StatusUnauthorized},
@@ -269,6 +272,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	mux.HandleFunc("GET /health", func(response http.ResponseWriter, _ *http.Request) {
 		_ = api.WriteJSON(response, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	payments.NewCapabilityHTTPController(payments.NewMockAdapter()).RegisterRoutes(mux)
 	catalogService := catalog.NewService(
 		catalogRepository,
 		idGenerator,

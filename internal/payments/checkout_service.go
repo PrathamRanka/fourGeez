@@ -175,8 +175,21 @@ func (service *CheckoutService) Execute(
 					return CheckoutResult{}, challengeErr
 				}
 				return CheckoutResult{
-					TransactionID: transaction.TransactionID(),
-					Challenge:     &challenge,
+					TransactionID:  transaction.TransactionID(),
+					Challenge:      &challenge,
+					RecoveryAction: RecoveryActionSignFreshAuthorization,
+				}, verifyErr
+			}
+			if errors.Is(verifyErr, ErrPaymentCapabilityUnsupported) {
+				return CheckoutResult{
+					TransactionID:  transaction.TransactionID(),
+					RecoveryAction: RecoveryActionSignFreshAuthorization,
+				}, verifyErr
+			}
+			if IsRetryable(verifyErr) {
+				return CheckoutResult{
+					TransactionID:  transaction.TransactionID(),
+					RecoveryAction: RecoveryActionRetrySameRequest,
 				}, verifyErr
 			}
 			return CheckoutResult{}, verifyErr
@@ -245,6 +258,16 @@ func (service *CheckoutService) Execute(
 			); updateErr != nil {
 				return CheckoutResult{}, updateErr
 			}
+			return CheckoutResult{
+				TransactionID:  transaction.TransactionID(),
+				RecoveryAction: RecoveryActionStartNewCheckout,
+			}, err
+		}
+		if IsRetryable(err) {
+			return CheckoutResult{
+				TransactionID:  transaction.TransactionID(),
+				RecoveryAction: RecoveryActionRetrySamePayment,
+			}, err
 		}
 		return CheckoutResult{}, err
 	}

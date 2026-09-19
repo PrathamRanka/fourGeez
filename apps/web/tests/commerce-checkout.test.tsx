@@ -219,4 +219,77 @@ describe("commerce checkout", () => {
     );
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
   });
+
+  it("keeps an unknown settlement on the same signed payment", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchaseIntent: intent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          paymentRequired: btoa(
+            JSON.stringify({
+              scheme: "exact",
+              network: product.network,
+              asset: product.asset,
+              amount: product.amount,
+              payTo: intent.payTo,
+              resource: "http://localhost:8080/pay/northstar/research/basic",
+              maxTimeoutSeconds: 30,
+            }),
+          ),
+          paymentMode: "mock",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              code: "payment_outcome_unknown",
+              message: "Settlement confirmation is temporarily unavailable.",
+              details: { recoveryAction: "retry_same_payment" },
+            },
+          },
+          503,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "fulfilled",
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          settlementReference: "mock-settlement",
+          contentType: "application/json",
+          fulfillment: { reportId: "report_demo" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={product}
+        sellerSlug="northstar"
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Complete local demo payment",
+      }),
+    );
+
+    expect(await screen.findByText(/same signed payment/i)).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Retry settlement check" }),
+    );
+
+    expect(await screen.findByText("Paid and fulfilled")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual(
+      JSON.parse(String(fetchMock.mock.calls[2][1]?.body)),
+    );
+  });
 });

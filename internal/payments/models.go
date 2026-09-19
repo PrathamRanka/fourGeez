@@ -36,6 +36,24 @@ const (
 	MockUnavailableProof = "mock-unavailable-proof"
 	// MockPayerAddress is the deterministic local browser-wallet identity.
 	MockPayerAddress = "0x2222222222222222222222222222222222222222"
+
+	PaymentCapabilitySchemaVersion                      = "agentpay.payment-capabilities.v1"
+	X402BaseSepoliaUSDCCapabilityID                     = "x402-exact-base-sepolia-usdc"
+	MockExactPaymentCapabilityID                        = "mock-exact-local"
+	PaymentSelectionFirstCompatible                     = "first-compatible"
+	PaymentSettlementDirectToSeller                     = "direct-to-seller"
+	PaymentRailX402                                     = "x402"
+	PaymentRailMock                                     = "mock"
+	PaymentEnvironmentLocal                             = "local"
+	PaymentEnvironmentTestnet                           = "testnet"
+	PaymentChannelAgent                                 = "agent"
+	PaymentChannelBrowser                               = "browser"
+	RecoveryActionConnectWallet          RecoveryAction = "connect_wallet"
+	RecoveryActionSwitchNetwork          RecoveryAction = "switch_network"
+	RecoveryActionSignFreshAuthorization RecoveryAction = "sign_fresh_authorization"
+	RecoveryActionRetrySameRequest       RecoveryAction = "retry_same_request"
+	RecoveryActionRetrySamePayment       RecoveryAction = "retry_same_payment"
+	RecoveryActionStartNewCheckout       RecoveryAction = "start_new_checkout"
 )
 
 var (
@@ -55,7 +73,51 @@ var (
 	ErrApprovalInvalid = errors.New("purchase approval is invalid")
 	// ErrPaymentReplay reports a proof or intent already claimed elsewhere.
 	ErrPaymentReplay = errors.New("payment proof has already been used")
+	// ErrPaymentCapabilityUnsupported reports a proof using a disabled rail, network, or asset.
+	ErrPaymentCapabilityUnsupported = errors.New("payment capability is unsupported")
 )
+
+// RecoveryAction identifies the only safe next action after a payment failure.
+type RecoveryAction string
+
+// PaymentCapabilityAsset identifies one exact asset supported by a capability.
+type PaymentCapabilityAsset struct {
+	Identifier string `json:"identifier"`
+	Symbol     string `json:"symbol"`
+	Decimals   int    `json:"decimals"`
+}
+
+// PaymentWalletCapability describes the browser-wallet protocol requirements.
+type PaymentWalletCapability struct {
+	ProviderStandard      string   `json:"providerStandard"`
+	ChainID               int      `json:"chainId"`
+	ChainIDHex            string   `json:"chainIdHex"`
+	AuthorizationStandard string   `json:"authorizationStandard"`
+	TransferStandard      string   `json:"transferStandard"`
+	RequiredMethods       []string `json:"requiredMethods"`
+}
+
+// PaymentCapability is one enabled payment path advertised by the runtime.
+type PaymentCapability struct {
+	CapabilityID string                   `json:"capabilityId"`
+	Rail         string                   `json:"rail"`
+	Scheme       string                   `json:"scheme"`
+	Network      string                   `json:"network"`
+	Asset        PaymentCapabilityAsset   `json:"asset"`
+	AmountMode   string                   `json:"amountMode"`
+	Settlement   string                   `json:"settlement"`
+	Custody      bool                     `json:"custody"`
+	Channels     []string                 `json:"channels"`
+	Wallet       *PaymentWalletCapability `json:"wallet"`
+}
+
+// PaymentCapabilityCatalog lists only the capabilities enabled by one adapter.
+type PaymentCapabilityCatalog struct {
+	SchemaVersion string              `json:"schemaVersion"`
+	Environment   string              `json:"environment"`
+	SelectionRule string              `json:"selectionRule"`
+	Capabilities  []PaymentCapability `json:"capabilities"`
+}
 
 // Requirements contains the immutable terms required for exact payment.
 type Requirements struct {
@@ -92,8 +154,14 @@ type SettlementResult struct {
 	PayerAddress      string
 }
 
+// CapabilityProvider advertises only payment paths enabled by one runtime adapter.
+type CapabilityProvider interface {
+	PaymentCapabilities() PaymentCapabilityCatalog
+}
+
 // Adapter isolates payment protocol implementations from AgentPay use cases.
 type Adapter interface {
+	CapabilityProvider
 	CreateChallenge(context.Context, Requirements) (Challenge, error)
 	Verify(context.Context, string, Requirements) (VerificationResult, error)
 	Settle(context.Context, string, Requirements) (SettlementResult, error)
@@ -155,6 +223,7 @@ type CheckoutResult struct {
 	Challenge        *Challenge
 	Response         *proxy.ForwardResponse
 	SettlementHeader string
+	RecoveryAction   RecoveryAction
 }
 
 // PaidRouteCatalogRepository resolves sellers and their configured routes.

@@ -24,6 +24,10 @@ describe("AgentPay public routes", () => {
         name: "Connect AgentPay to your repository.",
       }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Check payment compatibility" }),
+    ).toBeVisible();
+    expect(screen.getByText("GET /v1/payment-capabilities")).toBeVisible();
 
     render(await SignInPage());
     expect(

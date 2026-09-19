@@ -23,7 +23,10 @@ import type {
 import {
   createX402PaymentSignature,
   decodePaymentRequired,
+  detectWalletCompatibility,
   getInjectedWallet,
+  PaymentCapabilityError,
+  type PaymentRecoveryAction,
 } from "@/features/commerce/x402-wallet";
 import type { PublicProduct } from "@/features/storefront/model";
 import {
@@ -42,7 +45,11 @@ type CheckoutStage =
   | "fulfilled"
   | "error";
 
-type CheckoutError = { message: string; retryable: boolean };
+type CheckoutError = {
+  message: string;
+  retryable: boolean;
+  recoveryAction?: PaymentRecoveryAction;
+};
 
 export function CommerceCheckout({
   channel,
@@ -71,6 +78,7 @@ export function CommerceCheckout({
   const [checkoutError, setCheckoutError] = useState<CheckoutError | null>(
     null,
   );
+  const [paymentSignature, setPaymentSignature] = useState<string | null>(null);
 
   const maximumSpendID = useId();
   const maximumSpendHelpID = useId();
@@ -136,9 +144,18 @@ export function CommerceCheckout({
       return;
     }
     setStartResult(response.value);
-    if (response.value.paymentMode === "x402" && getInjectedWallet() === null) {
-      setStage("wallet_missing");
-      return;
+    if (response.value.paymentMode === "x402") {
+      const compatibility =
+        await detectWalletCompatibility(getInjectedWallet());
+      if (!compatibility.compatible) {
+        setCheckoutError({
+          message: compatibility.message,
+          retryable: true,
+          recoveryAction: compatibility.recoveryAction,
+        });
+        setStage("wallet_missing");
+        return;
+      }
     }
     setStage("payment_ready");
   }
@@ -156,13 +173,15 @@ export function CommerceCheckout({
         setStage("wallet_missing");
         return;
       }
-      const paymentSignature =
-        decoded.mode === "mock"
+      const signedPayment =
+        paymentSignature ??
+        (decoded.mode === "mock"
           ? "mock-approved-proof"
           : await createX402PaymentSignature(
               startResult.paymentRequired,
               provider!,
-            );
+            ));
+      setPaymentSignature(signedPayment);
       const response = await requestCheckout<CheckoutCompleteResult>(
         "/api/commerce/complete",
         {
@@ -170,7 +189,7 @@ export function CommerceCheckout({
           sellerSlug,
           requestBody,
           purchaseIntent: startResult.purchaseIntent,
-          paymentSignature,
+          paymentSignature: signedPayment,
         },
       );
       if (!response.ok) {
@@ -178,28 +197,41 @@ export function CommerceCheckout({
         setCheckoutError({
           message: response.error,
           retryable: response.retryable,
+          recoveryAction: response.recoveryAction,
         });
+        if (response.recoveryAction === "sign_fresh_authorization") {
+          setPaymentSignature(null);
+        }
         return;
       }
       setCompleteResult(response.value);
       setStage("fulfilled");
     } catch (error) {
       setStage("error");
-      setCheckoutError({
-        message: walletErrorMessage(error),
-        retryable: true,
-      });
+      setCheckoutError(walletCheckoutError(error));
     }
   }
 
-  function checkWalletAgain() {
-    setStage(getInjectedWallet() ? "payment_ready" : "wallet_missing");
+  async function checkWalletAgain() {
+    const compatibility = await detectWalletCompatibility(getInjectedWallet());
+    if (compatibility.compatible) {
+      setCheckoutError(null);
+      setStage("payment_ready");
+      return;
+    }
+    setCheckoutError({
+      message: compatibility.message,
+      retryable: true,
+      recoveryAction: compatibility.recoveryAction,
+    });
+    setStage("wallet_missing");
   }
 
   function resetCheckout() {
     setStartResult(null);
     setCompleteResult(null);
     setCheckoutError(null);
+    setPaymentSignature(null);
     setStage("ready");
   }
 
@@ -388,7 +420,7 @@ export function CommerceCheckout({
                 className={styles.action}
                 type="button"
                 variant="outline"
-                onClick={checkWalletAgain}
+                onClick={() => void checkWalletAgain()}
               >
                 <RotateCcw aria-hidden="true" /> Check for wallet again
               </Button>
@@ -398,9 +430,23 @@ export function CommerceCheckout({
                 className={styles.action}
                 type="button"
                 variant="outline"
-                onClick={resetCheckout}
+                onClick={
+                  checkoutError.recoveryAction === "retry_same_payment" ||
+                  checkoutError.recoveryAction === "retry_same_request" ||
+                  checkoutError.recoveryAction === "sign_fresh_authorization"
+                    ? completeCheckout
+                    : resetCheckout
+                }
               >
-                <RotateCcw aria-hidden="true" /> Try again
+                <RotateCcw aria-hidden="true" />
+                {checkoutError.recoveryAction === "retry_same_payment"
+                  ? "Retry settlement check"
+                  : checkoutError.recoveryAction === "retry_same_request"
+                    ? "Retry payment verification"
+                    : checkoutError.recoveryAction ===
+                        "sign_fresh_authorization"
+                      ? "Retry wallet authorization"
+                      : "Try again"}
               </Button>
             ) : null}
           </div>
@@ -438,8 +484,8 @@ function CommerceStatus({
         <div>
           <strong>Wallet required</strong>
           <span>
-            Install or open an EVM wallet that supports Base Sepolia, then
-            return here. The purchase has not been charged.
+            {error?.message ??
+              "Install or open an EVM wallet that supports Base Sepolia, then return here. The purchase has not been charged."}
           </span>
           <a href="/docs" target="_blank" rel="noreferrer">
             Open wallet guidance <ExternalLink aria-hidden="true" />
@@ -455,6 +501,12 @@ function CommerceStatus({
         <div>
           <strong>Checkout did not complete</strong>
           <span>{error.message}</span>
+          {error.recoveryAction === "retry_same_payment" ? (
+            <span>
+              AgentPay will retry the same signed payment and will not request a
+              second wallet authorization.
+            </span>
+          ) : null}
         </div>
       </div>
     );
@@ -497,7 +549,13 @@ async function requestCheckout<Value>(
   path: string,
   body: unknown,
 ): Promise<
-  { ok: true; value: Value } | { ok: false; error: string; retryable: boolean }
+  | { ok: true; value: Value }
+  | {
+      ok: false;
+      error: string;
+      retryable: boolean;
+      recoveryAction?: PaymentRecoveryAction;
+    }
 > {
   try {
     const response = await fetch(path, {
@@ -511,13 +569,23 @@ async function requestCheckout<Value>(
         isRecord(responseBody) && isRecord(responseBody.error)
           ? responseBody.error
           : null;
+      const recoveryAction =
+        apiError &&
+        isRecord(apiError.details) &&
+        isPaymentRecoveryAction(apiError.details.recoveryAction)
+          ? apiError.details.recoveryAction
+          : undefined;
       return {
         ok: false,
         error:
           apiError && typeof apiError.message === "string"
             ? apiError.message
             : "AgentPay could not complete checkout.",
-        retryable: response.status >= 500 || response.status === 429,
+        retryable:
+          recoveryAction !== undefined ||
+          response.status >= 500 ||
+          response.status === 429,
+        recoveryAction,
       };
     }
     return { ok: true, value: responseBody as Value };
@@ -531,13 +599,35 @@ async function requestCheckout<Value>(
   }
 }
 
-function walletErrorMessage(error: unknown): string {
-  if (isRecord(error) && error.code === 4001) {
-    return "The wallet request was cancelled. No payment was made.";
+function walletCheckoutError(error: unknown): CheckoutError {
+  if (error instanceof PaymentCapabilityError) {
+    return {
+      message: error.message,
+      retryable: true,
+      recoveryAction: error.recoveryAction,
+    };
   }
-  return error instanceof Error
-    ? error.message
-    : "The wallet could not authorize this payment.";
+  return {
+    message:
+      error instanceof Error
+        ? error.message
+        : "The wallet could not authorize this payment.",
+    retryable: true,
+    recoveryAction: "sign_fresh_authorization",
+  };
+}
+
+function isPaymentRecoveryAction(
+  value: unknown,
+): value is PaymentRecoveryAction {
+  return (
+    value === "connect_wallet" ||
+    value === "switch_network" ||
+    value === "sign_fresh_authorization" ||
+    value === "retry_same_request" ||
+    value === "retry_same_payment" ||
+    value === "start_new_checkout"
+  );
 }
 
 function assertPaymentTerms(

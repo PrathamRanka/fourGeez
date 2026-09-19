@@ -31,7 +31,13 @@ const disputeReasons = new Set<DisputeReason>([
 
 type GatewayResult<Value> =
   | { ok: true; value: Value; setCookies?: string[] }
-  | { ok: false; status: number; code: string; message: string };
+  | {
+      ok: false;
+      status: number;
+      code: string;
+      message: string;
+      recoveryAction?: string;
+    };
 
 type StartInput = {
   channel: CommerceChannel;
@@ -601,6 +607,11 @@ async function fetchBounded(
           apiError && typeof apiError.message === "string"
             ? apiError.message
             : "AgentPay could not complete checkout.",
+          apiError &&
+            isRecord(apiError.details) &&
+            typeof apiError.details.recoveryAction === "string"
+            ? apiError.details.recoveryAction
+            : undefined,
         ),
       };
     }
@@ -692,8 +703,9 @@ function gatewayFailure(
   status: number,
   code: string,
   message: string,
+  recoveryAction?: string,
 ): Extract<GatewayResult<never>, { ok: false }> {
-  return { ok: false, status, code, message };
+  return { ok: false, status, code, message, recoveryAction };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

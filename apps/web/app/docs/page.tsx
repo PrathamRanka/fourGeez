@@ -44,6 +44,7 @@ export default function DocsPage() {
                 {title}
               </a>
             ))}
+            <a href="#payment-capabilities">Payment compatibility</a>
             <a href="#prompt">Setup prompt</a>
           </nav>
         </aside>
@@ -65,6 +66,15 @@ export default function DocsPage() {
               </li>
             ))}
           </ol>
+          <section className={styles.prompt} id="payment-capabilities">
+            <h2>Check payment compatibility</h2>
+            <p>
+              Read <code>GET /v1/payment-capabilities</code> before presenting
+              payment. The testnet runtime currently enables exact x402 on Base
+              Sepolia USDC only. Browser and agent buyers use the same immutable
+              quote and payment path; card checkout is not enabled.
+            </p>
+          </section>
           <section className={styles.prompt} id="prompt">
             <h2>Representative setup prompt</h2>
             <p>

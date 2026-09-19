@@ -39,6 +39,7 @@ func NewHTTPController(service *CheckoutService) *HTTPController {
 
 // RegisterRoutes registers GET and POST paid-resource operations.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
+	NewCapabilityHTTPController(controller.service.adapter).RegisterRoutes(mux)
 	executeHandler := http.Handler(api.RequireAgent(http.HandlerFunc(controller.execute)))
 	if controller.browserAuthorizer != nil {
 		executeHandler = browserpurchase.RequireAgentOrBrowser(
@@ -163,7 +164,7 @@ func (controller *HTTPController) writeError(
 			http.StatusPaymentRequired,
 			api.ErrorCodePaymentRejected,
 			"payment proof was rejected",
-			nil,
+			controller.paymentRecoveryDetails(RecoveryActionSignFreshAuthorization),
 		)
 		return
 	}
@@ -174,7 +175,9 @@ func (controller *HTTPController) writeError(
 	switch {
 	case errors.Is(err, ErrIntentExpired):
 		status = http.StatusGone
-		code = api.ErrorCodeGone
+		code = api.ErrorCodePaymentExpired
+		message = "purchase intent expired"
+		result.RecoveryAction = RecoveryActionStartNewCheckout
 	case errors.Is(err, domain.ErrCommerceUnavailable):
 		status = http.StatusGone
 		code = api.ErrorCodeSellerInactive
@@ -189,6 +192,16 @@ func (controller *HTTPController) writeError(
 	case errors.Is(err, ErrPaymentRejected):
 		status = http.StatusPaymentRequired
 		code = api.ErrorCodePaymentRejected
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionSignFreshAuthorization
+		}
+	case errors.Is(err, ErrPaymentCapabilityUnsupported):
+		status = http.StatusUnprocessableEntity
+		code = api.ErrorCodePaymentCapabilityUnsupported
+		message = "payment capability is unsupported"
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionSignFreshAuthorization
+		}
 	case errors.Is(err, ErrSubscriptionInactive):
 		status = http.StatusForbidden
 		code = "subscription_inactive"
@@ -197,9 +210,38 @@ func (controller *HTTPController) writeError(
 		status = http.StatusServiceUnavailable
 		code = api.ErrorCodeDependencyUnavailable
 		message = "commerce authorization is unavailable"
+	case IsRetryable(err) && result.RecoveryAction == RecoveryActionRetrySamePayment:
+		status = http.StatusServiceUnavailable
+		code = api.ErrorCodePaymentOutcomeUnknown
+		message = "settlement confirmation is temporarily unavailable"
+		response.Header().Set("Retry-After", "2")
 	case IsRetryable(err):
 		status = http.StatusServiceUnavailable
-		code = "payment_unavailable"
+		code = api.ErrorCodePaymentUnavailable
+		message = "payment verification is temporarily unavailable"
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionRetrySameRequest
+		}
+		response.Header().Set("Retry-After", "2")
 	}
-	api.WriteError(response, request, status, code, message, nil)
+	api.WriteError(response, request, status, code, message, controller.paymentRecoveryDetails(result.RecoveryAction))
+}
+
+func (controller *HTTPController) paymentRecoveryDetails(action RecoveryAction) map[string]any {
+	if action == "" {
+		return nil
+	}
+	details := map[string]any{"recoveryAction": string(action)}
+	if controller.service == nil || controller.service.adapter == nil {
+		return details
+	}
+	catalog := controller.service.adapter.PaymentCapabilities()
+	if len(catalog.Capabilities) == 0 {
+		return details
+	}
+	capability := catalog.Capabilities[0]
+	details["capabilityId"] = capability.CapabilityID
+	details["requiredNetwork"] = capability.Network
+	details["requiredAsset"] = capability.Asset.Identifier
+	return details
 }

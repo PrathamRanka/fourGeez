@@ -97,6 +97,40 @@ func TestPaidRouteControllerReturnsChallengeAndDelivery(t *testing.T) {
 	}
 }
 
+func TestPaidRouteControllerPublishesRuntimePaymentCapabilities(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	service := NewCheckoutService(
+		fixture.service,
+		NewX402Adapter(),
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		&checkoutExecutor{},
+		fixture.clock,
+	)
+	mux := http.NewServeMux()
+	NewHTTPController(service).RegisterRoutes(mux)
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/payment-capabilities", nil)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Cache-Control") != "public, max-age=60" {
+		t.Fatalf("Cache-Control = %q", response.Header().Get("Cache-Control"))
+	}
+	var catalog PaymentCapabilityCatalog
+	if err := json.Unmarshal(response.Body.Bytes(), &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Capabilities) != 1 || catalog.Capabilities[0].Rail != PaymentRailX402 {
+		t.Fatalf("catalog = %#v", catalog)
+	}
+}
+
 func TestPaidRouteControllerMapsInactiveCommerceToGone(t *testing.T) {
 	t.Parallel()
 
@@ -142,6 +176,45 @@ func TestPaidRouteControllerLabelsRejectedProofWithoutLosingChallenge(t *testing
 		t.Fatalf("PAYMENT-REQUIRED = %q", response.Header().Get(paymentRequiredHeader))
 	}
 	assertPaymentErrorCode(t, response, "payment_rejected")
+	assertPaymentRecoveryAction(t, response, RecoveryActionSignFreshAuthorization)
+}
+
+func TestPaidRouteControllerMapsPaymentRecoveryFailures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		err        error
+		result     CheckoutResult
+		status     int
+		code       string
+		recovery   RecoveryAction
+		retryAfter string
+	}{
+		{name: "expired", err: ErrIntentExpired, status: http.StatusGone, code: "payment_expired", recovery: RecoveryActionStartNewCheckout},
+		{name: "unsupported", err: ErrPaymentCapabilityUnsupported, status: http.StatusUnprocessableEntity, code: "payment_capability_unsupported", recovery: RecoveryActionSignFreshAuthorization},
+		{name: "verification unavailable", err: ErrPaymentUnavailable, result: CheckoutResult{RecoveryAction: RecoveryActionRetrySameRequest}, status: http.StatusServiceUnavailable, code: "payment_unavailable", recovery: RecoveryActionRetrySameRequest, retryAfter: "2"},
+		{name: "settlement unknown", err: ErrPaymentUnavailable, result: CheckoutResult{RecoveryAction: RecoveryActionRetrySamePayment}, status: http.StatusServiceUnavailable, code: "payment_outcome_unknown", recovery: RecoveryActionRetrySamePayment, retryAfter: "2"},
+		{name: "settlement rejected", err: ErrPaymentRejected, result: CheckoutResult{RecoveryAction: RecoveryActionStartNewCheckout}, status: http.StatusPaymentRequired, code: "payment_rejected", recovery: RecoveryActionStartNewCheckout},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controller := &HTTPController{}
+			request := httptest.NewRequest(http.MethodPost, "/pay/demo-seller/weather", nil)
+			response := httptest.NewRecorder()
+			controller.writeError(response, request, test.result, test.err)
+
+			if response.Code != test.status {
+				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+			}
+			assertPaymentErrorCode(t, response, test.code)
+			assertPaymentRecoveryAction(t, response, test.recovery)
+			if response.Header().Get("Retry-After") != test.retryAfter {
+				t.Fatalf("Retry-After = %q", response.Header().Get("Retry-After"))
+			}
+		})
+	}
 }
 
 func assertPaymentErrorCode(t *testing.T, response *httptest.ResponseRecorder, expected string) {
@@ -152,6 +225,17 @@ func assertPaymentErrorCode(t *testing.T, response *httptest.ResponseRecorder, e
 	}
 	if body.Error.Code != expected {
 		t.Fatalf("error code = %q, want %q", body.Error.Code, expected)
+	}
+}
+
+func assertPaymentRecoveryAction(t *testing.T, response *httptest.ResponseRecorder, expected RecoveryAction) {
+	t.Helper()
+	var body api.ErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Details["recoveryAction"] != string(expected) {
+		t.Fatalf("recoveryAction = %#v, want %q", body.Error.Details["recoveryAction"], expected)
 	}
 }
 

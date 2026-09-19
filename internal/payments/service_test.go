@@ -223,23 +223,24 @@ func TestX402AdapterRejectsEveryModifiedFrozenPaymentTerm(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		mutate func(*x402types.PaymentPayload)
+		name      string
+		mutate    func(*x402types.PaymentPayload)
+		wantError error
 	}{
-		{name: "scheme", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Scheme = "upto" }},
-		{name: "network", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Network = "eip155:1" }},
+		{name: "scheme", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Scheme = "upto" }, wantError: ErrPaymentCapabilityUnsupported},
+		{name: "network", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Network = "eip155:1" }, wantError: ErrPaymentCapabilityUnsupported},
 		{name: "asset", mutate: func(payload *x402types.PaymentPayload) {
 			payload.Accepted.Asset = "0x2222222222222222222222222222222222222222"
-		}},
-		{name: "amount", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Amount = "9999" }},
+		}, wantError: ErrPaymentCapabilityUnsupported},
+		{name: "amount", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.Amount = "9999" }, wantError: ErrPaymentRejected},
 		{name: "destination", mutate: func(payload *x402types.PaymentPayload) {
 			payload.Accepted.PayTo = "0x3333333333333333333333333333333333333333"
-		}},
-		{name: "timeout", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.MaxTimeoutSeconds++ }},
-		{name: "missing resource", mutate: func(payload *x402types.PaymentPayload) { payload.Resource = nil }},
-		{name: "resource URL", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.URL = "https://api.example/pay/demo/other" }},
-		{name: "resource description", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.Description = "Different product" }},
-		{name: "resource MIME type", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.MimeType = "text/plain" }},
+		}, wantError: ErrPaymentRejected},
+		{name: "timeout", mutate: func(payload *x402types.PaymentPayload) { payload.Accepted.MaxTimeoutSeconds++ }, wantError: ErrPaymentRejected},
+		{name: "missing resource", mutate: func(payload *x402types.PaymentPayload) { payload.Resource = nil }, wantError: ErrPaymentRejected},
+		{name: "resource URL", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.URL = "https://api.example/pay/demo/other" }, wantError: ErrPaymentRejected},
+		{name: "resource description", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.Description = "Different product" }, wantError: ErrPaymentRejected},
+		{name: "resource MIME type", mutate: func(payload *x402types.PaymentPayload) { payload.Resource.MimeType = "text/plain" }, wantError: ErrPaymentRejected},
 	}
 
 	for _, test := range tests {
@@ -257,8 +258,8 @@ func TestX402AdapterRejectsEveryModifiedFrozenPaymentTerm(t *testing.T) {
 			proof := paymentProofWithMutation(t, validRequirements(), test.mutate)
 
 			_, err := adapter.Verify(t.Context(), proof, validRequirements())
-			if !errors.Is(err, ErrPaymentRejected) {
-				t.Fatalf("Verify() error = %v, want payment rejected", err)
+			if !errors.Is(err, test.wantError) {
+				t.Fatalf("Verify() error = %v, want %v", err, test.wantError)
 			}
 			if calls.Load() != 0 {
 				t.Fatalf("facilitator calls = %d, want 0", calls.Load())
@@ -335,6 +336,28 @@ func TestX402AdapterClassifiesVerificationFailures(t *testing.T) {
 					x402.ErrCodeSignatureInvalid,
 					"",
 					"invalid signature",
+				)
+			},
+			wantError: ErrPaymentRejected,
+		},
+		{
+			name: "expired authorization",
+			verify: func(context.Context, []byte, []byte) (*x402.VerifyResponse, error) {
+				return nil, x402.NewVerifyError(
+					x402.ErrCodePaymentExpired,
+					"",
+					"authorization expired",
+				)
+			},
+			wantError: ErrPaymentRejected,
+		},
+		{
+			name: "nonce rejected",
+			verify: func(context.Context, []byte, []byte) (*x402.VerifyResponse, error) {
+				return nil, x402.NewVerifyError(
+					x402.ErrCodeInvalidPayment,
+					"",
+					"nonce already used",
 				)
 			},
 			wantError: ErrPaymentRejected,
