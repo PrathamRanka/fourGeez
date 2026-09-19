@@ -76,6 +76,7 @@ data "aws_iam_policy_document" "api_runtime" {
     actions = [
       "dynamodb:BatchGetItem",
       "dynamodb:BatchWriteItem",
+      "dynamodb:ConditionCheckItem",
       "dynamodb:DescribeTable",
       "dynamodb:GetItem",
       "dynamodb:PutItem",

@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -539,6 +540,7 @@ func safeMutationError(err error) error {
 		errors.Is(err, persistence.ErrConditionFailed) {
 		return err
 	}
+	slog.Error("MCP mutation failed", "error", err)
 	return errors.New("AgentPay mutation failed")
 }
 

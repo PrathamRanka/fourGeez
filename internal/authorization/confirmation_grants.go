@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -245,11 +246,11 @@ func (service *ConfirmationGrantService) Consume(
 		return ErrConfirmationDenied
 	}
 	if err != nil {
-		return ErrAuthorizationUnavailable
+		return fmt.Errorf("load confirmation grant: %w", err)
 	}
 	digest, err := service.digester.Digest(ctx, request.ConfirmationGrant)
 	if err != nil {
-		return ErrAuthorizationUnavailable
+		return fmt.Errorf("digest confirmation grant: %w", err)
 	}
 	if subtle.ConstantTimeCompare([]byte(digest), []byte(grant.TokenDigest)) != 1 ||
 		grant.SellerID != principal.SellerID || grant.CredentialID != principal.CredentialID ||
@@ -286,7 +287,7 @@ func (service *ConfirmationGrantService) Consume(
 			}
 			return ErrConfirmationReplayed
 		}
-		return ErrAuthorizationUnavailable
+		return fmt.Errorf("consume confirmation grant: %w", err)
 	}
 	return service.auditRecorder.Record(ctx, audit.RecordRequest{
 		SellerID: principal.SellerID, ActorType: audit.ActorTypeIntegrationCredential,
