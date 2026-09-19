@@ -27,3 +27,13 @@ variable "evidence_retention_days" {
   description = "Default Object Lock retention for evidence objects."
   type        = number
 }
+
+variable "capability_signing_key_versions" {
+  description = "Version labels retained in JWKS during capability-key rotation."
+  type        = set(string)
+}
+
+variable "active_capability_signing_key_version" {
+  description = "Version label targeted by the current capability-signing alias."
+  type        = string
+}

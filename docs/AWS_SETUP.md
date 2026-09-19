@@ -40,21 +40,20 @@ AWS_REGION=ap-south-1
 AGENTPAY_TABLE_NAME=<Terraform output>
 AGENTPAY_EVIDENCE_BUCKET=<Terraform output>
 AGENTPAY_EVIDENCE_KMS_KEY_ID=<Terraform output>
+AGENTPAY_CAPABILITY_SIGNING_KEY_ID=<Terraform output>
+AGENTPAY_CAPABILITY_VERIFICATION_KEY_IDS=<Terraform output>
+AGENTPAY_APPLICATION_SECRETS_KMS_KEY_ID=<Terraform output>
+AGENTPAY_CREDENTIAL_PEPPER_SECRET_ARN=<Terraform output>
+AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_ID=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<Terraform output>
 AGENTPAY_HTTP_API_URL=<Terraform output>
 AGENTPAY_WEBSOCKET_URL=<Terraform output>
 AGENTPAY_MCP_URL=<Terraform output>
-AGENTPAY_BEDROCK_MODEL_ID=<selected model ID>
-AGENTPAY_BUYER_BUDGET_ATOMIC=<positive atomic-unit amount>
 AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
-AGENTPAY_BEDROCK_TIMEOUT_MS=<positive timeout in milliseconds>
-AGENTPAY_BEDROCK_MAX_TOOL_CALLS=<positive integer>
 AGENTPAY_FACILITATOR_URL=<verified testnet facilitator URL>
 AGENTPAY_X402_NETWORK=<verified SDK network identifier>
 AGENTPAY_X402_ASSET=<verified testnet asset identifier>
-AGENTPAY_TEST_WALLET_SECRET_ARN=<Secrets Manager ARN>
-AGENTPAY_APPROVAL_TOKEN_SECRET_ARN=<Secrets Manager ARN>
 ```
 
 Only names, local mock values, and non-sensitive URLs belong in `.env.example`. Actual values are environment configuration; secrets belong in Secrets Manager.
@@ -116,7 +115,7 @@ Approval participants do not require Cognito in the hackathon. They authenticate
 
 | Role | Required access | Explicitly denied/not granted |
 |---|---|---|
-| API Lambda | DynamoDB item operations, append evidence objects, KMS signing, selected secrets, Bedrock invocation, logs, WebSocket callbacks | Bucket deletion, KMS administration, IAM changes |
+| API Lambda | DynamoDB item operations, append evidence objects, evidence/capability signing, application-envelope encryption, and selected secrets | Table scans, evidence deletion, KMS administration, IAM changes, Bedrock |
 | Evidence verifier | Read evidence objects, KMS public-key/verification operations | S3 writes/deletes, KMS signing |
 | Web frontend | Public API access and Cognito browser flows | DynamoDB, S3 evidence bucket, KMS, Secrets Manager |
 | CI deploy | Terraform deployment permissions scoped to project resources and remote state | Organization/account administration |
@@ -126,19 +125,33 @@ Before production, split the API Lambda role into payment/proxy, evidence writer
 
 ## Secrets setup
 
-Create secrets outside source control after Terraform creates placeholders:
+Terraform creates the two pepper containers without a secret version. Before
+the API is activated, generate two independent values with at least 256 bits of
+cryptographic randomness and inject each value from a protected local file:
 
 ```powershell
-aws secretsmanager put-secret-value --secret-id <test-wallet-secret-id> --secret-string <value-supplied-securely>
-aws secretsmanager put-secret-value --secret-id <approval-token-secret-id> --secret-string <value-supplied-securely>
+aws secretsmanager put-secret-value --secret-id agentpay/dev/credential-pepper --secret-string file://<protected-credential-pepper-file> --profile agentpay-india --region ap-south-1
+aws secretsmanager put-secret-value --secret-id agentpay/dev/confirmation-grant-pepper --secret-string file://<protected-confirmation-pepper-file> --profile agentpay-india --region ap-south-1
 ```
+
+Secret values must not be passed on the command line, committed, pasted into
+chat, Terraform variables, plans, outputs, logs, or shell history. Remove the
+protected input files after injection according to the operator workstation's
+secure-deletion policy. The containers intentionally remain empty until an
+authorized operator supplies these values.
 
 Required controls:
 
-- Test wallet secret is never printed, returned by an API, included in evidence, or passed to Bedrock.
 - Seller HMAC secrets are generated server-side and displayed only once or delivered through an authenticated rotation flow.
 - Logs redact `Authorization`, `Cookie`, `PAYMENT-SIGNATURE`, invitation tokens, approval tokens, and all secret values.
 - Rotate demo secrets after every public event.
+
+Capability-key rotation is additive. Add the next version label to
+`capability_signing_key_versions`, apply to create the new P-256 key, publish
+both key IDs through JWKS, and only then change
+`active_capability_signing_key_version`. Retain the old verification key beyond
+the maximum capability lifetime and cache window. Protected keys require an
+explicit reviewed retirement change; routine teardown cannot destroy them.
 
 ## Deployment order
 

@@ -3,3 +3,5 @@ aws_region     = "ap-south-1"
 environment    = "demo"
 project_name   = "agentpay"
 evidence_retention_days = 180
+capability_signing_key_versions       = ["v1"]
+active_capability_signing_key_version = "v1"

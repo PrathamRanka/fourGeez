@@ -33,3 +33,38 @@ output "evidence_kms_key_arn" {
   description = "Asymmetric KMS key ARN used by evidence IAM policies."
   value       = aws_kms_key.evidence_signing.arn
 }
+
+output "capability_signing_key_id" {
+  description = "Active asymmetric KMS key ID used for access, discovery, and execution capabilities."
+  value       = aws_kms_key.capability_signing[var.active_capability_signing_key_version].key_id
+}
+
+output "capability_verification_key_ids" {
+  description = "Versioned capability keys published through JWKS during rotation overlap."
+  value       = { for version, key in aws_kms_key.capability_signing : version => key.key_id }
+}
+
+output "credential_pepper_secret_arn" {
+  description = "Secrets Manager container ARN for the project-credential digest pepper."
+  value       = aws_secretsmanager_secret.credential_pepper.arn
+}
+
+output "confirmation_grant_pepper_secret_arn" {
+  description = "Secrets Manager container ARN for the confirmation-grant digest pepper."
+  value       = aws_secretsmanager_secret.confirmation_grant_pepper.arn
+}
+
+output "application_secrets_kms_key_id" {
+  description = "Symmetric KMS key ID for secret and replay-envelope encryption."
+  value       = aws_kms_key.application_secrets.key_id
+}
+
+output "api_runtime_role_arn" {
+  description = "Least-privilege IAM role ARN for the API Lambda."
+  value       = aws_iam_role.api_runtime.arn
+}
+
+output "evidence_verifier_role_arn" {
+  description = "Read-only IAM role ARN for evidence verification."
+  value       = aws_iam_role.evidence_verifier.arn
+}

@@ -56,3 +56,27 @@ variable "evidence_retention_days" {
     error_message = "evidence_retention_days must be between 1 and 3650."
   }
 }
+
+variable "capability_signing_key_versions" {
+  description = "Version labels retained in JWKS during capability-key rotation."
+  type        = set(string)
+  default     = ["v1"]
+
+  validation {
+    condition = alltrue([
+      for version in var.capability_signing_key_versions : can(regex("^v[1-9][0-9]*$", version))
+    ]) && length(var.capability_signing_key_versions) > 0
+    error_message = "capability_signing_key_versions must contain one or more v-prefixed positive integers."
+  }
+}
+
+variable "active_capability_signing_key_version" {
+  description = "Version label targeted by the current capability-signing alias."
+  type        = string
+  default     = "v1"
+
+  validation {
+    condition     = contains(var.capability_signing_key_versions, var.active_capability_signing_key_version)
+    error_message = "active_capability_signing_key_version must exist in capability_signing_key_versions."
+  }
+}
