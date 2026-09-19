@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, Boxes, FileCheck2, Radio, Settings2 } from "lucide-react";
+import { ArrowUpRight, Boxes, FileCheck2, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DashboardIntegrationMap } from "@/components/dashboard/dashboard-integration-map";
-import { DashboardNetworkGlobe } from "@/components/dashboard/dashboard-network-globe";
 import { loadAnalyticsSnapshot } from "@/features/analytics/controller";
-import { buildDailyActivity, buildPaymentPairSummaries } from "@/features/analytics/model";
+import {
+  buildDailyActivity,
+  buildPaymentPairSummaries,
+} from "@/features/analytics/model";
 import { DailyActivityChart } from "@/features/analytics/view/daily-activity-chart";
 import { getSellerSession } from "@/features/auth/server/session";
 import { formatAtomicPrice } from "@/lib/money";
@@ -17,23 +18,20 @@ const operatingLinks = [
   {
     href: "/dashboard/products",
     label: "Manage products",
-    description: "Price, verify, and publish what agents can buy.",
+    description: "Price, verify, and publish offers.",
     icon: Boxes,
-    index: "01",
   },
   {
     href: "/dashboard/transactions",
     label: "Review transactions",
-    description: "Follow settlement, fulfillment, evidence, and disputes.",
+    description: "Track settlement and fulfillment.",
     icon: FileCheck2,
-    index: "02",
   },
   {
-    href: "/dashboard/onboarding",
-    label: "Storefront settings",
-    description: "Maintain payment destinations and MCP deployment.",
+    href: "/dashboard/settings",
+    label: "Open settings",
+    description: "Account, appearance, and store setup.",
     icon: Settings2,
-    index: "03",
   },
 ] as const;
 
@@ -50,26 +48,37 @@ export default async function DashboardPage() {
 
   return (
     <div className={styles.workspace}>
-      <header className={styles.hero}>
+      <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>Seller network / command rail</p>
-          <h1>Commerce command center</h1>
-          <div className={styles.intro}>
-            <h2 className={styles.sellerName}>{session.principal.name}</h2>
-            <span>Control discovery, settlement, and delivery.</span>
-          </div>
+          <p className={styles.eyebrow}>Seller workspace</p>
+          <h1>Commerce overview</h1>
+          <p className={styles.welcome}>
+            <strong>{session.principal.name}</strong>
+            <span>Monitor sales, settlement, and delivery.</span>
+          </p>
         </div>
         <div className={styles.networkStatus}>
           <span aria-hidden="true" />
-          {snapshot.error ? "Reporting degraded" : "Network reporting online"}
+          {snapshot.error ? "Reporting degraded" : "Systems operational"}
         </div>
       </header>
 
-      <section className={styles.signalRail} aria-label="Commerce overview">
-        <div><span>Transactions</span><strong>{snapshot.transactionCount}</strong></div>
-        <div><span>Settlement pairs</span><strong>{paymentPairs.length}</strong></div>
-        <div><span>Reporting</span><strong>{snapshot.error ? "Degraded" : "Online"}</strong></div>
-        <div><span>Accounting</span><strong>Pair separated</strong></div>
+      <section className={styles.metrics} aria-label="Commerce metrics">
+        <article>
+          <span>Transactions</span>
+          <strong>{snapshot.transactionCount}</strong>
+          <small>All recorded sales</small>
+        </article>
+        <article>
+          <span>Products</span>
+          <strong>{snapshot.routes.length}</strong>
+          <small>Configured paid routes</small>
+        </article>
+        <article>
+          <span>Payment pairs</span>
+          <strong>{paymentPairs.length}</strong>
+          <small>Asset and network separated</small>
+        </article>
       </section>
 
       {snapshot.error ? (
@@ -82,106 +91,88 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      <section className={styles.bento} aria-label="Live commerce system">
-        <article className={styles.activityCard}>
-          <div className={styles.cardHeading}>
-            <div><p className={styles.sectionIndex}>01 / Activity</p><h2>Settlement velocity</h2></div>
-            <span>Daily stage count / UTC</span>
+      <section className={styles.commerceGrid} aria-label="Settlement overview">
+        <article className={styles.activityPanel}>
+          <div className={styles.panelHeading}>
+            <div>
+              <p>Performance</p>
+              <h2>Settlement activity</h2>
+            </div>
+            <span>Daily stage count · UTC</span>
           </div>
           {dailyActivity.length > 0 ? (
             <DailyActivityChart activity={dailyActivity} />
           ) : (
-            <div className={styles.compactEmpty}>Activity appears after the first verified purchase.</div>
+            <div className={styles.compactEmpty}>
+              Activity appears after the first verified purchase.
+            </div>
           )}
         </article>
-        <article className={styles.integrationCard}>
-          <div className={styles.cardHeading}>
-            <div><p className={styles.sectionIndex}>02 / Integration</p><h2>MCP control path</h2></div>
-            <Radio aria-hidden="true" />
-          </div>
-          <DashboardIntegrationMap connected />
-        </article>
-        <article className={styles.networkCard}>
-          <div className={styles.cardHeading}>
-            <div><p className={styles.sectionIndex}>03 / Channels</p><h2>Commerce network</h2></div>
-            <span>Shared transaction rail</span>
-          </div>
-          <DashboardNetworkGlobe />
-        </article>
-      </section>
 
-      <section className={styles.pulsePanel} aria-labelledby="commerce-pulse">
-        <div className={styles.pulseHeading}>
-          <div>
-            <p className={styles.sectionIndex}>04 / Commerce pulse</p>
-            <h2 id="commerce-pulse">Every settlement pair. Kept separate.</h2>
-          </div>
-          <div
-            className={styles.transactionCount}
-            role="status"
-            aria-label={`${snapshot.transactionCount} ${
-              snapshot.transactionCount === 1 ? "transaction" : "transactions"
-            }`}
-          >
-            <strong>{snapshot.transactionCount}</strong>
-            <span>
-              {snapshot.transactionCount === 1 ? "transaction" : "transactions"}
-            </span>
-          </div>
-        </div>
-
-        {paymentPairs.length > 0 ? (
-          <div className={styles.pairGrid}>
-            {paymentPairs.map((paymentPair, index) => (
-              <section
-                key={`${paymentPair.asset}:${paymentPair.network}`}
-                className={styles.pairCard}
-                data-accent={index === 0 ? "true" : undefined}
-                aria-label={`${paymentPair.asset} on ${paymentPair.network}`}
-              >
-                <div className={styles.pairIdentity}>
-                  <span>{paymentPair.network}</span>
-                  <strong>{paymentPair.asset}</strong>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Gross verified</dt>
-                    <dd>
-                      {formatAtomicPrice(
-                        paymentPair.grossVerifiedAmount,
-                        paymentPair.asset,
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Fulfilled</dt>
-                    <dd>
-                      {formatAtomicPrice(
-                        paymentPair.fulfilledAmount,
-                        paymentPair.asset,
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-            ))}
-          </div>
-        ) : (
-          <div className={styles.emptyPulse}>
+        <aside className={styles.settlementPanel} aria-label="Payment pairs">
+          <div className={styles.settlementHeading}>
             <div>
-              <strong>Waiting for the first settlement</strong>
-              <p>Published products will report here after verified payment.</p>
+              <p>Settlements</p>
+              <h2>Payment pairs</h2>
             </div>
-            <Link href="/dashboard/products">Review products</Link>
+            <div
+              className={styles.transactionCount}
+              role="status"
+              aria-label={`${snapshot.transactionCount} ${
+                snapshot.transactionCount === 1 ? "transaction" : "transactions"
+              }`}
+            >
+              <strong>{snapshot.transactionCount}</strong>
+              <span>Total</span>
+            </div>
           </div>
-        )}
 
-        <div className={styles.pulseFooter}>
-          <span>Unlike assets and networks are never combined.</span>
+          {paymentPairs.length > 0 ? (
+            <div className={styles.pairList}>
+              {paymentPairs.map((paymentPair) => (
+                <section
+                  key={`${paymentPair.asset}:${paymentPair.network}`}
+                  className={styles.pairCard}
+                  aria-label={`${paymentPair.asset} on ${paymentPair.network}`}
+                >
+                  <div className={styles.pairIdentity}>
+                    <strong>{paymentPair.asset}</strong>
+                    <span>{paymentPair.network}</span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Verified</dt>
+                      <dd>
+                        {formatAtomicPrice(
+                          paymentPair.grossVerifiedAmount,
+                          paymentPair.asset,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Fulfilled</dt>
+                      <dd>
+                        {formatAtomicPrice(
+                          paymentPair.fulfilledAmount,
+                          paymentPair.asset,
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyPairs}>
+              <strong>No settlements yet</strong>
+              <span>Verified payments will appear here.</span>
+            </div>
+          )}
+
           <Link href="/dashboard/analytics" aria-label="Open analytics">
             Open analytics <ArrowUpRight aria-hidden="true" />
           </Link>
-        </div>
+        </aside>
       </section>
 
       <section
@@ -190,27 +181,29 @@ export default async function DashboardPage() {
       >
         <div className={styles.sectionHeading}>
           <div>
-            <p className={styles.sectionIndex}>05 / Operate</p>
-            <h2 id="seller-operations">Move the storefront forward.</h2>
+            <p>Quick actions</p>
+            <h2 id="seller-operations">Keep commerce moving.</h2>
           </div>
         </div>
-        <div className={styles.operationGrid}>
+        <div className={styles.operationList}>
           {operatingLinks.map((operation) => {
             const Icon = operation.icon;
             return (
-              <article key={operation.href} className={styles.operationCard}>
-                <div className={styles.operationTopline}>
-                  <span>{operation.index}</span>
+              <Link
+                key={operation.href}
+                href={operation.href}
+                aria-label={operation.label}
+                className={styles.operationLink}
+              >
+                <span className={styles.operationIcon}>
                   <Icon aria-hidden="true" />
-                </div>
-                <div>
-                  <h3>{operation.label}</h3>
-                  <p>{operation.description}</p>
-                </div>
-                <Link href={operation.href} aria-label={operation.label}>
-                  Open <ArrowUpRight aria-hidden="true" />
-                </Link>
-              </article>
+                </span>
+                <span>
+                  <strong>{operation.label}</strong>
+                  <small>{operation.description}</small>
+                </span>
+                <ArrowUpRight aria-hidden="true" />
+              </Link>
             );
           })}
         </div>

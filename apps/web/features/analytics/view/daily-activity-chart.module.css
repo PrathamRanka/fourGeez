@@ -5,7 +5,7 @@
   --chart-crosshair: #a3a3a3;
   min-width: 0;
   padding: clamp(1rem, 2.4vw, 1.5rem);
-  background: var(--analytics-panel, #ffffff);
+  background: var(--analytics-panel, var(--dash-surface, var(--card)));
 }
 
 :global(.dark) .frame {
@@ -116,11 +116,24 @@
 .accessibleTable {
   position: absolute;
   width: 1px;
+  max-width: 1px;
   height: 1px;
+  margin: -1px;
   overflow: hidden;
+  border: 0;
+  padding: 0;
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
+  table-layout: fixed;
   white-space: nowrap;
+}
+
+.accessibleTable th,
+.accessibleTable td {
+  width: 1px;
+  max-width: 1px;
+  overflow: hidden;
+  padding: 0;
 }
 
 @media (max-width: 48rem) {

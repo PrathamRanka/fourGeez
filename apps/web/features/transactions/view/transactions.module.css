@@ -1,17 +1,19 @@
 .workspace {
-  --line: color-mix(in oklab, var(--foreground) 17%, transparent);
-  --subtle-line: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --surface: color-mix(in oklab, var(--background) 94%, black);
-  --surface-raised: color-mix(in oklab, var(--background) 88%, white 3%);
+  --line: var(--dash-line);
+  --subtle-line: color-mix(in srgb, var(--dash-line) 72%, transparent);
+  --surface: var(--dash-surface);
+  --surface-raised: var(--dash-surface-raised);
   display: grid;
   min-width: 0;
   gap: 1rem;
-  color: var(--foreground);
+  padding: clamp(1rem, 2.4vw, 2rem);
+  background: var(--dash-canvas);
+  color: var(--dash-copy);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .eyebrow {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.14em;
@@ -20,47 +22,20 @@
 
 .listHeader,
 .detailHeader {
-  position: relative;
   display: flex;
-  min-height: 10rem;
+  min-height: 8rem;
   align-items: flex-end;
   justify-content: space-between;
   gap: 2rem;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: var(--surface);
-  padding: clamp(1.25rem, 3vw, 2rem);
-}
-
-.listHeader::after,
-.detailHeader::after {
-  position: absolute;
-  z-index: 0;
-  top: -70%;
-  right: -8%;
-  width: min(42rem, 60vw);
-  height: 18rem;
-  background:
-    radial-gradient(circle at 36% 60%, rgb(58 136 255 / 0.34), transparent 36%),
-    radial-gradient(circle at 64% 56%, rgb(183 136 255 / 0.3), transparent 35%),
-    radial-gradient(circle at 82% 72%, rgb(255 188 213 / 0.18), transparent 28%);
-  content: "";
-  filter: blur(2.2rem);
-  pointer-events: none;
-}
-
-.listHeader > *,
-.detailHeader > * {
-  position: relative;
-  z-index: 1;
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 1.25rem;
 }
 
 .listHeader h1,
 .detailHeader h1 {
   margin-top: 0.55rem;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 4rem);
+  font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 500;
   letter-spacing: -0.06em;
   line-height: 0.98;
@@ -69,7 +44,7 @@
 .listHeader > div > p:last-child {
   max-width: 34rem;
   margin-top: 0.75rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.82rem;
 }
 
@@ -78,7 +53,8 @@
   min-width: min(100%, 27rem);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--line);
-  background: rgb(0 0 0 / 0.36);
+  border-radius: 0.75rem;
+  background: var(--surface-raised);
 }
 
 .ledgerSummary > div {
@@ -93,7 +69,7 @@
 
 .ledgerSummary dt,
 .facts span {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.57rem;
   letter-spacing: 0.08em;
@@ -107,7 +83,8 @@
 }
 
 .ledgerSummary [data-attention="true"] dd {
-  color: rgb(255 190 149);
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
 }
 
 .tableFrame,
@@ -116,8 +93,9 @@
 .facts,
 .lifecycle {
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 0.9rem;
   background: var(--surface);
+  overflow: hidden;
 }
 
 .tableCaption {
@@ -127,7 +105,7 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
   padding-inline: 1rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.57rem;
   letter-spacing: 0.1em;
@@ -173,7 +151,7 @@
 }
 
 .table th {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.55rem;
   font-weight: 500;
@@ -198,7 +176,7 @@
   max-width: 16rem;
   margin-top: 0.25rem;
   overflow: hidden;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.55rem;
   text-overflow: ellipsis;
@@ -220,7 +198,7 @@
   width: 100%;
   min-height: 3.75rem;
   place-items: center;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   transition:
     color 160ms ease,
     background-color 160ms ease;
@@ -228,8 +206,8 @@
 
 .openCell a:hover,
 .openCell a:focus-visible {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--dash-copy);
+  color: var(--dash-canvas);
   outline: none;
 }
 
@@ -245,7 +223,7 @@
   gap: 0.38rem;
   min-height: 1.45rem;
   border: 1px solid var(--subtle-line);
-  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  background: var(--dash-surface-soft);
   padding-inline: 0.48rem;
   font-family: var(--font-mono);
   font-size: 0.58rem;
@@ -257,43 +235,25 @@
   height: 0.35rem;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 0.18rem color-mix(in oklab, currentColor 16%, transparent);
+  box-shadow: 0 0 0 0.18rem color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .status[data-state="fulfilled"],
 .status[data-state="delivered"],
 .settlement[data-state="finalized"] {
-  border-color: rgb(116 222 167 / 0.28);
-  background: rgb(116 222 167 / 0.06);
-  color: rgb(116 222 167);
+  border-color: var(--dash-line-strong);
+  color: var(--dash-copy);
 }
 
 .status[data-state="failed"],
-.status[data-state="dead_letter"] {
-  border-color: rgb(255 137 137 / 0.28);
-  background: rgb(255 137 137 / 0.06);
-  color: rgb(255 137 137);
-}
-
+.status[data-state="dead_letter"],
 .status[data-state="disputed"],
-.status[data-state="refund_recommended"] {
-  border-color: rgb(255 190 149 / 0.28);
-  background: rgb(255 190 149 / 0.06);
-  color: rgb(255 190 149);
-}
-
+.status[data-state="refund_recommended"],
 .status[data-state="pending"],
 .status[data-state="retry_scheduled"],
-.settlement[data-state="confirmed"] {
-  border-color: rgb(157 184 255 / 0.28);
-  background: rgb(157 184 255 / 0.06);
-  color: rgb(157 184 255);
-}
-
+.settlement[data-state="confirmed"],
 .settlement[data-state="failed"] {
-  border-color: rgb(255 137 137 / 0.28);
-  background: rgb(255 137 137 / 0.06);
-  color: rgb(255 137 137);
+  color: var(--dash-muted);
 }
 
 .emptyState {
@@ -318,7 +278,7 @@
 .emptyState p,
 .emptyCopy {
   margin-top: 0.5rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.72rem;
 }
 
@@ -327,7 +287,7 @@
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 1.2rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.62rem;
   text-decoration: none;
@@ -335,7 +295,7 @@
 
 .backLink:hover,
 .backLink:focus-visible {
-  color: var(--foreground);
+  color: var(--dash-copy);
 }
 
 .backLink svg {
@@ -346,7 +306,7 @@
 .detailHeader code {
   display: block;
   margin-top: 0.65rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.6rem;
 }
@@ -360,9 +320,9 @@
 .primaryAction {
   min-height: 2.7rem;
   border-radius: 0;
-  background: var(--foreground);
+  background: var(--dash-copy);
   padding-inline: 1rem;
-  color: var(--background);
+  color: var(--dash-canvas);
   font-family: var(--font-mono);
 }
 
@@ -393,14 +353,14 @@
   flex: none;
   place-items: center;
   border: 1px solid var(--line);
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.56rem;
 }
 
 .lifecycle > div[data-complete="true"] > span {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--dash-copy);
+  color: var(--dash-canvas);
 }
 
 .lifecycle svg {
@@ -481,21 +441,21 @@
 
 .panelHeading p {
   margin-top: 0.18rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.62rem;
 }
 
 .evidenceWarning,
 .error {
-  border-bottom: 1px solid rgb(255 137 137 / 0.34);
-  background: rgb(255 92 92 / 0.06);
+  border-bottom: 1px solid var(--dash-line-strong);
+  background: var(--dash-surface-soft);
   padding: 0.8rem 1rem;
-  color: rgb(255 166 166);
+  color: var(--dash-copy);
   font-size: 0.68rem;
 }
 
 .error {
-  border: 1px solid rgb(255 137 137 / 0.34);
+  border: 1px solid var(--dash-line-strong);
 }
 
 .evidenceList {
@@ -515,7 +475,7 @@
 }
 
 .evidenceList li > span {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.58rem;
 }
@@ -531,7 +491,7 @@
   flex-wrap: wrap;
   gap: 0.35rem 0.7rem;
   margin-top: 0.3rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.58rem;
 }
 
@@ -539,7 +499,7 @@
   display: block;
   margin-top: 0.55rem;
   overflow: hidden;
-  color: color-mix(in oklab, var(--muted-foreground) 72%, transparent);
+  color: var(--dash-muted);
   font-size: 0.54rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -558,7 +518,7 @@
 }
 
 .definitionList dt {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.6rem;
 }
 
@@ -608,6 +568,10 @@
 }
 
 @media (max-width: 700px) {
+  .workspace {
+    padding: 1rem;
+  }
+
   .listHeader,
   .detailHeader {
     min-height: 0;

@@ -69,7 +69,7 @@ export async function registerAndSignInSeller(page: Page, testInfo: TestInfo) {
   await createAccount.click();
 
   const developmentCode = await page
-    .locator(".auth-development-code code")
+    .locator('[role="status"] code')
     .textContent();
   expect(developmentCode).toMatch(/^\d{6}$/);
   await page.getByRole("button", { name: "Continue to verification" }).click();

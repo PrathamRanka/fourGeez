@@ -1,21 +1,23 @@
 .workspace,
 .openPanel,
 .outcome {
-  --line: color-mix(in oklab, var(--foreground) 17%, transparent);
-  --subtle-line: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --surface: color-mix(in oklab, var(--background) 94%, black);
+  --line: var(--dash-line);
+  --subtle-line: color-mix(in srgb, var(--dash-line) 72%, transparent);
+  --surface: var(--dash-surface);
   min-width: 0;
-  color: var(--foreground);
+  color: var(--dash-copy);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .workspace {
   display: grid;
   gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 2rem);
+  background: var(--dash-canvas);
 }
 
 .eyebrow {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.13em;
@@ -23,42 +25,19 @@
 }
 
 .detailHeader {
-  position: relative;
   display: flex;
-  min-height: 10rem;
+  min-height: 8rem;
   align-items: flex-end;
   justify-content: space-between;
   gap: 2rem;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  padding: clamp(1.25rem, 3vw, 2rem);
-}
-
-.detailHeader::after {
-  position: absolute;
-  z-index: 0;
-  top: -70%;
-  right: -8%;
-  width: min(42rem, 60vw);
-  height: 18rem;
-  background:
-    radial-gradient(circle at 35% 60%, rgb(58 136 255 / 0.32), transparent 36%),
-    radial-gradient(circle at 66% 60%, rgb(183 136 255 / 0.3), transparent 35%);
-  content: "";
-  filter: blur(2.2rem);
-  pointer-events: none;
-}
-
-.detailHeader > * {
-  position: relative;
-  z-index: 1;
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 1.25rem;
 }
 
 .detailHeader h1 {
   margin-top: 0.55rem;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 4rem);
+  font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 500;
   letter-spacing: -0.06em;
   line-height: 0.98;
@@ -67,7 +46,7 @@
 .detailHeader code {
   display: block;
   margin-top: 0.65rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.6rem;
 }
 
@@ -76,7 +55,7 @@
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 1.2rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.62rem;
   text-decoration: none;
@@ -84,7 +63,7 @@
 
 .backLink:hover,
 .backLink:focus-visible {
-  color: var(--foreground);
+  color: var(--dash-copy);
 }
 
 .backLink svg {
@@ -103,6 +82,7 @@
 .outcome {
   overflow: hidden;
   border: 1px solid var(--line);
+  border-radius: 0.9rem;
   background: var(--surface);
 }
 
@@ -123,7 +103,7 @@
 }
 
 .panelHeader p {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.55rem;
   letter-spacing: 0.08em;
@@ -156,18 +136,18 @@
   align-items: center;
   gap: 0.4rem;
   min-height: 1.5rem;
-  border: 1px solid rgb(116 222 167 / 0.28);
-  background: rgb(116 222 167 / 0.06);
+  border: 1px solid var(--dash-line-strong);
+  background: var(--dash-surface-soft);
   padding-inline: 0.5rem;
-  color: rgb(116 222 167);
+  color: var(--dash-copy);
   font-family: var(--font-mono);
   font-size: 0.57rem;
 }
 
 .evidenceBadge[data-valid="false"] {
-  border-color: rgb(255 137 137 / 0.28);
-  background: rgb(255 137 137 / 0.06);
-  color: rgb(255 137 137);
+  border-color: var(--dash-line-strong);
+  background: var(--dash-surface-soft);
+  color: var(--dash-muted);
 }
 
 .evidenceBadge svg {
@@ -189,23 +169,6 @@
   padding: clamp(1.25rem, 3vw, 2rem);
 }
 
-.openNote::before {
-  position: absolute;
-  right: -6rem;
-  bottom: -7rem;
-  width: 18rem;
-  height: 18rem;
-  background: radial-gradient(
-    circle,
-    rgb(97 150 255 / 0.2),
-    rgb(184 132 255 / 0.13) 38%,
-    transparent 67%
-  );
-  content: "";
-  filter: blur(1rem);
-  pointer-events: none;
-}
-
 .openNote > *,
 .explanation > * {
   position: relative;
@@ -213,7 +176,7 @@
 
 .openNote span,
 .explanation > span {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.57rem;
   letter-spacing: 0.08em;
@@ -233,7 +196,7 @@
 .openNote p {
   max-width: 22rem;
   margin-top: 1rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.7rem;
   line-height: 1.6;
 }
@@ -247,7 +210,7 @@
 .form label {
   display: grid;
   gap: 0.45rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-family: var(--font-mono);
   font-size: 0.58rem;
   letter-spacing: 0.05em;
@@ -259,9 +222,9 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 0;
-  background: color-mix(in oklab, var(--background) 88%, white 3%);
+  background: var(--dash-surface-raised);
   padding: 0.78rem;
-  color: var(--foreground);
+  color: var(--dash-copy);
   font-family: var(--font-sans);
   font-size: 0.76rem;
   text-transform: none;
@@ -285,18 +248,18 @@
 }
 
 .disabledCopy {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
 }
 
 .error {
-  color: rgb(255 137 137);
+  color: var(--dash-copy);
 }
 
 .submitButton {
   justify-self: start;
-  background: var(--foreground);
+  background: var(--dash-copy);
   padding-inline: 1rem;
-  color: var(--background);
+  color: var(--dash-canvas);
 }
 
 .outcomeHeader h2 {
@@ -317,9 +280,9 @@
 
 .explanation blockquote {
   margin-top: 1.5rem;
-  border-left: 1px solid var(--foreground);
+  border-left: 1px solid var(--dash-copy);
   padding-left: 0.85rem;
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.7rem;
   line-height: 1.6;
 }
@@ -339,7 +302,7 @@
 }
 
 .facts dt {
-  color: var(--muted-foreground);
+  color: var(--dash-muted);
   font-size: 0.58rem;
 }
 
@@ -384,6 +347,10 @@
 }
 
 @media (max-width: 520px) {
+  .workspace {
+    padding: 1rem;
+  }
+
   .detailHeader {
     min-height: 0;
     padding: 1.1rem;

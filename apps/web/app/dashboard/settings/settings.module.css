@@ -1,0 +1,178 @@
+.workspace {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 2rem);
+  background: var(--dash-canvas);
+  color: var(--dash-copy);
+}
+
+.pageHeader {
+  display: flex;
+  min-height: 8rem;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--dash-line);
+  padding: 0 0 1.25rem;
+}
+
+.pageHeader p,
+.panel header p,
+.details dt {
+  color: var(--dash-muted);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin-top: 0.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 520;
+  line-height: 0.96;
+  letter-spacing: -0.06em;
+}
+
+.pageHeader span {
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--dash-muted);
+  font-size: 0.78rem;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--dash-line);
+  border-radius: 0.9rem;
+  background: var(--dash-surface);
+}
+
+.widePanel {
+  grid-column: 1 / -1;
+}
+
+.panel > header {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--dash-line);
+  padding: 1rem 1.1rem;
+}
+
+.panel > header > svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--dash-muted);
+}
+
+.panel h2 {
+  margin-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 580;
+  letter-spacing: -0.025em;
+}
+
+.details {
+  display: grid;
+}
+
+.details > div,
+.settingRow {
+  min-width: 0;
+  padding: 1rem 1.1rem;
+}
+
+.details > div + div {
+  border-top: 1px solid var(--dash-line);
+}
+
+.details dd {
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-size: 0.76rem;
+}
+
+.settingRow {
+  display: flex;
+  min-height: 5.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settingRow > div {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.settingRow strong {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 590;
+}
+
+.settingRow span {
+  color: var(--dash-muted);
+  font-size: 0.7rem;
+}
+
+.settingRow > a {
+  display: inline-flex;
+  min-height: 2.4rem;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--dash-line-strong);
+  border-radius: 999px;
+  padding-inline: 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.settingRow > a svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.settingRow :global(.theme-cycle-button) {
+  border: 1px solid var(--dash-line-strong);
+  background: var(--dash-surface-soft);
+  color: var(--dash-copy);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settingRow > a:hover,
+  .settingRow :global(.theme-cycle-button:hover) {
+    background: var(--dash-surface-soft);
+  }
+}
+
+@media (max-width: 48rem) {
+  .workspace {
+    padding: 1rem;
+  }
+
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .widePanel {
+    grid-column: auto;
+  }
+
+  .settingRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

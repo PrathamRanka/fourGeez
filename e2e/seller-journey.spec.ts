@@ -56,7 +56,12 @@ test("seller can complete the essential onboarding path and open the dashboard",
 
   await page.goto("/dashboard");
   await expect(
-    page.getByRole("heading", { name: "E2E Launch Seller" }),
+    page.getByRole("heading", { name: "Commerce overview" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("#main-content").getByText("E2E Launch Seller", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Manage products" }),

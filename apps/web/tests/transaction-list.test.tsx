@@ -71,4 +71,16 @@ describe("transaction list", () => {
       "/dashboard/transactions/txn_01ARZ3NDEKTSV4RRFFQ69G5FAW",
     );
   });
+
+  it("renders a focused dispute queue without unrelated sales", () => {
+    render(<TransactionList transactions={transactions} view="disputes" />);
+
+    expect(screen.getByRole("heading", { name: "Disputes" })).toBeVisible();
+    expect(screen.getByText("1 case")).toBeVisible();
+    expect(screen.queryByText("Research Report")).not.toBeInTheDocument();
+    expect(screen.getByText("Data Export")).toBeVisible();
+    expect(
+      screen.getByRole("table", { name: "Seller disputes" }),
+    ).toBeVisible();
+  });
 });

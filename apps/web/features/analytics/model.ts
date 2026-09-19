@@ -44,6 +44,10 @@ export type DailyActivity = {
   processing: number;
 };
 
+export type DailyActivityTrend = DailyActivity & {
+  total: number;
+};
+
 export type RoutePerformance = {
   routeId: string;
   routeLabel: string;
@@ -147,6 +151,43 @@ export function buildDailyActivity(
   return [...days.values()].sort((left, right) =>
     left.bucketDate.localeCompare(right.bucketDate),
   );
+}
+
+// buildSevenDayActivity preserves recorded facts while filling unrecorded dates with zero activity.
+export function buildSevenDayActivity(
+  activity: DailyActivity[],
+): DailyActivityTrend[] {
+  if (activity.length === 0) {
+    return [];
+  }
+
+  const byDate = new Map(activity.map((day) => [day.bucketDate, day]));
+  const latestDate = activity.reduce((latest, day) =>
+    day.bucketDate > latest ? day.bucketDate : latest,
+  activity[0].bucketDate);
+  const latest = new Date(`${latestDate}T00:00:00.000Z`);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(latest);
+    date.setUTCDate(latest.getUTCDate() - (6 - index));
+    const bucketDate = date.toISOString().slice(0, 10);
+    const recorded = byDate.get(bucketDate) ?? {
+      bucketDate,
+      fulfilled: 0,
+      processing: 0,
+      failed: 0,
+      disputed: 0,
+    };
+
+    return {
+      ...recorded,
+      total:
+        recorded.fulfilled +
+        recorded.processing +
+        recorded.failed +
+        recorded.disputed,
+    };
+  });
 }
 
 // buildRoutePerformance uses route-specific rows and keeps unlike payment pairs separate.

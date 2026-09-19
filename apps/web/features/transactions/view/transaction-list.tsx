@@ -13,47 +13,87 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 
 export function TransactionList({
   transactions,
+  view = "transactions",
 }: {
   transactions: Transaction[];
+  view?: "transactions" | "disputes";
 }) {
+  const visibleTransactions =
+    view === "disputes"
+      ? transactions.filter(({ status }) =>
+          ["DISPUTED", "REFUND_RECOMMENDED", "RESOLVED"].includes(status),
+        )
+      : transactions;
   const fulfilled = transactions.filter(
     ({ status }) => status === "FULFILLED",
   ).length;
   const needsReview = transactions.filter(({ status }) =>
     ["FAILED", "DISPUTED", "REFUND_RECOMMENDED"].includes(status),
   ).length;
+  const isDisputeView = view === "disputes";
 
   return (
     <div className={styles.workspace}>
       <header className={styles.listHeader}>
         <div>
-          <p className={styles.eyebrow}>Proof stream / ledger</p>
-          <h1>Transactions</h1>
+          <p className={styles.eyebrow}>
+            {isDisputeView ? "Resolution desk" : "Proof stream / ledger"}
+          </p>
+          <h1>{isDisputeView ? "Disputes" : "Transactions"}</h1>
           <p>
-            Payment, fulfillment, evidence, and dispute state in one record.
+            {isDisputeView
+              ? "Cases requiring review, evidence, or refund follow-up."
+              : "Payment, fulfillment, evidence, and dispute state in one record."}
           </p>
         </div>
-        <dl className={styles.ledgerSummary} aria-label="Transaction counts">
-          <div>
-            <dt>Total</dt>
-            <dd>{transactions.length} records</dd>
-          </div>
-          <div>
-            <dt>Delivered</dt>
-            <dd>{fulfilled} fulfilled</dd>
-          </div>
-          <div data-attention={needsReview > 0}>
-            <dt>Attention</dt>
-            <dd>{needsReview} needs review</dd>
-          </div>
-        </dl>
+        {isDisputeView ? (
+          <dl className={styles.ledgerSummary} aria-label="Dispute counts">
+            <div>
+              <dt>Cases</dt>
+              <dd>
+                {visibleTransactions.length}{" "}
+                {visibleTransactions.length === 1 ? "case" : "cases"}
+              </dd>
+            </div>
+            <div>
+              <dt>Open review</dt>
+              <dd>{needsReview} active</dd>
+            </div>
+            <div>
+              <dt>Source</dt>
+              <dd>Verified ledger</dd>
+            </div>
+          </dl>
+        ) : (
+          <dl className={styles.ledgerSummary} aria-label="Transaction counts">
+            <div>
+              <dt>Total</dt>
+              <dd>{transactions.length} records</dd>
+            </div>
+            <div>
+              <dt>Delivered</dt>
+              <dd>{fulfilled} fulfilled</dd>
+            </div>
+            <div data-attention={needsReview > 0}>
+              <dt>Attention</dt>
+              <dd>{needsReview} needs review</dd>
+            </div>
+          </dl>
+        )}
       </header>
 
-      {transactions.length === 0 ? (
-        <section className={styles.emptyState} aria-label="No transactions">
+      {visibleTransactions.length === 0 ? (
+        <section
+          className={styles.emptyState}
+          aria-label={isDisputeView ? "No disputes" : "No transactions"}
+        >
           <span>000</span>
-          <h2>No transactions yet</h2>
-          <p>Completed browser and agent purchases will appear here.</p>
+          <h2>{isDisputeView ? "No disputes" : "No transactions yet"}</h2>
+          <p>
+            {isDisputeView
+              ? "Cases appear here when a completed transaction is disputed."
+              : "Completed browser and agent purchases will appear here."}
+          </p>
         </section>
       ) : (
         <div className={styles.tableFrame}>
@@ -62,7 +102,12 @@ export function TransactionList({
             <span>UTC / newest first</span>
           </div>
           <div className={styles.tableScroller}>
-            <table aria-label="Seller transactions" className={styles.table}>
+            <table
+              aria-label={
+                isDisputeView ? "Seller disputes" : "Seller transactions"
+              }
+              className={styles.table}
+            >
               <thead>
                 <tr>
                   <th>Product / reference</th>
@@ -75,7 +120,7 @@ export function TransactionList({
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => {
+                {visibleTransactions.map((transaction) => {
                   const productName =
                     transaction.productDisplayName ?? "Digital purchase";
                   return (
