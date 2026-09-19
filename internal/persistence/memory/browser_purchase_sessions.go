@@ -147,11 +147,11 @@ func (repository *BrowserPurchaseSessionRepository) CreateChallenge(_ context.Co
 	return nil
 }
 
-func (repository *BrowserPurchaseSessionRepository) GetChallenge(_ context.Context, challengeID browserpurchase.RecoveryChallengeID) (browserpurchase.BrowserPurchaseRecoveryChallengeRecord, error) {
+func (repository *BrowserPurchaseSessionRepository) GetChallenge(_ context.Context, purchaseSessionID browserpurchase.PurchaseSessionID, challengeID browserpurchase.RecoveryChallengeID) (browserpurchase.BrowserPurchaseRecoveryChallengeRecord, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 	challenge, exists := repository.challenges[challengeID]
-	if !exists {
+	if !exists || challenge.PurchaseSessionID != purchaseSessionID {
 		return browserpurchase.BrowserPurchaseRecoveryChallengeRecord{}, persistence.ErrNotFound
 	}
 	return cloneBrowserPurchaseChallenge(challenge), nil

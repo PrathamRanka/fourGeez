@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	cryptorand "crypto/rand"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
 
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
@@ -27,7 +31,6 @@ import (
 	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/operations"
 	"github.com/fourgeez/agentpay/internal/payments"
-	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
 	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
@@ -35,54 +38,56 @@ import (
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
-// main starts the local AgentPay HTTP API.
+// main starts AgentPay through Lambda or the local HTTP transport.
 func main() {
+	config, err := loadRuntimeConfig()
+	if err != nil {
+		slog.Error("invalid runtime configuration", "error", err)
+		os.Exit(1)
+	}
 	if err := validateRuntimeComposition(
-		os.Getenv("AGENTPAY_ENV"),
-		os.Getenv("AGENTPAY_REPOSITORY_MODE"),
+		config.Environment,
+		config.RepositoryMode,
 	); err != nil {
 		slog.Error("unsafe runtime composition", "error", err)
 		os.Exit(1)
 	}
-
-	addr := os.Getenv("AGENTPAY_HTTP_ADDR")
-	if addr == "" {
-		addr = ":8080"
-	}
-
-	mux := http.NewServeMux()
-
-	catalogRepository := memory.NewCatalogRepository()
-	intentRepository := memory.NewPurchaseIntentRepository()
-	approvalRepository := memory.NewApprovalRepository()
-	transactionRepository := memory.NewTransactionRepository()
-	evidenceRepository := memory.NewEvidenceRepository()
-	disputeRepository := memory.NewDisputeRepository()
-	manualRefundRecordRepository := memory.NewManualRefundRecordRepository()
-	browserPurchaseRepository := memory.NewBrowserPurchaseSessionRepository()
-	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
-	confirmationGrantRepository := memory.NewConfirmationGrantRepository()
-	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
-	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
-	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
-	sellerPlanRepository := memory.NewSellerPlanRepository()
-	providerEventRepository := memory.NewProviderEventRepository()
-	usageMeterEventRepository := memory.NewUsageMeterEventRepository()
-	quotaCounterRepository := memory.NewQuotaCounterRepository()
-	sellerSessionRevocationRepository := memory.NewSellerSessionRevocationRepository()
-	sellerWorkspaceRepository := memory.NewSellerWorkspaceRepository()
-	storefrontPublicationRepository := memory.NewStorefrontPublicationRepository()
-	auditEventRepository := memory.NewAuditEventRepository()
-	webhookSecretStore := memory.NewWebhookSecretStore()
-	idempotencyStore := memory.NewIdempotencyStore()
 	idGenerator := domain.NewULIDGenerator(nil, nil)
 	clock := domain.SystemClock{}
+	runtime, err := newRuntimeDependencies(context.Background(), config, clock)
+	if err != nil {
+		slog.Error("failed to initialize runtime dependencies", "error", err)
+		os.Exit(1)
+	}
+	mux := http.NewServeMux()
+	catalogRepository := runtime.catalog
+	intentRepository := runtime.intents
+	transactionRepository := runtime.transactions
+	evidenceRepository := runtime.evidence
+	disputeRepository := runtime.disputes
+	manualRefundRecordRepository := runtime.manualRefunds
+	browserPurchaseRepository := runtime.browserPurchases
+	integrationCredentialRepository := runtime.integrationCredentials
+	confirmationGrantRepository := runtime.confirmationGrants
+	paymentDestinationRepository := runtime.paymentDestinations
+	webhookSubscriptionRepository := runtime.webhookSubscriptions
+	webhookDeliveryRepository := runtime.webhookDeliveries
+	sellerPlanRepository := runtime.sellerEntitlements
+	providerEventRepository := runtime.providerEvents
+	usageMeterEventRepository := runtime.usageMeterEvents
+	quotaCounterRepository := runtime.quotaCounters
+	sellerSessionRevocationRepository := runtime.sellerSessionRevocations
+	sellerWorkspaceRepository := runtime.sellerWorkspaces
+	storefrontPublicationRepository := runtime.storefrontPublications
+	auditEventRepository := runtime.auditEvents
+	webhookSecretStore := runtime.webhookSecrets
+	idempotencyStore := runtime.idempotency
 	sellerIdentityService, err := newSellerIdentityService(
 		sellerIdentityConfig{
-			Environment: os.Getenv("AGENTPAY_ENV"), LocalToken: os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
+			Environment: config.Environment, LocalToken: os.Getenv("AGENTPAY_LOCAL_SELLER_TOKEN"),
 			LocalSigningSecret: os.Getenv("AGENTPAY_LOCAL_IDENTITY_SIGNING_SECRET"),
-			LocalSubject:       os.Getenv("AGENTPAY_LOCAL_SELLER_SUBJECT"), AWSRegion: os.Getenv("AWS_REGION"),
-			UserPoolID: os.Getenv("AGENTPAY_SELLER_USER_POOL_ID"), ClientID: os.Getenv("AGENTPAY_SELLER_USER_POOL_CLIENT_ID"),
+			LocalSubject:       os.Getenv("AGENTPAY_LOCAL_SELLER_SUBJECT"), AWSRegion: config.AWSRegion,
+			UserPoolID: config.SellerUserPoolID, ClientID: config.SellerUserPoolClientID,
 		},
 		sellerSessionRevocationRepository,
 		clock,
@@ -96,20 +101,8 @@ func main() {
 		idGenerator,
 		clock,
 	)
-	sellerSigner := proxy.NewHMACSigner(
-		proxy.NewLocalSecretProvider(
-			[]byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
-		),
-		clock,
-	)
-	sellerForwarder, err := newSellerForwarder(
-		os.Getenv("AGENTPAY_ENV"),
-		os.Getenv("AGENTPAY_SELLER_READINESS_URL"),
-	)
-	if err != nil {
-		slog.Error("invalid local seller forwarding configuration", "error", err)
-		os.Exit(1)
-	}
+	sellerSigner := runtime.sellerSigner
+	sellerForwarder := runtime.sellerForwarder
 	sandboxService := sandbox.NewService(
 		catalogRepository,
 		idGenerator,
@@ -136,7 +129,7 @@ func main() {
 	).RegisterRoutes(mux)
 	billingService := billing.NewService(
 		configureOnboardingEntitlementRepository(
-			os.Getenv("AGENTPAY_ENV"),
+			config.Environment,
 			sellerPlanRepository,
 			catalogRepository,
 			clock,
@@ -152,20 +145,22 @@ func main() {
 	)
 	catalogService.SetQuotaEnforcer(quotaService)
 	billing.NewHTTPController(billingService).RegisterRoutes(mux)
-	billing.NewStripeProviderEventHTTPController(
-		billing.NewStripeProviderEventService(
-			billing.StripeProviderEventConfig{
-				ExpectedLivemode:   os.Getenv("AGENTPAY_STRIPE_LIVEMODE") == "true",
-				ExpectedAccountID:  os.Getenv("AGENTPAY_STRIPE_ACCOUNT_ID"),
-				ExpectedAPIVersion: os.Getenv("AGENTPAY_STRIPE_API_VERSION"),
-			},
-			billing.NewStripeWebhookVerifier(os.Getenv("AGENTPAY_STRIPE_WEBHOOK_SECRET"), 0),
-			providerEventRepository,
-			nil,
-			billingService,
-			clock,
-		),
-	).RegisterRoutes(mux)
+	if runtime.stripeProviderEventEnabled {
+		billing.NewStripeProviderEventHTTPController(
+			billing.NewStripeProviderEventService(
+				billing.StripeProviderEventConfig{
+					ExpectedLivemode:   os.Getenv("AGENTPAY_STRIPE_LIVEMODE") == "true",
+					ExpectedAccountID:  os.Getenv("AGENTPAY_STRIPE_ACCOUNT_ID"),
+					ExpectedAPIVersion: os.Getenv("AGENTPAY_STRIPE_API_VERSION"),
+				},
+				billing.NewStripeWebhookVerifier(os.Getenv("AGENTPAY_STRIPE_WEBHOOK_SECRET"), 0),
+				providerEventRepository,
+				nil,
+				billingService,
+				clock,
+			),
+		).RegisterRoutes(mux)
+	}
 	usageService := billing.NewUsageService(
 		usageMeterEventRepository,
 		billingService,
@@ -195,36 +190,21 @@ func main() {
 		integrations.NewSecureTokenGenerator(nil),
 		clock,
 		auditAppender,
-		integrations.WithCredentialDigester(integrations.NewHMACCredentialDigester(
-			integrations.StaticCredentialPepperProvider{Value: mustRandomSecret("credential pepper")},
-		)),
+		integrations.WithCredentialDigester(integrations.NewHMACCredentialDigester(runtime.credentialPepper)),
 		integrations.WithExchangeAuthorization(
 			billingService,
-			memory.NewProjectKeyExchangeRateLimiter(
-				clock,
-				integrations.DefaultProjectKeyExchangeAttempts,
-				integrations.DefaultProjectKeyExchangeWindow,
-			),
+			runtime.projectKeyExchangeLimiter,
 			quotaService,
 		),
+		integrations.WithRotationReplayProtector(runtime.rotationReplayProtector),
 	)
 	integrations.NewHTTPController(
 		integrationService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
-	capabilityKeys, err := authorization.NewLocalES256KeyRing(clock)
-	if err != nil {
-		slog.Error("failed to initialize local capability signer", "error", err)
-		os.Exit(1)
-	}
-	apiOrigin := os.Getenv("AGENTPAY_API_ORIGIN")
-	if apiOrigin == "" {
-		apiOrigin = "http://localhost:8080"
-	}
-	webOrigin := os.Getenv("AGENTPAY_WEB_ORIGIN")
-	if webOrigin == "" {
-		webOrigin = "http://localhost:3000"
-	}
+	capabilityKeys := runtime.capabilityKeys
+	apiOrigin := config.APIOrigin
+	webOrigin := config.WebOrigin
 	accessTokenService := authorization.NewAccessTokenService(
 		authorization.AccessTokenConfig{
 			Issuer: apiOrigin, Audience: authorization.MCPAudience,
@@ -247,9 +227,7 @@ func main() {
 		catalogRepository,
 		idGenerator,
 		integrations.NewSecureTokenGenerator(nil),
-		integrations.NewHMACCredentialDigester(
-			integrations.StaticCredentialPepperProvider{Value: mustRandomSecret("confirmation grant pepper")},
-		),
+		integrations.NewHMACCredentialDigester(runtime.confirmationGrantPepper),
 		clock,
 		auditAppender,
 	)
@@ -351,70 +329,14 @@ func main() {
 	intentController := intents.NewHTTPController(intentService, idempotencyStore)
 	intentController.SetBrowserPurchaseAuthorizer(browserPurchaseAuthorizer)
 	intentController.RegisterRoutes(mux)
-	evidenceSigner, err := evidence.NewLocalHMACSigner(
-		os.Getenv("AGENTPAY_LOCAL_EVIDENCE_KEY_ID"),
-		[]byte(os.Getenv("AGENTPAY_LOCAL_EVIDENCE_SIGNING_SECRET")),
-	)
-	if err != nil {
-		slog.Error("invalid local evidence signing configuration", "error", err)
-		os.Exit(1)
+	evidenceSigner := runtime.evidenceSigner
+	if runtime.configureDevelopmentSeed != nil {
+		if err := runtime.configureDevelopmentSeed(mux); err != nil {
+			slog.Error("invalid local seed configuration", "error", err)
+			os.Exit(1)
+		}
 	}
-	if err := configureDevelopmentSeed(
-		mux,
-		developmentSeedConfig{
-			Environment:          os.Getenv("AGENTPAY_ENV"),
-			RepositoryMode:       os.Getenv("AGENTPAY_REPOSITORY_MODE"),
-			HTTPAddress:          addr,
-			ProfileName:          os.Getenv("AGENTPAY_LOCAL_SEED_PROFILE"),
-			WebhookSigningSecret: os.Getenv("AGENTPAY_LOCAL_WEBHOOK_SIGNING_SECRET"),
-		},
-		developmentSeedRepositories{
-			Catalog:                  catalogRepository,
-			PurchaseIntents:          intentRepository,
-			Approvals:                approvalRepository,
-			Transactions:             transactionRepository,
-			Evidence:                 evidenceRepository,
-			Disputes:                 disputeRepository,
-			ManualRefundRecords:      manualRefundRecordRepository,
-			BrowserPurchaseSessions:  browserPurchaseRepository,
-			PaymentDestinations:      paymentDestinationRepository,
-			WebhookSubscriptions:     webhookSubscriptionRepository,
-			WebhookDeliveries:        webhookDeliveryRepository,
-			WebhookSecrets:           webhookSecretStore,
-			IntegrationCredentials:   integrationCredentialRepository,
-			ConfirmationGrants:       confirmationGrantRepository,
-			SellerEntitlements:       sellerPlanRepository,
-			ProviderEvents:           providerEventRepository,
-			AuditEvents:              auditEventRepository,
-			Idempotency:              idempotencyStore,
-			SellerSessionRevocations: sellerSessionRevocationRepository,
-			SellerWorkspaces:         sellerWorkspaceRepository,
-			StorefrontPublications:   storefrontPublicationRepository,
-		},
-		evidenceSigner,
-	); err != nil {
-		slog.Error("invalid local seed configuration", "error", err)
-		os.Exit(1)
-	}
-	healthController, err := newDependencyHealthController(
-		dependencyHealthConfig{
-			RepositoryMode:      os.Getenv("AGENTPAY_REPOSITORY_MODE"),
-			PaymentReadinessURL: os.Getenv("AGENTPAY_PAYMENT_READINESS_URL"),
-			SellerReadinessURL:  os.Getenv("AGENTPAY_SELLER_READINESS_URL"),
-			Timeout:             defaultDependencyHealthTimeout,
-		},
-		dependencyHealthDependencies{
-			Catalog:             catalogRepository,
-			EvidenceSigner:      evidenceSigner,
-			SellerSigner:        sellerSigner,
-			SellerSigningSecret: []byte(os.Getenv("AGENTPAY_LOCAL_SELLER_SIGNING_SECRET")),
-		},
-	)
-	if err != nil {
-		slog.Error("invalid dependency health configuration", "error", err)
-		os.Exit(1)
-	}
-	healthController.RegisterRoutes(mux)
+	runtime.healthController.RegisterRoutes(mux)
 	evidenceRecorder := evidence.NewRecorder(
 		evidenceRepository,
 		idGenerator,
@@ -428,12 +350,9 @@ func main() {
 		nil,
 		storefrontService,
 		clock,
-		os.Getenv("AGENTPAY_PUBLIC_BASE_URL"),
+		config.PublicBaseURL,
 	)
-	var paymentAdapter payments.Adapter = payments.NewX402Adapter()
-	if os.Getenv("AGENTPAY_USE_MOCK_PAYMENT") == "true" {
-		paymentAdapter = payments.NewMockAdapter()
-	}
+	paymentAdapter := runtime.paymentAdapter
 	executionCapabilitySigner, err := proxy.NewES256ExecutionCapabilitySigner(
 		proxy.ExecutionCapabilityConfig{Issuer: apiOrigin, Lifetime: 45 * time.Second},
 		capabilityKeys,
@@ -511,8 +430,13 @@ func main() {
 		SellerAuthorizer:     catalogService,
 	}, mux)
 
-	slog.Info("starting AgentPay API", "address", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+		lambda.Start(httpadapter.NewV2(handler).ProxyWithContext)
+		return
+	}
+	slog.Info("starting AgentPay API", "address", config.HTTPAddress)
+	if err := http.ListenAndServe(config.HTTPAddress, handler); err != nil {
 		slog.Error("AgentPay API stopped", "error", err)
 		os.Exit(1)
 	}

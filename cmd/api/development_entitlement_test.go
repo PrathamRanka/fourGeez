@@ -99,6 +99,31 @@ func TestNonLocalOnboardingDoesNotCreateMissingEntitlement(t *testing.T) {
 	}
 }
 
+func TestAWSDevelopmentOnboardingProvisionsNoChargeStarterEntitlement(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC)
+	clock := domain.FixedClock{Value: now}
+	catalogRepository := memory.NewCatalogRepository()
+	sellerID := mustDevelopmentSellerID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9HC")
+	seller, err := catalog.NewSeller(catalog.SellerParams{
+		SellerID: sellerID, OwnerSubject: "cognito:dev-seller", Slug: "dev-seller",
+		Name: "Development Seller", UpstreamBaseURL: "https://seller.example", CreatedAt: domain.NewTimestamp(now),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := catalogRepository.CreateSeller(t.Context(), seller); err != nil {
+		t.Fatal(err)
+	}
+	storedEntitlements := memory.NewSellerEntitlementRepository()
+	entitlements := configureOnboardingEntitlementRepository("dev", storedEntitlements, catalogRepository, clock)
+	loaded, err := entitlements.Get(t.Context(), sellerID)
+	if err != nil || loaded.Status() != billing.EntitlementStatusActive || loaded.Source() != billing.EntitlementSourceLocal {
+		t.Fatalf("dev entitlement = %#v, %v", loaded.Snapshot(), err)
+	}
+}
+
 func TestNewLocalSellerCanCreatePaymentDestinationThroughQuotaMiddleware(t *testing.T) {
 	t.Parallel()
 

@@ -28,6 +28,7 @@ rl/data/generated/
 *.tfstate
 *.tfstate.*
 *.tfplan
+infra/terraform/dist/
 crash.log
 crash.*.log
 override.tf

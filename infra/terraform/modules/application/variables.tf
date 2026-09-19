@@ -123,3 +123,18 @@ variable "seller_user_pool_client_id" {
   description = "Cognito seller web app-client ID."
   type        = string
 }
+
+variable "facilitator_url" {
+  description = "x402 testnet facilitator origin."
+  type        = string
+}
+
+variable "x402_network" {
+  description = "Allowed x402 testnet network identifier."
+  type        = string
+}
+
+variable "x402_asset" {
+  description = "Allowed x402 testnet asset identifier."
+  type        = string
+}

@@ -10,9 +10,9 @@ subscription enforcement, cloud-authoritative MCP access, the shared browser
 and agent x402 commerce path, exactly-once fulfillment, the essential seller
 dashboard, and full-system browser verification. M8 infrastructure work has
 deployed the Terraform foundation, protected development state backend, and
-Mumbai Cognito seller identity. The application runtime,
-environment-specific web/API connection, observability, and M9 deployed
-release verification remain pending.
+Mumbai Cognito seller identity and the Mumbai ARM64 Lambda/HTTP API runtime.
+Environment-specific Vercel/API connection, runtime observability, and M9
+deployed release verification remain pending.
 Until those milestones pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
@@ -27,15 +27,15 @@ the launch runtime exposes no buyer approval REST, cookie, token, WebSocket,
 UI, or `428` payment branch. Seller confirmation for MCP commercial mutations
 remains required and is a separate authorization boundary.
 
-| Surface | Historical M7 behavior | Implemented Lean V1 behavior |
-|---|---|---|
-| Seller project credential | `apc1` credential used directly by MCP | `apc2` bootstrap through `/v1/integration-access-tokens`; required local connector and short-lived access token at `/mcp` |
-| MCP mutation confirmation | Caller-supplied boolean, summary, and timestamp | Seller-session-issued one-time grant bound to the exact mutation |
-| Buyer approval | M2 threshold/two-person runtime | Deferred and disabled for Lean V1; wallet authorization plus the buyer maximum is the buyer consent boundary |
-| Browser purchase | Buyer-agent key only | Durable opaque purchase cookie, bounded commerce window, and payer-wallet recovery |
-| Seller forwarding | Per-seller HMAC | Finality-gated ES256 execution capability |
-| Seller entitlement | `active`/`suspended` plan projection | Full entitlement projection and epoch checks |
-| Receipts and invoice exports | Schema version 1 | Version-aware readers with launch writers on schema version 2 |
+| Surface                      | Historical M7 behavior                          | Implemented Lean V1 behavior                                                                                              |
+| ---------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Seller project credential    | `apc1` credential used directly by MCP          | `apc2` bootstrap through `/v1/integration-access-tokens`; required local connector and short-lived access token at `/mcp` |
+| MCP mutation confirmation    | Caller-supplied boolean, summary, and timestamp | Seller-session-issued one-time grant bound to the exact mutation                                                          |
+| Buyer approval               | M2 threshold/two-person runtime                 | Deferred and disabled for Lean V1; wallet authorization plus the buyer maximum is the buyer consent boundary              |
+| Browser purchase             | Buyer-agent key only                            | Durable opaque purchase cookie, bounded commerce window, and payer-wallet recovery                                        |
+| Seller forwarding            | Per-seller HMAC                                 | Finality-gated ES256 execution capability                                                                                 |
+| Seller entitlement           | `active`/`suspended` plan projection            | Full entitlement projection and epoch checks                                                                              |
+| Receipts and invoice exports | Schema version 1                                | Version-aware readers with launch writers on schema version 2                                                             |
 
 No production environment may expose a mixed mode in which a target endpoint
 accepts a legacy credential or a legacy endpoint bypasses target authorization.
@@ -44,38 +44,38 @@ The complete gap analysis and reference security design are recorded in
 
 ## Authoritative documents
 
-| Document | Purpose |
-|---|---|
-| [PRODUCT.md](PRODUCT.md) | Product scope, seller automation, buyer channels, and revenue boundaries |
-| [IMPLEMENTATION.md](IMPLEMENTATION.md) | Ordered task ledger, dependencies, acceptance criteria, and milestone status |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Components, boundaries, request flow, deployment shape, and failure behavior |
-| [DATA_MODEL.md](DATA_MODEL.md) | Entities, state machines, identifiers, indexes, and retention |
-| [AWS_SETUP.md](AWS_SETUP.md) | AWS accounts, services, IAM, deployment order, configuration, and teardown |
-| [SECURITY.md](SECURITY.md) | Threat model, secrets, evidence integrity, privacy, and production gates |
-| [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) | Proprietary-source posture, contributor rights, GitHub controls, and owner-only settings |
-| [SUBSCRIPTION_LIFECYCLE.md](SUBSCRIPTION_LIFECYCLE.md) | Stripe Billing adapter, entitlement states, expiry, recovery, revocation, and historical access |
-| [MCP_SECURITY_BOUNDARY.md](MCP_SECURITY_BOUNDARY.md) | Cloud-authoritative MCP, one-time seller confirmation, discovery separation, and fork resistance |
-| [TEST_PLAN.md](TEST_PLAN.md) | Test levels, required scenarios, fixtures, and release gates |
-| [runbooks/OPERATOR_SUSPENSION_REPLAY.md](runbooks/OPERATOR_SUSPENSION_REPLAY.md) | Suspension, cancellation, replay response, evidence preservation, and recovery procedure |
-| [DECISIONS.md](DECISIONS.md) | Locked decisions, assumptions, deferred choices, and change procedure |
-| [SOURCES.md](SOURCES.md) | External protocol and platform sources that must be verified before implementation |
-| [api/openapi.yaml](api/openapi.yaml) | REST/HTTP API contract |
-| [api/asyncapi.yaml](api/asyncapi.yaml) | Deferred historical approval WebSocket contract; no Lean V1 runtime channel |
-| [api/mcp.md](api/mcp.md) | Remote MCP transport, authentication, and resource contract |
-| [api/webhooks.md](api/webhooks.md) | Seller webhook event envelope and signature contract |
-| [api/receipts.md](api/receipts.md) | Versioned buyer and seller purchase receipt contract |
-| [SELLER_VERIFICATION.md](SELLER_VERIFICATION.md) | Versioned seller-request verification package contract |
-| [SETUP_BUNDLES.md](SETUP_BUNDLES.md) | Versioned coding-agent setup resources and prompt contract |
-| [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md) | Pre-publication seller integration validation contract |
-| [STOREFRONT_VALIDATION.md](STOREFRONT_VALIDATION.md) | Deterministic SEO, AEO, discovery, accessibility, and performance checks |
-| [INTEGRATION_RECIPES.md](INTEGRATION_RECIPES.md) | Maintained stack recipes, middleware order, generated files, and fixture gates |
-| [../scripts/flaws.md](../scripts/flaws.md) | Consolidated launch gaps, subscription-enforcement design, and implementation reference |
-| [uml/system-context.puml](uml/system-context.puml) | System context diagram |
-| [uml/containers.puml](uml/containers.puml) | Runtime/container diagram |
-| [uml/purchase-sequence.puml](uml/purchase-sequence.puml) | Lean V1 purchase and x402 sequence |
-| [uml/seller-integration-sequence.puml](uml/seller-integration-sequence.puml) | Coding-agent seller integration and publication sequence |
-| [uml/browser-wallet-purchase-sequence.puml](uml/browser-wallet-purchase-sequence.puml) | Browser-wallet x402 purchase through the shared commerce pipeline |
-| [uml/dispute-sequence.puml](uml/dispute-sequence.puml) | Dispute sequence |
+| Document                                                                               | Purpose                                                                                          |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [PRODUCT.md](PRODUCT.md)                                                               | Product scope, seller automation, buyer channels, and revenue boundaries                         |
+| [IMPLEMENTATION.md](IMPLEMENTATION.md)                                                 | Ordered task ledger, dependencies, acceptance criteria, and milestone status                     |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                                                     | Components, boundaries, request flow, deployment shape, and failure behavior                     |
+| [DATA_MODEL.md](DATA_MODEL.md)                                                         | Entities, state machines, identifiers, indexes, and retention                                    |
+| [AWS_SETUP.md](AWS_SETUP.md)                                                           | AWS accounts, services, IAM, deployment order, configuration, and teardown                       |
+| [SECURITY.md](SECURITY.md)                                                             | Threat model, secrets, evidence integrity, privacy, and production gates                         |
+| [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)                                   | Proprietary-source posture, contributor rights, GitHub controls, and owner-only settings         |
+| [SUBSCRIPTION_LIFECYCLE.md](SUBSCRIPTION_LIFECYCLE.md)                                 | Stripe Billing adapter, entitlement states, expiry, recovery, revocation, and historical access  |
+| [MCP_SECURITY_BOUNDARY.md](MCP_SECURITY_BOUNDARY.md)                                   | Cloud-authoritative MCP, one-time seller confirmation, discovery separation, and fork resistance |
+| [TEST_PLAN.md](TEST_PLAN.md)                                                           | Test levels, required scenarios, fixtures, and release gates                                     |
+| [runbooks/OPERATOR_SUSPENSION_REPLAY.md](runbooks/OPERATOR_SUSPENSION_REPLAY.md)       | Suspension, cancellation, replay response, evidence preservation, and recovery procedure         |
+| [DECISIONS.md](DECISIONS.md)                                                           | Locked decisions, assumptions, deferred choices, and change procedure                            |
+| [SOURCES.md](SOURCES.md)                                                               | External protocol and platform sources that must be verified before implementation               |
+| [api/openapi.yaml](api/openapi.yaml)                                                   | REST/HTTP API contract                                                                           |
+| [api/asyncapi.yaml](api/asyncapi.yaml)                                                 | Deferred historical approval WebSocket contract; no Lean V1 runtime channel                      |
+| [api/mcp.md](api/mcp.md)                                                               | Remote MCP transport, authentication, and resource contract                                      |
+| [api/webhooks.md](api/webhooks.md)                                                     | Seller webhook event envelope and signature contract                                             |
+| [api/receipts.md](api/receipts.md)                                                     | Versioned buyer and seller purchase receipt contract                                             |
+| [SELLER_VERIFICATION.md](SELLER_VERIFICATION.md)                                       | Versioned seller-request verification package contract                                           |
+| [SETUP_BUNDLES.md](SETUP_BUNDLES.md)                                                   | Versioned coding-agent setup resources and prompt contract                                       |
+| [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md)                                         | Pre-publication seller integration validation contract                                           |
+| [STOREFRONT_VALIDATION.md](STOREFRONT_VALIDATION.md)                                   | Deterministic SEO, AEO, discovery, accessibility, and performance checks                         |
+| [INTEGRATION_RECIPES.md](INTEGRATION_RECIPES.md)                                       | Maintained stack recipes, middleware order, generated files, and fixture gates                   |
+| [../scripts/flaws.md](../scripts/flaws.md)                                             | Consolidated launch gaps, subscription-enforcement design, and implementation reference          |
+| [uml/system-context.puml](uml/system-context.puml)                                     | System context diagram                                                                           |
+| [uml/containers.puml](uml/containers.puml)                                             | Runtime/container diagram                                                                        |
+| [uml/purchase-sequence.puml](uml/purchase-sequence.puml)                               | Lean V1 purchase and x402 sequence                                                               |
+| [uml/seller-integration-sequence.puml](uml/seller-integration-sequence.puml)           | Coding-agent seller integration and publication sequence                                         |
+| [uml/browser-wallet-purchase-sequence.puml](uml/browser-wallet-purchase-sequence.puml) | Browser-wallet x402 purchase through the shared commerce pipeline                                |
+| [uml/dispute-sequence.puml](uml/dispute-sequence.puml)                                 | Dispute sequence                                                                                 |
 
 ## Authority and conflict rules
 
