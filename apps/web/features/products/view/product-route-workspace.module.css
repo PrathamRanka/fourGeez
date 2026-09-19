@@ -6,7 +6,7 @@
   --line-strong: var(--dash-line-strong, var(--input));
   --copy: var(--dash-copy, var(--foreground));
   --copy-muted: var(--dash-muted, var(--muted-foreground));
-  --copy-faint: color-mix(in oklab, var(--copy) 48%, transparent);
+  --copy-faint: color-mix(in oklab, var(--copy) 68%, var(--surface));
   min-height: calc(100vh - 5rem);
   background: var(--surface);
   color: var(--copy);
