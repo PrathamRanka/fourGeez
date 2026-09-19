@@ -1,17 +1,40 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import type { IdentityAuthentication } from "@/features/auth/model";
 
-const sealedSessionVersion = "aps1";
+const sealedSessionVersion = "aps2";
+const legacySealedSessionVersion = "aps1";
 const initializationVectorBytes = 12;
 const authenticationTagBytes = 16;
-const sessionAdditionalData = Buffer.from(
-  "agentpay-seller-session-v1",
-  "utf8",
-);
+const maximumSessionPlaintextBytes = 64 * 1_024;
+const maximumSealedSessionCookieValueBytes = 3_800;
+
+function sessionAdditionalData(version: string): Buffer {
+  return Buffer.from(
+    version === sealedSessionVersion
+      ? "agentpay-seller-session-v2"
+      : "agentpay-seller-session-v1",
+    "utf8",
+  );
+}
+
+function encodeAuthentication(authentication: IdentityAuthentication): Buffer {
+  const plaintext = Buffer.from(JSON.stringify(authentication), "utf8");
+  if (plaintext.length > maximumSessionPlaintextBytes) {
+    throw new Error("Seller session payload exceeds the allowed size.");
+  }
+  return deflateRawSync(plaintext, { level: 9 });
+}
+
+function decodeAuthentication(version: string, plaintext: Buffer): unknown {
+  const decoded =
+    version === sealedSessionVersion
+      ? inflateRawSync(plaintext, {
+          maxOutputLength: maximumSessionPlaintextBytes,
+        })
+      : plaintext;
+  return JSON.parse(decoded.toString("utf8"));
+}
 
 function decodeKey(encodedKey: string): Buffer {
   const key = Buffer.from(encodedKey, "base64url");
@@ -54,16 +77,27 @@ export function sealSellerSession(
   const key = decodeKey(encodedKey);
   const initializationVector = randomBytes(initializationVectorBytes);
   const cipher = createCipheriv("aes-256-gcm", key, initializationVector);
-  cipher.setAAD(sessionAdditionalData);
-  const plaintext = Buffer.from(JSON.stringify(authentication), "utf8");
-  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  cipher.setAAD(sessionAdditionalData(sealedSessionVersion));
+  const encodedAuthentication = encodeAuthentication(authentication);
+  const ciphertext = Buffer.concat([
+    cipher.update(encodedAuthentication),
+    cipher.final(),
+  ]);
   const authenticationTag = cipher.getAuthTag();
-  return [
+  const sealed = [
     sealedSessionVersion,
     initializationVector.toString("base64url"),
     ciphertext.toString("base64url"),
     authenticationTag.toString("base64url"),
   ].join(".");
+  if (
+    Buffer.byteLength(sealed, "utf8") > maximumSealedSessionCookieValueBytes
+  ) {
+    throw new Error(
+      "Seller session cookie exceeds the safe browser storage limit.",
+    );
+  }
+  return sealed;
 }
 
 export function openSellerSession(
@@ -75,7 +109,8 @@ export function openSellerSession(
     const [version, encodedVector, encodedCiphertext, encodedTag, extra] =
       sealed.split(".");
     if (
-      version !== sealedSessionVersion ||
+      (version !== sealedSessionVersion &&
+        version !== legacySealedSessionVersion) ||
       !encodedVector ||
       !encodedCiphertext ||
       !encodedTag ||
@@ -96,13 +131,13 @@ export function openSellerSession(
       decodeKey(encodedKey),
       initializationVector,
     );
-    decipher.setAAD(sessionAdditionalData);
+    decipher.setAAD(sessionAdditionalData(version));
     decipher.setAuthTag(authenticationTag);
     const plaintext = Buffer.concat([
       decipher.update(Buffer.from(encodedCiphertext, "base64url")),
       decipher.final(),
-    ]).toString("utf8");
-    const authentication: unknown = JSON.parse(plaintext);
+    ]);
+    const authentication = decodeAuthentication(version, plaintext);
     return validAuthentication(authentication, now) ? authentication : null;
   } catch {
     return null;

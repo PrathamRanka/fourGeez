@@ -341,8 +341,9 @@ authorization, revocation, transaction, and failure semantics proven locally.
       no-secret, revocable web/BFF client. The production web adapter implements
       registration, verification, password recovery, sign-in, Cognito
       revalidation, bounded access-token refresh, global sign-out, exact-Origin
-      CSRF protection, claim-derived seller hydration, and AES-256-GCM-sealed
-      Secure HttpOnly sessions without exposing Cognito tokens to browser
+      CSRF protection, claim-derived seller hydration, and versioned,
+      size-bounded compressed AES-256-GCM-sealed Secure HttpOnly sessions that
+      stay below browser cookie limits without exposing Cognito tokens to browser
       JavaScript. API Gateway JWT protection is active for the deployed
       seller-only route families.
 - [ ] **AWS-007** Configure Bedrock model access and runtime permissions. Bedrock is disabled and non-blocking for the seller-first V1 deployment.
