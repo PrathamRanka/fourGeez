@@ -513,8 +513,10 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 				status = StepBlocked
 			}
 			view.Complete = false
-			view.Publication.Allowed = false
-			view.Publication.Blockers = append(view.Publication.Blockers, check.name)
+			if check.name != StepSandboxPurchase && check.name != StepStorefrontPreviewed {
+				view.Publication.Allowed = false
+				view.Publication.Blockers = append(view.Publication.Blockers, check.name)
+			}
 			if view.CurrentStep == "" {
 				view.CurrentStep = check.name
 			}

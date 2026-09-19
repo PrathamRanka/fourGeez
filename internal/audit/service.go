@@ -81,7 +81,13 @@ var actionDefinitions = map[Action]actionDefinition{
 	ActionWebhookSubscriptionDisabled: newActionDefinition(TargetTypeWebhookSubscription, "status"),
 	ActionSellerSuspended:             newActionDefinition(TargetTypeSeller, "status"),
 	ActionServiceIntegrationActivated: newActionDefinition(TargetTypeSeller, "status"),
-	ActionManualRefundRecorded:        newActionDefinition(TargetTypeDispute, "amount", "asset", "network", "reference"),
+	ActionServiceEndpointVerified: newActionDefinition(
+		TargetTypeSeller,
+		"verifiedUpstreamBaseUrl",
+		"verifiedSigningSecretRefHash",
+		"serviceEndpointVerifiedAt",
+	),
+	ActionManualRefundRecorded: newActionDefinition(TargetTypeDispute, "amount", "asset", "network", "reference"),
 }
 
 // Service owns audit validation, append operations, and seller history reads.
