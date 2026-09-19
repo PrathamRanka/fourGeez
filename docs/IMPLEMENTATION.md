@@ -234,7 +234,7 @@ release dependencies rather than being represented as complete.
 
 ## Milestone M7.3 — Merchant integration extensions
 
-- [-] **EXT-003** Implement a pinned, server-only TypeScript merchant SDK that
+- [x] **EXT-003** Implement a pinned, server-only TypeScript merchant SDK that
   composes the Node execution verifier, legacy sandbox request verifier,
   webhook signature verification, typed AgentPay merchant contracts, and a
   durable idempotent-fulfillment helper. Formalize one small merchant-adapter

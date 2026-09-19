@@ -1,6 +1,6 @@
 # TypeScript merchant SDK and adapters
 
-Status: **EXT-003 contract locked; implementation in progress**.
+Status: **EXT-003 implemented and verified locally**.
 
 ## Purpose and release boundary
 
@@ -61,8 +61,10 @@ The included memory stores are test/local helpers only.
 
 It verifies the versioned HMAC-SHA256 contract in `api/webhooks.md`, requires a
 secret of at least 32 bytes, rejects malformed or stale timestamps, compares the
-signature in constant time, and atomically consumes the event ID through a
-seller-provided replay store. The default maximum age is five minutes.
+signature in constant time, parses only after authentication, binds the signed
+header event ID and configured seller ID to the parsed envelope, and atomically
+consumes the event ID through a seller-provided replay store. It returns that
+verified envelope. The default maximum age is five minutes.
 
 ## Idempotent fulfillment
 
@@ -100,12 +102,12 @@ allowlisting any secondary endpoint used inside their application.
 
 ## Shopify and WooCommerce references
 
-The repository may provide tested reference adapters that create a merchant
-order record only after AgentPay execution verification and seller-side
-idempotency succeed:
+The repository provides tested reference transports used only after AgentPay
+execution verification and seller-side idempotency succeed:
 
 - Shopify credentials are supplied at runtime by the seller's server and are
-  never embedded in source, browser code, fixtures, or AgentPay configuration.
+  never embedded in source, browser code, fixtures, or AgentPay configuration;
+  the seller supplies the Admin GraphQL operation and variables.
 - WooCommerce credentials are likewise seller-owned server secrets.
 - Adapter tests use fake transports and assert request shape, authentication
   placement, idempotency metadata, bounded response handling, and safe errors.

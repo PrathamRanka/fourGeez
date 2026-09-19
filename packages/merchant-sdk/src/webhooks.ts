@@ -54,18 +54,22 @@ export interface VerifyAgentPayWebhookOptions {
   rawBody: Uint8Array;
   headers: MerchantHeaders;
   replayStore: WebhookReplayStore;
+  expectedSellerId: string;
   now?: Date;
   maximumAgeMs?: number;
 }
 
 export async function verifyAgentPayWebhook(
   options: VerifyAgentPayWebhookOptions,
-): Promise<void> {
+): Promise<AgentPayWebhookEvent> {
   const secret =
     typeof options.secret === "string"
       ? Buffer.from(options.secret)
       : Buffer.from(options.secret);
   if (secret.length < 32) {
+    throw new MerchantSdkError("invalid_configuration", 500);
+  }
+  if (!SELLER_ID.test(options.expectedSellerId)) {
     throw new MerchantSdkError("invalid_configuration", 500);
   }
 
@@ -113,6 +117,14 @@ export async function verifyAgentPayWebhook(
     throw new MerchantSdkError("invalid_signature", 401);
   }
 
+  const event = parseAgentPayWebhookEvent(options.rawBody);
+  if (
+    event.eventId !== eventId ||
+    event.sellerId !== options.expectedSellerId
+  ) {
+    throw new MerchantSdkError("binding_mismatch", 403);
+  }
+
   try {
     if (
       !(await options.replayStore.claim(
@@ -126,6 +138,7 @@ export async function verifyAgentPayWebhook(
     if (error instanceof MerchantSdkError) throw error;
     throw new MerchantSdkError("dependency_unavailable", 503);
   }
+  return event;
 }
 
 export function parseAgentPayWebhookEvent(

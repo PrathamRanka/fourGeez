@@ -6,7 +6,6 @@ import {
   MemoryFulfillmentStore,
   MemoryWebhookReplayStore,
   MerchantSdkError,
-  parseAgentPayWebhookEvent,
   processAgentPayFulfillment,
   verifyAgentPayWebhook,
 } from "../../packages/merchant-sdk/dist/index.js";
@@ -33,13 +32,13 @@ createServer(async (request, response) => {
     const headers = normalizeNodeHeaders(request.headers);
 
     if (request.url === "/webhooks/agentpay") {
-      await verifyAgentPayWebhook({
+      const event = await verifyAgentPayWebhook({
         secret: webhookSecret,
         rawBody,
         headers,
         replayStore: webhookReplayStore,
+        expectedSellerId: sellerId,
       });
-      const event = parseAgentPayWebhookEvent(rawBody);
       response.writeHead(204, { "Cache-Control": "no-store" });
       response.end();
       process.stdout.write(`accepted ${event.eventType} ${event.eventId}\n`);

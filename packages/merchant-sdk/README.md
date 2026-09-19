@@ -64,14 +64,19 @@ Load the reveal-once webhook secret from the seller's secret manager, not from
 browser code or a committed file:
 
 ```ts
-await verifyAgentPayWebhook({
+const event = await verifyAgentPayWebhook({
   secret: process.env.AGENTPAY_WEBHOOK_SECRET!,
   rawBody,
   headers,
   replayStore,
+  expectedSellerId: process.env.AGENTPAY_SELLER_ID!,
 });
-const event = parseAgentPayWebhookEvent(rawBody);
 ```
+
+The verifier authenticates the exact received bytes before parsing, binds the
+signed header event ID to the envelope, requires the envelope seller ID to
+match configuration, and returns that verified envelope. Do not parse a
+framework-reconstructed JSON body for signature verification.
 
 ## Reference adapters
 
