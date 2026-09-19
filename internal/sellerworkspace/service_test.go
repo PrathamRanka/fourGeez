@@ -68,6 +68,24 @@ func TestSandboxPurchaseMustBeAnAuthoritativeFulfilledSellerTransaction(t *testi
 	}
 }
 
+func TestSandboxPurchaseReplayDoesNotRewriteWorkspaceState(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.transactions = []transactions.Transaction{fixture.transaction}
+
+	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
+		t.Fatal(err)
+	}
+	firstVersion := fixture.repository.state.Version
+	firstPutCalls := fixture.repository.putCalls
+	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.repository.state.Version != firstVersion || fixture.repository.putCalls != firstPutCalls {
+		t.Fatalf("replay changed workspace state: version=%d calls=%d", fixture.repository.state.Version, fixture.repository.putCalls)
+	}
+}
+
 func TestPublicationGateFailsClosedUntilOnboardingIsComplete(t *testing.T) {
 	t.Parallel()
 	fixture := newWorkspaceFixture(t)
@@ -169,6 +187,29 @@ func TestPublicationReadinessRequiresVerifiedServiceConnection(t *testing.T) {
 	if view.Publication.Allowed {
 		t.Fatal("draft seller service must not be publishable")
 	}
+}
+
+func TestLocalDevelopmentServiceReadinessRequiresExplicitLoopbackOptIn(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.seller.UpstreamBaseURL = "http://127.0.0.1:8090"
+	fixture.routes = []catalog.PaidRoute{fixture.route}
+	fixture.destinations = []settlement.PaymentDestination{fixture.destination}
+	fixture.credentials = []integrations.CredentialView{fixture.credential}
+	fixture.entitlement = fixture.activeEntitlement
+
+	blocked, err := fixture.service.Onboarding(context.Background(), fixture.principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStep(t, blocked, StepServiceConnectionVerified, StepBlocked)
+
+	fixture.service.dependencies.AllowLocalDevelopmentService = true
+	allowed, err := fixture.service.Onboarding(context.Background(), fixture.principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStep(t, allowed, StepServiceConnectionVerified, StepComplete)
 }
 
 func TestDashboardBuildsBoundedSellerSummaries(t *testing.T) {

@@ -1,7 +1,9 @@
 import {
   expect,
+  expectNoHorizontalOverflow,
   installDeterministicWallet,
   registerAndSignInSeller,
+  signInLaunchReadySeller,
   test,
 } from "./fixtures/agentpay";
 
@@ -144,4 +146,48 @@ test("seller can sign out from the dashboard", async ({
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/sign-in/);
+});
+
+test("seller test purchase passes three clean reset rehearsals", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(45_000);
+  for (let rehearsal = 1; rehearsal <= 3; rehearsal += 1) {
+    const reset = await request.post(
+      "http://127.0.0.1:8080/__dev/seed-profile/reset",
+    );
+    expect(reset.ok(), `rehearsal ${rehearsal} seed reset`).toBeTruthy();
+    await page.context().clearCookies();
+    await signInLaunchReadySeller(page);
+    await page.goto("/dashboard/onboarding#test-purchase");
+    const testPurchase = page.getByRole("region", {
+      name: "Run test purchase",
+    });
+    await expect(testPurchase).toBeVisible();
+    await testPurchase
+      .getByRole("button", { name: "Run test purchase" })
+      .click();
+    await expect(testPurchase.getByText("Launch test passed")).toBeVisible();
+    await expect(testPurchase.getByText("Local mock payment")).toBeVisible();
+    await expect(
+      testPurchase.getByRole("link", { name: "Open verified transaction" }),
+    ).toBeVisible();
+    await expect(
+      testPurchase.getByRole("listitem", { name: "Dashboard reconciled" }),
+    ).toContainText("Passed");
+  }
+});
+
+test("seller test purchase remains usable at supported widths @visual", async ({
+  page,
+}) => {
+  await signInLaunchReadySeller(page);
+  await page.goto("/dashboard/onboarding#test-purchase");
+  const testPurchase = page.getByRole("region", { name: "Run test purchase" });
+  await expect(testPurchase).toBeVisible();
+  await expect(
+    testPurchase.getByRole("button", { name: "Run test purchase" }),
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });

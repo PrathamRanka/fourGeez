@@ -249,5 +249,5 @@ proofs, authorization headers, or purchase cookies in the evidence bundle.
 - [ ] Coding-agent setup produces a reviewable diff and cannot publish without confirmation.
 - [ ] Human and agent purchases appear in one seller transaction history.
 - [ ] Three consecutive three-minute rehearsals succeed without data repair.
-- [ ] The seller onboarding test-purchase control remains hidden until its
+- [x] The seller onboarding test-purchase control remains hidden until its
       authoritative prerequisites are satisfied and reports no synthetic pass.

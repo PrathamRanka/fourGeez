@@ -28,6 +28,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
+	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/storefront"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -67,6 +68,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"getCurrentSellerDashboard":               {"200", "401", "404", "429", "503"},
 		"getCurrentSellerEvidenceSummary":         {"200", "401", "404", "429", "503"},
 		"getCurrentSellerOnboarding":              {"200", "401", "404", "429", "503"},
+		"recordCurrentSellerSandboxPurchase":      {"200", "400", "401", "404", "409", "429", "503"},
 		"getCurrentSellerProductSummary":          {"200", "401", "404", "429", "503"},
 		"getCurrentSellerSettings":                {"200", "401", "404", "429", "503"},
 		"getCurrentSellerTransactionSummary":      {"200", "401", "404", "429", "503"},
@@ -129,6 +131,7 @@ func TestImplementedOpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "getPaymentCapabilities", method: http.MethodGet, path: "/v1/payment-capabilities", wantStatus: http.StatusOK},
 		{operationID: "createSeller", method: http.MethodPost, path: "/v1/sellers", wantStatus: http.StatusUnauthorized},
 		{operationID: "getCurrentSeller", method: http.MethodGet, path: "/v1/me/seller", wantStatus: http.StatusUnauthorized},
+		{operationID: "recordCurrentSellerSandboxPurchase", method: http.MethodPost, path: "/v1/me/onboarding/sandbox-purchases", wantStatus: http.StatusUnauthorized},
 		{operationID: "revokeCurrentSellerSession", method: http.MethodDelete, path: "/v1/me/session", wantStatus: http.StatusUnauthorized},
 		{operationID: "listSellerPlans", method: http.MethodGet, path: "/v1/plans", wantStatus: http.StatusOK},
 		{operationID: "getSellerPlan", method: http.MethodGet, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/plan", wantStatus: http.StatusUnauthorized},
@@ -252,6 +255,8 @@ func newConformanceHandler(t *testing.T) http.Handler {
 	disputeRepository := memory.NewDisputeRepository()
 	manualRefundRecordRepository := memory.NewManualRefundRecordRepository()
 	integrationCredentialRepository := memory.NewIntegrationCredentialRepository()
+	paymentDestinationRepository := memory.NewPaymentDestinationRepository()
+	sellerWorkspaceRepository := memory.NewSellerWorkspaceRepository()
 	webhookSubscriptionRepository := memory.NewWebhookSubscriptionRepository()
 	webhookDeliveryRepository := memory.NewWebhookDeliveryRepository()
 	sellerPlanRepository := memory.NewSellerPlanRepository()
@@ -324,7 +329,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		),
 	).RegisterRoutes(mux)
 	settlementService := settlement.NewService(
-		memory.NewPaymentDestinationRepository(),
+		paymentDestinationRepository,
 		catalogService,
 		idGenerator,
 		settlement.NewSecureOwnershipNonceGenerator(
@@ -377,6 +382,28 @@ func newConformanceHandler(t *testing.T) http.Handler {
 			clock,
 		),
 		idempotencyStore,
+	).RegisterRoutes(mux)
+	workspaceService := sellerworkspace.NewService(sellerworkspace.Dependencies{
+		Workspaces:           sellerWorkspaceRepository,
+		Sellers:              catalogRepository,
+		Products:             catalogRepository,
+		PaymentDestinations:  sellerworkspace.NewPaymentDestinationRepositoryReader(paymentDestinationRepository),
+		Credentials:          sellerworkspace.NewCredentialRepositoryReader(integrationCredentialRepository),
+		Transactions:         sellerworkspace.NewTransactionRepositoryReader(transactionRepository),
+		Evidence:             evidenceRepository,
+		WebhookSubscriptions: sellerworkspace.NewWebhookSubscriptionRepositoryReader(webhookSubscriptionRepository),
+		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
+		Billing:              billingService,
+		BillingPortal:        sellerworkspace.UnavailableBillingPortal{},
+		AccountVerification:  sellerworkspace.AuthenticatedAccountVerification{},
+		Clock:                clock,
+	})
+	sellerworkspace.NewHTTPController(
+		workspaceService,
+		sellerworkspace.NewContextPrincipalSource(
+			catalogService,
+			sellerworkspace.AuthenticatedAccountVerification{},
+		),
 	).RegisterRoutes(mux)
 	storefront.NewHTTPController(storefront.NewService(storefront.Dependencies{
 		Catalog: catalogRepository, Directory: catalogRepository,

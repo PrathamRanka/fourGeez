@@ -269,6 +269,7 @@ func main() {
 		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
 		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{},
 		AccountVerification: sellerworkspace.AuthenticatedAccountVerification{}, Clock: clock,
+		AllowLocalDevelopmentService: config.Environment == "local",
 	})
 	integrationService.SetCredentialIssuanceAuthorizer(workspaceService)
 	storefrontService := storefront.NewService(storefront.Dependencies{

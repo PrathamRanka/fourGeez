@@ -1,4 +1,5 @@
 import type { ActionResult } from "@/lib/agentpay-api";
+import type { PaidRoute } from "@/features/products/model";
 
 export type SellerStatus = "draft" | "active" | "suspended";
 export type PaymentDestinationStatus =
@@ -49,6 +50,33 @@ export type OnboardingSnapshot = {
   seller: Seller | null;
   paymentDestinations: PaymentDestination[];
   credentials: IntegrationCredential[];
+  testableRoutes: TestPurchaseRoute[];
+  onboarding: SellerOnboardingState;
+};
+
+export type TestPurchaseRoute = Pick<
+  PaidRoute,
+  | "routeId"
+  | "displayName"
+  | "productSlug"
+  | "method"
+  | "pathPattern"
+  | "description"
+  | "mimeType"
+  | "amount"
+  | "asset"
+  | "network"
+  | "lifecycleStatus"
+  | "enabled"
+>;
+
+export type SellerTestPurchaseVerification = {
+  transactionId: string;
+  dashboardOccurrenceCount: 1;
+  evidenceEventCount: number;
+  evidenceValid: true;
+  fulfillmentExactlyOnce: true;
+  receiptAvailable: true;
   onboarding: SellerOnboardingState;
 };
 
@@ -110,6 +138,10 @@ export type CreateIntegrationCredentialInput = {
   sellerId: string;
 };
 
+export type VerifySellerTestPurchaseInput = {
+  transactionId: string;
+};
+
 export type { ActionResult } from "@/lib/agentpay-api";
 
 export type OnboardingActions = {
@@ -125,6 +157,9 @@ export type OnboardingActions = {
   createIntegrationCredential: (
     input: CreateIntegrationCredentialInput,
   ) => Promise<ActionResult<CredentialCreated>>;
+  verifySellerTestPurchase: (
+    input: VerifySellerTestPurchaseInput,
+  ) => Promise<ActionResult<SellerTestPurchaseVerification>>;
 };
 
 export const setupPrompt = `Connect this project to AgentPay. Inspect only bounded committed manifests and OpenAPI, detect one maintained stack, propose sellable routes plus truthful SEO/AEO changes, install AgentPay request verification, and generate focused tests. Ask me for every exact price and payout destination. Never invent or change prices or payout addresses, publish, rotate credentials, or deploy without my explicit confirmation.`;

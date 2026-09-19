@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { OperationState } from "@/components/dashboard/operation-state";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type {
   CredentialCreated,
   IntegrationCredential,
@@ -31,6 +31,7 @@ import {
   createPowerShellSetup,
   setupPrompt,
 } from "@/features/onboarding/model";
+import { SellerTestPurchase } from "@/features/onboarding/view/seller-test-purchase";
 import styles from "./seller-onboarding.module.css";
 
 type SellerOnboardingProps = {
@@ -60,6 +61,12 @@ const eligibilitySteps = [
   "service_connection_verified",
   "subscription_active",
   "payment_destination_verified",
+] as const satisfies readonly OnboardingStepName[];
+const testPurchasePrerequisiteSteps = [
+  ...eligibilitySteps,
+  "project_key_created",
+  "connector_verified",
+  "product_configured",
 ] as const satisfies readonly OnboardingStepName[];
 
 const prerequisiteDetails: Record<
@@ -115,6 +122,13 @@ export function SellerOnboarding({
       (step) => step.name === name && step.status === "complete",
     );
   const eligible = eligibilitySteps.every(stepComplete);
+  const testPurchaseEligible =
+    testPurchasePrerequisiteSteps.every(stepComplete);
+  const testableRoute =
+    initialSnapshot.testableRoutes.find(
+      (route) => route.lifecycleStatus === "published" && route.enabled,
+    ) ?? null;
+  const sellerSlug = seller?.slug ?? "";
   const latestCredential = credentials.at(-1) ?? null;
   const activeCredential =
     credentials.find(
@@ -372,12 +386,12 @@ export function SellerOnboarding({
                   <strong>{seller.name}</strong>
                   <span>{seller.upstreamBaseUrl}</span>
                 </div>
-                <Button
-                  render={<Link href="/dashboard/settings" />}
-                  variant="outline"
+                <Link
+                  className={buttonVariants({ variant: "outline" })}
+                  href="/dashboard/settings"
                 >
                   Review service settings
-                </Button>
+                </Link>
               </div>
             </OnboardingStep>
           ) : null}
@@ -604,10 +618,10 @@ export function SellerOnboarding({
                 id="validation"
                 number="06"
                 icon={ShieldCheck}
-                title="Connection and sandbox validation"
-                description="Connector authorization is recorded on the first authenticated MCP request. Full signed sandbox validation remains required before publication."
-                complete={stepComplete("sandbox_purchase")}
-                current={connectorState === "connected"}
+                title="Connector validation"
+                description="Connector authorization is recorded on the first authenticated MCP request. The commerce rehearsal appears after a published product is available."
+                complete={connectorState === "connected"}
+                current={connectorState !== "connected"}
                 locked={connectorState !== "connected"}
               >
                 <div className="sandbox-readiness">
@@ -619,7 +633,7 @@ export function SellerOnboarding({
                     }
                   >
                     {stepComplete("sandbox_purchase")
-                      ? "Sandbox validation passed"
+                      ? "Connector and prior sandbox verified"
                       : connectorState === "connected"
                         ? "Connector validation passed"
                         : "Validation not run"}
@@ -631,6 +645,16 @@ export function SellerOnboarding({
                   </p>
                 </div>
               </OnboardingStep>
+
+              <SellerTestPurchase
+                eligible={testPurchaseEligible}
+                route={testableRoute}
+                sellerSlug={sellerSlug}
+                verifyPurchase={actions.verifySellerTestPurchase}
+                onVerified={(verification) =>
+                  setOnboarding(verification.onboarding)
+                }
+              />
             </>
           )}
         </div>
