@@ -192,16 +192,13 @@ variable "api_timeout_seconds" {
 }
 
 variable "api_reserved_concurrency" {
-  description = "Optional Lambda reserved concurrency. Use -1 when the account must retain its unreserved minimum; API Gateway throttling remains the development cost guard."
+  description = "Cost and load guard for simultaneous API Lambda executions."
   type        = number
-  default     = -1
+  default     = 5
 
   validation {
-    condition = (
-      var.api_reserved_concurrency == -1 ||
-      (var.api_reserved_concurrency >= 1 && var.api_reserved_concurrency <= 50)
-    )
-    error_message = "api_reserved_concurrency must be -1 or between 1 and 50."
+    condition     = var.api_reserved_concurrency >= 1 && var.api_reserved_concurrency <= 50
+    error_message = "api_reserved_concurrency must be between 1 and 50."
   }
 }
 
