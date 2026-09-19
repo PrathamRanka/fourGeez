@@ -230,6 +230,20 @@ Execute and preserve the payment release evidence according to
 `runbooks/X402_TESTNET_RELEASE.md`; never capture wallet secrets, raw payment
 proofs, authorization headers, or purchase cookies in the evidence bundle.
 
+### Seller package distribution
+
+- Run `npm pack --dry-run --json` for both seller packages and reject any file
+  outside the declared runtime, README, license, and notice allowlist.
+- Build two release bundles from the same clean commit and require identical
+  package SHA-256 values.
+- Verify `SHA256SUMS` and provenance against the generated tarballs.
+- Install each tarball into a new empty project with scripts disabled and no
+  registry dependency resolution.
+- Execute the installed connector entry point and import the installed merchant
+  SDK to prove bin, exports, declarations, and bundled verifier availability.
+- Scan packed content for environment files, source maps, tests, caches, known
+  credential formats, private-key markers, and secret assignments.
+
 ## Demo release checklist
 
 - [ ] Clean environment deployment succeeds from documented commands.

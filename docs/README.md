@@ -60,6 +60,7 @@ The complete gap analysis and reference security design are recorded in
 | [TEST_PLAN.md](TEST_PLAN.md)                                                           | Test levels, required scenarios, fixtures, and release gates                                     |
 | [runbooks/OPERATOR_SUSPENSION_REPLAY.md](runbooks/OPERATOR_SUSPENSION_REPLAY.md)       | Suspension, cancellation, replay response, evidence preservation, and recovery procedure         |
 | [runbooks/X402_TESTNET_RELEASE.md](runbooks/X402_TESTNET_RELEASE.md)                   | Safe evidence procedure for REL-003, REL-004, REL-005, and REL-008                               |
+| [runbooks/SELLER_PACKAGE_RELEASE.md](runbooks/SELLER_PACKAGE_RELEASE.md)               | Build, verify, distribute, and install the private seller connector and merchant SDK artifacts   |
 | [DECISIONS.md](DECISIONS.md)                                                           | Locked decisions, assumptions, deferred choices, and change procedure                            |
 | [SOURCES.md](SOURCES.md)                                                               | External protocol and platform sources that must be verified before implementation               |
 | [api/openapi.yaml](api/openapi.yaml)                                                   | REST/HTTP API contract                                                                           |

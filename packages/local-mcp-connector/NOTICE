@@ -1,0 +1,8 @@
+AgentPay local MCP connector notice
+
+This artifact contains AgentPay-authored proprietary code. It has no runtime
+npm dependencies. Build and test dependencies are not included in the packed
+artifact and remain governed by their respective licenses.
+
+Distribution requires release-owner review of contributor provenance and the
+customer-use terms described in the repository governance documentation.

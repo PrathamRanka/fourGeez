@@ -165,6 +165,15 @@ AgentPay provides:
 - generated public storefront, manifest, `llms.txt`, sitemap, structured data,
   canonical metadata, and paid URLs.
 
+Before package-registry publication is approved, the local connector and
+TypeScript merchant SDK are installed from versioned proprietary release
+tarballs.
+Each release is bound to one immutable source commit by a provenance document
+and SHA-256 checksum manifest. The merchant SDK artifact is self-contained and
+does not require an unpublished AgentPay workspace package at install time.
+Release artifacts remain proprietary, are distributed only to authorized
+sellers, and do not grant payment, signing, publication, or cloud authority.
+
 The seller exposes an HTTPS fulfillment endpoint. AgentPay verifies payment,
 claims the transaction exactly once, and forwards a signed request to
 that endpoint. Seller code verifies the AgentPay signature and returns the
