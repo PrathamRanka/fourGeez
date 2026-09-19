@@ -141,9 +141,9 @@ export function SignUpForm({ returnTo }: { returnTo: string }) {
   return (
     <div className={styles.formPanel}>
       <FormHeading
-        label="Seller workspace preview"
-        title="Create your seller account"
-        description="Verify your email before connecting a storefront or payment destination."
+        label="New seller"
+        title="Create account"
+        description="Start with your details. Storefront setup comes next."
       />
       <form
         className={styles.form}
@@ -254,9 +254,9 @@ export function SignInForm({ returnTo }: { returnTo: string }) {
   return (
     <div className={styles.formPanel}>
       <FormHeading
-        label="Protected seller access"
-        title="Sign in to your storefront"
-        description="Your session stays in a secure same-origin cookie and is never stored in browser storage."
+        label="Seller access"
+        title="Sign in"
+        description="Use the email and password tied to your seller account."
       />
       <form
         className={styles.form}

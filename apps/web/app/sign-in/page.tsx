@@ -23,9 +23,9 @@ export default async function SignInPage({
   return (
     <AuthSurface
       eyebrow="Seller access"
-      title="Return to your storefront."
-      highlight="Identity boundary active"
-      summary="Sign in through AgentPay's same-origin session boundary. Your seller identity never comes from a dashboard URL."
+      title="Welcome back."
+      highlight="After sign in"
+      summary="Manage products, payments, and fulfillment from one focused workspace."
     >
       {parameters.verified === "1" ? (
         <p className={styles.developmentCode} role="status">

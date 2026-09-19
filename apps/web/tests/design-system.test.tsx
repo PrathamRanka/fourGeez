@@ -63,14 +63,10 @@ describe("AgentPay web foundation", () => {
   it("renders a deterministic AgentPay integration card", () => {
     render(<IntegrationCard />);
 
-    expect(
-      screen.getByRole("heading", { name: "One MCP. Every surface." }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Manage integration" }),
-    ).toHaveAttribute("href", "/dashboard/onboarding");
     expect(screen.getByLabelText("AgentPay integration network")).toBeVisible();
-    expect(screen.getByText("Seller repository")).toBeInTheDocument();
+    expect(screen.queryByText("Connector active")).not.toBeInTheDocument();
+    expect(screen.queryByText("One MCP. Every surface.")).not.toBeInTheDocument();
+    expect(screen.getByText("Your product")).toBeInTheDocument();
 
     render(<Integration />);
     expect(

@@ -17,9 +17,9 @@ export default async function SignUpPage({
   return (
     <AuthSurface
       eyebrow="Seller registration"
-      title="Open your AgentPay storefront."
-      highlight="Account and storefront controls"
-      summary="Create one verified owner account, then resume setup from the first incomplete storefront step."
+      title="Start selling to agents."
+      highlight="Three simple steps"
+      summary="Create your account. We will guide you through wallet setup, products, and launch."
     >
       <SignUpForm returnTo={returnTo} />
       <div className={styles.inlineLinks}>

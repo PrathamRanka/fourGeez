@@ -1,6 +1,7 @@
-import { ArrowUpRight, Check, LockKeyhole, Sparkles } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/site/brand-mark";
 import styles from "./auth-surface.module.css";
 
 type AuthSurfaceProps = {
@@ -12,9 +13,9 @@ type AuthSurfaceProps = {
 };
 
 const trustPoints = [
-  "Same-origin sessions",
-  "Scoped seller access",
-  "No wallet keys stored",
+  "Create your storefront",
+  "Connect your payment wallet",
+  "Publish products for agents",
 ] as const;
 
 export function AuthSurface({
@@ -28,38 +29,26 @@ export function AuthSurface({
     <main id="main-content" className={styles.page}>
       <div className={styles.rail}>
         <section className={styles.story} aria-label="AgentPay seller access">
-          <div className={styles.storyGlow} aria-hidden="true" />
           <div className={styles.storyTopline}>
-            <span>
-              <Sparkles aria-hidden="true" /> Seller control plane
-            </span>
-            <span>01 / Access</span>
+            <Link href="/" aria-label="AgentPay home">
+              <BrandMark />
+            </Link>
+            <span>Seller workspace</span>
           </div>
           <div className={styles.storyCopy}>
             <p className={styles.eyebrow}>{eyebrow}</p>
             <h1>{title}</h1>
             <p>{summary}</p>
           </div>
-          <div className={styles.preview}>
-            <div className={styles.previewHeader}>
-              <span>{highlight}</span>
-              <LockKeyhole aria-hidden="true" />
-            </div>
-            <div className={styles.previewBody}>
-              <div className={styles.signal} aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </div>
-              <strong>Seller identity verified before commerce access.</strong>
-              <ul>
-                {trustPoints.map((point) => (
-                  <li key={point}>
-                    <Check aria-hidden="true" /> {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className={styles.trustBlock}>
+            <span>{highlight}</span>
+            <ul>
+              {trustPoints.map((point) => (
+                <li key={point}>
+                  <Check aria-hidden="true" /> {point}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
         <section className={styles.formColumn}>
@@ -70,10 +59,7 @@ export function AuthSurface({
             </Link>
           </div>
           <div className={styles.formStage}>{children}</div>
-          <p className={styles.formFootnote}>
-            AgentPay verifies identity, entitlement, and seller authority at
-            every protected boundary.
-          </p>
+          <p className={styles.formFootnote}>Secure seller access by AgentPay.</p>
         </section>
       </div>
     </main>

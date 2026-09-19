@@ -25,12 +25,12 @@ describe("AgentPay public routes", () => {
 
     render(await SignInPage());
     expect(
-      screen.getByRole("heading", { name: "Return to your storefront." }),
+      screen.getByRole("heading", { name: "Welcome back." }),
     ).toBeVisible();
 
     render(await SignUpPage());
     expect(
-      screen.getByRole("heading", { name: "Open your AgentPay storefront." }),
+      screen.getByRole("heading", { name: "Start selling to agents." }),
     ).toBeVisible();
   });
 

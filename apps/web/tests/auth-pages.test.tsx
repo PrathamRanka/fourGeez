@@ -27,7 +27,7 @@ describe("seller account screens", () => {
 
   it("collects real seller registration and verification details", async () => {
     render(await SignUpPage());
-    expect(screen.getByText("Seller workspace preview")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Create account" })).toBeVisible();
     expect(screen.getByLabelText("Your name")).toBeVisible();
     expect(screen.getByLabelText("Work email")).toBeVisible();
     expect(screen.getByLabelText(/^Password/)).toHaveAttribute(
@@ -67,7 +67,7 @@ describe("seller account screens", () => {
         searchParams: Promise.resolve({ returnTo: "/dashboard/products" }),
       }),
     );
-    expect(screen.getByText("Protected seller access")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeVisible();
     fireEvent.change(screen.getByLabelText("Work email"), {
       target: { value: "owner@example.com" },
     });

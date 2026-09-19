@@ -2,27 +2,18 @@
 
 import {
   Bot,
-  Cloud,
   Code2,
   ShieldCheck,
-  Store,
-  WalletCards,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import Link from "next/link";
 import { useId, type ComponentType, type ReactNode } from "react";
 import { BrandMark } from "@/components/site/brand-mark";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type VisualContainerProps = {
   children: ReactNode;
   className?: string;
-};
-
-type IntegrationCardProps = {
-  connected?: boolean;
 };
 
 type IntegrationItem = {
@@ -39,56 +30,29 @@ const integrations: IntegrationItem[] = [
   {
     id: "repository",
     icon: Code2,
-    label: "Seller repository",
-    x: 110,
-    y: 90,
-    path: "M 270 205 V 105 Q 270 90 255 90 H 110",
+    label: "Your product",
+    x: 105,
+    y: 205,
+    path: "M 250 205 H 105",
     delay: 0.1,
   },
   {
-    id: "coding-agent",
+    id: "buyer-agent",
     icon: Bot,
-    label: "Coding agent",
-    x: 360,
-    y: 70,
-    path: "M 294 205 V 85 Q 294 70 309 70 H 360",
+    label: "Buyer agent",
+    x: 455,
+    y: 105,
+    path: "M 294 195 V 120 Q 294 105 309 105 H 455",
     delay: 0.2,
   },
   {
-    id: "cloud",
-    icon: Cloud,
-    label: "AgentPay cloud",
-    x: 160,
-    y: 205,
-    path: "M 250 205 H 160",
-    delay: 0.3,
-  },
-  {
-    id: "wallet",
-    icon: WalletCards,
-    label: "x402 wallet",
-    x: 480,
-    y: 205,
-    path: "M 314 205 H 480",
-    delay: 0.4,
-  },
-  {
-    id: "storefront",
-    icon: Store,
-    label: "Storefront",
-    x: 282,
-    y: 360,
-    path: "M 282 205 V 360",
-    delay: 0.6,
-  },
-  {
-    id: "fulfillment",
+    id: "delivery",
     icon: ShieldCheck,
-    label: "Signed fulfillment",
-    x: 460,
-    y: 340,
-    path: "M 314 215 V 325 Q 314 340 329 340 H 460",
-    delay: 0.7,
+    label: "Paid delivery",
+    x: 455,
+    y: 305,
+    path: "M 294 215 V 290 Q 294 305 309 305 H 455",
+    delay: 0.3,
   },
 ];
 
@@ -132,8 +96,8 @@ function AnimatedPath({
           <stop offset="0%" stopColor="transparent" />
           <stop
             offset="50%"
-            stopColor="var(--color-primary)"
-            stopOpacity="0.6"
+            stopColor="var(--color-foreground)"
+            stopOpacity="0.42"
           />
           <stop offset="100%" stopColor="transparent" />
         </linearGradient>
@@ -170,10 +134,13 @@ export function Integration() {
 
       <div className="absolute top-1/2 left-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-border bg-background p-1.5 shadow-md sm:rounded-2xl sm:p-2 sm:shadow-xl">
         <div className="rounded-lg border border-border bg-card p-2 sm:rounded-xl sm:p-3">
-          <BrandMark compact className="text-primary" />
+          <BrandMark
+            compact
+            className="[&_.brand-symbol]:!text-[#171717] dark:[&_.brand-symbol]:!text-[#f2f2ef]"
+          />
         </div>
         <motion.div
-          className="absolute inset-0 rounded-xl border-2 border-primary/10 sm:rounded-2xl"
+          className="absolute inset-0 rounded-xl border-2 border-foreground/10 sm:rounded-2xl"
           animate={
             reducedMotion
               ? undefined
@@ -211,7 +178,7 @@ export function VisualContainer({ children, className }: VisualContainerProps) {
   return (
     <div
       className={cn(
-        "relative flex aspect-[564/460] w-full items-center justify-center overflow-hidden bg-muted p-8 sm:aspect-[564/410]",
+        "relative flex aspect-[564/460] w-full items-center justify-center overflow-hidden bg-[#f3f3f1] p-8 dark:bg-[#080808] sm:aspect-[564/410]",
         className,
       )}
     >
@@ -219,11 +186,11 @@ export function VisualContainer({ children, className }: VisualContainerProps) {
         className="absolute inset-0 opacity-20"
         style={{
           backgroundImage:
-            "radial-gradient(circle, var(--color-foreground) 1px, transparent 1px)",
+            "radial-gradient(circle, rgba(90, 90, 90, 0.35) 1px, transparent 1px)",
           backgroundSize: "32px 32px",
         }}
       />
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/60 from-10% via-transparent to-90% to-background/60" />
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-[#f3f3f1]/70 from-10% via-transparent to-90% to-[#f3f3f1]/80 dark:from-[#080808]/75 dark:to-[#080808]/90" />
       <div className="relative z-10 flex h-full w-full items-center justify-center">
         {children}
       </div>
@@ -231,34 +198,12 @@ export function VisualContainer({ children, className }: VisualContainerProps) {
   );
 }
 
-export function IntegrationCard({ connected = true }: IntegrationCardProps) {
+export function IntegrationCard() {
   return (
     <Card className="flex w-full flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-sm ring-0">
       <VisualContainer>
         <Integration />
       </VisualContainer>
-
-      {/* <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8">
-        <div className="flex max-w-xl flex-col gap-2">
-          <span className="font-mono text-[0.62rem] tracking-[0.12em] text-muted-foreground uppercase">
-            {connected ? "Connector active" : "Setup required"}
-          </span>
-          <h2 className="font-display text-xl font-medium tracking-[-0.035em] sm:text-2xl">
-            One MCP. Every surface.
-          </h2>
-          <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Connect seller code, buyer agents, x402 payments, and signed
-            fulfillment through AgentPay.
-          </p>
-        </div>
-        <Button
-          nativeButton={false}
-          className="h-10 w-fit rounded-full px-5"
-          render={<Link href="/dashboard/onboarding" />}
-        >
-          Manage integration
-        </Button>
-      </CardContent> */}
     </Card>
   );
 }
