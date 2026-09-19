@@ -17,11 +17,11 @@ describe("AgentPay public routes", () => {
   it("provides documentation and account entry pages", async () => {
     render(<DocsPage />);
     expect(
-      screen.getByRole("navigation", { name: "Documentation sections" }),
+      screen.getByRole("navigation", { name: "Documentation navigation" }),
     ).toBeVisible();
     expect(
       screen.getByRole("heading", {
-        name: "Connect AgentPay to your repository.",
+        name: "Build with AgentPay",
       }),
     ).toBeVisible();
 
