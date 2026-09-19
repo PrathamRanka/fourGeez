@@ -214,7 +214,7 @@ authorization, revocation, transaction, and failure semantics proven locally.
 - [x] **AWS-002** Create DynamoDB tables and required secondary indexes. The Mumbai development table uses on-demand billing, AWS-owned encryption, point-in-time recovery, and the four documented seller, payment, storefront, and route indexes.
 - [x] **AWS-003** Create versioned Object Lock evidence bucket and KMS signing key. The Mumbai development bucket uses KMS encryption, versioning, public-access blocking, TLS-only access, and 30-day governance retention; its protected asymmetric P-256 key successfully signs with ECDSA-SHA256.
 - [x] **AWS-004** Create Secrets Manager entries, KMS/HSM-backed capability-signing keys, API-key digest pepper storage, JWKS publication/rotation support, and least-privilege IAM roles without exposing signing material to application configuration or sellers. The development account now has empty KMS-encrypted pepper containers, additive versioned ES256 capability keys, a rotating envelope-encryption key, and independently verified API and evidence-verifier permissions.
-- [ ] **AWS-005** Deploy Lambda, HTTP API, WebSocket API, MCP endpoint, stages, throttles, and access logs.
+- [ ] **AWS-005** Deploy the Go Lambda behind one HTTP API serving REST and the `/mcp` endpoint, with stages, throttles, and access logs. The historical approval WebSocket remains disabled and is not deployed for Lean V1.
 - [ ] **AWS-006** Configure Cognito seller authentication.
 - [ ] **AWS-007** Configure Bedrock model access and runtime permissions.
 - [ ] **AWS-008** Deploy Next.js and configure environment-specific API origins.

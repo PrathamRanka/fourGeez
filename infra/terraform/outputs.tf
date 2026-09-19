@@ -62,3 +62,13 @@ output "evidence_verifier_role_arn" {
   description = "IAM role ARN reserved for read-only evidence verification."
   value       = module.foundation.evidence_verifier_role_arn
 }
+
+output "http_api_url" {
+  description = "HTTP API origin for AGENTPAY_HTTP_API_URL; null while AWS-005 deployment is disabled."
+  value       = module.application.http_api_url
+}
+
+output "mcp_url" {
+  description = "Remote MCP endpoint for AGENTPAY_MCP_URL; null while AWS-005 deployment is disabled."
+  value       = module.application.mcp_url
+}

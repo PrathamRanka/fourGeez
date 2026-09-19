@@ -1,0 +1,110 @@
+variable "deployment_enabled" {
+  description = "Whether to create the AWS-005 application runtime."
+  type        = bool
+}
+
+variable "environment" {
+  description = "AgentPay environment name."
+  type        = string
+}
+
+variable "project_name" {
+  description = "Stable project name used for resource prefixes."
+  type        = string
+}
+
+variable "web_origin" {
+  description = "Canonical frontend origin allowed by HTTP API CORS."
+  type        = string
+}
+
+variable "lambda_artifact_path" {
+  description = "Path to the reviewed Lambda ZIP."
+  type        = string
+}
+
+variable "lambda_artifact_sha256" {
+  description = "Base64-encoded SHA-256 of the reviewed Lambda ZIP."
+  type        = string
+  nullable    = true
+}
+
+variable "lambda_memory_size_mb" {
+  description = "Lambda memory allocation."
+  type        = number
+}
+
+variable "lambda_timeout_seconds" {
+  description = "Lambda invocation timeout."
+  type        = number
+}
+
+variable "lambda_reserved_concurrency" {
+  description = "Lambda reserved concurrency cost guard."
+  type        = number
+}
+
+variable "throttling_burst_limit" {
+  description = "HTTP API default-route burst limit."
+  type        = number
+}
+
+variable "throttling_rate_limit" {
+  description = "HTTP API default-route steady-state rate limit."
+  type        = number
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention."
+  type        = number
+}
+
+variable "api_runtime_role_arn" {
+  description = "Least-privilege role attached to the API Lambda."
+  type        = string
+}
+
+variable "api_runtime_role_name" {
+  description = "API Lambda role name used for scoped log permissions."
+  type        = string
+}
+
+variable "table_name" {
+  description = "AgentPay DynamoDB table name."
+  type        = string
+}
+
+variable "evidence_bucket_name" {
+  description = "Protected evidence bucket name."
+  type        = string
+}
+
+variable "evidence_kms_key_id" {
+  description = "Evidence signing KMS key ID."
+  type        = string
+}
+
+variable "capability_signing_key_id" {
+  description = "Active capability signing KMS key ID."
+  type        = string
+}
+
+variable "capability_verification_key_ids" {
+  description = "Versioned capability verification KMS key IDs."
+  type        = map(string)
+}
+
+variable "application_secrets_kms_key_id" {
+  description = "Application envelope-encryption KMS key ID."
+  type        = string
+}
+
+variable "credential_pepper_secret_arn" {
+  description = "Project-credential pepper container ARN."
+  type        = string
+}
+
+variable "confirmation_grant_pepper_secret_arn" {
+  description = "Confirmation-grant pepper container ARN."
+  type        = string
+}

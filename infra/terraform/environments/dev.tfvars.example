@@ -5,3 +5,5 @@ project_name   = "agentpay"
 evidence_retention_days = 30
 capability_signing_key_versions       = ["v1"]
 active_capability_signing_key_version = "v1"
+web_origin                            = "https://agentpay.prathamranka.in"
+api_deployment_enabled                 = false

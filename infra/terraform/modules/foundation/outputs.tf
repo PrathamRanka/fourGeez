@@ -64,6 +64,11 @@ output "api_runtime_role_arn" {
   value       = aws_iam_role.api_runtime.arn
 }
 
+output "api_runtime_role_name" {
+  description = "IAM role name used for AWS-005 runtime log permissions."
+  value       = aws_iam_role.api_runtime.name
+}
+
 output "evidence_verifier_role_arn" {
   description = "Read-only IAM role ARN for evidence verification."
   value       = aws_iam_role.evidence_verifier.arn

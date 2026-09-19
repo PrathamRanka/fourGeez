@@ -37,6 +37,14 @@ import (
 
 // main starts the local AgentPay HTTP API.
 func main() {
+	if err := validateRuntimeComposition(
+		os.Getenv("AGENTPAY_ENV"),
+		os.Getenv("AGENTPAY_REPOSITORY_MODE"),
+	); err != nil {
+		slog.Error("unsafe runtime composition", "error", err)
+		os.Exit(1)
+	}
+
 	addr := os.Getenv("AGENTPAY_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"

@@ -37,6 +37,7 @@ Local and CI configuration names:
 ```text
 AGENTPAY_ENV=dev
 AWS_REGION=ap-south-1
+AGENTPAY_WEB_ORIGIN=https://agentpay.prathamranka.in
 AGENTPAY_TABLE_NAME=<Terraform output>
 AGENTPAY_EVIDENCE_BUCKET=<Terraform output>
 AGENTPAY_EVIDENCE_KMS_KEY_ID=<Terraform output>
@@ -48,7 +49,6 @@ AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_ID=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<Terraform output>
 AGENTPAY_HTTP_API_URL=<Terraform output>
-AGENTPAY_WEBSOCKET_URL=<Terraform output>
 AGENTPAY_MCP_URL=<Terraform output>
 AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
 AGENTPAY_FACILITATOR_URL=<verified testnet facilitator URL>
@@ -83,18 +83,26 @@ enable it.
 - App client without a client secret for browser use.
 - API Gateway JWT authorizer accepting only the configured pool, client, issuer, and audience.
 
-Approval participants do not require Cognito in the hackathon. They authenticate with random invitation tokens whose hashes are stored in DynamoDB. Tokens are scoped to one session and approver, expire after ten minutes, and are removed from browser history after page initialization.
+Historical buyer-approval participants and invitation-token flows are disabled
+for Lean V1. AWS deployment must not expose their REST or WebSocket surfaces.
 
 ### Application module
 
 - Go Lambda using ARM64 when all dependencies support it.
 - Reserved concurrency set to a small non-zero demo value and adjusted through load testing.
-- API Gateway HTTP API with JWT-protected seller routes and Lambda authorization/validation for agent and invitation credentials.
-- API Gateway WebSocket API with `$connect`, `$disconnect`, and `$default` routes. The route-selection expression is `$request.body.action` if client messages are introduced.
+- API Gateway HTTP API with JWT-protected seller routes and Lambda authorization/validation for agent credentials.
+- No API Gateway WebSocket API is deployed for Lean V1. The historical buyer-approval channel remains disabled under ADR-043.
 - A remote HTTPS MCP endpoint using seller-scoped credentials and the same application-domain services as the seller control API.
-- DynamoDB table and WebSocket management permissions scoped to exact resources.
+- DynamoDB, API invocation, and log permissions scoped to exact resources.
 - Lambda environment variables contain references and identifiers, not secret values.
 - CloudWatch structured JSON logs with request IDs and redaction.
+
+AWS-005 application resources are reproducible but remain disabled by
+`api_deployment_enabled = false` until the production composition uses durable
+DynamoDB repositories, Secrets Manager/KMS-backed cryptography and webhook
+secrets, protected evidence storage/signing, and a Lambda HTTP adapter. The
+current local server intentionally rejects every non-local composition. Do not
+enable or apply the application module merely to deploy an empty shell.
 
 ### Bedrock application permissions
 
@@ -209,7 +217,7 @@ object after Terraform exits, and a concurrent operation failing to acquire the
 same native S3 lock. Keep the ignored bootstrap state in encrypted operator
 storage because it remains the recovery record for the protected backend.
 
-Deploy the web application only after recording the HTTP API, WebSocket, and Cognito outputs.
+Deploy the web application only after recording the HTTP API and Cognito outputs.
 
 No step may require an undocumented console change except initial account/Bedrock provider access. If a console action is unavoidable, add it here with the exact verification command.
 
