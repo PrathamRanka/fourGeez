@@ -1,11 +1,13 @@
 # AgentPay MCP contract
 
-Status: **M7.1 production target contract locked by LCH-004; not yet served by the M7 runtime**.
+Status: **M7.1 contract implemented locally by LCH-010; deployed verification is pending**.
 
-Implementation status: M0–M7 still uses direct integration credentials at
-runtime. Lean V1 LCH-010 must implement the short-lived connector contract below
-before production use. The contract is authoritative while runtime work remains
-incomplete.
+Implementation status: the historical M0–M7 runtime used direct integration
+credentials. The current Go service implements the short-lived connector
+contract below and rejects project keys at `/mcp`. Public seller use remains blocked on
+AWS-005/AWS-006, approved connector and verification-package distribution, and
+the M9 deployed release checks. The local implementation must not be described
+as a production service until those dependencies pass.
 
 AgentPay exposes the official Model Context Protocol `2026-07-28` over
 stateless Streamable HTTP at `POST /mcp`. Requests and responses use the

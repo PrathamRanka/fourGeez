@@ -1,13 +1,15 @@
 # Cloud-authoritative MCP security boundary
 
-Status: **Locked M7.1 production target; not yet implemented by the M7 runtime**.
+Status: **Locked and implemented locally by LCH-010; deployed verification is pending**.
 
-The current Go development runtime still accepts a long-lived integration
-credential at `/mcp` and treats caller-supplied `confirmation.approved`,
-`confirmation.summary`, and `confirmation.confirmedAt` fields as confirmation.
-Those fields are development compatibility only. They are not production
-authority and production must not enable MCP mutation tools until LCH-010
-through LCH-018 replace that behavior.
+The Go runtime accepts project keys only at
+`POST /v1/integration-access-tokens`, requires short-lived ES256 bearer
+capabilities at `/mcp`, and requires cloud-issued one-time confirmation grants
+for commercial mutations. Caller-supplied `confirmation.approved`,
+`confirmation.summary`, and `confirmation.confirmedAt` fields are not accepted
+as production authority. AWS-005, AWS-006, package distribution, and the M9
+deployed release checks remain incomplete, so this boundary must not yet be
+represented as a publicly available production integration.
 
 ## Boundary rule
 
@@ -145,14 +147,17 @@ and must not be represented as an AgentPay transaction.
 The security model does not depend on obfuscation, license checks, connector
 integrity, remote deletion, or a kill switch in seller-controlled code.
 
-## Migration and release gate
+## Deployment and release gate
 
-OpenAPI 0.4 and this document define the target state. Until the confirmation-
-grant store, authenticated issuance endpoint, atomic consumption, short-lived
-MCP authorization, entitlement checks, and fork-resistance tests are complete,
-the current caller-asserted Go confirmation path is development-only. A
-production deployment must fail closed by withholding MCP mutation tools rather
-than exposing the compatibility confirmation model.
+OpenAPI 0.5 and this document describe the implemented local runtime boundary.
+The confirmation-grant store, authenticated issuance endpoint, atomic
+consumption, short-lived MCP authorization, entitlement checks, and
+fork-resistance tests are present in the repository. Public production use
+still requires the AWS runtime deployment, Cognito configuration, registry or
+other approved connector/package distribution, and the M9 deployed revocation,
+cancellation, fork, sandbox, and end-to-end checks. A deployment with any of
+those authorization dependencies unavailable must fail closed rather than
+falling back to project-key access or caller-asserted confirmation.
 
 AsyncAPI is unchanged by this decision: confirmation grants do not create a
 public subscription channel. The seller dashboard may refresh pending state
