@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type {
   CredentialCreated,
@@ -76,43 +70,31 @@ function createActions(): OnboardingActions {
 }
 
 describe("seller onboarding", () => {
-  it("groups the five launch requirements into compact setup sections", () => {
+  it("expands only the current launch task", () => {
     render(
       <SellerOnboarding
-        initialSnapshot={{
-          seller,
-          paymentDestinations: [activeDestination],
-          credentials: [createdCredential],
-        }}
+        initialSnapshot={emptySnapshot}
         actions={createActions()}
       />,
     );
 
-    const foundation = screen.getByRole("group", {
-      name: "Storefront foundation",
-    });
-    const connection = screen.getByRole("group", {
-      name: "Payment and agent connection",
-    });
-    const validation = screen.getByRole("group", {
-      name: "Launch validation",
-    });
-
     expect(
-      within(foundation).getByRole("region", {
-        name: "01 Create your storefront",
-      }),
+      screen.getByRole("region", { name: "01 Create your storefront" }),
+    ).toHaveAttribute("aria-current", "step");
+    expect(
+      screen.getByRole("form", { name: "Create storefront" }),
     ).toBeVisible();
     expect(
-      within(connection).getByRole("region", {
-        name: "04 Connect your coding agent",
-      }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: "Connect browser wallet" }),
+    ).not.toBeInTheDocument();
     expect(
-      within(validation).getByRole("region", {
-        name: "05 Run the sandbox purchase",
+      screen.queryByRole("button", { name: "Create project connection key" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", {
+        name: "02 Verify your payment destination",
       }),
-    ).toBeVisible();
+    ).toHaveAttribute("data-locked", "true");
   });
 
   it("blocks setup controls for a suspended seller", () => {
@@ -169,6 +151,11 @@ describe("seller onboarding", () => {
     expect(
       screen.getByRole("button", { name: "Connect browser wallet" }),
     ).toBeEnabled();
+    expect(
+      screen.getByRole("region", {
+        name: "02 Verify your payment destination",
+      }),
+    ).toHaveAttribute("aria-current", "step");
   });
 
   it("creates a scoped key and presents copyable MCP configuration and setup prompt", async () => {
@@ -203,14 +190,35 @@ describe("seller onboarding", () => {
     expect(
       screen.queryByRole("region", { name: "AgentPay integration network" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/ready for product validation/i)).toBeVisible();
-
-    const checklist = screen.getByRole("list", {
-      name: "Onboarding checklist",
-    });
     expect(
-      within(checklist).getByText("Payment destination verified"),
-    ).toBeVisible();
-    expect(within(checklist).getByText("Coding agent connected")).toBeVisible();
+      screen.queryByText(/ready for product validation/i),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByRole("region", { name: "04 Connect your coding agent" }),
+    ).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText("Payment destination verified")).toBeVisible();
+    expect(screen.getByText("Coding agent connected")).toBeVisible();
+  });
+
+  it("opens launch validation for an already connected seller", () => {
+    render(
+      <SellerOnboarding
+        initialSnapshot={{
+          seller,
+          paymentDestinations: [activeDestination],
+          credentials: [createdCredential],
+        }}
+        actions={createActions()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("region", { name: "05 Run the sandbox purchase" }),
+    ).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText(/ready for product validation/i)).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Connect browser wallet" }),
+    ).not.toBeInTheDocument();
   });
 });

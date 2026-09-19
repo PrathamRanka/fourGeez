@@ -37,14 +37,20 @@ test("seller can complete the essential onboarding path and open the dashboard",
   await page.getByLabel("Storefront URL name").fill(slug);
   await page.getByLabel("Service API URL").fill("http://127.0.0.1:8090");
   await page.getByRole("button", { name: "Create storefront" }).click();
-  await expect(page.locator(".onboarding-complete-row")).toContainText(
-    "Storefront created",
-    { timeout: 2_000 },
-  );
+  await expect(
+    page.getByRole("region", { name: "02 Verify your payment destination" }),
+  ).toHaveAttribute("aria-current", "step", { timeout: 2_000 });
+  await expect(
+    page.getByRole("region", { name: "01 Create your storefront" }),
+  ).toContainText(`/store/${slug}`);
 
   await page.getByRole("button", { name: "Connect browser wallet" }).click();
-  await expect(page.getByText("Payment destination verified")).toBeVisible();
-  await expect(page.getByText(walletAddress)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "03 Create a project connection key" }),
+  ).toHaveAttribute("aria-current", "step");
+  await expect(
+    page.getByRole("region", { name: "02 Verify your payment destination" }),
+  ).toContainText(walletAddress);
 
   await page
     .getByRole("button", { name: "Create project connection key" })
@@ -53,6 +59,12 @@ test("seller can complete the essential onboarding path and open the dashboard",
     page.getByText(/Save this project connection key now/),
   ).toBeVisible();
   await expect(page.locator(".credential-secret code")).toContainText("apc2.");
+  await expect(
+    page.getByRole("region", { name: "04 Connect your coding agent" }),
+  ).toHaveAttribute("aria-current", "step");
+  await expect(
+    page.getByRole("region", { name: "05 Run the sandbox purchase" }),
+  ).toContainText("Locked");
 
   await page.goto("/dashboard");
   await expect(
@@ -65,6 +77,57 @@ test("seller can complete the essential onboarding path and open the dashboard",
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Manage products" }),
+  ).toBeVisible();
+});
+
+test("onboarding layers the launch summary behind the task flow @visual", async ({
+  page,
+  seed,
+}, testInfo) => {
+  void seed;
+  await registerAndSignInSeller(page, testInfo);
+
+  const summary = page.getByRole("complementary", { name: "Launch progress" });
+  const steps = page.locator(".onboarding-steps");
+  await expect(summary).toBeVisible();
+  await expect(steps).toBeVisible();
+
+  const layerStyles = await page.evaluate(() => {
+    const summaryElement = document.querySelector<HTMLElement>(
+      ".onboarding-summary",
+    );
+    const stepsElement =
+      document.querySelector<HTMLElement>(".onboarding-steps");
+    if (!summaryElement || !stepsElement) {
+      return null;
+    }
+    const summaryStyle = getComputedStyle(summaryElement);
+    const stepsStyle = getComputedStyle(stepsElement);
+    return {
+      summaryPosition: summaryStyle.position,
+      summaryZIndex: Number(summaryStyle.zIndex),
+      stepsBackground: stepsStyle.backgroundColor,
+      stepsPosition: stepsStyle.position,
+      stepsZIndex: Number(stepsStyle.zIndex),
+      horizontalOverflow:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    };
+  });
+
+  expect(layerStyles).not.toBeNull();
+  expect(layerStyles?.summaryPosition).toBe("sticky");
+  expect(layerStyles?.stepsPosition).toBe("relative");
+  expect(layerStyles?.stepsZIndex).toBeGreaterThan(
+    layerStyles?.summaryZIndex ?? 0,
+  );
+  expect(layerStyles?.stepsBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(layerStyles?.horizontalOverflow).toBeLessThanOrEqual(1);
+
+  await steps.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 180));
+  await expect(
+    page.getByRole("region", { name: "01 Create your storefront" }),
   ).toBeVisible();
 });
 
