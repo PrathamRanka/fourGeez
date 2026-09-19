@@ -4,6 +4,7 @@ import type {
   CreateRouteDraftInput,
   PaidRoute,
   ProductRouteSnapshot,
+  PublishRouteInput,
   RouteAuditEvent,
   RouteIdentityInput,
   RouteValidationResult,
@@ -70,6 +71,16 @@ export async function createDraft(
         pathPattern: input.pathPattern,
         description: input.description,
         mimeType: input.mimeType,
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+        outputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
         amount: input.amount,
         asset: input.asset,
         network: input.network,
@@ -110,9 +121,17 @@ export async function validateRoute(
 
 // publishRoute publishes a draft or resumes a stopped route.
 export async function publishRoute(
-  input: RouteVersionInput,
+  input: PublishRouteInput,
 ): Promise<ActionResult<PaidRoute>> {
-  return mutateLifecycle(input, "publish");
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
+  return requestAgentPay<PaidRoute>(`${routePath(sellerId, input)}/publish`, {
+    method: "POST",
+    body: {
+      expectedVersion: input.expectedVersion,
+      contractHash: input.contractHash,
+    },
+  });
 }
 
 // pauseRoute performs a planned reversible stop.
@@ -139,7 +158,7 @@ export async function emergencyDisableRoute(
 // mutateLifecycle sends one version-guarded route lifecycle command.
 async function mutateLifecycle(
   input: RouteVersionInput,
-  action: "archive" | "emergency-disable" | "pause" | "publish",
+  action: "archive" | "emergency-disable" | "pause",
 ): Promise<ActionResult<PaidRoute>> {
   const sellerId = await authenticatedSellerId();
   if (!sellerId) return sellerSessionRequired();

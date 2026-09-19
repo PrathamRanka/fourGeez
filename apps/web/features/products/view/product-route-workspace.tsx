@@ -220,6 +220,15 @@ export function ProductRouteWorkspace({
     actionName: "archive" | "emergency" | "pause" | "publish",
   ) {
     if (!selectedRoute) return;
+    if (
+      actionName === "publish" &&
+      (!validation?.valid || validation.version !== selectedRoute.version)
+    ) {
+      setErrorMessage(
+        "Validate the current product version before publishing.",
+      );
+      return;
+    }
 
     setErrorMessage(null);
     setStatusMessage(null);
@@ -231,7 +240,10 @@ export function ProductRouteWorkspace({
     };
     const result =
       actionName === "publish"
-        ? await actions.publishRoute(input)
+        ? await actions.publishRoute({
+            ...input,
+            contractHash: validation!.contractHash,
+          })
         : actionName === "pause"
           ? await actions.pauseRoute(input)
           : actionName === "archive"

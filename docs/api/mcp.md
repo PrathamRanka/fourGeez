@@ -126,6 +126,11 @@ Production state-changing tool inputs reject unknown fields and include:
 - the exact expected seller or route version reviewed when that grant was
   issued.
 
+Every tool advertises an `outputSchema`, and every successful call returns
+matching `structuredContent` plus the SDK's JSON text fallback. Output schemas
+are closed at the result boundary. `configure_route` accepts bounded closed
+`inputSchema` and `outputSchema` documents for the seller API contract.
+
 `configure_route` adds `expectedSellerVersion`; the other state-changing tools
 use their existing seller or route version field. The grant request and the MCP
 tool arguments must name the same value.
@@ -147,11 +152,11 @@ fields as a fallback.
 | Tool | Scope | Behavior |
 |---|---|---|
 | `configure_storefront` | `configure` | Consumes a matching confirmation grant and updates the existing seller display name and upstream base URL using the bound seller version. Initial seller creation stays in the seller API/dashboard because credentials are seller-scoped. |
-| `configure_route` | `configure` | Consumes a matching confirmation grant bound to the seller catalog version and creates a validated `enabled=false` paid-route draft with a seller-approved `displayName` and `productSlug`; the slug is normalized and reserved uniquely within the seller. |
+| `configure_route` | `configure` | Consumes a matching confirmation grant bound to the seller catalog version and creates a validated `enabled=false` paid-route draft with a seller-approved `displayName`, `productSlug`, and closed input/output schemas; the slug is normalized and reserved uniquely within the seller. |
 | `change_route_price` | `configure` | Consumes a matching confirmation grant and updates the authoritative price for future intents using the bound route version. |
-| `validate_route` | `validate` | Returns deterministic publication checks without persisting state; no confirmation grant is required. |
+| `validate_route` | `validate` | Returns deterministic publication checks plus the current route version and contract hash without persisting state; no confirmation grant is required. |
 | `sandbox_validate_route` | `validate` | Probes the dedicated seller sandbox endpoint for discovery, signature, payment-gating, and replay behavior without persisting success. |
-| `publish_route` | `publish` | Consumes a matching confirmation grant, re-runs deterministic and sandbox validation, then conditionally enables one draft route using the bound route version. |
+| `publish_route` | `publish` | Consumes a matching confirmation grant, re-runs deterministic and sandbox validation, verifies the submitted contract hash, then conditionally enables one draft route using the bound route version. |
 | `detect_repository_stacks` | `validate` | Reads only bounded committed dependency manifests and allowlisted source markers, then returns every evidenced maintained stack in the fixed 21-stack matrix order. It does not read files itself or accept environment values, credentials, customer data, or deployment configuration. |
 | `analyze_repository` | `validate` | Parses an allowlisted repository manifest and OpenAPI contract into deterministic, unpublished route proposals. |
 | `validate_storefront_artifacts` | `validate` | Validates bounded generated metadata, canonical URLs, robots, sitemap, JSON-LD, semantic content, `llms.txt`, manifest consistency, accessibility facts, and performance budgets without producing a ranking score. |
@@ -197,6 +202,10 @@ are rejected.
 Publishing checks the seller's current enabled-route count before changing a
 draft. Static route or webhook-subscription exhaustion returns
 `permission_denied`; it is not represented as a transient monthly rate limit.
+
+V1 is seller-first. These tools configure seller integrations and publish
+contracts for external buyer compatibility. The MCP server does not expose an
+AgentPay buyer agent, A2A execution endpoint, or negotiation tool in V1.
 
 ### Repository analysis input
 

@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     Seller commerce gateway, transaction, and dispute API. AgentPay is a working name.
-    Version 0.6.0 extends the locked M7.1 production target with EXT-001 public
+    Version 0.7.0 extends the locked M7.1 production target with EXT-001 public
     capability and deterministic product-directory contracts plus the EXT-004
-    payment-capability and recovery extension. The Go runtime implements these
+    payment-capability and recovery extension and the seller-first EXT-005
+    versioned product-schema contract. AgentPay-operated buyer execution, A2A,
+    and negotiation remain disabled V2 work. The Go runtime implements these
     endpoints in the development preview. Production deployment must not
     advertise them before every authorization, persistence, infrastructure,
     and release precondition is verified.
@@ -24,7 +26,7 @@ info:
     issued through the authenticated seller browser/BFF boundary; caller-
     asserted confirmation fields are development compatibility only.
   x-agentpay-contract-stage: target-state
-  x-agentpay-runtime-baseline: m7.1-plus-ext-001-and-ext-004-development-preview
+  x-agentpay-runtime-baseline: m7.1-plus-ext-001-ext-004-and-ext-005-development-preview
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -1003,7 +1005,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/RouteVersionRequest' }
+            schema: { $ref: '#/components/schemas/PublishRouteRequest' }
       responses:
         '200':
           description: Published paid route
@@ -2187,6 +2189,8 @@ components:
         pathPattern: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
         description: { type: string, minLength: 1, maxLength: 500 }
         mimeType: { type: string, maxLength: 120 }
+        inputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
+        outputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
         amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
         asset: { type: string, minLength: 1, maxLength: 160 }
         network: { type: string, minLength: 1, maxLength: 80 }
@@ -2398,10 +2402,17 @@ components:
       required: [expectedVersion]
       properties:
         expectedVersion: { type: integer, minimum: 1 }
+    PublishRouteRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, contractHash]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        contractHash: { $ref: '#/components/schemas/Sha256' }
     RouteValidationResult:
       type: object
       additionalProperties: false
-      required: [sellerId, routeId, valid, checks, version]
+      required: [sellerId, routeId, valid, checks, version, contractHash]
       properties:
         sellerId: { type: string }
         routeId: { type: string }
@@ -2417,6 +2428,7 @@ components:
               passed: { type: boolean }
               message: { type: string }
         version: { type: integer, minimum: 1 }
+        contractHash: { $ref: '#/components/schemas/Sha256' }
     CreateIntentRequest:
       type: object
       additionalProperties: false
@@ -2807,7 +2819,7 @@ components:
         capabilities:
           type: object
           additionalProperties: false
-          required: [buyerChannels, discovery, payments, ranking]
+          required: [buyerChannels, discovery, payments, sellerIntegration, externalBuyerCompatible, agentPayBuyerRuntime, a2aExecution, negotiation, ranking]
           properties:
             buyerChannels:
               type: array
@@ -2835,6 +2847,11 @@ components:
                   environment: { type: string, const: testnet }
                   exactPrice: { type: boolean, const: true }
                   network: { type: string, const: 'eip155:84532' }
+            sellerIntegration: { type: boolean, const: true }
+            externalBuyerCompatible: { type: boolean, const: true }
+            agentPayBuyerRuntime: { type: boolean, const: false }
+            a2aExecution: { type: boolean, const: false }
+            negotiation: { type: boolean, const: false }
             ranking: { type: boolean, const: false }
     PublicProductCapabilities:
       type: object
@@ -2916,18 +2933,28 @@ components:
     PublicProduct:
       type: object
       additionalProperties: false
-      required: [sellerId, routeId, displayName, productSlug, description, mimeType, amount, asset, network, availability, canonicalUrl, purchaseSessionEndpoint]
+      required: [schemaVersion, sellerId, routeId, routeVersion, displayName, productSlug, description, mimeType, inputSchema, outputSchema, amount, asset, network, paymentProtocol, paymentScheme, availability, fulfillmentMode, fulfillmentTimeoutSeconds, updatedAt, authoritativeForPurchase, canonicalUrl, purchaseSessionEndpoint]
       properties:
+        schemaVersion: { type: string, const: agentpay.product-contract.v1 }
         sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+        routeVersion: { type: integer, minimum: 1 }
         displayName: { type: string, minLength: 1, maxLength: 120 }
         productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         description: { type: string, minLength: 1, maxLength: 1000 }
         mimeType: { type: string, minLength: 1, maxLength: 160 }
+        inputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
+        outputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
         amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
         asset: { type: string, minLength: 1, maxLength: 160 }
         network: { type: string, minLength: 1, maxLength: 80 }
+        paymentProtocol: { type: string, const: x402 }
+        paymentScheme: { type: string, const: exact }
         availability: { type: string, const: active }
+        fulfillmentMode: { type: string, const: synchronous_https }
+        fulfillmentTimeoutSeconds: { type: integer, minimum: 1, maximum: 30 }
+        updatedAt: { type: string, format: date-time }
+        authoritativeForPurchase: { type: boolean, const: false }
         canonicalUrl: { type: string, format: uri }
         purchaseSessionEndpoint: { type: string, format: uri }
     PublicProductDocument:
@@ -2935,7 +2962,7 @@ components:
       additionalProperties: false
       required: [schemaVersion, sellerId, sellerSlug, publicationRevision, issuedAt, expiresAt, canonicalOrigin, product]
       properties:
-        schemaVersion: { type: string, const: agentpay.discovery.v1 }
+        schemaVersion: { type: string, const: agentpay.product-contract.v1 }
         sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
         sellerSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         publicationRevision: { type: integer, minimum: 1 }
@@ -2987,7 +3014,17 @@ components:
       required: [document, signature]
       properties:
         document: { $ref: '#/components/schemas/PublicProductDocument' }
-        signature: { $ref: '#/components/schemas/DiscoverySignature' }
+        signature: { $ref: '#/components/schemas/ProductContractSignature' }
+    ProductContractSignature:
+      type: object
+      additionalProperties: false
+      required: [alg, kid, canonicalization, domainSeparator, value]
+      properties:
+        alg: { type: string, const: ES256 }
+        kid: { type: string, minLength: 1, maxLength: 128 }
+        canonicalization: { type: string, const: RFC8785 }
+        domainSeparator: { type: string, const: agentpay.product-contract.v1 }
+        value: { type: string, minLength: 86, maxLength: 86 }
     ErrorCode:
       type: string
       enum:
@@ -3000,6 +3037,7 @@ components:
         - permission_denied
         - not_found
         - seller_inactive
+        - route_contract_stale
         - state_conflict
         - idempotency_conflict
         - payment_required
@@ -3044,6 +3082,20 @@ components:
     AtomicAmount: { type: string, pattern: '^[0-9]+$', example: '10000' }
     PositiveAtomicAmount: { type: string, pattern: '^[1-9][0-9]*$', example: '35000000' }
     Sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+    ClosedJsonSchema:
+      type: object
+      description: Bounded JSON Schema whose root and every nested object schema set additionalProperties to false.
+      required: [type, properties, additionalProperties]
+      properties:
+        type: { type: string, const: object }
+        properties: { type: object }
+        required:
+          type: array
+          uniqueItems: true
+          items: { type: string }
+        additionalProperties: { type: boolean, const: false }
+        description: { type: string }
+      additionalProperties: false
   responses:
     SellerCreated:
       description: Seller created

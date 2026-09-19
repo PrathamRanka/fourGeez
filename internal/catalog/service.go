@@ -39,6 +39,7 @@ var (
 	routePathPattern            = regexp.MustCompile(`^/[A-Za-z0-9/_-]+$`)
 	ErrRoutePublished           = errors.New("paid route is already published")
 	ErrRouteValidation          = errors.New("paid route failed publication validation")
+	ErrRouteContractStale       = errors.New("paid route contract hash is stale")
 	ErrRouteLifecycleTransition = errors.New("paid route lifecycle transition is not allowed")
 )
 
@@ -177,6 +178,8 @@ func (service *Service) CreateRoute(
 		PathPattern:             request.PathPattern,
 		Description:             request.Description,
 		MIMEType:                request.MIMEType,
+		InputSchema:             request.InputSchema,
+		OutputSchema:            request.OutputSchema,
 		Amount:                  request.Amount,
 		Asset:                   request.Asset,
 		Network:                 request.Network,
@@ -196,7 +199,11 @@ func (service *Service) CreateRoute(
 		action = audit.ActionRoutePublished
 	}
 	if publishRequested && service.publicationAuthorizer != nil {
-		route, err = service.PublishRouteForIntegration(ctx, sellerID, route.RouteID, route.Version)
+		contractHash, hashErr := PublishedContractHash(route)
+		if hashErr != nil {
+			return PaidRoute{}, hashErr
+		}
+		route, err = service.PublishRouteForIntegration(ctx, sellerID, route.RouteID, route.Version, contractHash)
 		if err != nil {
 			return PaidRoute{}, err
 		}
@@ -328,7 +335,7 @@ func (service *Service) PublishSellerRoute(
 	ownerSubject string,
 	sellerID domain.ID,
 	routeID domain.ID,
-	request RouteVersionRequest,
+	request PublishRouteRequest,
 ) (PaidRoute, error) {
 	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
 		return PaidRoute{}, err
@@ -338,6 +345,7 @@ func (service *Service) PublishSellerRoute(
 		sellerID,
 		routeID,
 		request.ExpectedVersion,
+		request.ContractHash,
 	)
 	if err != nil {
 		return PaidRoute{}, err
@@ -537,6 +545,8 @@ func (service *Service) CreateDraftRouteForIntegration(
 		PathPattern:             request.PathPattern,
 		Description:             request.Description,
 		MIMEType:                request.MIMEType,
+		InputSchema:             request.InputSchema,
+		OutputSchema:            request.OutputSchema,
 		Amount:                  request.Amount,
 		Asset:                   request.Asset,
 		Network:                 request.Network,
@@ -623,12 +633,17 @@ func (service *Service) ValidateRouteForIntegration(
 			valid = false
 		}
 	}
+	contractHash, err := PublishedContractHash(route)
+	if err != nil {
+		return RouteValidationResult{}, err
+	}
 	return RouteValidationResult{
-		SellerID: sellerID,
-		RouteID:  routeID,
-		Valid:    valid,
-		Checks:   checks,
-		Version:  route.Version,
+		SellerID:     sellerID,
+		RouteID:      routeID,
+		Valid:        valid,
+		Checks:       checks,
+		Version:      route.Version,
+		ContractHash: contractHash,
 	}, nil
 }
 
@@ -638,6 +653,7 @@ func (service *Service) PublishRouteForIntegration(
 	sellerID domain.ID,
 	routeID domain.ID,
 	expectedVersion uint64,
+	contractHash string,
 ) (PaidRoute, error) {
 	if service.publicationAuthorizer != nil {
 		if err := service.publicationAuthorizer.AuthorizePublication(ctx, sellerID, routeID); err != nil {
@@ -660,6 +676,9 @@ func (service *Service) PublishRouteForIntegration(
 	}
 	if !validation.Valid {
 		return PaidRoute{}, ErrRouteValidation
+	}
+	if contractHash == "" || contractHash != validation.ContractHash {
+		return PaidRoute{}, ErrRouteContractStale
 	}
 	routes, err := service.repository.ListRoutesBySeller(ctx, sellerID)
 	if err != nil {
@@ -722,6 +741,8 @@ func routeParams(route PaidRoute) PaidRouteParams {
 		PathPattern:             route.PathPattern,
 		Description:             route.Description,
 		MIMEType:                route.MIMEType,
+		InputSchema:             route.InputSchema,
+		OutputSchema:            route.OutputSchema,
 		Amount:                  route.Amount,
 		Asset:                   route.Asset,
 		Network:                 route.Network,
@@ -867,6 +888,8 @@ func newPaidRoute(params PaidRouteParams, enabled bool) (PaidRoute, error) {
 		PathPattern:             params.PathPattern,
 		Description:             strings.TrimSpace(params.Description),
 		MIMEType:                strings.TrimSpace(params.MIMEType),
+		InputSchema:             normalizedSchema(params.InputSchema),
+		OutputSchema:            normalizedSchema(params.OutputSchema),
 		Amount:                  params.Amount,
 		Asset:                   strings.TrimSpace(params.Asset),
 		Network:                 strings.TrimSpace(params.Network),
@@ -1209,6 +1232,12 @@ func validatePaidRouteParams(params PaidRouteParams) domain.ValidationErrors {
 	if params.Amount.IsZero() {
 		validationErrors = append(validationErrors, domain.NewValidationError("amount", "positive", "must be greater than zero"))
 	}
+	if _, err := NormalizeClosedJSONSchema([]byte(params.InputSchema.Canonical())); err != nil {
+		validationErrors = append(validationErrors, domain.NewValidationError("inputSchema", "closed", err.Error()))
+	}
+	if _, err := NormalizeClosedJSONSchema([]byte(params.OutputSchema.Canonical())); err != nil {
+		validationErrors = append(validationErrors, domain.NewValidationError("outputSchema", "closed", err.Error()))
+	}
 	if value := strings.TrimSpace(params.Asset); value == "" || len(value) > maximumAssetLength {
 		validationErrors = append(validationErrors, domain.NewValidationError("asset", "length", "must contain 1-160 characters"))
 	}
@@ -1229,6 +1258,13 @@ func validatePaidRouteParams(params PaidRouteParams) domain.ValidationErrors {
 		validationErrors = append(validationErrors, domain.NewValidationError("createdAt", "required", "is required"))
 	}
 	return validationErrors
+}
+
+func normalizedSchema(schema JSONSchema) JSONSchema {
+	if schema == "" {
+		return DefaultClosedObjectSchema
+	}
+	return schema
 }
 
 func normalizeProductDisplayName(value string) string {

@@ -128,12 +128,14 @@ func (controller *HTTPController) publishRoute(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	controller.executeRouteVersionMutation(
-		response,
-		request,
-		"publishPaidRoute",
-		controller.service.PublishSellerRoute,
-	)
+	sellerID, routeID, ok := controller.parseRoutePathIDs(response, request)
+	if !ok {
+		return
+	}
+	var input PublishRouteRequest
+	controller.executeMutation(response, request, "publishPaidRoute:"+routeID.String(), &input, func(principal api.Principal) (any, error) {
+		return controller.service.PublishSellerRoute(request.Context(), principal.Subject, sellerID, routeID, input)
+	}, http.StatusOK)
 }
 
 // pauseRoute stops a published seller route until it is resumed.
@@ -384,6 +386,9 @@ func (controller *HTTPController) writeServiceError(response http.ResponseWriter
 	} else if errors.Is(err, persistence.ErrAlreadyExists) || errors.Is(err, persistence.ErrConditionFailed) {
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
+	} else if errors.Is(err, ErrRouteContractStale) {
+		status = http.StatusConflict
+		code = api.ErrorCodeRouteContractStale
 	} else if errors.Is(err, ErrRouteLifecycleTransition) || errors.Is(err, ErrRoutePublished) {
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict

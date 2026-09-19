@@ -49,12 +49,43 @@ func TestServiceSignsOnlyFreshAuthoritativeDiscovery(t *testing.T) {
 	}
 	verifySignedDocument(t, fixture.keys, manifest.Document, manifest.Signature)
 
+	product, err := fixture.service.GetProduct(t.Context(), fixture.seller.Slug, fixture.route.ProductSlug)
+	if err != nil {
+		t.Fatalf("GetProduct() error = %v", err)
+	}
+	if product.Document.SchemaVersion != ProductContractSchemaVersion ||
+		product.Document.Product.SchemaVersion != ProductContractSchemaVersion ||
+		product.Document.Product.RouteVersion != fixture.route.Version ||
+		product.Document.Product.AuthoritativeForPurchase ||
+		product.Document.Product.PaymentScheme != PaymentSchemeExact ||
+		product.Document.Product.FulfillmentTimeoutSeconds != fixture.route.UpstreamTimeoutSeconds {
+		t.Fatalf("product contract = %#v", product.Document)
+	}
+	if product.Signature.DomainSeparator != ProductContractDomainSeparator {
+		t.Fatalf("product signature = %#v", product.Signature)
+	}
+	verifySignedDocumentWithDomain(t, fixture.keys, product.Document, product.Signature, ProductContractDomainSeparator)
+
 	again, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if again.Document.PublicationRevision != manifest.Document.PublicationRevision {
 		t.Fatalf("unchanged revision = %d, want %d", again.Document.PublicationRevision, manifest.Document.PublicationRevision)
+	}
+	updatedRoute := fixture.route
+	if err := updatedRoute.ChangePrice(domain.MustParseAmount("36000000"), fixture.now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.catalog.UpdateRoute(t.Context(), updatedRoute, fixture.route.Version); err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.Document.PublicationRevision != manifest.Document.PublicationRevision+1 || refreshed.Document.Products[0].Amount != "36000000" {
+		t.Fatalf("refreshed manifest = %#v", refreshed.Document)
 	}
 }
 
@@ -137,6 +168,11 @@ func TestServicePublishesPlatformCapabilitiesAndFreshDirectoryResults(t *testing
 	platform := fixture.service.GetPlatformManifest()
 	if platform.SchemaVersion != PlatformManifestSchemaVersion ||
 		platform.DirectoryEndpoint != "https://api.agentpay.example/v1/discovery/products" ||
+		!platform.Capabilities.SellerIntegration ||
+		!platform.Capabilities.ExternalBuyerCompatible ||
+		platform.Capabilities.AgentPayBuyerRuntime ||
+		platform.Capabilities.A2AExecution ||
+		platform.Capabilities.Negotiation ||
 		platform.Capabilities.Ranking {
 		t.Fatalf("platform manifest = %#v", platform)
 	}
@@ -385,6 +421,10 @@ func mustID(t *testing.T, raw string, prefix domain.IDPrefix) domain.ID {
 }
 
 func verifySignedDocument(t *testing.T, keys *authorization.LocalES256KeyRing, document any, signature DiscoverySignature) {
+	verifySignedDocumentWithDomain(t, keys, document, signature, DiscoveryDomainSeparator)
+}
+
+func verifySignedDocumentWithDomain(t *testing.T, keys *authorization.LocalES256KeyRing, document any, signature DiscoverySignature, domainSeparator string) {
 	t.Helper()
 	encoded, err := json.Marshal(document)
 	if err != nil {
@@ -394,7 +434,7 @@ func verifySignedDocument(t *testing.T, keys *authorization.LocalES256KeyRing, d
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := append(append([]byte(DiscoveryDomainSeparator), 0), canonical...)
+	payload := append(append([]byte(domainSeparator), 0), canonical...)
 	rawSignature, err := base64.RawURLEncoding.DecodeString(signature.Value)
 	if err != nil || len(rawSignature) != 64 {
 		t.Fatalf("signature = %q err=%v", signature.Value, err)

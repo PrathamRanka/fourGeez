@@ -192,6 +192,20 @@ func TestSellerRouteManagementLifecycle(t *testing.T) {
 	if !validation.Valid {
 		t.Fatalf("validation = %#v", validation)
 	}
+	if validation.ContractHash == "" {
+		t.Fatal("validation response omitted contractHash")
+	}
+	stalePublishResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/publish",
+		"route-publish-stale",
+		`{"expectedVersion":1,"contractHash":"`+strings.Repeat("0", 64)+`"}`,
+	)
+	if stalePublishResponse.Code != http.StatusConflict || !strings.Contains(stalePublishResponse.Body.String(), `"code":"route_contract_stale"`) {
+		t.Fatalf("stale publish status = %d, body = %s", stalePublishResponse.Code, stalePublishResponse.Body.String())
+	}
 
 	publishedResponse := performCatalogRequest(
 		t,
@@ -199,7 +213,7 @@ func TestSellerRouteManagementLifecycle(t *testing.T) {
 		http.MethodPost,
 		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+draft.RouteID.String()+"/publish",
 		"route-publish",
-		`{"expectedVersion":1}`,
+		`{"expectedVersion":1,"contractHash":"`+validation.ContractHash+`"}`,
 	)
 	if publishedResponse.Code != http.StatusOK {
 		t.Fatalf("publish status = %d, body = %s", publishedResponse.Code, publishedResponse.Body.String())

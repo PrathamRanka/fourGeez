@@ -2,21 +2,31 @@ export type DiscoverySignature = {
   alg: "ES256";
   kid: string;
   canonicalization: "RFC8785";
-  domainSeparator: "agentpay.discovery.v1";
+  domainSeparator: "agentpay.discovery.v1" | "agentpay.product-contract.v1";
   value: string;
 };
 
 export type PublicProduct = {
+  schemaVersion: "agentpay.product-contract.v1";
   sellerId: string;
   routeId: string;
+  routeVersion: number;
   displayName: string;
   productSlug: string;
   description: string;
   mimeType: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
   amount: string;
   asset: string;
   network: string;
+  paymentProtocol: "x402";
+  paymentScheme: "exact";
   availability: "active";
+  fulfillmentMode: "synchronous_https";
+  fulfillmentTimeoutSeconds: number;
+  updatedAt: string;
+  authoritativeForPurchase: false;
   canonicalUrl: string;
   purchaseSessionEndpoint: string;
 };
@@ -34,7 +44,7 @@ export type StorefrontManifest = {
 };
 
 export type PublicProductDocument = {
-  schemaVersion: "agentpay.discovery.v1";
+  schemaVersion: "agentpay.product-contract.v1";
   sellerId: string;
   sellerSlug: string;
   publicationRevision: number;

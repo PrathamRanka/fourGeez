@@ -41,6 +41,7 @@ const (
 	ErrorCodePaymentUnavailable           = "payment_unavailable"
 	ErrorCodePaymentOutcomeUnknown        = "payment_outcome_unknown"
 	ErrorCodeSellerInactive               = "seller_inactive"
+	ErrorCodeRouteContractStale           = "route_contract_stale"
 )
 
 // IdempotencyDecision contains either a replay or permission to execute.

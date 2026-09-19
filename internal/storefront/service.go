@@ -72,7 +72,12 @@ func (service *Service) GetPlatformManifest() AgentPayPlatformManifest {
 			Payments: []PlatformPaymentCapability{{
 				Protocol: PaymentProtocolX402, Environment: PaymentEnvironmentTestnet, ExactPrice: true, Network: SupportedX402Network,
 			}},
-			Ranking: false,
+			SellerIntegration:       true,
+			ExternalBuyerCompatible: true,
+			AgentPayBuyerRuntime:    false,
+			A2AExecution:            false,
+			Negotiation:             false,
+			Ranking:                 false,
 		},
 	}
 }
@@ -370,8 +375,8 @@ func (service *Service) GetProduct(ctx context.Context, sellerSlug, productSlug 
 	}
 	for _, product := range manifest.Document.Products {
 		if product.ProductSlug == productSlug {
-			document := PublicProductDocument{SchemaVersion: DiscoverySchemaVersion, SellerID: manifest.Document.SellerID, SellerSlug: sellerSlug, PublicationRevision: manifest.Document.PublicationRevision, IssuedAt: manifest.Document.IssuedAt, ExpiresAt: manifest.Document.ExpiresAt, CanonicalOrigin: service.CanonicalOrigin, Product: product}
-			signature, signErr := service.sign(ctx, document)
+			document := PublicProductDocument{SchemaVersion: ProductContractSchemaVersion, SellerID: manifest.Document.SellerID, SellerSlug: sellerSlug, PublicationRevision: manifest.Document.PublicationRevision, IssuedAt: manifest.Document.IssuedAt, ExpiresAt: manifest.Document.ExpiresAt, CanonicalOrigin: service.CanonicalOrigin, Product: product}
+			signature, signErr := service.signWithDomain(ctx, ProductContractDomainSeparator, document)
 			return SignedPublicProductDocument{Document: document, Signature: signature}, signErr
 		}
 	}
@@ -433,7 +438,7 @@ func matchingDestination(route catalog.PaidRoute, destinations []settlement.Paym
 
 func (service *Service) publicProduct(seller catalog.Seller, route catalog.PaidRoute) PublicProduct {
 	base := service.CanonicalOrigin + "/store/" + seller.Slug + "/products/" + route.ProductSlug
-	return PublicProduct{SellerID: seller.SellerID, RouteID: route.RouteID, DisplayName: route.DisplayName, ProductSlug: route.ProductSlug, Description: route.Description, MIMEType: route.MIMEType, Amount: route.Amount.String(), Asset: route.Asset, Network: route.Network, Availability: AvailabilityActive, CanonicalURL: base, PurchaseSessionEndpoint: service.APIOrigin + "/v1/storefronts/" + seller.Slug + "/products/" + route.ProductSlug + "/purchase-sessions"}
+	return PublicProduct{SchemaVersion: ProductContractSchemaVersion, SellerID: seller.SellerID, RouteID: route.RouteID, RouteVersion: route.Version, DisplayName: route.DisplayName, ProductSlug: route.ProductSlug, Description: route.Description, MIMEType: route.MIMEType, InputSchema: route.InputSchema, OutputSchema: route.OutputSchema, Amount: route.Amount.String(), Asset: route.Asset, Network: route.Network, PaymentProtocol: PaymentProtocolX402, PaymentScheme: PaymentSchemeExact, Availability: AvailabilityActive, FulfillmentMode: FulfillmentModeSynchronous, FulfillmentTimeoutSeconds: route.UpstreamTimeoutSeconds, UpdatedAt: route.UpdatedAt, AuthoritativeForPurchase: false, CanonicalURL: base, PurchaseSessionEndpoint: service.APIOrigin + "/v1/storefronts/" + seller.Slug + "/products/" + route.ProductSlug + "/purchase-sessions"}
 }
 
 func (service *Service) signTombstone(ctx context.Context, seller catalog.Seller, reason InactiveReason) (SignedStorefrontTombstone, error) {
@@ -502,6 +507,10 @@ func (service *Service) resolveRevision(ctx context.Context, seller catalog.Sell
 }
 
 func (service *Service) sign(ctx context.Context, document any) (DiscoverySignature, error) {
+	return service.signWithDomain(ctx, DiscoveryDomainSeparator, document)
+}
+
+func (service *Service) signWithDomain(ctx context.Context, domainSeparator string, document any) (DiscoverySignature, error) {
 	encoded, err := json.Marshal(document)
 	if err != nil {
 		return DiscoverySignature{}, err
@@ -514,10 +523,10 @@ func (service *Service) sign(ctx context.Context, document any) (DiscoverySignat
 	if err != nil {
 		return DiscoverySignature{}, err
 	}
-	payload := append(append([]byte(DiscoveryDomainSeparator), 0), canonical...)
+	payload := append(append([]byte(domainSeparator), 0), canonical...)
 	raw, err := service.Signer.Sign(ctx, keyID, payload)
 	if err != nil {
 		return DiscoverySignature{}, err
 	}
-	return DiscoverySignature{Algorithm: "ES256", KeyID: keyID, Canonicalization: "RFC8785", DomainSeparator: DiscoveryDomainSeparator, Value: base64.RawURLEncoding.EncodeToString(raw)}, nil
+	return DiscoverySignature{Algorithm: "ES256", KeyID: keyID, Canonicalization: "RFC8785", DomainSeparator: domainSeparator, Value: base64.RawURLEncoding.EncodeToString(raw)}, nil
 }

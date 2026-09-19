@@ -294,6 +294,27 @@ integrations.
 
 EXT-004 acceptance: every buyer can discover the payment capabilities enabled by the running environment, determine compatibility without guessing, and follow one bounded recovery action after a payment failure without creating a second charge or bypassing the immutable purchase intent.
 
+- [x] **EXT-005** Harden seller-first V1 interoperability with canonical closed
+  input/output schemas on route drafts, deterministic route-version contract
+  hashes, seller-confirmed publish binding, signed versioned public product
+  contracts, discovery revision refresh after approved changes, closed MCP tool
+  output schemas with structured content, stable machine-readable errors, and
+  truthful capability metadata. Do not add or advertise an AgentPay buyer
+  runtime, A2A execution, negotiation, mainnet, multi-currency, ranking, or
+  external Bazaar publication. Preserve negotiation analysis as deferred V2
+  documentation only. Depends on EXT-001, EXT-004, and LCH-013. No new
+  buyer-facing UI or infrastructure changes.
+
+EXT-005 acceptance: a seller can draft a route with bounded closed schemas,
+receive a validation result bound to the exact route version and contract hash,
+approve and publish only that validated version, and observe the approved
+contract in a short-lived signed product document and refreshed discovery
+revision. MCP tool listings expose closed output schemas and successful calls
+return matching structured content. Unknown schema keywords/object fields,
+stale versions/hashes, and malformed requests fail with stable codes. Public
+capabilities explicitly keep AgentPay buyer execution, A2A, and negotiation
+disabled. Focused domain, transport, persistence, MCP, and OpenAPI checks pass.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same

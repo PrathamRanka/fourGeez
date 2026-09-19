@@ -70,6 +70,7 @@ transaction authority.
 | Forked or modified local MCP | Keep token issuance, entitlement, publication, payment, and transaction authority in AgentPay cloud; the local connector can only request short-lived capabilities and proxy bounded messages |
 | Stale access capability | Verify ES256, exact issuer/audience/type, expiry, current credential state, and current `entitlementEpoch` on every protected operation |
 | Stale or forged discovery | Verify the AgentPay discovery signature and expiry, then perform fresh cloud authorization before intent creation, challenge, verification, or settlement |
+| Stale or forged product schema | Canonicalize bounded closed schemas, bind validation and seller confirmation to the exact route version and contract hash, sign the published product contract, and reauthorize commerce from current cloud state |
 | Forged browser checkout | Use a short-lived purchase capability bound to seller, route, product slug, request hash, maximum amount, and browser channel; never expose seller credentials to the browser |
 | Generated secret exposure | Write secrets only to ignored server-side configuration, scan generated changes, and never serialize secrets into browser code or model prompts |
 | Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |
@@ -124,6 +125,11 @@ RFC 8785 canonical JSON bytes of the unsigned manifest, product document, or
 tombstone. The signature is raw 64-byte ES256 `(r || s)` encoded with base64url
 without padding. Discovery expires after five minutes and never substitutes
 for fresh commerce authorization.
+
+The dedicated product document uses `agentpay.product-contract.v1`, one NUL
+byte, and RFC 8785 canonical JSON. Its signature binds the route version,
+closed input/output schemas, exact price and payment terms, availability,
+fulfillment limits, and expiry. It is discovery evidence only.
 
 ## Capability classes and key publication
 
@@ -295,6 +301,8 @@ Forbidden:
 - `Cache-Control: no-store` on transaction, dispute, refund-record, and 402 responses.
 - Security headers on the web app, including CSP and `frame-ancestors 'none'` for sensitive checkout pages unless embedding is intentionally added.
 - Constant-time comparison for token and HMAC verification.
+- V1 capability metadata must explicitly report AgentPay buyer runtime, A2A
+  execution, negotiation, mainnet, multi-currency, and ranking as unavailable.
 
 ## MCP and coding-agent requirements
 

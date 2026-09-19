@@ -178,6 +178,7 @@ func TestMutationServiceRequiresPassingSandboxBeforePublication(t *testing.T) {
 		ConfirmationGrant: "mcg1.test.secret",
 		RouteID:           testRouteID,
 		ExpectedVersion:   1,
+		ContractHash:      "contract-hash",
 	}
 
 	if _, err := service.PublishRoute(
@@ -237,6 +238,7 @@ func TestMutationServiceRejectsSandboxResultForAnotherRouteVersion(t *testing.T)
 			ConfirmationGrant: "mcg1.test.secret",
 			RouteID:           testRouteID,
 			ExpectedVersion:   1,
+			ContractHash:      "contract-hash",
 		},
 	)
 	if !errors.Is(err, ErrSandboxValidationStale) {
@@ -323,10 +325,11 @@ func (*testCatalogMutator) ValidateRouteForIntegration(
 	routeID domain.ID,
 ) (catalog.RouteValidationResult, error) {
 	return catalog.RouteValidationResult{
-		SellerID: sellerID,
-		RouteID:  routeID,
-		Valid:    true,
-		Version:  1,
+		SellerID:     sellerID,
+		RouteID:      routeID,
+		Valid:        true,
+		Version:      1,
+		ContractHash: "contract-hash",
 	}, nil
 }
 
@@ -336,8 +339,12 @@ func (mutator *testCatalogMutator) PublishRouteForIntegration(
 	sellerID domain.ID,
 	routeID domain.ID,
 	expectedVersion uint64,
+	contractHash string,
 ) (catalog.PaidRoute, error) {
 	mutator.publishCalls++
+	if contractHash != "contract-hash" {
+		return catalog.PaidRoute{}, catalog.ErrRouteContractStale
+	}
 	return catalog.PaidRoute{
 		RouteID:  routeID,
 		SellerID: sellerID,

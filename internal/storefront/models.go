@@ -14,21 +14,24 @@ import (
 )
 
 const (
-	DiscoverySchemaVersion        = "agentpay.discovery.v1"
-	DiscoveryDomainSeparator      = "agentpay.discovery.v1"
-	DiscoveryLifetime             = 5 * time.Minute
-	PlatformManifestSchemaVersion = "agentpay.platform.v1"
-	DirectorySchemaVersion        = "agentpay.directory.v1"
-	PlatformStatusDevelopment     = "development_preview"
-	DirectoryOrderingLexical      = "lexical"
-	BuyerChannelAgent             = "agent"
-	BuyerChannelBrowser           = "browser"
-	PaymentProtocolX402           = "x402"
-	PaymentEnvironmentTestnet     = "testnet"
-	SupportedX402Network          = "eip155:84532"
-	FulfillmentModeSynchronous    = "synchronous_https"
-	AvailabilityActive            = "active"
-	AvailabilityInactive          = "inactive"
+	DiscoverySchemaVersion         = "agentpay.discovery.v1"
+	DiscoveryDomainSeparator       = "agentpay.discovery.v1"
+	ProductContractSchemaVersion   = "agentpay.product-contract.v1"
+	ProductContractDomainSeparator = "agentpay.product-contract.v1"
+	DiscoveryLifetime              = 5 * time.Minute
+	PlatformManifestSchemaVersion  = "agentpay.platform.v1"
+	DirectorySchemaVersion         = "agentpay.directory.v1"
+	PlatformStatusDevelopment      = "development_preview"
+	DirectoryOrderingLexical       = "lexical"
+	BuyerChannelAgent              = "agent"
+	BuyerChannelBrowser            = "browser"
+	PaymentProtocolX402            = "x402"
+	PaymentSchemeExact             = "exact"
+	PaymentEnvironmentTestnet      = "testnet"
+	SupportedX402Network           = "eip155:84532"
+	FulfillmentModeSynchronous     = "synchronous_https"
+	AvailabilityActive             = "active"
+	AvailabilityInactive           = "inactive"
 )
 
 var (
@@ -51,18 +54,28 @@ type PublicSeller struct {
 }
 
 type PublicProduct struct {
-	SellerID                domain.ID `json:"sellerId"`
-	RouteID                 domain.ID `json:"routeId"`
-	DisplayName             string    `json:"displayName"`
-	ProductSlug             string    `json:"productSlug"`
-	Description             string    `json:"description"`
-	MIMEType                string    `json:"mimeType"`
-	Amount                  string    `json:"amount"`
-	Asset                   string    `json:"asset"`
-	Network                 string    `json:"network"`
-	Availability            string    `json:"availability"`
-	CanonicalURL            string    `json:"canonicalUrl"`
-	PurchaseSessionEndpoint string    `json:"purchaseSessionEndpoint"`
+	SchemaVersion             string             `json:"schemaVersion"`
+	SellerID                  domain.ID          `json:"sellerId"`
+	RouteID                   domain.ID          `json:"routeId"`
+	RouteVersion              uint64             `json:"routeVersion"`
+	DisplayName               string             `json:"displayName"`
+	ProductSlug               string             `json:"productSlug"`
+	Description               string             `json:"description"`
+	MIMEType                  string             `json:"mimeType"`
+	InputSchema               catalog.JSONSchema `json:"inputSchema"`
+	OutputSchema              catalog.JSONSchema `json:"outputSchema"`
+	Amount                    string             `json:"amount"`
+	Asset                     string             `json:"asset"`
+	Network                   string             `json:"network"`
+	PaymentProtocol           string             `json:"paymentProtocol"`
+	PaymentScheme             string             `json:"paymentScheme"`
+	Availability              string             `json:"availability"`
+	FulfillmentMode           string             `json:"fulfillmentMode"`
+	FulfillmentTimeoutSeconds int                `json:"fulfillmentTimeoutSeconds"`
+	UpdatedAt                 domain.Timestamp   `json:"updatedAt"`
+	AuthoritativeForPurchase  bool               `json:"authoritativeForPurchase"`
+	CanonicalURL              string             `json:"canonicalUrl"`
+	PurchaseSessionEndpoint   string             `json:"purchaseSessionEndpoint"`
 }
 
 type PlatformDiscoveryCapabilities struct {
@@ -80,10 +93,15 @@ type PlatformPaymentCapability struct {
 }
 
 type PlatformCapabilities struct {
-	BuyerChannels []string                      `json:"buyerChannels"`
-	Discovery     PlatformDiscoveryCapabilities `json:"discovery"`
-	Payments      []PlatformPaymentCapability   `json:"payments"`
-	Ranking       bool                          `json:"ranking"`
+	BuyerChannels           []string                      `json:"buyerChannels"`
+	Discovery               PlatformDiscoveryCapabilities `json:"discovery"`
+	Payments                []PlatformPaymentCapability   `json:"payments"`
+	SellerIntegration       bool                          `json:"sellerIntegration"`
+	ExternalBuyerCompatible bool                          `json:"externalBuyerCompatible"`
+	AgentPayBuyerRuntime    bool                          `json:"agentPayBuyerRuntime"`
+	A2AExecution            bool                          `json:"a2aExecution"`
+	Negotiation             bool                          `json:"negotiation"`
+	Ranking                 bool                          `json:"ranking"`
 }
 
 type AgentPayPlatformManifest struct {

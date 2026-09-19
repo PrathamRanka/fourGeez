@@ -247,6 +247,14 @@ func routeRequest(configuration RouteConfiguration) (catalog.CreateRouteRequest,
 		}
 		approvalThreshold = &parsedThreshold
 	}
+	inputSchema, err := normalizeRouteSchema(configuration.InputSchema)
+	if err != nil {
+		return catalog.CreateRouteRequest{}, err
+	}
+	outputSchema, err := normalizeRouteSchema(configuration.OutputSchema)
+	if err != nil {
+		return catalog.CreateRouteRequest{}, err
+	}
 	return catalog.CreateRouteRequest{
 		DisplayName:             configuration.DisplayName,
 		ProductSlug:             configuration.ProductSlug,
@@ -254,6 +262,8 @@ func routeRequest(configuration RouteConfiguration) (catalog.CreateRouteRequest,
 		PathPattern:             configuration.PathPattern,
 		Description:             configuration.Description,
 		MIMEType:                configuration.MIMEType,
+		InputSchema:             inputSchema,
+		OutputSchema:            outputSchema,
 		Amount:                  amount,
 		Asset:                   configuration.Asset,
 		Network:                 configuration.Network,
@@ -261,6 +271,14 @@ func routeRequest(configuration RouteConfiguration) (catalog.CreateRouteRequest,
 		ApprovalThresholdAmount: approvalThreshold,
 		UpstreamTimeoutSeconds:  configuration.UpstreamTimeoutSeconds,
 	}, nil
+}
+
+func normalizeRouteSchema(schema map[string]any) (catalog.JSONSchema, error) {
+	encoded, err := json.Marshal(schema)
+	if err != nil {
+		return "", err
+	}
+	return catalog.NormalizeClosedJSONSchema(encoded)
 }
 
 // ValidateRoute runs deterministic checks without publishing the route.
@@ -280,7 +298,7 @@ func (service *MutationService) ValidateRoute(
 	if err != nil {
 		return MutationResult{}, err
 	}
-	return MutationResult{Operation: "validate_route", Validation: &validation}, nil
+	return MutationResult{SchemaVersion: MCPToolResultSchemaVersion, Operation: "validate_route", Validation: &validation}, nil
 }
 
 // PublishRoute validates and conditionally enables one route draft.
@@ -327,6 +345,7 @@ func (service *MutationService) PublishRoute(
 				principal.SellerID,
 				routeID,
 				input.ExpectedVersion,
+				input.ContractHash,
 			)
 			if err != nil {
 				return MutationResult{}, err
@@ -404,6 +423,7 @@ func (service *MutationService) execute(
 	if err != nil {
 		return MutationResult{}, err
 	}
+	result.SchemaVersion = MCPToolResultSchemaVersion
 	responseBody, err := json.Marshal(result)
 	if err != nil {
 		return MutationResult{}, err

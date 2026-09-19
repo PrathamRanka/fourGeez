@@ -2,6 +2,8 @@ package catalog_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,6 +119,14 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 	if !validation.Valid {
 		t.Fatalf("validation = %#v", validation)
 	}
+	if validation.ContractHash == "" {
+		t.Fatal("validation did not bind the route contract")
+	}
+	if _, err := service.PublishRouteForIntegration(
+		t.Context(), seller.SellerID, route.RouteID, route.Version, strings.Repeat("0", 64),
+	); !errors.Is(err, catalog.ErrRouteContractStale) {
+		t.Fatalf("stale contract publish error = %v", err)
+	}
 
 	clock.now = clock.now.Add(time.Minute)
 	published, err := service.PublishRouteForIntegration(
@@ -124,6 +134,7 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 		seller.SellerID,
 		route.RouteID,
 		route.Version,
+		validation.ContractHash,
 	)
 	if err != nil {
 		t.Fatal(err)

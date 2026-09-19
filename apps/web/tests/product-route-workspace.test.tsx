@@ -24,6 +24,16 @@ const publishedRoute: PaidRoute = {
   pathPattern: "/research",
   description: "Generate a source-backed market brief",
   mimeType: "application/json",
+  inputSchema: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
   amount: "35000000",
   asset: "USDC",
   network: "eip155:84532",
@@ -93,6 +103,7 @@ function createActions(): ProductRouteActions {
         routeId: publishedRoute.routeId,
         valid: true,
         version: publishedRoute.version,
+        contractHash: "a".repeat(64),
         checks: [
           {
             name: "seller_active",
@@ -376,12 +387,27 @@ describe("product route workspace", () => {
     );
     expect(await screen.findByText("Version 2")).toBeVisible();
 
+    vi.mocked(actions.validateRoute).mockResolvedValue({
+      ok: true,
+      value: {
+        sellerId,
+        routeId: draftRoute.routeId,
+        valid: true,
+        version: 2,
+        contractHash: "b".repeat(64),
+        checks: [],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Validate product" }));
+    await waitFor(() => expect(actions.validateRoute).toHaveBeenCalledTimes(1));
+
     fireEvent.click(screen.getByRole("button", { name: "Publish product" }));
     await waitFor(() =>
       expect(actions.publishRoute).toHaveBeenCalledWith({
         sellerId,
         routeId: draftRoute.routeId,
         expectedVersion: 2,
+        contractHash: "b".repeat(64),
       }),
     );
     expect((await screen.findAllByText("Published"))[0]).toBeVisible();

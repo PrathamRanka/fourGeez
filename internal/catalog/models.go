@@ -71,6 +71,8 @@ type PaidRouteParams struct {
 	PathPattern             string
 	Description             string
 	MIMEType                string
+	InputSchema             JSONSchema
+	OutputSchema            JSONSchema
 	Amount                  domain.Amount
 	Asset                   string
 	Network                 string
@@ -90,6 +92,8 @@ type PaidRoute struct {
 	PathPattern             string               `json:"pathPattern"`
 	Description             string               `json:"description"`
 	MIMEType                string               `json:"mimeType"`
+	InputSchema             JSONSchema           `json:"inputSchema"`
+	OutputSchema            JSONSchema           `json:"outputSchema"`
 	Amount                  domain.Amount        `json:"amount"`
 	Asset                   string               `json:"asset"`
 	Network                 string               `json:"network"`
@@ -132,6 +136,8 @@ type CreateRouteRequest struct {
 	PathPattern             string         `json:"pathPattern"`
 	Description             string         `json:"description"`
 	MIMEType                string         `json:"mimeType"`
+	InputSchema             JSONSchema     `json:"inputSchema,omitempty"`
+	OutputSchema            JSONSchema     `json:"outputSchema,omitempty"`
 	Amount                  domain.Amount  `json:"amount"`
 	Asset                   string         `json:"asset"`
 	Network                 string         `json:"network"`
@@ -150,6 +156,12 @@ type UpdateRoutePriceRequest struct {
 // RouteVersionRequest guards a route lifecycle mutation with optimistic concurrency.
 type RouteVersionRequest struct {
 	ExpectedVersion uint64 `json:"expectedVersion"`
+}
+
+// PublishRouteRequest binds seller approval to one validated route contract.
+type PublishRouteRequest struct {
+	ExpectedVersion uint64 `json:"expectedVersion"`
+	ContractHash    string `json:"contractHash"`
 }
 
 // PaidRouteList contains all seller-owned routes visible to the dashboard.
@@ -173,11 +185,12 @@ type RouteValidationCheck struct {
 
 // RouteValidationResult contains all publication checks for one route.
 type RouteValidationResult struct {
-	SellerID domain.ID              `json:"sellerId"`
-	RouteID  domain.ID              `json:"routeId"`
-	Valid    bool                   `json:"valid"`
-	Checks   []RouteValidationCheck `json:"checks"`
-	Version  uint64                 `json:"version"`
+	SellerID     domain.ID              `json:"sellerId"`
+	RouteID      domain.ID              `json:"routeId"`
+	Valid        bool                   `json:"valid"`
+	Checks       []RouteValidationCheck `json:"checks"`
+	Version      uint64                 `json:"version"`
+	ContractHash string                 `json:"contractHash"`
 }
 
 // StorefrontSeller is the public seller identity in discovery documents.
