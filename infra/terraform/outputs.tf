@@ -87,3 +87,50 @@ output "mcp_url" {
   description = "Remote MCP endpoint for AGENTPAY_MCP_URL; null while AWS-005 deployment is disabled."
   value       = module.application.mcp_url
 }
+
+output "environment" {
+  description = "Environment name used by deployment automation."
+  value       = var.environment
+}
+
+output "aws_region" {
+  description = "AWS region used by deployment automation."
+  value       = var.aws_region
+}
+
+output "web_origin" {
+  description = "Canonical web origin configured in API CORS."
+  value       = var.web_origin
+}
+
+output "api_id" {
+  description = "HTTP API identifier; null while AWS-005 is disabled."
+  value       = module.application.api_id
+}
+
+output "api_lambda_function_name" {
+  description = "API Lambda function name; null while AWS-005 is disabled."
+  value       = module.application.lambda_function_name
+}
+
+output "operations_dashboard_name" {
+  description = "CloudWatch seller-operations dashboard; null while AWS-005 is disabled."
+  value       = module.application.operations_dashboard_name
+}
+
+output "launch_entitlement_operator_role_arn" {
+  description = "Optional least-privilege role for audited launch-entitlement operations."
+  value       = length(aws_iam_role.launch_entitlement_operator) == 1 ? aws_iam_role.launch_entitlement_operator[0].arn : null
+}
+
+output "vercel_environment" {
+  description = "Exact non-secret server-side values for the Vercel web deployment."
+  value = {
+    AGENTPAY_ENV                        = var.environment
+    AGENTPAY_IDENTITY_MODE              = "cognito"
+    AGENTPAY_WEB_ORIGIN                 = var.web_origin
+    AGENTPAY_API_ORIGIN                 = module.application.http_api_url
+    AWS_REGION                          = var.aws_region
+    AGENTPAY_SELLER_USER_POOL_CLIENT_ID = module.identity.user_pool_client_id
+  }
+}

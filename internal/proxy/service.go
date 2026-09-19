@@ -21,6 +21,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/observability"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -151,6 +152,7 @@ func (service *ExecutionService) Execute(
 			Path:     request.Path,
 		},
 	); err != nil {
+		observability.Record(observability.EventEvidenceFailure)
 		return ForwardResponse{}, err
 	}
 
@@ -168,6 +170,7 @@ func (service *ExecutionService) Execute(
 		},
 	)
 	if err != nil {
+		observability.Record(observability.EventSellerForwardingFailure)
 		return ForwardResponse{}, err
 	}
 	response, err := service.forwarder.Forward(
@@ -183,6 +186,7 @@ func (service *ExecutionService) Execute(
 		},
 	)
 	if err != nil {
+		observability.Record(observability.EventSellerForwardingFailure)
 		expectedVersion := claimed.Version()
 		if stateErr := claimed.MarkFailed(
 			deliveryFailureCode(err),
@@ -208,6 +212,7 @@ func (service *ExecutionService) Execute(
 			},
 		)
 		if recordError != nil {
+			observability.Record(observability.EventEvidenceFailure)
 			return ForwardResponse{}, recordError
 		}
 		return ForwardResponse{}, err
@@ -261,7 +266,11 @@ func (service *ExecutionService) Execute(
 			ContentLength: int64(len(response.Body)),
 		},
 	); err != nil {
+		observability.Record(observability.EventEvidenceFailure)
 		return ForwardResponse{}, err
+	}
+	if !succeeded {
+		observability.Record(observability.EventSellerForwardingFailure)
 	}
 	if succeeded && service.usage != nil {
 		_ = service.usage.RecordSuccessfulTransactionUsage(

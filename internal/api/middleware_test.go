@@ -140,6 +140,39 @@ func TestMiddlewareLogsMetadataWithoutCredentials(t *testing.T) {
 	}
 }
 
+// TestMiddlewareLogsMachineFailureFields verifies CloudWatch metric filters have stable JSON fields.
+func TestMiddlewareLogsMachineFailureFields(t *testing.T) {
+	t.Parallel()
+
+	var logOutput bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logOutput, nil))
+	handler := Middleware(
+		Config{Logger: logger},
+		http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			WriteError(
+				response,
+				request,
+				http.StatusServiceUnavailable,
+				ErrorCodeDependencyUnavailable,
+				"MCP dependency unavailable",
+				nil,
+			)
+		}),
+	)
+	request := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	logged := logOutput.String()
+	if !strings.Contains(logged, `"errorCode":"dependency_unavailable"`) {
+		t.Fatalf("log did not include stable error code: %s", logged)
+	}
+	if !strings.Contains(logged, `"operationalEvent":"mcp_failure"`) {
+		t.Fatalf("log did not include MCP failure category: %s", logged)
+	}
+}
+
 // TestDecodeJSONRejectsUnknownFieldsAndOversizedBodies verifies strict input handling.
 func TestDecodeJSONRejectsUnknownFieldsAndOversizedBodies(t *testing.T) {
 	t.Parallel()

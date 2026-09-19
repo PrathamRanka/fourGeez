@@ -51,6 +51,9 @@ Run without AWS or network access.
   rotation; fraud quarantine cannot be cleared by a Stripe payment event.
 - Atomic UTC-month API and MCP counters, retry-safe webhook-delivery claims,
   static route/subscription limits, suspended plans, and stable 403/429 codes.
+- Manual launch-entitlement planning, exact confirmation binding, non-root
+  assumed-role enforcement, optimistic version conflicts, atomic audit writes,
+  immediate suspension, bounded expiry, and reactivation credential rotation.
 - MCP confirmation grants bind seller, credential, tool, target, canonical
   arguments hash, expected resource version, and exclusive five-minute expiry;
   wrong bindings, expiry, revocation, prior consumption, and caller-asserted
@@ -231,6 +234,10 @@ Reviewed Terraform plan for environment deployment tasks
 Secret scanning
 Dependency audit
 ```
+
+Operations checks additionally validate CloudWatch alarm shape, low-cardinality
+metric filters, optional notification actions, seller-partition-scoped operator
+IAM, Vercel output validation, and exact-byte webhook signature verification.
 
 End-to-end testnet payment is a demo-release gate, not a per-commit gate.
 Execute and preserve the payment release evidence according to

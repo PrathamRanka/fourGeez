@@ -11,6 +11,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/observability"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/proxy"
 	"github.com/fourgeez/agentpay/internal/transactions"
@@ -104,6 +105,7 @@ func (service *CheckoutService) Execute(
 			Network: resolved.Requirements.Network,
 		},
 	); err != nil {
+		observability.Record(observability.EventEvidenceFailure)
 		return CheckoutResult{}, err
 	}
 	if strings.TrimSpace(request.PaymentProof) == "" {
@@ -166,6 +168,9 @@ func (service *CheckoutService) Execute(
 			resolved.Requirements,
 		)
 		if verifyErr != nil {
+			if IsRetryable(verifyErr) {
+				observability.Record(observability.EventFacilitatorFailure)
+			}
 			if errors.Is(verifyErr, ErrPaymentRejected) {
 				challenge, challengeErr := service.adapter.CreateChallenge(
 					ctx,
@@ -224,6 +229,7 @@ func (service *CheckoutService) Execute(
 			PaymentProofHash:  proofHash,
 		},
 	); err != nil {
+		observability.Record(observability.EventEvidenceFailure)
 		return CheckoutResult{}, err
 	}
 	if err := service.authorizeCommerce(ctx, resolved.Seller.SellerID, CommerceOperationSettlement); err != nil {
@@ -242,6 +248,9 @@ func (service *CheckoutService) Execute(
 		err = ErrPaymentRejected
 	}
 	if err != nil {
+		if IsRetryable(err) {
+			observability.Record(observability.EventFacilitatorFailure)
+		}
 		if errors.Is(err, ErrPaymentRejected) {
 			failedVersion := transaction.Version()
 			if failErr := transaction.FailPayment(

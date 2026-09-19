@@ -8,6 +8,13 @@ locals {
   ])
 }
 
+data "aws_servicequotas_service_quota" "lambda_concurrency" {
+  count = var.deployment_enabled ? 1 : 0
+
+  service_code = "lambda"
+  quota_code   = "L-B99A9384"
+}
+
 resource "aws_cloudwatch_log_group" "lambda" {
   count = var.deployment_enabled ? 1 : 0
 
@@ -123,6 +130,13 @@ resource "aws_lambda_function" "api" {
     application_log_level = "INFO"
     log_format            = "JSON"
     system_log_level      = "WARN"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = data.aws_servicequotas_service_quota.lambda_concurrency[0].value > 10 + var.lambda_reserved_concurrency
+      error_message = "The regional Lambda concurrency quota must exceed 10 plus api_reserved_concurrency before deployment."
+    }
   }
 
   depends_on = [

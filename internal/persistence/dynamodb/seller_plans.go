@@ -5,6 +5,7 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
@@ -46,9 +47,65 @@ func (repository *SellerEntitlementRepository) Apply(
 	reconciliation billing.EntitlementReconciliation,
 	expectedVersion uint64,
 ) error {
-	entitlementItem, err := marshalSellerEntitlement(entitlement)
+	items, err := repository.entitlementTransactionItems(entitlement, reconciliation, expectedVersion)
 	if err != nil {
 		return err
+	}
+	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{TransactItems: items})
+	if isTransactionFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
+}
+
+// ApplyWithAudit atomically commits an operator entitlement change and its audit event.
+func (repository *SellerEntitlementRepository) ApplyWithAudit(
+	ctx context.Context,
+	entitlement billing.SellerEntitlement,
+	reconciliation billing.EntitlementReconciliation,
+	expectedVersion uint64,
+	event audit.Event,
+) error {
+	if event.SellerID() != entitlement.SellerID() {
+		return domain.NewValidationError("auditEvent", "seller", "must belong to the entitlement seller")
+	}
+	items, err := repository.entitlementTransactionItems(entitlement, reconciliation, expectedVersion)
+	if err != nil {
+		return err
+	}
+	auditRecord, err := newStoredRecord(
+		sellerPartitionKey(event.SellerID().String()),
+		auditEventSortKey(event.OccurredAt().Time(), event.AuditEventID().String()),
+		"auditEvent",
+		event.Snapshot(),
+	)
+	if err != nil {
+		return err
+	}
+	auditItem, err := marshalStoredRecord(auditRecord)
+	if err != nil {
+		return err
+	}
+	items = append(items, types.TransactWriteItem{Put: &types.Put{
+		TableName:           &repository.tableName,
+		Item:                auditItem,
+		ConditionExpression: stringPointer(createItemCondition),
+	}})
+	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{TransactItems: items})
+	if isTransactionFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
+}
+
+func (repository *SellerEntitlementRepository) entitlementTransactionItems(
+	entitlement billing.SellerEntitlement,
+	reconciliation billing.EntitlementReconciliation,
+	expectedVersion uint64,
+) ([]types.TransactWriteItem, error) {
+	entitlementItem, err := marshalSellerEntitlement(entitlement)
+	if err != nil {
+		return nil, err
 	}
 	reconciliationRecord, err := newStoredRecord(
 		sellerPartitionKey(entitlement.SellerID().String()),
@@ -57,11 +114,11 @@ func (repository *SellerEntitlementRepository) Apply(
 		reconciliation,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	reconciliationItem, err := marshalStoredRecord(reconciliationRecord)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	entitlementCondition := createItemCondition
 	attributeNames := map[string]string(nil)
@@ -71,16 +128,10 @@ func (repository *SellerEntitlementRepository) Apply(
 		attributeNames = map[string]string{"#version": "version"}
 		attributeValues = map[string]types.AttributeValue{":expectedVersion": numberAttributeValue(expectedVersion)}
 	}
-	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
-		TransactItems: []types.TransactWriteItem{
-			{Put: &types.Put{TableName: &repository.tableName, Item: reconciliationItem, ConditionExpression: stringPointer(createItemCondition)}},
-			{Put: &types.Put{TableName: &repository.tableName, Item: entitlementItem, ConditionExpression: &entitlementCondition, ExpressionAttributeNames: attributeNames, ExpressionAttributeValues: attributeValues}},
-		},
-	})
-	if isTransactionFailure(err) {
-		return persistence.ErrConditionFailed
-	}
-	return err
+	return []types.TransactWriteItem{
+		{Put: &types.Put{TableName: &repository.tableName, Item: reconciliationItem, ConditionExpression: stringPointer(createItemCondition)}},
+		{Put: &types.Put{TableName: &repository.tableName, Item: entitlementItem, ConditionExpression: &entitlementCondition, ExpressionAttributeNames: attributeNames, ExpressionAttributeValues: attributeValues}},
+	}, nil
 }
 
 func marshalSellerEntitlement(entitlement billing.SellerEntitlement) (map[string]types.AttributeValue, error) {

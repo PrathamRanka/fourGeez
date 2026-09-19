@@ -13,6 +13,9 @@ deployed the Terraform foundation, protected development state backend, and
 Mumbai Cognito seller identity. The application runtime,
 environment-specific web/API connection, observability, and M9 deployed
 release verification remain pending.
+AWS/Vercel wiring, seller-path alarms, manual launch-entitlement operations,
+and webhook canary tooling are now reproducible in code, but remain unverified
+against a deployed API runtime.
 Until those milestones pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
@@ -63,6 +66,8 @@ The complete gap analysis and reference security design are recorded in
 | [runbooks/OPERATOR_SUSPENSION_REPLAY.md](runbooks/OPERATOR_SUSPENSION_REPLAY.md)       | Suspension, cancellation, replay response, evidence preservation, and recovery procedure         |
 | [runbooks/X402_TESTNET_RELEASE.md](runbooks/X402_TESTNET_RELEASE.md)                   | Safe evidence procedure for REL-003, REL-004, REL-005, and REL-008                               |
 | [runbooks/SELLER_PACKAGE_RELEASE.md](runbooks/SELLER_PACKAGE_RELEASE.md)               | Build, verify, distribute, and install the private seller connector and merchant SDK artifacts   |
+| [runbooks/LAUNCH_ENTITLEMENT.md](runbooks/LAUNCH_ENTITLEMENT.md)                       | Dry-run-first operator workflow while Stripe subscription collection is disabled                 |
+| [runbooks/WEBHOOK_CANARY.md](runbooks/WEBHOOK_CANARY.md)                               | Exact-body signature, retry, dead-letter, redelivery, and secret-rotation verification           |
 | [DECISIONS.md](DECISIONS.md)                                                           | Locked decisions, assumptions, deferred choices, and change procedure                            |
 | [SOURCES.md](SOURCES.md)                                                               | External protocol and platform sources that must be verified before implementation               |
 | [api/openapi.yaml](api/openapi.yaml)                                                   | REST/HTTP API contract                                                                           |

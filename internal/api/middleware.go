@@ -67,19 +67,26 @@ func Middleware(config Config, next http.Handler) http.Handler {
 					nil,
 				)
 			}
-			logger.Info(
-				"http request",
-				"requestId",
-				requestID,
-				"method",
-				request.Method,
-				"path",
-				request.URL.Path,
-				"status",
-				statusResponse.status,
-				"durationMs",
-				time.Since(startedAt).Milliseconds(),
-			)
+			attributes := []any{
+				"requestId", requestID,
+				"method", request.Method,
+				"path", request.URL.Path,
+				"status", statusResponse.status,
+				"durationMs", time.Since(startedAt).Milliseconds(),
+			}
+			if statusResponse.errorCode != "" {
+				attributes = append(attributes, "errorCode", statusResponse.errorCode)
+			}
+			if request.URL.Path == "/mcp" && statusResponse.status >= http.StatusInternalServerError {
+				attributes = append(attributes, "operationalEvent", "mcp_failure")
+			}
+			if strings.HasPrefix(request.URL.Path, "/pay/") && statusResponse.status >= http.StatusInternalServerError {
+				attributes = append(attributes, "operationalEvent", "checkout_failure")
+			}
+			if statusResponse.errorCode == ErrorCodePaymentReplayed {
+				attributes = append(attributes, "operationalEvent", "payment_replay")
+			}
+			logger.Info("http request", attributes...)
 		}()
 		if sellerID, ok := sellerIDFromPath(request.URL.Path); ok {
 			token, validBearer := bearerToken(request.Header.Get("Authorization"))
@@ -319,6 +326,7 @@ type statusWriter struct {
 	http.ResponseWriter
 	status      int
 	wroteHeader bool
+	errorCode   string
 }
 
 // WriteHeader records the first status code written by a handler.
@@ -329,4 +337,8 @@ func (writer *statusWriter) WriteHeader(status int) {
 	writer.status = status
 	writer.wroteHeader = true
 	writer.ResponseWriter.WriteHeader(status)
+}
+
+func (writer *statusWriter) setErrorCode(code string) {
+	writer.errorCode = code
 }
