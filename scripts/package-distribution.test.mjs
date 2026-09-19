@@ -46,6 +46,7 @@ test("seller packages produce reproducible self-contained release artifacts", as
     path.join(tmpdir(), "agentpay-package-release-"),
   );
   context.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  const sourceDirty = await isWorktreeDirty();
 
   const firstOutput = path.join(temporaryRoot, "first");
   const secondOutput = path.join(temporaryRoot, "second");
@@ -58,25 +59,11 @@ test("seller packages produce reproducible self-contained release artifacts", as
     assert.equal(await sha256(firstArtifact), await sha256(secondArtifact));
   }
 
-  await verifyReleaseMetadata(firstOutput);
+  await verifyReleaseMetadata(firstOutput, sourceDirty);
   await verifyReleaseCommand(firstOutput);
   await verifyCleanInstall(firstOutput, temporaryRoot);
   await verifyTamperDetection(secondOutput);
-});
-
-test("release generation refuses an uncommitted worktree", async (context) => {
-  const outputDirectory = await mkdtemp(
-    path.join(tmpdir(), "agentpay-dirty-release-"),
-  );
-  context.after(() => rm(outputDirectory, { recursive: true, force: true }));
-  await assert.rejects(
-    execFileAsync(
-      process.execPath,
-      ["scripts/build-package-release.mjs", "--output", outputDirectory],
-      { cwd: repositoryRoot, timeout: 30_000 },
-    ),
-    /clean worktree/u,
-  );
+  await verifyDirtyWorktreeRefusal(temporaryRoot);
 });
 
 async function buildRelease(outputDirectory) {
@@ -92,7 +79,7 @@ async function buildRelease(outputDirectory) {
   );
 }
 
-async function verifyReleaseMetadata(outputDirectory) {
+async function verifyReleaseMetadata(outputDirectory, expectedDirty) {
   const checksumLines = (
     await readFile(path.join(outputDirectory, "SHA256SUMS"), "utf8")
   )
@@ -105,7 +92,7 @@ async function verifyReleaseMetadata(outputDirectory) {
   );
   assert.equal(provenance.schemaVersion, "agentpay.package-release.v1");
   assert.match(provenance.source.commit, /^[a-f0-9]{40}$/u);
-  assert.equal(provenance.source.dirty, true);
+  assert.equal(provenance.source.dirty, expectedDirty);
   assert.deepEqual(
     provenance.artifacts.map((artifact) => artifact.fileName),
     expectedArtifacts,
@@ -136,6 +123,49 @@ async function verifyReleaseMetadata(outputDirectory) {
     ),
     true,
   );
+}
+
+async function verifyDirtyWorktreeRefusal(temporaryRoot) {
+  const outputDirectory = path.join(temporaryRoot, "dirty-release");
+  const dirtyMarker = path.join(
+    repositoryRoot,
+    `package-release-dirty-test-${process.pid}.txt`,
+  );
+  await writeFile(dirtyMarker, "intentional dirty-worktree fixture\n");
+  try {
+    const { stdout: status } = await execFileAsync(
+      "git",
+      ["status", "--porcelain", "--untracked-files=all", "--", dirtyMarker],
+      { cwd: repositoryRoot, timeout: 10_000 },
+    );
+    assert.notEqual(
+      status.trim(),
+      "",
+      "dirty-worktree fixture must be visible to Git",
+    );
+    await assert.rejects(
+      execFileAsync(
+        process.execPath,
+        ["scripts/build-package-release.mjs", "--output", outputDirectory],
+        { cwd: repositoryRoot, timeout: 30_000 },
+      ),
+      (error) => {
+        assert.match(error.stderr, /clean worktree/u);
+        return true;
+      },
+    );
+  } finally {
+    await rm(dirtyMarker, { force: true });
+  }
+}
+
+async function isWorktreeDirty() {
+  const { stdout } = await execFileAsync(
+    "git",
+    ["status", "--porcelain", "--untracked-files=all"],
+    { cwd: repositoryRoot, timeout: 10_000 },
+  );
+  return stdout.trim() !== "";
 }
 
 async function verifyReleaseCommand(outputDirectory) {
