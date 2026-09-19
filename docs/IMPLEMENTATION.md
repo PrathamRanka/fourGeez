@@ -209,7 +209,7 @@ M8 begins only after M7.1 acceptance. Infrastructure must preserve the same
 authorization, revocation, transaction, and failure semantics proven locally.
 
 - [x] **AWS-000** Replace the existing CDK placeholder with Terraform modules, remote state, environment configuration, and CI validation.
-- [ ] **AWS-001** Bootstrap the development AWS account and Terraform state backend.
+- [-] **AWS-001** Bootstrap the development AWS account and Terraform state backend. The protected, validated bootstrap root is implemented; applying it awaits an authenticated development AWS account.
 - [ ] **AWS-002** Create DynamoDB tables and required secondary indexes.
 - [ ] **AWS-003** Create versioned Object Lock evidence bucket and KMS signing key.
 - [ ] **AWS-004** Create Secrets Manager entries, KMS/HSM-backed capability-signing keys, API-key digest pepper storage, JWKS publication/rotation support, and least-privilege IAM roles without exposing signing material to application configuration or sellers.

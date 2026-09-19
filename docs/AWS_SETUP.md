@@ -137,23 +137,54 @@ Required controls:
 
 ## Deployment order
 
-After **AWS-001** creates the remote-state bucket, copy the committed
-environment templates and replace their placeholders locally:
+### 1. Bootstrap remote state
+
+Confirm `aws sts get-caller-identity` returns the intended development account.
+Then copy the bootstrap example, replace both placeholders locally, and review
+the plan before applying it:
+
+```powershell
+Copy-Item infra/bootstrap/environments/dev.tfvars.example infra/bootstrap/environments/dev.tfvars
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap fmt -check -recursive
+terraform -chdir=infra/bootstrap validate
+terraform -chdir=infra/bootstrap plan -var-file=environments/dev.tfvars -out=bootstrap.tfplan
+terraform -chdir=infra/bootstrap apply bootstrap.tfplan
+terraform -chdir=infra/bootstrap output
+```
+
+The bootstrap root uses local state because the remote backend cannot create
+itself. Never commit that state. Preserve it in an encrypted operator-controlled
+location until the bucket has been independently verified. The bucket has
+versioning, default encryption, public-access blocking, TLS-only access, and
+deletion protection. Terraform uses S3 native lock files; no DynamoDB lock table
+is required.
+
+### 2. Configure the environment backend
+
+Copy the committed environment templates and replace their placeholders with
+the verified account ID and bootstrap outputs:
 
 ```powershell
 Copy-Item infra/terraform/environments/dev.backend.hcl.example infra/terraform/environments/dev.backend.hcl
 Copy-Item infra/terraform/environments/dev.tfvars.example infra/terraform/environments/dev.tfvars
 ```
 
-Then initialize and review the environment:
+Initialize the main root. Use `-migrate-state` if it has ever been initialized
+with local state; use `-reconfigure` for a clean checkout with no state to move:
 
 ```powershell
-terraform -chdir=infra/terraform init -backend-config=environments/dev.backend.hcl
+terraform -chdir=infra/terraform init -migrate-state -backend-config=environments/dev.backend.hcl
 terraform -chdir=infra/terraform fmt -check -recursive
 terraform -chdir=infra/terraform validate
 terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars -out=dev.tfplan
 terraform -chdir=infra/terraform apply dev.tfplan
 ```
+
+After initialization, verify that the state object and its `.tflock` companion
+can be created only through authenticated TLS requests and that a second
+Terraform process cannot acquire the same lock. Do not delete the bootstrap
+state until the remote state bucket and version history have been verified.
 
 Deploy the web application only after recording the HTTP API, WebSocket, and Cognito outputs.
 

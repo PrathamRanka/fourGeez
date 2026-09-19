@@ -78,6 +78,12 @@ jobs:
           terraform_version: 1.16.3
           terraform_wrapper: false
       - run: terraform fmt -check -recursive
+        working-directory: infra/bootstrap
+      - run: terraform init -backend=false
+        working-directory: infra/bootstrap
+      - run: terraform validate
+        working-directory: infra/bootstrap
+      - run: terraform fmt -check -recursive
         working-directory: infra/terraform
       - run: terraform init -backend=false
         working-directory: infra/terraform

@@ -1,8 +1,8 @@
 # AgentPay Terraform
 
-Terraform is the only infrastructure-as-code system for AgentPay. AWS-000
-creates the validated module and environment layout; AWS-001 and later tasks
-add the remote-state resources and application infrastructure.
+Terraform is the only infrastructure-as-code system for AgentPay. The separate
+`infra/bootstrap` root creates the remote-state bucket; this root owns the
+environment application infrastructure.
 
 ## Toolchain
 
@@ -30,8 +30,8 @@ Copy-Item infra/terraform/environments/dev.tfvars.example infra/terraform/enviro
 ```
 
 Replace the placeholder account and state-bucket values in the ignored local
-copies. AWS-001 must create the encrypted, versioned state bucket before remote
-initialization succeeds.
+copies. Create the encrypted, versioned state bucket through `infra/bootstrap`
+before remote initialization succeeds.
 
 ```powershell
 terraform -chdir=infra/terraform init -backend-config=environments/dev.backend.hcl
