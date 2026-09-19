@@ -23,11 +23,12 @@ M9 deployed release verification remains pending. Until those release gates pass
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 
-OpenAPI 0.7 extends the implemented M7.1 runtime boundary with the bounded
-EXT-001 public capability manifest and deterministic product directory plus
-the EXT-004 runtime payment-capability and recovery contract and the EXT-005
-seller-first published product-schema contract. AgentPay buyer execution, A2A,
-and negotiation remain deferred to V2. Production
+OpenAPI 0.8 removes the seller-callable onboarding purchase action while
+preserving the public buyer storefront and external buyer-agent commerce.
+It retains the OpenAPI 0.7 bounded EXT-001 public capability manifest and
+deterministic product directory, EXT-004 runtime payment-capability and recovery
+contract, and EXT-005 seller-first published product-schema contract. AgentPay
+buyer execution, A2A, and negotiation remain deferred to V2. Production
 activation still depends on the remaining M8 operational work, external
 security/legal review, and M9 deployed verification.
 

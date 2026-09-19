@@ -16,7 +16,7 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-1. The current onboarding test-purchase flow exposes buyer checkout to the seller and must be removed from the seller journey.
+1. **Resolved (2026-09-20):** Seller onboarding and dashboard routes no longer expose buyer checkout, wallet authorization, or the seller-owned test-purchase action. Public buyer storefront and external buyer-agent checkout remain unchanged.
 2. Seller verification should finish with an automated integration result, not a seller-funded purchase.
 3. Manual launch entitlement provisioning is still required while Stripe billing is disabled.
 

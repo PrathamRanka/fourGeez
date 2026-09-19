@@ -31,7 +31,6 @@ import {
   createPowerShellSetup,
   setupPrompt,
 } from "@/features/onboarding/model";
-import { SellerTestPurchase } from "@/features/onboarding/view/seller-test-purchase";
 import styles from "./seller-onboarding.module.css";
 
 type SellerOnboardingProps = {
@@ -62,13 +61,6 @@ const eligibilitySteps = [
   "subscription_active",
   "payment_destination_verified",
 ] as const satisfies readonly OnboardingStepName[];
-const testPurchasePrerequisiteSteps = [
-  ...eligibilitySteps,
-  "project_key_created",
-  "connector_verified",
-  "product_configured",
-] as const satisfies readonly OnboardingStepName[];
-
 const prerequisiteDetails: Record<
   (typeof eligibilitySteps)[number],
   { label: string; href: string; action: string }
@@ -122,13 +114,6 @@ export function SellerOnboarding({
       (step) => step.name === name && step.status === "complete",
     );
   const eligible = eligibilitySteps.every(stepComplete);
-  const testPurchaseEligible =
-    testPurchasePrerequisiteSteps.every(stepComplete);
-  const testableRoute =
-    initialSnapshot.testableRoutes.find(
-      (route) => route.lifecycleStatus === "published" && route.enabled,
-    ) ?? null;
-  const sellerSlug = seller?.slug ?? "";
   const latestCredential = credentials.at(-1) ?? null;
   const activeCredential =
     credentials.find(
@@ -147,7 +132,7 @@ export function SellerOnboarding({
   const completedSteps = onboarding.steps.filter(
     (step) => step.status === "complete",
   ).length;
-  const totalSteps = onboarding.steps.length || 10;
+  const totalSteps = onboarding.steps.length || 9;
   const mcpConfiguration = useMemo(() => createMCPConfiguration(host), [host]);
   const powerShellSetup = useMemo(
     () => createPowerShellSetup(apiOrigin, host),
@@ -659,7 +644,7 @@ export function SellerOnboarding({
                 number="06"
                 icon={ShieldCheck}
                 title="Connector validation"
-                description="Connector authorization is recorded on the first authenticated MCP request. The commerce rehearsal appears after a published product is available."
+                description="Connector authorization is recorded on the first authenticated MCP request. Review publication readiness from the products workspace."
                 complete={connectorState === "connected"}
                 current={connectorState !== "connected"}
                 locked={connectorState !== "connected"}
@@ -667,16 +652,14 @@ export function SellerOnboarding({
                 <div className="sandbox-readiness">
                   <span
                     className={
-                      stepComplete("sandbox_purchase")
+                      connectorState === "connected"
                         ? "status-ready"
                         : "status-waiting"
                     }
                   >
-                    {stepComplete("sandbox_purchase")
-                      ? "Connector and prior sandbox verified"
-                      : connectorState === "connected"
-                        ? "Connector validation passed"
-                        : "Validation not run"}
+                    {connectorState === "connected"
+                      ? "Connector validation passed"
+                      : "Validation not run"}
                   </span>
                   <p>
                     {connectorState === "connected"
@@ -685,16 +668,6 @@ export function SellerOnboarding({
                   </p>
                 </div>
               </OnboardingStep>
-
-              <SellerTestPurchase
-                eligible={testPurchaseEligible}
-                route={testableRoute}
-                sellerSlug={sellerSlug}
-                verifyPurchase={actions.verifySellerTestPurchase}
-                onVerified={(verification) =>
-                  setOnboarding(verification.onboarding)
-                }
-              />
             </>
           )}
         </div>

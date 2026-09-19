@@ -11,16 +11,8 @@ import type {
   PreparedPaymentDestination,
   Seller,
   SellerOnboardingState,
-  SellerTestPurchaseVerification,
-  TestPurchaseRoute,
-  VerifySellerTestPurchaseInput,
   VerifyPaymentDestinationInput,
 } from "@/features/onboarding/model";
-import type { PurchaseReceipt } from "@/features/commerce/model";
-import type {
-  Transaction,
-  TransactionDetailSnapshot,
-} from "@/features/transactions/model";
 import {
   authenticatedSellerId,
   sellerSessionRequired,
@@ -155,7 +147,6 @@ export async function createIntegrationCredential(
 export async function listOnboardingResources(): Promise<{
   paymentDestinations: PaymentDestination[];
   credentials: IntegrationCredential[];
-  testableRoutes: TestPurchaseRoute[];
   onboarding: SellerOnboardingState;
 }> {
   const sellerId = await authenticatedSellerId();
@@ -163,13 +154,12 @@ export async function listOnboardingResources(): Promise<{
     return {
       paymentDestinations: [],
       credentials: [],
-      testableRoutes: [],
       onboarding: emptyOnboardingState(),
     };
   }
   const encodedSellerId = encodeURIComponent(sellerId);
-  const [paymentResult, credentialResult, routeResult, onboardingResult] =
-    await Promise.all([
+  const [paymentResult, credentialResult, onboardingResult] = await Promise.all(
+    [
       requestAgentPay<{ items: PaymentDestination[] }>(
         `/v1/sellers/${encodedSellerId}/payment-destinations`,
         { method: "GET" },
@@ -178,114 +168,18 @@ export async function listOnboardingResources(): Promise<{
         `/v1/sellers/${encodedSellerId}/integration-credentials`,
         { method: "GET" },
       ),
-      requestAgentPay<{ items: TestPurchaseRoute[] }>(
-        `/v1/sellers/${encodedSellerId}/routes`,
-        { method: "GET" },
-      ),
       requestAgentPay<SellerOnboardingState>("/v1/me/onboarding", {
         method: "GET",
       }),
-    ]);
+    ],
+  );
 
   return {
     paymentDestinations: paymentResult.ok ? paymentResult.value.items : [],
     credentials: credentialResult.ok ? credentialResult.value.items : [],
-    testableRoutes: routeResult.ok
-      ? routeResult.value.items.filter(
-          (route) =>
-            route.lifecycleStatus === "published" &&
-            route.enabled &&
-            route.asset === "USDC" &&
-            route.network === "eip155:84532",
-        )
-      : [],
     onboarding: onboardingResult.ok
       ? onboardingResult.value
       : emptyOnboardingState(sellerId),
-  };
-}
-
-// verifySellerTestPurchase fails closed until authoritative commerce records agree.
-export async function verifySellerTestPurchase(
-  input: VerifySellerTestPurchaseInput,
-): Promise<ActionResult<SellerTestPurchaseVerification>> {
-  const sellerId = await authenticatedSellerId();
-  if (!sellerId) return sellerSessionRequired();
-  const encodedTransactionId = encodeURIComponent(input.transactionId);
-  const encodedSellerId = encodeURIComponent(sellerId);
-  const [detailResult, receiptResult, listResult] = await Promise.all([
-    requestAgentPay<
-      Pick<TransactionDetailSnapshot, "transaction" | "evidence">
-    >(`/v1/transactions/${encodedTransactionId}`, { method: "GET" }),
-    requestAgentPay<PurchaseReceipt>(
-      `/v1/transactions/${encodedTransactionId}/receipt`,
-      { method: "GET" },
-    ),
-    requestAgentPay<{ items: Transaction[] }>(
-      `/v1/sellers/${encodedSellerId}/transactions?limit=50`,
-      { method: "GET" },
-    ),
-  ]);
-  const failedResult = [detailResult, receiptResult, listResult].find(
-    (result) => !result.ok,
-  );
-  if (failedResult && !failedResult.ok) return failedResult;
-  if (!detailResult.ok || !receiptResult.ok || !listResult.ok) {
-    return testPurchaseVerificationFailure();
-  }
-  const transaction = detailResult.value.transaction;
-  const evidence = detailResult.value.evidence;
-  const receipt = receiptResult.value;
-  const dashboardOccurrenceCount = listResult.value.items.filter(
-    (candidate) => candidate.transactionId === input.transactionId,
-  ).length;
-  const forwardingEventCount = evidence.events.filter(
-    (event) => event.eventType === "proxy.forwarded",
-  ).length;
-  const successfulDeliveryEventCount = evidence.events.filter(
-    (event) => event.eventType === "delivery.succeeded",
-  ).length;
-  const verified =
-    transaction.transactionId === input.transactionId &&
-    transaction.sellerId === sellerId &&
-    transaction.status === "FULFILLED" &&
-    transaction.commerceLifecycle.fulfillmentState === "succeeded" &&
-    dashboardOccurrenceCount === 1 &&
-    forwardingEventCount === 1 &&
-    successfulDeliveryEventCount === 1 &&
-    evidence.valid &&
-    evidence.events.length > 0 &&
-    receipt.transaction.transactionId === input.transactionId &&
-    receipt.evidence.verified &&
-    receipt.evidence.eventCount === evidence.events.length;
-  if (!verified) return testPurchaseVerificationFailure();
-
-  const onboardingResult = await requestAgentPay<SellerOnboardingState>(
-    "/v1/me/onboarding/sandbox-purchases",
-    { method: "POST", body: { transactionId: input.transactionId } },
-  );
-  if (!onboardingResult.ok) return onboardingResult;
-  return {
-    ok: true,
-    value: {
-      transactionId: input.transactionId,
-      dashboardOccurrenceCount: 1,
-      evidenceEventCount: evidence.events.length,
-      evidenceValid: true,
-      fulfillmentExactlyOnce: true,
-      receiptAvailable: true,
-      onboarding: onboardingResult.value,
-    },
-  };
-}
-
-function testPurchaseVerificationFailure(): ActionResult<never> {
-  return {
-    ok: false,
-    code: "test_purchase_unverified",
-    status: 409,
-    error:
-      "The transaction is not yet fulfilled, evidenced, receipted, and reconciled exactly once. Retry verification without starting a second payment.",
   };
 }
 

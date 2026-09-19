@@ -65,7 +65,7 @@ evaluated.
 | `sellerId` | string | Owning seller; `PK=SELLER#<sellerId>`, `SK=WORKSPACE` |
 | `ownerSubjectHash` | string | SHA-256 of the authenticated owner subject; raw identity claims are not duplicated |
 | `connectorVerifiedAt` | timestamp/null | Written only after a cloud-observed connector verification |
-| `sandboxPurchaseTransactionId` | string/null | Must name an authoritative fulfilled transaction owned by the seller |
+| `sandboxPurchaseTransactionId` | string/null | Historical REL-016 compatibility field only. New code does not write it, expose a seller mutation for it, or use it for onboarding/publication readiness. |
 | `storefrontPreviewedAt` | timestamp/null | Server-recorded completion of the preview step |
 | `settings.supportEmail` | string | Optional seller support address |
 | `settings.securityNotificationEmail` | string | Optional security-notification address |
@@ -74,10 +74,11 @@ evaluated.
 | `version` | integer | Optimistic concurrency version shared by onboarding progress and settings |
 
 Browser state never marks account verification, subscription, payment
-destination, credential, product, sandbox transaction, or publication
-readiness as complete. Those checks are derived from the identity principal and
-the owning authoritative records. Publication fails closed when any required
-record is missing or unavailable.
+destination, credential, product, or publication readiness as complete. Those
+checks are derived from the identity principal and the owning authoritative
+records. Seller surfaces expose no buyer-checkout mutation. A future automated
+integration result must be system-attested and read-only to the seller.
+Publication fails closed when any required record is missing or unavailable.
 
 ### StorefrontPublication
 

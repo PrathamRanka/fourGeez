@@ -319,7 +319,7 @@ before implementation.
 | atomic amount | Editable decimal price with validated atomic conversion |
 | `payTo` | Verified payment destination; select rather than retype |
 | integration credential | Project connection key |
-| sandbox validation | Test purchase |
+| sandbox validation | Automated integration checks |
 | route publication | Publish product |
 | transaction evidence | Payment and delivery proof |
 
@@ -440,7 +440,7 @@ The authoritative onboarding sequence is:
 4. Create and securely save a project connection key.
 5. Connect and verify the coding-agent MCP client.
 6. Discover, review, name, price, and confirm proposed products.
-7. Run a complete test purchase, review results, and explicitly publish.
+7. Review system-attested integration results and explicitly publish.
 
 Requirements:
 
@@ -554,10 +554,10 @@ sign up
 -> verify account
 -> sign in
 -> resume onboarding
--> verify wallet
+-> verify payout wallet
 -> connect coding agent
 -> discover and review products
--> run sandbox purchase
+-> review automated integration checks
 -> publish storefront
 -> complete human purchase
 -> complete agent purchase

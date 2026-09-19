@@ -32,15 +32,11 @@ func TestOnboardingDerivesAuthoritativeStepsAndPersistsProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	if first.Publication.Allowed {
-		t.Fatal("publication must remain blocked before connector, sandbox, and preview checks")
+		t.Fatal("publication must remain blocked before connector and preview checks")
 	}
 	assertStep(t, first, StepConnectorVerified, StepIncomplete)
-	assertStep(t, first, StepSandboxPurchase, StepIncomplete)
 
 	if err := fixture.service.RecordConnectorVerification(context.Background(), fixture.principal); err != nil {
-		t.Fatal(err)
-	}
-	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.service.RecordStorefrontPreview(context.Background(), fixture.principal); err != nil {
@@ -54,35 +50,8 @@ func TestOnboardingDerivesAuthoritativeStepsAndPersistsProgress(t *testing.T) {
 	if !resumed.Complete || !resumed.Publication.Allowed {
 		t.Fatalf("resumed onboarding = %#v, want complete and publishable", resumed)
 	}
-	if fixture.repository.putCalls != 4 {
-		t.Fatalf("workspace writes = %d, want initial state plus three progress updates", fixture.repository.putCalls)
-	}
-}
-
-func TestSandboxPurchaseMustBeAnAuthoritativeFulfilledSellerTransaction(t *testing.T) {
-	t.Parallel()
-	fixture := newWorkspaceFixture(t)
-	fixture.transactions = nil
-	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); !errors.Is(err, ErrSandboxPurchaseInvalid) {
-		t.Fatalf("RecordSandboxPurchase() error = %v", err)
-	}
-}
-
-func TestSandboxPurchaseReplayDoesNotRewriteWorkspaceState(t *testing.T) {
-	t.Parallel()
-	fixture := newWorkspaceFixture(t)
-	fixture.transactions = []transactions.Transaction{fixture.transaction}
-
-	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
-		t.Fatal(err)
-	}
-	firstVersion := fixture.repository.state.Version
-	firstPutCalls := fixture.repository.putCalls
-	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
-		t.Fatal(err)
-	}
-	if fixture.repository.state.Version != firstVersion || fixture.repository.putCalls != firstPutCalls {
-		t.Fatalf("replay changed workspace state: version=%d calls=%d", fixture.repository.state.Version, fixture.repository.putCalls)
+	if fixture.repository.putCalls != 3 {
+		t.Fatalf("workspace writes = %d, want initial state plus two progress updates", fixture.repository.putCalls)
 	}
 }
 
@@ -98,9 +67,6 @@ func TestPublicationGateFailsClosedUntilOnboardingIsComplete(t *testing.T) {
 	fixture.transactions = []transactions.Transaction{fixture.transaction}
 	fixture.entitlement = fixture.activeEntitlement
 	if err := fixture.service.RecordConnectorVerification(context.Background(), fixture.principal); err != nil {
-		t.Fatal(err)
-	}
-	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.service.RecordStorefrontPreview(context.Background(), fixture.principal); err != nil {
@@ -172,9 +138,6 @@ func TestPublicationReadinessRequiresVerifiedServiceConnection(t *testing.T) {
 	fixture.transactions = []transactions.Transaction{fixture.transaction}
 	fixture.entitlement = fixture.activeEntitlement
 	if err := fixture.service.RecordConnectorVerification(context.Background(), fixture.principal); err != nil {
-		t.Fatal(err)
-	}
-	if err := fixture.service.RecordSandboxPurchase(context.Background(), fixture.principal, fixture.transaction.TransactionID()); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.service.RecordStorefrontPreview(context.Background(), fixture.principal); err != nil {

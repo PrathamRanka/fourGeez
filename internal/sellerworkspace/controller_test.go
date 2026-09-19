@@ -12,7 +12,6 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/settlement"
-	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 func TestHTTPControllerUsesInjectedPrincipalAndIgnoresSellerQueryData(t *testing.T) {
@@ -123,14 +122,9 @@ func TestHTTPControllerCreatesBillingPortalSession(t *testing.T) {
 	}
 }
 
-func TestHTTPControllerRecordsAuthoritativeSandboxPurchase(t *testing.T) {
+func TestHTTPControllerDoesNotExposeSellerSandboxPurchase(t *testing.T) {
 	t.Parallel()
 	fixture := newWorkspaceFixture(t)
-	fixture.routes = []catalog.PaidRoute{fixture.route}
-	fixture.destinations = []settlement.PaymentDestination{fixture.destination}
-	fixture.credentials = []integrations.CredentialView{fixture.credential}
-	fixture.transactions = []transactions.Transaction{fixture.transaction}
-	fixture.entitlement = fixture.activeEntitlement
 	handler := workspaceHandler(fixture.service, principalSource{principal: fixture.principal})
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/me/onboarding/sandbox-purchases", strings.NewReader(`{"transactionId":"`+fixture.transaction.TransactionID().String()+`"}`))
@@ -139,40 +133,8 @@ func TestHTTPControllerRecordsAuthoritativeSandboxPurchase(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusOK {
+	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
-	}
-	if response.Header().Get("Cache-Control") != "no-store" {
-		t.Fatal("sandbox purchase response must not be cached")
-	}
-	var body OnboardingView
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	assertStep(t, body, StepSandboxPurchase, StepComplete)
-}
-
-func TestHTTPControllerRejectsInvalidSandboxPurchase(t *testing.T) {
-	t.Parallel()
-	fixture := newWorkspaceFixture(t)
-	handler := workspaceHandler(fixture.service, principalSource{principal: fixture.principal})
-
-	request := httptest.NewRequest(http.MethodPost, "/v1/me/onboarding/sandbox-purchases", strings.NewReader(`{"transactionId":"`+fixture.transaction.TransactionID().String()+`","unknown":true}`))
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer seller-token")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("unknown field status = %d, body = %s", response.Code, response.Body.String())
-	}
-
-	request = httptest.NewRequest(http.MethodPost, "/v1/me/onboarding/sandbox-purchases", strings.NewReader(`{"transactionId":"`+fixture.transaction.TransactionID().String()+`"}`))
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer seller-token")
-	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusConflict {
-		t.Fatalf("non-authoritative transaction status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
 

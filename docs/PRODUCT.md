@@ -112,17 +112,13 @@ The intended onboarding flow is:
 8. Buyers use the hosted storefront or machine-readable AgentPay endpoints.
 9. Every successful sale appears in one seller dashboard regardless of channel.
 
-Before publication, an eligible seller can run one guided test purchase from
-the onboarding workspace. The control remains hidden until the account,
-service, entitlement, payout destination, project credential, connector, and
-at least one published testable product are ready. The workflow uses the same
-browser purchase-session, immutable intent, x402 challenge, payment,
-fulfillment, receipt, evidence, and seller-dashboard APIs as a buyer purchase.
-It labels local mock payment separately from Base Sepolia testnet payment and
-does not report success until the authoritative fulfilled transaction appears
-exactly once in the seller dashboard with a verifiable receipt and evidence
-chain. A completed test may be rerun without modifying or deleting historical
-transactions.
+Seller onboarding never embeds, links to, or asks the seller to operate buyer
+checkout. Sellers configure the service, payout destination, integration, and
+products; human buyers and external buyer agents alone create purchase
+sessions, authorize wallets, and submit payments through the public commerce
+surfaces. A future automated integration-verification result may be displayed
+read-only in onboarding only when it is system-attested and requires no seller
+wallet, seller-funded purchase, or seller-callable buyer-commerce action.
 
 A representative prompt is:
 
@@ -377,4 +373,6 @@ A seller is ready to publish only when:
 - browser and agent storefront representations agree;
 - generated metadata, sitemap, structured data, `llms.txt`, and manifest pass
   deterministic consistency checks; and
-- a sandbox purchase reaches the intended fulfillment endpoint exactly once.
+- system-attested integration verification confirms payment gating, request
+  verification, replay prevention, and exactly-once fulfillment without asking
+  the seller to operate buyer checkout or authorize a buyer wallet.

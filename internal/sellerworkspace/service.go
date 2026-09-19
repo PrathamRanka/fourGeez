@@ -335,45 +335,6 @@ func (service *Service) RecordAuthenticatedConnectorVerification(ctx context.Con
 	return nil
 }
 
-func (service *Service) RecordSandboxPurchase(ctx context.Context, principal Principal, transactionID domain.ID) error {
-	if transactionID.Prefix() != domain.TransactionIDPrefix {
-		return domain.NewValidationError("transactionId", "prefix", "must identify a transaction")
-	}
-	seller, err := service.resolveSeller(ctx, principal)
-	if err != nil {
-		return err
-	}
-	rows, err := service.loadTransactions(ctx, seller.SellerID)
-	if err != nil {
-		return err
-	}
-	valid := false
-	for _, transaction := range rows {
-		if transaction.TransactionID() == transactionID && transaction.SellerID() == seller.SellerID && transaction.Status() == transactions.StatusFulfilled {
-			valid = true
-			break
-		}
-	}
-	if !valid {
-		return ErrSandboxPurchaseInvalid
-	}
-	state, err := service.loadOrCreateState(ctx, principal, seller.SellerID)
-	if err != nil {
-		return err
-	}
-	if state.SandboxPurchaseTransactionID != nil && *state.SandboxPurchaseTransactionID == transactionID {
-		return nil
-	}
-	expectedVersion := state.Version
-	now := domain.NewTimestamp(service.dependencies.Clock.Now())
-	state.SandboxPurchaseTransactionID = &transactionID
-	state.UpdatedAt = now
-	state.Version++
-	state.Settings.Version = state.Version
-	state.Settings.UpdatedAt = now
-	return service.dependencies.Workspaces.Put(ctx, state, expectedVersion)
-}
-
 func (service *Service) RecordStorefrontPreview(ctx context.Context, principal Principal) error {
 	return service.recordProgress(ctx, principal, func(state *WorkspaceState, now domain.Timestamp) { state.StorefrontPreviewedAt = &now })
 }
@@ -501,7 +462,6 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 		{StepProjectKeyCreated, hasActiveCredential(credentials, now), false, "Create an active project connection key."},
 		{StepConnectorVerified, state.ConnectorVerifiedAt != nil, false, "Connect and verify the local MCP connector."},
 		{StepProductConfigured, len(routes) > 0, false, "Configure at least one product."},
-		{StepSandboxPurchase, state.SandboxPurchaseTransactionID != nil, false, "Complete the exactly-once sandbox purchase."},
 		{StepStorefrontPreviewed, state.StorefrontPreviewedAt != nil, false, "Review the storefront preview."},
 	}
 	view := OnboardingView{SellerID: &state.SellerID, Complete: true, Publication: PublicationReadiness{Allowed: true, Blockers: []StepName{}}, Version: state.Version, UpdatedAt: &state.UpdatedAt}
@@ -513,7 +473,7 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 				status = StepBlocked
 			}
 			view.Complete = false
-			if check.name != StepSandboxPurchase && check.name != StepStorefrontPreviewed {
+			if check.name != StepStorefrontPreviewed {
 				view.Publication.Allowed = false
 				view.Publication.Blockers = append(view.Publication.Blockers, check.name)
 			}

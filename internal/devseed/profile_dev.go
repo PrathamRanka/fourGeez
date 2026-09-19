@@ -336,13 +336,11 @@ func (seeder *Seeder) seedLaunchReadiness(
 	if err := seeder.repositories.IntegrationCredentials.Create(ctx, credential); err != nil {
 		return err
 	}
-	transactionID := fulfilledTransaction.TransactionID()
 	state := sellerworkspace.WorkspaceState{
-		SellerID:                     seller.SellerID,
-		OwnerSubjectHash:             subjectHash(seller.OwnerSubject),
-		ConnectorVerifiedAt:          &readyAt,
-		SandboxPurchaseTransactionID: &transactionID,
-		StorefrontPreviewedAt:        &readyAt,
+		SellerID:              seller.SellerID,
+		OwnerSubjectHash:      subjectHash(seller.OwnerSubject),
+		ConnectorVerifiedAt:   &readyAt,
+		StorefrontPreviewedAt: &readyAt,
 		Settings: sellerworkspace.SellerSettings{
 			SupportEmail:                "support@northstar.local",
 			SecurityNotificationEmail:   "security@northstar.local",

@@ -104,7 +104,7 @@ M5 acceptance: Bedrock cannot execute an unknown route, change an approved inten
 - [x] **AUT-007** Publish versioned Claude Code, Codex, and generic MCP setup bundles that install verification, generate storefront integration code, and run tests.
 - [x] **AUT-008** Implement a sandbox validator that verifies discovery, signature handling, payment gating, and exactly-once fulfillment before publication.
 
-M6 acceptance: a seller can connect a supported coding agent, review generated changes, approve route publication, and pass a sandbox purchase without manually implementing AgentPay protocols or exposing credentials.
+M6 acceptance: a seller can connect a supported coding agent, review generated changes, approve route publication, and pass system-run sandbox validation without manually implementing AgentPay protocols, operating buyer checkout, or exposing credentials.
 
 ## Parallel track R1 — Recommendation research
 
@@ -374,7 +374,7 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-013** Load a stale seller-hosted manifest after cancellation and demonstrate that authoritative intent creation and checkout fail while AgentPay discovery returns an inactive tombstone.
 - [ ] **REL-014** Exercise cancellation immediately before settlement and immediately after finalized settlement; verify that the first transaction is blocked and the second fulfills exactly once according to the documented buyer-obligation rule.
 - [ ] **REL-015** Complete the authenticated browser journey from clean sign-up through resumable onboarding, publication, browser purchase, agent purchase, dashboard reconciliation, dispute, sign-out, and expired-session recovery using the deployed production-shaped environment.
-- [x] **REL-016** Add the seller-owned onboarding test-purchase journey over the existing commerce APIs. Reveal it only after authoritative prerequisites and one published testable product are ready; distinguish local mock from Base Sepolia testnet; verify intent creation, retry-safe exactly-once fulfillment, receipt/evidence visibility, and one dashboard transaction; and provide a resettable local E2E rehearsal that passes three consecutive runs without manual database repair. The local three-run rehearsal and 360/768/1280/1440 viewport checks pass; deployed Base Sepolia execution remains part of REL-003 and REL-015.
+- [x] **REL-016** Historical implementation of a seller-owned onboarding test-purchase journey. Superseded on September 20, 2026 by issue 1: seller onboarding and dashboard surfaces must not expose buyer checkout, wallet authorization, or seller-funded purchase actions. Public storefront checkout remains available only to human buyers and external buyer agents. The follow-up automated, system-attested integration result is issue 2 and is not implemented by this correction.
 
 M9 acceptance: all release gates in `TEST_PLAN.md` pass, generated changes are reviewable, browser-wallet and agent purchase paths work, dashboard totals reconcile by asset and network, and mocked behavior is visibly labeled.
 

@@ -116,7 +116,7 @@ func TestLaunchReadyProfileSeedsEveryRequiredLocalScenario(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if workspace.ConnectorVerifiedAt == nil || workspace.SandboxPurchaseTransactionID == nil || workspace.StorefrontPreviewedAt == nil {
+	if workspace.ConnectorVerifiedAt == nil || workspace.StorefrontPreviewedAt == nil {
 		t.Fatalf("launch-ready workspace = %#v", workspace)
 	}
 	credentials, err := fixture.credentials.ListBySeller(context.Background(), metadata.LaunchReadySellerID)

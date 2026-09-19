@@ -171,13 +171,11 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     wrong network, rejected authorization, expired intent, unavailable
     facilitator, unknown settlement, and same-proof recovery without duplicate
     payment or seller invocation.
-17. From authenticated seller onboarding, run the guided test purchase only
-    after all authoritative prerequisites and a published product are ready.
-    Assert each visible stage: immutable intent, explicitly labelled mock or
-    Base Sepolia x402 payment, exactly-once fulfillment, receipt/evidence
-    visibility, and exactly one reconciled dashboard transaction. Reset the
-    disposable launch-ready profile and complete this journey three consecutive
-    times without manual database repair.
+17. From authenticated seller onboarding and dashboard routes, prove there is
+    no buyer checkout, wallet authorization, seller-funded test purchase,
+    purchase-session link, or seller-callable commerce action. Then load the
+    public product page and prove buyer checkout remains available to a human
+    buyer without exposing seller credentials or changing commerce semantics.
 
 Historical M2 approval tests remain regression coverage for dormant code only.
 They are not Lean V1 acceptance tests, no approval server is started, and no

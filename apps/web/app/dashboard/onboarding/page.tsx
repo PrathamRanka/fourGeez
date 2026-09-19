@@ -4,7 +4,6 @@ import {
   createIntegrationCredential,
   createStorefront,
   preparePaymentDestination,
-  verifySellerTestPurchase,
   verifyPaymentDestination,
 } from "@/features/onboarding/controller";
 import { listOnboardingResources } from "@/features/onboarding/controller";
@@ -25,7 +24,6 @@ export default async function OnboardingPage() {
     : {
         paymentDestinations: [],
         credentials: [],
-        testableRoutes: [],
         onboarding: {
           sellerId: null,
           complete: false,
@@ -54,5 +52,4 @@ const onboardingActions = {
   preparePaymentDestination,
   verifyPaymentDestination,
   createIntegrationCredential,
-  verifySellerTestPurchase,
 };

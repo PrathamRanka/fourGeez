@@ -20,7 +20,6 @@ func NewHTTPController(service *Service, principal AuthenticatedPrincipal) *HTTP
 
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /v1/me/onboarding", api.RequireSeller(http.HandlerFunc(controller.getOnboarding)))
-	mux.Handle("POST /v1/me/onboarding/sandbox-purchases", api.RequireSeller(http.HandlerFunc(controller.recordSandboxPurchase)))
 	mux.Handle("GET /v1/me/dashboard", api.RequireSeller(http.HandlerFunc(controller.getDashboard)))
 	mux.Handle("GET /v1/me/dashboard/products", api.RequireSeller(http.HandlerFunc(controller.getProducts)))
 	mux.Handle("GET /v1/me/dashboard/transactions", api.RequireSeller(http.HandlerFunc(controller.getTransactions)))
@@ -31,39 +30,6 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /v1/me/settings", api.RequireSeller(http.HandlerFunc(controller.getSettings)))
 	mux.Handle("PATCH /v1/me/settings", api.RequireSeller(http.HandlerFunc(controller.updateSettings)))
 	mux.Handle("POST /v1/me/billing/portal-sessions", api.RequireSeller(http.HandlerFunc(controller.createPortalSession)))
-}
-
-type recordSandboxPurchaseRequest struct {
-	TransactionID string `json:"transactionId"`
-}
-
-func (controller *HTTPController) recordSandboxPurchase(response http.ResponseWriter, request *http.Request) {
-	principal, err := controller.principal.CurrentPrincipal(request.Context())
-	if err != nil {
-		writeWorkspaceError(response, request, err)
-		return
-	}
-	var body recordSandboxPurchaseRequest
-	if err := api.DecodeJSON(response, request, &body); err != nil {
-		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, err.Error(), nil)
-		return
-	}
-	transactionID, err := domain.ParseID(body.TransactionID, domain.TransactionIDPrefix)
-	if err != nil {
-		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, err.Error(), nil)
-		return
-	}
-	if err := controller.service.RecordSandboxPurchase(request.Context(), principal, transactionID); err != nil {
-		writeWorkspaceError(response, request, err)
-		return
-	}
-	view, err := controller.service.Onboarding(request.Context(), principal)
-	if err != nil {
-		writeWorkspaceError(response, request, err)
-		return
-	}
-	response.Header().Set("Cache-Control", "no-store")
-	_ = api.WriteJSON(response, http.StatusOK, view)
 }
 
 func (controller *HTTPController) getOnboarding(response http.ResponseWriter, request *http.Request) {
@@ -192,8 +158,6 @@ func writeWorkspaceError(response http.ResponseWriter, request *http.Request, er
 		status, code, message = http.StatusNotFound, api.ErrorCodeNotFound, "seller workspace was not found"
 	case errors.Is(err, persistence.ErrConditionFailed):
 		status, code, message = http.StatusConflict, api.ErrorCodeConflict, "workspace state changed; reload and retry"
-	case errors.Is(err, ErrSandboxPurchaseInvalid):
-		status, code, message = http.StatusConflict, api.ErrorCodeConflict, err.Error()
 	case errors.As(err, &validationErrors), errors.As(err, &validationError):
 		status, code, message = http.StatusBadRequest, api.ErrorCodeBadRequest, err.Error()
 	}

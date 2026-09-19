@@ -18,7 +18,6 @@ var (
 	ErrAuthenticationRequired    = errors.New("seller authentication is required")
 	ErrSellerIdentityMissing     = errors.New("authenticated seller identity is incomplete")
 	ErrPublicationBlocked        = errors.New("seller publication prerequisites are incomplete")
-	ErrSandboxPurchaseInvalid    = errors.New("sandbox purchase is not a fulfilled seller transaction")
 	ErrCredentialIssuanceBlocked = integrations.ErrCredentialIssuanceDenied
 )
 
@@ -43,7 +42,6 @@ const (
 	StepProjectKeyCreated          StepName = "project_key_created"
 	StepConnectorVerified          StepName = "connector_verified"
 	StepProductConfigured          StepName = "product_configured"
-	StepSandboxPurchase            StepName = "sandbox_purchase"
 	StepStorefrontPreviewed        StepName = "storefront_previewed"
 )
 
