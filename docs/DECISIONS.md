@@ -1,6 +1,6 @@
 # Architecture decisions and assumptions
 
-Last reviewed: 2026-09-18.
+Last reviewed: 2026-09-19.
 
 ## Delivery status
 
@@ -62,6 +62,7 @@ access, and data lifecycle before dependent code is implemented.
 | ADR-045 | Use one high-contrast, near-black editorial interface system across the public site and authenticated seller dashboard: neutral sans typography, square controls, thin gray structural rules, generous layout rails, and restrained blue/lilac/pink light fields only for focused emphasis. Dashboard density, hierarchy, tables, charts, status states, and responsive navigation must follow the same system without copying reference-site content or replacing real AgentPay behavior. | A single visual language makes the product feel deliberate from acquisition through daily operations while keeping commerce data legible, accessible, and clearly distinct from decorative marketing content. |
 | ADR-046 | Supersede ADR-045 with a component-led dual-theme system derived from the approved Aceternity and 21st.dev references in `design/design.md component`. Rebuild page composition around useful bounded bento sections, shader-led hero emphasis, integration diagrams, an interactive globe treatment, premium authentication and pricing layouts, and finance-grade data visualization. Use a distinctive display face for headings, a separate readable interface face, consistent spacing, and equivalent contrast and visual strength in light and dark modes. | The approved component references now control the product's visual language; rebuilding the composition prevents the previous implementation from looking like restyled legacy UI while preserving AgentPay's real routes, data, accessibility, and commerce behavior. |
 | ADR-047 | Keep the authenticated seller dashboard in a dedicated dark graphite theme even when public pages support light and dark modes. Dashboard pages use progressive disclosure: one primary decision or dataset per section, compact summary metrics, bounded bento only for related information, and secondary technical details behind clearly labeled sections. | Sellers need a calm fintech workspace for repeated operational use; reducing simultaneous visual weight improves scan speed without removing access to products, payments, evidence, disputes, billing, or integration controls. |
+| ADR-048 | Use a reusable animated radial-gradient field as the public landing hero's signature visual while preserving the existing AgentPay proposition, calls to action, and purchase-flow illustration. The field is decorative, uses the existing `motion` dependency, avoids remote animation assets, and becomes static under reduced-motion preferences. | A focused payment-aurora treatment gives the hero a stronger identity without adding an unnecessary Lottie runtime or external asset dependency, weakening semantic content, or compromising accessibility and performance. |
 
 ## Hackathon assumptions
 

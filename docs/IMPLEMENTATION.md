@@ -155,6 +155,7 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **WEB-008** Implement the historical live approval page, decision controls, REST fallback, and expiration state. This surface is disabled and excluded from Lean V1.
 - [x] **WEB-009** Implement evidence verification and dispute creation/resolution views.
 - [x] **WEB-010** Add loading, empty, retryable error, terminal error, disabled, permission-denied, quota, and suspended-seller states.
+- [ ] **WEB-011** Replace the public landing hero's layered shader blobs with a reusable animated radial-gradient background in `components/ui`. Preserve the AgentPay headline, launch actions, and purchase-flow illustration; keep the gradient decorative, responsive, theme-aware, and fully static when reduced motion is requested. Depends on SITE-001.
 
 M7 acceptance: a seller can verify a payment destination, connect a supported coding agent, publish and pause products, receive x402 funds directly, reconcile every payment, receive signed notifications, and view asset-separated sales and evidence in an accessible dashboard. Generated storefronts expose validated technical SEO, AEO, manifest, and `llms.txt` output without making ranking guarantees.
 
