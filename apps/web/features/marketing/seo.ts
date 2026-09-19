@@ -5,10 +5,12 @@ export const agentPaySiteOrigin = "https://agentpay.prathamranka.in";
 export const marketingDescription =
   "AgentPay helps API sellers create agent-ready storefronts with x402 testnet checkout, signed fulfillment, MCP integration, and machine-readable discovery.";
 
-const socialImage = {
+export const socialImage = {
   url: `${agentPaySiteOrigin}/opengraph-image`,
+  secureUrl: `${agentPaySiteOrigin}/opengraph-image`,
   width: 1200,
   height: 630,
+  type: "image/png",
   alt: "AgentPay — seller-first x402 API storefronts for AI agents",
 };
 
@@ -113,7 +115,7 @@ export const marketingStructuredData = {
   ],
 } as const;
 
-function buildSupportingPageMetadata({
+export function buildSupportingPageMetadata({
   title,
   description,
   path,

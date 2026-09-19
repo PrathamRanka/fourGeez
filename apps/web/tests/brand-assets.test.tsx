@@ -105,6 +105,11 @@ describe("AgentPay brand assets", () => {
     expect(metadata.icons).toEqual({
       icon: [
         {
+          url: "/icon.svg",
+          sizes: "any",
+          type: "image/svg+xml",
+        },
+        {
           url: "/brand/agentpay-favicon.svg",
           type: "image/svg+xml",
         },

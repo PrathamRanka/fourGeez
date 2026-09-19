@@ -65,27 +65,34 @@ describe("AgentPay public site", () => {
     expect(screen.queryByText("Seller API")).not.toBeInTheDocument();
   });
 
-  it("shows the complete maintained stack matrix as visual package marks", () => {
+  it("groups the maintained stack matrix into distinct ecosystem marks", () => {
     render(<HomePage />);
 
     const stackStrip = screen.getByRole("region", {
-      name: "21 maintained stacks",
+      name: "13 supported ecosystems covering 21 maintained stacks",
     });
+    expect(stackStrip).toHaveAttribute("data-slot", "marquee");
     expect(screen.getByText("21", { selector: "strong" })).toBeVisible();
-    expect(stackStrip.querySelectorAll("svg")).toHaveLength(42);
-    for (const stack of [
+    expect(stackStrip.querySelectorAll("svg")).toHaveLength(26);
+    for (const ecosystem of [
       "Next.js",
-      "Fastify",
-      "Gin",
-      "Starlette",
-      "ASP.NET Core",
-      "Spring Boot",
-      "Rails",
-      "Laravel",
+      "React / Vite",
+      "Node.js",
+      "Go",
+      "Python",
+      ".NET",
+      "Java",
+      "Ruby",
+      "PHP",
     ]) {
-      expect(within(stackStrip).getAllByLabelText(stack)).toHaveLength(2);
-      expect(within(stackStrip).queryByText(stack)).not.toBeInTheDocument();
+      expect(within(stackStrip).getAllByLabelText(ecosystem)).toHaveLength(2);
+      expect(within(stackStrip).queryByText(ecosystem)).not.toBeInTheDocument();
     }
+    expect(within(stackStrip).queryByLabelText("Gin")).not.toBeInTheDocument();
+    expect(within(stackStrip).queryByLabelText("Echo")).not.toBeInTheDocument();
+    expect(
+      within(stackStrip).queryByLabelText("Fiber"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Perl")).not.toBeInTheDocument();
   });
 

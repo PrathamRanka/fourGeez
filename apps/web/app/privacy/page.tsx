@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
+import { buildSupportingPageMetadata } from "@/features/marketing/seo";
 import { LegalPage, type LegalSection } from "./legal-surface";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildSupportingPageMetadata({
   title: "Privacy",
   description:
     "How the AgentPay pre-launch service handles seller, transaction, session, and evidence data.",
-  alternates: {
-    canonical: "https://agentpay.prathamranka.in/privacy",
-  },
-};
+  path: "/privacy",
+});
 
 const sections: readonly LegalSection[] = [
   {
@@ -39,8 +38,7 @@ const sections: readonly LegalSection[] = [
       "AgentPay does not custody buyer funds and never requests or stores wallet private keys or seed phrases. Buyer funds are designed to settle directly to a seller-controlled payment destination.",
       "The service does not retain raw payment proofs, raw wallet-ownership signatures, authorization headers, cookies, approval tokens, execution capabilities, or seller secrets in evidence records or logs. Evidence is limited to allowlisted facts, hashes, signatures, and safe provider references.",
     ],
-    note:
-      "Do not submit production wallet credentials, private keys, customer datasets, or unrelated repository secrets to this pre-launch service.",
+    note: "Do not submit production wallet credentials, private keys, customer datasets, or unrelated repository secrets to this pre-launch service.",
   },
   {
     id: "use",
@@ -58,8 +56,7 @@ const sections: readonly LegalSection[] = [
       "Vercel Web Analytics is enabled across the site through the pinned @vercel/analytics 2.0.1 package. According to Vercel's current product documentation, its default web analytics does not use third-party cookies and reports aggregated page-view information using a short-lived request-derived visitor hash.",
       "Analytics data may include the event time, visited path, dynamic route, filtered query parameters, referrer, approximate location, operating system, browser, device type, and analytics script version. No custom analytics events are currently configured, and AgentPay does not intentionally send account names, email addresses, wallet material, payment proofs, or seller secrets to analytics.",
     ],
-    note:
-      "Final counsel review must confirm the consent, notice, subprocessor, retention, and cross-border-transfer requirements for every launch jurisdiction and the exact Vercel project configuration. Sensitive values must never be placed in URLs or analytics events.",
+    note: "Final counsel review must confirm the consent, notice, subprocessor, retention, and cross-border-transfer requirements for every launch jurisdiction and the exact Vercel project configuration. Sensitive values must never be placed in URLs or analytics events.",
   },
   {
     id: "storage-sharing",

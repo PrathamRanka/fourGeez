@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import { LegalPage, type LegalSection } from "@/app/privacy/legal-surface";
+import { buildSupportingPageMetadata } from "@/features/marketing/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildSupportingPageMetadata({
   title: "Security",
   description:
     "The implemented and planned security boundaries for the AgentPay pre-launch x402 service.",
-  alternates: {
-    canonical: "https://agentpay.prathamranka.in/security",
-  },
-};
+  path: "/security",
+});
 
 const sections: readonly LegalSection[] = [
   {

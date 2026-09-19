@@ -6,6 +6,7 @@ import { ApplicationShell } from "@/components/site/application-shell";
 import { SmoothScroll } from "@/components/site/smooth-scroll";
 import {
   agentPaySiteOrigin,
+  marketingMetadata,
   marketingDescription,
 } from "@/features/marketing/seo";
 import "./globals.css";
@@ -29,10 +30,23 @@ export const metadata: Metadata = {
   creator: "Pratham Ranka and Ayush Garg",
   publisher: "AgentPay",
   category: "Developer tools",
+  keywords: marketingMetadata.keywords,
+  openGraph: marketingMetadata.openGraph,
+  twitter: marketingMetadata.twitter,
+  formatDetection: {
+    address: false,
+    email: false,
+    telephone: false,
+  },
   manifest: "/manifest.webmanifest",
   referrer: "origin-when-cross-origin",
   icons: {
     icon: [
+      {
+        url: "/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+      },
       {
         url: "/brand/agentpay-favicon.svg",
         type: "image/svg+xml",

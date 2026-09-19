@@ -3,7 +3,9 @@ import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import PrivacyPage, { metadata as privacyMetadata } from "@/app/privacy/page";
-import SecurityPage, { metadata as securityMetadata } from "@/app/security/page";
+import SecurityPage, {
+  metadata as securityMetadata,
+} from "@/app/security/page";
 import TermsPage, { metadata as termsMetadata } from "@/app/terms/page";
 
 const UPDATED_DATE = "September 19, 2026";
@@ -11,26 +13,38 @@ const UPDATED_DATE = "September 19, 2026";
 describe("public legal and security pages", () => {
   it("keeps legal surfaces permanently neutral and free of colored washes", () => {
     const stylesheet = readFileSync(
-      path.join(
-        process.cwd(),
-        "app",
-        "privacy",
-        "legal-surface.module.css",
-      ),
+      path.join(process.cwd(), "app", "privacy", "legal-surface.module.css"),
       "utf8",
     );
 
     expect(stylesheet).toContain("--legal-ink: #050506;");
-    expect(stylesheet).toMatch(/\.page\s*\{[^}]*background:\s*var\(--legal-ink\)/s);
+    expect(stylesheet).toMatch(
+      /\.page\s*\{[^}]*background:\s*var\(--legal-ink\)/s,
+    );
     expect(stylesheet).not.toContain("var(--background)");
     expect(stylesheet).not.toMatch(/--brand-(?:blue|pink|orange|violet)/);
     expect(stylesheet).not.toMatch(/(?:linear|radial)-gradient\(/);
   });
 
   it.each([
-    ["Privacy", PrivacyPage, privacyMetadata, "https://agentpay.prathamranka.in/privacy"],
-    ["Terms", TermsPage, termsMetadata, "https://agentpay.prathamranka.in/terms"],
-    ["Security", SecurityPage, securityMetadata, "https://agentpay.prathamranka.in/security"],
+    [
+      "Privacy",
+      PrivacyPage,
+      privacyMetadata,
+      "https://agentpay.prathamranka.in/privacy",
+    ],
+    [
+      "Terms",
+      TermsPage,
+      termsMetadata,
+      "https://agentpay.prathamranka.in/terms",
+    ],
+    [
+      "Security",
+      SecurityPage,
+      securityMetadata,
+      "https://agentpay.prathamranka.in/security",
+    ],
   ])(
     "publishes a canonical, dated %s page with shared legal navigation",
     (_label, Page, metadata, canonical) => {
@@ -54,6 +68,12 @@ describe("public legal and security pages", () => {
         "/security",
       );
       expect(metadata.alternates).toEqual({ canonical });
+      expect(metadata.openGraph).toMatchObject({
+        url: canonical,
+        siteName: "AgentPay",
+        images: [expect.objectContaining({ type: "image/png" })],
+      });
+      expect(metadata.twitter).toMatchObject({ card: "summary_large_image" });
     },
   );
 
@@ -61,10 +81,12 @@ describe("public legal and security pages", () => {
     render(<SecurityPage />);
 
     expect(screen.getByText(/not yet production-ready/i)).toBeVisible();
-    expect(screen.getAllByText(/mock and x402 testnet/i).length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getByText(/never requests or stores wallet private keys/i)).toBeVisible();
+    expect(
+      screen.getAllByText(/mock and x402 testnet/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/never requests or stores wallet private keys/i),
+    ).toBeVisible();
     expect(screen.getByText(/external security review/i)).toBeVisible();
   });
 
@@ -73,17 +95,21 @@ describe("public legal and security pages", () => {
 
     expect(screen.getByText(/does not custody buyer funds/i)).toBeVisible();
     expect(screen.getByText(/raw payment proofs/i)).toBeVisible();
-    expect(screen.getByText(/production retention and deletion periods/i)).toBeVisible();
-    expect(screen.getAllByText(/external legal review/i).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getByText(/production retention and deletion periods/i),
+    ).toBeVisible();
+    expect(
+      screen.getAllByText(/external legal review/i).length,
+    ).toBeGreaterThan(0);
   });
 
   it("describes the testnet service and refund boundary", () => {
     render(<TermsPage />);
 
     expect(screen.getByText(/mock or x402 testnet/i)).toBeVisible();
-    expect(screen.getByText(/does not execute, custody, or guarantee refunds/i)).toBeVisible();
+    expect(
+      screen.getByText(/does not execute, custody, or guarantee refunds/i),
+    ).toBeVisible();
     expect(screen.getAllByText(/not lawyer-approved/i).length).toBeGreaterThan(
       0,
     );

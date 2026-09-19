@@ -348,43 +348,30 @@
 }
 
 .stackTicker {
-  overflow: hidden;
   grid-column: 1 / -1;
-  padding-block: clamp(1.5rem, 3vw, 2.25rem);
   mask-image: linear-gradient(
     to right,
     transparent,
-    black 8%,
-    black 92%,
+    black 12%,
+    black 88%,
     transparent
   );
-}
-
-.stackTrack {
-  display: flex;
-  align-items: center;
-  gap: clamp(2.4rem, 5vw, 5rem);
-  width: max-content;
-  padding-inline: 1rem;
-  animation: ticker 58s linear infinite;
 }
 
 .stackBadge {
   display: inline-grid;
   width: clamp(3.2rem, 5vw, 4.6rem);
   height: clamp(3.2rem, 5vw, 4.6rem);
+  margin-inline: clamp(1.35rem, 3vw, 2.75rem);
   align-items: center;
   justify-items: center;
-  color: var(--marketing-text);
   opacity: 0.86;
   transition:
-    color 160ms ease,
     opacity 160ms ease,
     transform 160ms ease;
 }
 
 .stackBadge:hover {
-  color: var(--marketing-blue);
   opacity: 1;
   transform: translateY(-0.15rem) scale(1.05);
 }
@@ -393,14 +380,6 @@
   width: clamp(2rem, 3.2vw, 3rem);
   height: clamp(2rem, 3.2vw, 3rem);
   fill: currentColor;
-}
-
-.stackBadge:nth-child(3n + 2) {
-  color: var(--marketing-pink);
-}
-
-.stackBadge:nth-child(3n) {
-  color: var(--marketing-orange);
 }
 
 .section,
@@ -1439,12 +1418,6 @@
   }
 }
 
-@keyframes ticker {
-  to {
-    transform: translateX(-50%);
-  }
-}
-
 @media (max-width: 960px) {
   .heroRail {
     grid-template-columns: 1fr;
@@ -1641,8 +1614,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .heroCopy,
-  .heroRail,
-  .stackTrack {
+  .heroRail {
     animation: none;
   }
 

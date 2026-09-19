@@ -16,10 +16,11 @@ import {
 import Link from "next/link";
 import AnimatedGradientBackground from "@/components/ui/animated-gradient-background";
 import { IntegrationCard } from "@/components/ui/integration-card";
+import { Marquee } from "@/components/ui/marquee";
 import {
   agentPayPlans,
   launchSignals,
-  supportedStacks,
+  supportedEcosystems,
 } from "@/features/marketing/model";
 import { CommerceDemo } from "@/features/marketing/view/commerce-demo";
 import { FrequentlyAskedQuestions } from "@/features/marketing/view/frequently-asked-questions";
@@ -107,8 +108,6 @@ function HeroSection() {
 }
 
 function SignalStrip() {
-  const stackLoop = [...supportedStacks, ...supportedStacks];
-
   return (
     <section className={styles.signalStrip} aria-label="AgentPay product facts">
       <div className={styles.signalIntro}>
@@ -121,28 +120,29 @@ function SignalStrip() {
           <span>{signal.label}</span>
         </div>
       ))}
-      <div
+      <Marquee
         className={styles.stackTicker}
         role="region"
-        aria-label="21 maintained stacks"
+        aria-label="13 supported ecosystems covering 21 maintained stacks"
+        pauseOnHover
+        speed={38}
       >
-        <div className={styles.stackTrack}>
-          {stackLoop.map((stack, index) => {
-            const StackIcon = stack.icon;
-            return (
-              <span
-                className={styles.stackBadge}
-                key={`${stack.name}-${index}`}
-                role="img"
-                aria-label={stack.name}
-                title={stack.name}
-              >
-                <StackIcon aria-hidden="true" title="" />
-              </span>
-            );
-          })}
-        </div>
-      </div>
+        {supportedEcosystems.map((ecosystem) => {
+          const EcosystemIcon = ecosystem.icon;
+          return (
+            <span
+              className={styles.stackBadge}
+              key={ecosystem.name}
+              role="img"
+              aria-label={ecosystem.name}
+              title={ecosystem.name}
+              style={{ color: ecosystem.color }}
+            >
+              <EcosystemIcon aria-hidden="true" title="" />
+            </span>
+          );
+        })}
+      </Marquee>
     </section>
   );
 }

@@ -163,6 +163,8 @@ R1 acceptance: the model ranks only eligible offers, beats or matches the determ
 - [x] **WEB-016** Focus the landing hero on one seller sign-up action, publish creator and source attribution in the footer and machine-readable discovery, add a generated social-sharing image, and expand canonical search/social metadata without making ranking guarantees. Depends on WEB-015 and SEO-003.
 - [x] **WEB-017** Add a public Developers page and footer entry with verified maintainer attribution, public profile links, accessible profile imagery, canonical metadata, and sitemap discovery. Depends on WEB-016.
 - [x] **WEB-018** Expand the public landing canvas edge-to-edge, simplify the maintained-stack proof into a large borderless icon rail, and refine the Developers page with direct return navigation, verified founder profiles, and color-treated imagery. Depends on WEB-017.
+- [x] **WEB-019** Group the 21 maintained stack recipes into distinct public ecosystem marks and render each mark in its official brand color without repeating language/runtime logos for sibling frameworks. Depends on WEB-018 and STK-003.
+- [x] **WEB-020** Replace the landing ticker with the shared shadcn-style Marquee primitive, add soft edge fading and reduced-motion behavior, and publish inherited Open Graph, Twitter, and App Router favicon metadata across public pages. Depends on WEB-019.
 
 M7 acceptance: a seller can verify a payment destination, connect a supported coding agent, publish and pause products, receive x402 funds directly, reconcile every payment, receive signed notifications, and view asset-separated sales and evidence in an accessible dashboard. Generated storefronts expose validated technical SEO, AEO, manifest, and `llms.txt` output without making ranking guarantees.
 
@@ -239,14 +241,14 @@ authorization, revocation, transaction, and failure semantics proven locally.
 - [x] **AWS-004** Create Secrets Manager entries, KMS/HSM-backed capability-signing keys, API-key digest pepper storage, JWKS publication/rotation support, and least-privilege IAM roles without exposing signing material to application configuration or sellers. The development account now has empty KMS-encrypted pepper containers, additive versioned ES256 capability keys, a rotating envelope-encryption key, and independently verified API and evidence-verifier permissions.
 - [ ] **AWS-005** Deploy the Go Lambda behind one HTTP API serving REST and the `/mcp` endpoint, with stages, throttles, and access logs. The historical approval WebSocket remains disabled and is not deployed for Lean V1.
 - [x] **AWS-006** Configure Cognito seller authentication. The Mumbai
-  development environment now has an email-verified seller user pool and a
-  no-secret, revocable web/BFF client. The production web adapter implements
-  registration, verification, password recovery, sign-in, Cognito
-  revalidation, bounded access-token refresh, global sign-out, exact-Origin
-  CSRF protection, claim-derived seller hydration, and AES-256-GCM-sealed
-  Secure HttpOnly sessions without exposing Cognito tokens to browser
-  JavaScript. API Gateway JWT protection is
-  prewired for seller-only route families and remains disabled with AWS-005.
+      development environment now has an email-verified seller user pool and a
+      no-secret, revocable web/BFF client. The production web adapter implements
+      registration, verification, password recovery, sign-in, Cognito
+      revalidation, bounded access-token refresh, global sign-out, exact-Origin
+      CSRF protection, claim-derived seller hydration, and AES-256-GCM-sealed
+      Secure HttpOnly sessions without exposing Cognito tokens to browser
+      JavaScript. API Gateway JWT protection is
+      prewired for seller-only route families and remains disabled with AWS-005.
 - [ ] **AWS-007** Configure Bedrock model access and runtime permissions.
 - [ ] **AWS-008** Deploy Next.js and configure environment-specific API origins.
 - [ ] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, and seller failures. The development account budget and email thresholds are deployed early as a cost-control prerequisite; runtime dashboards and alarms remain pending.

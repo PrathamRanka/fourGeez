@@ -59,6 +59,16 @@ describe("AgentPay marketing discovery", () => {
       },
     ]);
     expect(rootMetadata.icons).toMatchObject({ shortcut: "/favicon.ico" });
+    expect(rootMetadata.openGraph).toMatchObject({
+      siteName: "AgentPay",
+      title: "AgentPay | Seller-first x402 storefronts for APIs",
+      description: expect.stringContaining("API sellers"),
+      images: [expect.objectContaining({ width: 1200, height: 630 })],
+    });
+    expect(rootMetadata.twitter).toMatchObject({
+      card: "summary_large_image",
+      images: [`${canonicalOrigin}/opengraph-image`],
+    });
     expect(socialImageSize).toEqual({ width: 1200, height: 630 });
     expect(socialImageAlt).toMatch(/AgentPay.*API storefronts/i);
   });

@@ -1,22 +1,46 @@
-import SiAstro from "@icons-pack/react-simple-icons/icons/SiAstro";
+import SiAstro, {
+  defaultColor as astroColor,
+} from "@icons-pack/react-simple-icons/icons/SiAstro";
 import SiDjango from "@icons-pack/react-simple-icons/icons/SiDjango";
-import SiDotnet from "@icons-pack/react-simple-icons/icons/SiDotnet";
+import SiDotnet, {
+  defaultColor as dotnetColor,
+} from "@icons-pack/react-simple-icons/icons/SiDotnet";
 import SiExpress from "@icons-pack/react-simple-icons/icons/SiExpress";
 import SiFastapi from "@icons-pack/react-simple-icons/icons/SiFastapi";
 import SiFastify from "@icons-pack/react-simple-icons/icons/SiFastify";
 import SiFlask from "@icons-pack/react-simple-icons/icons/SiFlask";
 import SiGin from "@icons-pack/react-simple-icons/icons/SiGin";
-import SiGo from "@icons-pack/react-simple-icons/icons/SiGo";
+import SiGo, {
+  defaultColor as goColor,
+} from "@icons-pack/react-simple-icons/icons/SiGo";
 import SiLaravel from "@icons-pack/react-simple-icons/icons/SiLaravel";
 import SiNestjs from "@icons-pack/react-simple-icons/icons/SiNestjs";
+import SiNodedotjs, {
+  defaultColor as nodeColor,
+} from "@icons-pack/react-simple-icons/icons/SiNodedotjs";
 import SiNextdotjs from "@icons-pack/react-simple-icons/icons/SiNextdotjs";
-import SiNuxt from "@icons-pack/react-simple-icons/icons/SiNuxt";
-import SiPython from "@icons-pack/react-simple-icons/icons/SiPython";
-import SiReact from "@icons-pack/react-simple-icons/icons/SiReact";
+import SiNuxt, {
+  defaultColor as nuxtColor,
+} from "@icons-pack/react-simple-icons/icons/SiNuxt";
+import SiOpenjdk from "@icons-pack/react-simple-icons/icons/SiOpenjdk";
+import SiPhp, {
+  defaultColor as phpColor,
+} from "@icons-pack/react-simple-icons/icons/SiPhp";
+import SiPython, {
+  defaultColor as pythonColor,
+} from "@icons-pack/react-simple-icons/icons/SiPython";
+import SiReact, {
+  defaultColor as reactColor,
+} from "@icons-pack/react-simple-icons/icons/SiReact";
 import SiRemix from "@icons-pack/react-simple-icons/icons/SiRemix";
+import SiRuby, {
+  defaultColor as rubyColor,
+} from "@icons-pack/react-simple-icons/icons/SiRuby";
 import SiRubyonrails from "@icons-pack/react-simple-icons/icons/SiRubyonrails";
 import SiSpringboot from "@icons-pack/react-simple-icons/icons/SiSpringboot";
-import SiSvelte from "@icons-pack/react-simple-icons/icons/SiSvelte";
+import SiSvelte, {
+  defaultColor as svelteColor,
+} from "@icons-pack/react-simple-icons/icons/SiSvelte";
 
 export const supportedStacks = [
   { name: "Next.js", icon: SiNextdotjs },
@@ -40,6 +64,24 @@ export const supportedStacks = [
   { name: "Spring Boot", icon: SiSpringboot },
   { name: "Rails", icon: SiRubyonrails },
   { name: "Laravel", icon: SiLaravel },
+] as const;
+
+// The public proof rail groups framework recipes by their owning ecosystem to
+// avoid repeating one language/runtime logo for multiple maintained adapters.
+export const supportedEcosystems = [
+  { name: "Next.js", icon: SiNextdotjs, color: "#ffffff" },
+  { name: "React / Vite", icon: SiReact, color: reactColor },
+  { name: "Remix", icon: SiRemix, color: "#ffffff" },
+  { name: "Nuxt", icon: SiNuxt, color: nuxtColor },
+  { name: "SvelteKit", icon: SiSvelte, color: svelteColor },
+  { name: "Astro", icon: SiAstro, color: astroColor },
+  { name: "Node.js", icon: SiNodedotjs, color: nodeColor },
+  { name: "Go", icon: SiGo, color: goColor },
+  { name: "Python", icon: SiPython, color: pythonColor },
+  { name: ".NET", icon: SiDotnet, color: dotnetColor },
+  { name: "Java", icon: SiOpenjdk, color: "#ffffff" },
+  { name: "Ruby", icon: SiRuby, color: rubyColor },
+  { name: "PHP", icon: SiPhp, color: phpColor },
 ] as const;
 
 export const supportedAgents = [
