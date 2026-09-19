@@ -40,3 +40,17 @@ gap and security analysis.
 2. Implement only behavior defined in the documentation or record a decision first.
 3. Add or update tests and documentation in the same change.
 4. Commit one logical change at a time using the documented commit convention.
+
+## Ownership and license
+
+AgentPay is proprietary source, not an open-source project. Copyright (c) 2026
+Pratham Ranka and Ayush Garg in their respective AgentPay-authored materials;
+all rights are reserved. Third-party components and independently authored
+contributions remain subject to their own rights and licenses.
+
+Public visibility permits access and GitHub-hosted forking under GitHub's Terms
+of Service, but grants no broader permission to use, modify, redistribute, or
+commercialize AgentPay. A public repository cannot be made technically
+uncloneable. See [LICENSE](LICENSE), [NOTICE](NOTICE),
+[CONTRIBUTING.md](CONTRIBUTING.md), and
+[repository governance](docs/REPOSITORY_GOVERNANCE.md).

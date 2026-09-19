@@ -49,6 +49,14 @@ const sections: readonly LegalSection[] = [
     ],
   },
   {
+    id: "intellectual-property",
+    title: "Product and source rights",
+    paragraphs: [
+      "AgentPay software, site, documentation, and branding are proprietary except for identified third-party components and independently owned contributions. Access to the service or a public source repository does not grant a broader right to copy, modify, redistribute, commercialize, or use AgentPay marks beyond the applicable repository terms or a separate written agreement.",
+      "Sellers retain their rights in their upstream services, product content, and authorized integration inputs. Sellers must have the rights needed for anything they submit, connect, publish, or ask AgentPay and a coding agent to process.",
+    ],
+  },
+  {
     id: "payments",
     title: "Payments and custody",
     paragraphs: [

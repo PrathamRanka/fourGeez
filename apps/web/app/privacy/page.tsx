@@ -51,10 +51,21 @@ const sections: readonly LegalSection[] = [
     ],
   },
   {
+    id: "cookies-analytics",
+    title: "Cookies and site analytics",
+    paragraphs: [
+      "AgentPay uses strictly necessary first-party cookies for seller sessions, CSRF protection, and browser purchase authorization. These cookies support security and requested product flows; they are not advertising cookies.",
+      "Vercel Web Analytics is enabled across the site through the pinned @vercel/analytics 2.0.1 package. According to Vercel's current product documentation, its default web analytics does not use third-party cookies and reports aggregated page-view information using a short-lived request-derived visitor hash.",
+      "Analytics data may include the event time, visited path, dynamic route, filtered query parameters, referrer, approximate location, operating system, browser, device type, and analytics script version. No custom analytics events are currently configured, and AgentPay does not intentionally send account names, email addresses, wallet material, payment proofs, or seller secrets to analytics.",
+    ],
+    note:
+      "Final counsel review must confirm the consent, notice, subprocessor, retention, and cross-border-transfer requirements for every launch jurisdiction and the exact Vercel project configuration. Sensitive values must never be placed in URLs or analytics events.",
+  },
+  {
     id: "storage-sharing",
     title: "Storage and service providers",
     paragraphs: [
-      "AgentPay uses infrastructure, identity, and x402 facilitator boundaries to operate the service. Access should be limited to the purpose required by each boundary, and transaction-critical authorization must fail closed when an authoritative dependency is unavailable.",
+      "AgentPay uses Vercel for the website and web analytics, and uses infrastructure, identity, and x402 facilitator boundaries to operate the service. Access should be limited to the purpose required by each boundary, and transaction-critical authorization must fail closed when an authoritative dependency is unavailable.",
       "A final production subprocessor list, international-transfer position, operating entity, privacy contact, and region-specific disclosures have not yet been published. Those decisions require external legal review before production accounts or real-money use are enabled.",
     ],
   },

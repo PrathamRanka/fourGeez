@@ -6,6 +6,7 @@
     <PackageId>AgentPay.Verify</PackageId>
     <Version>0.1.0</Version>
     <Description>AgentPay seller-request verification for ASP.NET Core.</Description>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

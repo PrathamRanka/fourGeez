@@ -2,6 +2,7 @@
 name = "agentpay-verify"
 version = "0.1.0"
 description = "AgentPay seller-request verification middleware for ASGI applications"
+license = "LicenseRef-Proprietary"
 requires-python = ">=3.11"
 dependencies = ["cryptography==49.0.0"]
 

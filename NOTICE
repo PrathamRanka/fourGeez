@@ -1,0 +1,37 @@
+AgentPay repository notice
+==========================
+
+Copyright (c) 2026 Pratham Ranka and Ayush Garg. All rights reserved in their
+respective AgentPay-authored contributions and the protectable repository
+compilation, subject to applicable law and third-party rights.
+
+This repository is proprietary source, not an open-source project. See LICENSE.
+
+Third-party software and assets
+-------------------------------
+
+AgentPay depends on third-party software identified by package.json,
+package-lock.json, go.mod, go.sum, pyproject.toml, composer.json, project files,
+and source-level attribution comments. Those components remain governed by
+their own licenses and are not relicensed by the AgentPay Proprietary Source
+License. Required upstream copyright, license, and attribution notices must be
+preserved in source and distributed artifacts.
+
+The repository does not vendor a complete copy of every dependency license.
+Before distributing a binary, browser bundle, package, container, or installer,
+the release owner must generate and review a complete third-party license and
+notice inventory for that exact artifact.
+
+The website currently includes `@vercel/analytics` version `2.0.1`, distributed
+under the MIT License. Its upstream license and notices remain controlling for
+that dependency.
+
+Contributor provenance
+----------------------
+
+Repository history includes contributions from people and automated services
+other than the two named owners. No statement in LICENSE transfers those
+contributors' copyrights. The owners must retain written contribution grants
+or assignments appropriate to the intended commercial distribution. In
+particular, historical contributions made before this policy was added require
+separate provenance review rather than an assumed retroactive assignment.

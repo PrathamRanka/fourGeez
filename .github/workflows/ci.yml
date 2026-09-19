@@ -18,6 +18,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: node --test scripts/repository-governance.test.mjs
       - run: npm run lint:contracts
 
   backend:

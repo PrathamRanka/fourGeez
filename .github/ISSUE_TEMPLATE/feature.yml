@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a scoped seller-first product improvement.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Seller problem
+      description: Describe the concrete seller or buyer problem, not only a proposed implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: State observable acceptance criteria and affected journey.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Security, legal, or compatibility constraints
+      description: Identify payment, identity, data, API, or migration implications.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request does not assume undocumented production readiness or unsupported payment rails.
+          required: true
