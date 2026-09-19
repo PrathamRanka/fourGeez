@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import {
+  activateSellerService,
   createIntegrationCredential,
   createStorefront,
   preparePaymentDestination,
@@ -49,6 +50,7 @@ export default async function OnboardingPage() {
 
 const onboardingActions = {
   createStorefront,
+  activateSellerService,
   preparePaymentDestination,
   verifyPaymentDestination,
   createIntegrationCredential,

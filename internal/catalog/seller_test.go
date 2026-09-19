@@ -168,6 +168,27 @@ func TestSellerConfigurationUpdatesMutableStorefrontFields(t *testing.T) {
 	}
 }
 
+func TestExecutionCapabilitySellerEndpointVerificationNeedsNoLegacySecret(t *testing.T) {
+	t.Parallel()
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 20, 1, 0, 0, 0, time.UTC))
+	seller, err := NewSeller(SellerParams{SellerID: mustCatalogID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix), OwnerSubject: "owner", Slug: "capability-seller", Name: "Capability Seller", UpstreamBaseURL: "https://seller.example", CreatedAt: createdAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seller.ActivateForExecutionCapabilities(createdAt.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if seller.SigningSecretRef != "" {
+		t.Fatalf("legacy signing reference = %q", seller.SigningSecretRef)
+	}
+	if err := seller.VerifyServiceEndpoint(createdAt.Add(2 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if !seller.HasCurrentServiceEndpointVerification() {
+		t.Fatal("ES256 endpoint verification was not retained")
+	}
+}
+
 func TestSellerEndpointVerificationIsBoundToCurrentOriginAndSigner(t *testing.T) {
 	t.Parallel()
 	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC))

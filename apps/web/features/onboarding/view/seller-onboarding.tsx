@@ -178,6 +178,25 @@ export function SellerOnboarding({
     window.history.replaceState(null, "", "/dashboard/onboarding");
   }
 
+  async function activateService() {
+    if (!seller || seller.status !== "draft") return;
+    setErrorMessage(null);
+    setPendingStep("service");
+    const result = await actions.activateSellerService({
+      sellerId: seller.sellerId,
+      expectedVersion: seller.version,
+    });
+    setPendingStep(null);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
+    }
+    setSeller(result.value);
+    setOnboarding((current) =>
+      markStepComplete(current, "service_connection_verified"),
+    );
+  }
+
   async function verifyPayoutAddress(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!seller) return;
@@ -371,7 +390,7 @@ export function SellerOnboarding({
               number="01"
               icon={Store}
               title="Seller profile and HTTPS service"
-              description="The service origin must be HTTPS, active, and configured for AgentPay request signing."
+              description="The service origin must be HTTPS and enabled for AgentPay public-key execution-capability verification."
               complete={
                 stepComplete("account_verified") &&
                 stepComplete("storefront_created") &&
@@ -386,12 +405,33 @@ export function SellerOnboarding({
                   <strong>{seller.name}</strong>
                   <span>{seller.upstreamBaseUrl}</span>
                 </div>
-                <Link
-                  className={buttonVariants({ variant: "outline" })}
-                  href="/dashboard/settings"
-                >
-                  Review service settings
-                </Link>
+                <div className="onboarding-action-row">
+                  {seller.status === "draft" ? (
+                    <Button
+                      type="button"
+                      disabled={pendingStep === "service"}
+                      onClick={activateService}
+                    >
+                      {pendingStep === "service" ? (
+                        <LoaderCircle
+                          className="animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                      Enable secure service
+                    </Button>
+                  ) : (
+                    <span className="status-ready">
+                      ES256 verification enabled
+                    </span>
+                  )}
+                  <Link
+                    className={buttonVariants({ variant: "outline" })}
+                    href="/dashboard/settings"
+                  >
+                    Review service settings
+                  </Link>
+                </div>
               </div>
             </OnboardingStep>
           ) : null}

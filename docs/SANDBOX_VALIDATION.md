@@ -9,10 +9,12 @@ validator never invokes the configured paid business route.
 ## Seller endpoint
 
 The coding-agent integration creates a `POST /.well-known/agentpay/sandbox`
-endpoint behind the same AgentPay verification middleware used by fulfillment.
-After successful verification, the endpoint returns `200 application/json`
-without executing product logic. The body is a signed JSON document containing
-`schemaVersion: agentpay.sandbox.v1` and the draft `routeId`.
+endpoint behind the same version-2 AgentPay execution-capability verification
+middleware used by fulfillment. After successful verification, the endpoint
+returns `200 application/json` without executing product logic. The body is a
+JSON document containing `schemaVersion: agentpay.sandbox.v1` and the draft
+`routeId`; authorization is carried by the short-lived ES256
+`X-AgentPay-Execution-Capability` header and its bound transaction identifier.
 
 The endpoint must return:
 
@@ -33,16 +35,16 @@ transaction identifier. It performs these checks in order:
 
 1. `discovery`: the stored draft can be represented in the versioned AgentPay
    storefront manifest without changing its price or route fields;
-2. `payment_gating`: an unsigned request cannot reach the no-op fulfillment
+2. `payment_gating`: a request without an execution capability cannot reach the no-op fulfillment
    endpoint and returns `401`;
-3. `signature_handling`: an invalid signature returns `401` and a valid
-   AgentPay signature returns `200`; and
+3. `signature_handling`: an invalid capability returns `401` and a valid,
+   seller/route/method/path/body-bound AgentPay capability returns `200`; and
 4. `exactly_once_fulfillment`: replaying the accepted transaction returns
    `409`.
 
-Transport, signing-secret, DNS, timeout, and upstream failures fail closed and
-do not publish the route. The validator uses the existing seller forwarder's
-SSRF, redirect, timeout, body-size, and response-size protections.
+Transport, capability-signing, JWKS, DNS, timeout, and upstream failures fail
+closed and do not publish the route. The validator uses the existing seller
+forwarder's SSRF, redirect, timeout, body-size, and response-size protections.
 
 ## Publication rule
 

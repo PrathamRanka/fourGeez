@@ -439,6 +439,36 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/sellers/{sellerId}/service-activation:
+    post:
+      summary: Enable ES256 AgentPay execution-capability verification for a seller HTTPS origin
+      description: Activates an owned draft seller for coding-agent integration without creating or revealing a shared signing secret. Publication remains blocked until the cloud sandbox verifies the configured endpoint.
+      tags: [Sellers]
+      operationId: activateSellerService
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivateSellerServiceRequest' }
+      responses:
+        '200':
+          description: Seller activated for ES256 execution-capability integration
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Seller' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+
   /v1/plans:
     get:
       summary: List versioned seller plans and operational entitlements
@@ -1917,6 +1947,13 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         slug: { type: string, pattern: '^[a-z0-9-]{3,48}$' }
         upstreamBaseUrl: { type: string, format: uri }
+    ActivateSellerServiceRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+
     RecordSandboxPurchaseRequest:
       type: object
       additionalProperties: false

@@ -1,6 +1,7 @@
 "use server";
 
 import type {
+  ActivateSellerServiceInput,
   CreateIntegrationCredentialInput,
   CreateStorefrontInput,
   CredentialCreated,
@@ -42,6 +43,26 @@ export async function createStorefront(
   if (result.ok) {
     await updateCurrentSellerPrincipal({
       sellerId: result.value.sellerId,
+      onboardingComplete: false,
+      storefront: result.value,
+    });
+  }
+  return result;
+}
+
+// activateSellerService enables ES256 request verification without creating a shared seller secret.
+export async function activateSellerService(
+  input: ActivateSellerServiceInput,
+): Promise<ActionResult<Seller>> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return sellerSessionRequired();
+  const result = await requestAgentPay<Seller>(
+    `/v1/sellers/${encodeURIComponent(sellerId)}/service-activation`,
+    { method: "POST", body: { expectedVersion: input.expectedVersion } },
+  );
+  if (result.ok) {
+    await updateCurrentSellerPrincipal({
+      sellerId,
       onboardingComplete: false,
       storefront: result.value,
     });

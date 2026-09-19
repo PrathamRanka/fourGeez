@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 const sandboxResponseMIMEType = "application/json"
@@ -92,9 +92,8 @@ func (service *Service) Validate(
 		return Result{}, err
 	}
 	request.Signature = proxy.SignatureHeaders{
-		Signature:   invalidSignatureValue,
-		Timestamp:   service.clock.Now().UTC().Format(time.RFC3339Nano),
-		Transaction: transactionID.String(),
+		ExecutionCapability: invalidSignatureValue,
+		Transaction:         transactionID.String(),
 	}
 	invalidResponse, err := service.forwarder.Forward(ctx, request)
 	if err != nil {
@@ -104,10 +103,13 @@ func (service *Service) Validate(
 		ctx,
 		seller.SigningSecretRef,
 		proxy.SigningInput{
-			TransactionID: transactionID,
-			Method:        request.Method,
-			Path:          request.Path,
-			Body:          request.Body,
+			TransactionID:   transactionID,
+			SellerID:        sellerID,
+			RouteID:         routeID,
+			Method:          request.Method,
+			Path:            request.Path,
+			Body:            request.Body,
+			PaymentFinality: transactions.PaymentFinalityFinalized,
 		},
 	)
 	if err != nil {

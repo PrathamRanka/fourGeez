@@ -44,11 +44,11 @@ are complete.
 | `slug` | string | Unique public storefront slug |
 | `name` | string | Display name |
 | `upstreamBaseUrl` | string | HTTPS only outside local development |
-| `signingSecretRef` | string | Secrets Manager ARN/reference, never secret material |
+| `signingSecretRef` | string/null | Legacy local/sandbox HMAC reference only; production ES256 execution-capability sellers leave it empty |
 | `verifiedUpstreamBaseUrl` | string/null | Exact service origin last verified by the AgentPay sandbox; a configured-origin change invalidates it |
-| `verifiedSigningSecretRefHash` | string/null | Domain-separated SHA-256 of the signing-secret reference used by the successful sandbox probe |
+| `verifiedSigningSecretRefHash` | string/null | Domain-separated SHA-256 of the legacy signing-secret reference used by the successful sandbox probe; for ES256 sellers this binds the intentionally empty legacy reference |
 | `serviceEndpointVerifiedAt` | timestamp/null | Cloud-observed successful signed, replay-safe endpoint verification |
-| `status` | enum | `draft`, `active`, `suspended` |
+| `status` | enum | `draft`, `active`, `suspended`; `active` enables authenticated integration work but publication still requires a fresh successful service-endpoint verification |
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest status/configuration change |
 | `version` | integer | Starts at 1 and increments on mutation |
 

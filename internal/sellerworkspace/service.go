@@ -617,7 +617,7 @@ func sellerProfileReady(seller catalog.Seller) bool {
 
 func serviceConnectionReady(seller catalog.Seller, allowLocalDevelopmentService bool) bool {
 	serviceURL, err := url.Parse(strings.TrimSpace(seller.UpstreamBaseURL))
-	if err != nil || serviceURL.Host == "" || seller.Status != catalog.SellerStatusActive || strings.TrimSpace(seller.SigningSecretRef) == "" {
+	if err != nil || serviceURL.Host == "" || seller.Status != catalog.SellerStatusActive {
 		return false
 	}
 	if serviceURL.Scheme == "https" {

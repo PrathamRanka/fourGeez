@@ -9,6 +9,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
 const (
@@ -30,10 +31,11 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 		},
 	}
 	catalogReader := validCatalogReader()
+	signer := &testSigner{}
 	service := NewService(
 		catalogReader,
 		testIDGenerator{},
-		&testSigner{},
+		signer,
 		forwarder,
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 	)
@@ -60,14 +62,19 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 			t.Fatal("sandbox route copy was not enabled for the guarded forwarder")
 		}
 	}
-	if forwarder.requests[0].Signature.Signature != "" {
-		t.Fatal("payment-gating request unexpectedly carried a signature")
+	if forwarder.requests[0].Signature.ExecutionCapability != "" {
+		t.Fatal("payment-gating request unexpectedly carried an execution capability")
 	}
-	if forwarder.requests[1].Signature.Signature != invalidSignatureValue {
-		t.Fatal("invalid-signature probe did not use the fixed invalid signature")
+	if forwarder.requests[1].Signature.ExecutionCapability != invalidSignatureValue {
+		t.Fatal("invalid-capability probe did not use the fixed invalid capability")
 	}
 	if forwarder.requests[2].Signature != forwarder.requests[3].Signature {
-		t.Fatal("replay probe did not reuse the accepted signed request")
+		t.Fatal("replay probe did not reuse the accepted capability")
+	}
+	if signer.input.SellerID != domain.ID(testSellerID) ||
+		signer.input.RouteID != domain.ID(testRouteID) ||
+		signer.input.PaymentFinality != transactions.PaymentFinalityFinalized {
+		t.Fatalf("capability binding = %#v", signer.input)
 	}
 	if catalogReader.route.Enabled {
 		t.Fatal("sandbox validation mutated the stored draft fixture")
@@ -129,10 +136,11 @@ func TestServiceReportsFailedChecks(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
+			signer := &testSigner{}
 			service := NewService(
 				validCatalogReader(),
 				testIDGenerator{},
-				&testSigner{},
+				signer,
 				&testForwarder{responses: testCase.responses},
 				domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 			)
@@ -159,10 +167,11 @@ func TestServiceReturnsProbeFailure(t *testing.T) {
 	t.Parallel()
 
 	probeError := errors.New("private upstream failure")
+	signer := &testSigner{}
 	service := NewService(
 		validCatalogReader(),
 		testIDGenerator{},
-		&testSigner{},
+		signer,
 		&testForwarder{err: probeError},
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 	)
@@ -249,7 +258,9 @@ func (reader *testCatalogReader) GetRoute(
 	return reader.route, nil
 }
 
-type testSigner struct{}
+type testSigner struct {
+	input proxy.SigningInput
+}
 
 type testIDGenerator struct{}
 
@@ -262,15 +273,15 @@ func (testIDGenerator) New(prefix domain.IDPrefix) (domain.ID, error) {
 }
 
 // Sign returns deterministic accepted sandbox authentication headers.
-func (*testSigner) Sign(
+func (signer *testSigner) Sign(
 	_ context.Context,
 	_ string,
 	input proxy.SigningInput,
 ) (proxy.SignatureHeaders, error) {
+	signer.input = input
 	return proxy.SignatureHeaders{
-		Signature:   "valid-signature",
-		Timestamp:   "2026-09-18T10:00:00Z",
-		Transaction: input.TransactionID.String(),
+		ExecutionCapability: "signed.jwt.value",
+		Transaction:         input.TransactionID.String(),
 	}, nil
 }
 

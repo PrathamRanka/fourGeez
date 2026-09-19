@@ -69,6 +69,65 @@ func TestSellerRoutesCreateAndUpdateCatalog(t *testing.T) {
 	}
 }
 
+func TestSellerServiceActivationUnlocksES256ReadinessWithoutSharedSecret(t *testing.T) {
+	t.Parallel()
+
+	handler, repository := newCatalogHandlerWithRepository(t)
+	created := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers",
+		"seller-service-create",
+		`{"name":"Demo","slug":"service-demo","upstreamBaseUrl":"https://seller.example"}`,
+	)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var seller catalog.SellerResponse
+	decodeCatalogResponse(t, created, &seller)
+
+	body := `{"expectedVersion":1}`
+	activatedResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/service-activation",
+		"seller-service-activate",
+		body,
+	)
+	if activatedResponse.Code != http.StatusOK {
+		t.Fatalf("activation status = %d, body = %s", activatedResponse.Code, activatedResponse.Body.String())
+	}
+	if activatedResponse.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q", activatedResponse.Header().Get("Cache-Control"))
+	}
+	var activated catalog.SellerResponse
+	decodeCatalogResponse(t, activatedResponse, &activated)
+	if activated.Status != catalog.SellerStatusActive || activated.Version != 2 {
+		t.Fatalf("activated seller = %#v", activated)
+	}
+	stored, err := repository.GetSeller(t.Context(), seller.SellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.SigningSecretRef != "" {
+		t.Fatalf("production activation created a legacy signing secret reference: %q", stored.SigningSecretRef)
+	}
+
+	replay := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/service-activation",
+		"seller-service-activate",
+		body,
+	)
+	if replay.Code != http.StatusOK || replay.Body.String() != activatedResponse.Body.String() {
+		t.Fatalf("idempotent replay = %d %s", replay.Code, replay.Body.String())
+	}
+}
+
 func TestSellerRouteCreationRejectsNormalizedProductSlugCollision(t *testing.T) {
 	t.Parallel()
 

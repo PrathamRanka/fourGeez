@@ -146,6 +146,42 @@ func (service *Service) CreateSeller(
 	return sellerResponse(seller), nil
 }
 
+// ActivateSellerService enables ES256 execution-capability integration without provisioning a shared secret.
+func (service *Service) ActivateSellerService(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	request ActivateSellerServiceRequest,
+) (SellerResponse, error) {
+	seller, err := service.repository.GetSeller(ctx, sellerID)
+	if err != nil {
+		return SellerResponse{}, err
+	}
+	if seller.OwnerSubject != ownerSubject {
+		return SellerResponse{}, persistence.ErrNotFound
+	}
+	if request.ExpectedVersion != seller.Version {
+		return SellerResponse{}, persistence.ErrConditionFailed
+	}
+	if seller.Status == SellerStatusActive {
+		return sellerResponse(seller), nil
+	}
+	if err := seller.ActivateForExecutionCapabilities(domain.NewTimestamp(service.clock.Now())); err != nil {
+		return SellerResponse{}, err
+	}
+	if err := service.repository.UpdateSeller(ctx, seller, request.ExpectedVersion); err != nil {
+		return SellerResponse{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID: sellerID, ActorType: audit.ActorTypeSellerUser, ActorID: ownerSubject,
+		Action: audit.ActionServiceIntegrationActivated, TargetType: audit.TargetTypeSeller,
+		TargetID: sellerID.String(), Outcome: audit.OutcomeSucceeded, ChangedFields: []string{"status"},
+	}); err != nil {
+		return SellerResponse{}, err
+	}
+	return sellerResponse(seller), nil
+}
+
 // CreateRoute creates a paid route for a seller owned by the caller.
 func (service *Service) CreateRoute(
 	ctx context.Context,
@@ -612,9 +648,9 @@ func (service *Service) ValidateRouteForIntegration(
 			Message: "seller must be active",
 		},
 		{
-			Name:    "signing_secret_configured",
-			Passed:  strings.TrimSpace(seller.SigningSecretRef) != "",
-			Message: "seller request signing must be configured",
+			Name:    "execution_capability_configured",
+			Passed:  seller.Status == SellerStatusActive,
+			Message: "seller execution-capability verification must be configured",
 		},
 		{
 			Name:    "route_configuration_valid",
@@ -942,7 +978,24 @@ func (seller *Seller) Configure(
 	return nil
 }
 
-// Activate enables the seller after a signing secret has been provisioned.
+// ActivateForExecutionCapabilities enables production ES256 request verification without a shared seller secret.
+func (seller *Seller) ActivateForExecutionCapabilities(changedAt domain.Timestamp) error {
+	if seller.Status != SellerStatusDraft {
+		return domain.NewValidationError("status", "transition", "only a draft seller can be activated")
+	}
+	if changedAt.Before(seller.UpdatedAt) {
+		return domain.NewValidationError("updatedAt", "chronology", "cannot occur before the previous update")
+	}
+	seller.SigningSecretRef = ""
+	seller.VerifiedSigningSecretRefHash = ""
+	seller.ServiceEndpointVerifiedAt = nil
+	seller.Status = SellerStatusActive
+	seller.UpdatedAt = changedAt
+	seller.Version++
+	return nil
+}
+
+// Activate enables the legacy local HMAC seller after a signing secret has been provisioned.
 func (seller *Seller) Activate(
 	signingSecretRef string,
 	changedAt domain.Timestamp,
@@ -973,7 +1026,7 @@ func (seller *Seller) Activate(
 
 // VerifyServiceEndpoint records a cloud-observed signed sandbox success.
 func (seller *Seller) VerifyServiceEndpoint(verifiedAt domain.Timestamp) error {
-	if seller.Status != SellerStatusActive || strings.TrimSpace(seller.SigningSecretRef) == "" {
+	if seller.Status != SellerStatusActive {
 		return domain.NewValidationError("serviceEndpoint", "state", "seller must be active with request signing configured")
 	}
 	if verifiedAt.Before(seller.UpdatedAt) {

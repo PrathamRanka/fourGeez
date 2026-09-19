@@ -101,12 +101,24 @@ func main() {
 		idGenerator,
 		clock,
 	)
-	sellerSigner := runtime.sellerSigner
+	capabilityKeys := runtime.capabilityKeys
+	apiOrigin := config.APIOrigin
+	webOrigin := config.WebOrigin
+	executionCapabilitySigner, err := proxy.NewES256ExecutionCapabilitySigner(
+		proxy.ExecutionCapabilityConfig{Issuer: apiOrigin, Lifetime: 45 * time.Second},
+		capabilityKeys,
+		clock,
+		cryptorand.Reader,
+	)
+	if err != nil {
+		slog.Error("invalid execution capability configuration", "error", err)
+		os.Exit(1)
+	}
 	sellerForwarder := runtime.sellerForwarder
 	sandboxService := sandbox.NewService(
 		catalogRepository,
 		idGenerator,
-		sellerSigner,
+		executionCapabilitySigner,
 		sellerForwarder,
 		clock,
 	)
@@ -202,9 +214,6 @@ func main() {
 		integrationService,
 		idempotencyStore,
 	).RegisterRoutes(mux)
-	capabilityKeys := runtime.capabilityKeys
-	apiOrigin := config.APIOrigin
-	webOrigin := config.WebOrigin
 	accessTokenService := authorization.NewAccessTokenService(
 		authorization.AccessTokenConfig{
 			Issuer: apiOrigin, Audience: authorization.MCPAudience,
@@ -354,16 +363,6 @@ func main() {
 		config.PublicBaseURL,
 	)
 	paymentAdapter := runtime.paymentAdapter
-	executionCapabilitySigner, err := proxy.NewES256ExecutionCapabilitySigner(
-		proxy.ExecutionCapabilityConfig{Issuer: apiOrigin, Lifetime: 45 * time.Second},
-		capabilityKeys,
-		clock,
-		cryptorand.Reader,
-	)
-	if err != nil {
-		slog.Error("invalid execution capability configuration", "error", err)
-		os.Exit(1)
-	}
 	executionService := proxy.NewExecutionService(
 		transactionRepository,
 		executionCapabilitySigner,

@@ -131,6 +131,7 @@ func TestCredentialIssuanceRequiresAuthoritativeMCPPrerequisites(t *testing.T) {
 	fixture := newWorkspaceFixture(t)
 	fixture.destinations = []settlement.PaymentDestination{fixture.destination}
 	fixture.entitlement = fixture.activeEntitlement
+	fixture.seller.SigningSecretRef = ""
 
 	if err := fixture.service.AuthorizeCredentialIssuance(context.Background(), fixture.principal.Subject, fixture.seller.SellerID); err != nil {
 		t.Fatalf("AuthorizeCredentialIssuance() error = %v", err)

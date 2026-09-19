@@ -48,6 +48,7 @@ const (
 	ActionWebhookSubscriptionUpdated  Action = "webhook_subscription.updated"
 	ActionWebhookSubscriptionDisabled Action = "webhook_subscription.disabled"
 	ActionSellerSuspended             Action = "seller.suspended"
+	ActionServiceIntegrationActivated Action = "service_integration.activated"
 	ActionServiceEndpointVerified     Action = "service_endpoint.verified"
 	ActionManualRefundRecorded        Action = "manual_refund.recorded"
 )

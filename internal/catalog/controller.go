@@ -40,6 +40,7 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 // RegisterControlRoutes omits legacy unsigned discovery for production wiring.
 func (controller *HTTPController) RegisterControlRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sellers", api.RequireSeller(http.HandlerFunc(controller.createSeller)))
+	mux.Handle("POST /v1/sellers/{sellerId}/service-activation", api.RequireSeller(http.HandlerFunc(controller.activateSellerService)))
 	mux.Handle("GET /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.listRoutes)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.createRoute)))
 	mux.Handle("GET /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.getRoute)))
@@ -277,6 +278,20 @@ func (controller *HTTPController) createSeller(response http.ResponseWriter, req
 	controller.executeMutation(response, request, "createSeller", &input, func(principal api.Principal) (any, error) {
 		return controller.service.CreateSeller(request.Context(), principal.Subject, input)
 	}, http.StatusCreated)
+}
+
+// activateSellerService enables production ES256 verification for an owned service origin.
+func (controller *HTTPController) activateSellerService(response http.ResponseWriter, request *http.Request) {
+	sellerID, err := domain.ParseID(request.PathValue("sellerId"), domain.SellerIDPrefix)
+	if err != nil {
+		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid seller ID", nil)
+		return
+	}
+	var input ActivateSellerServiceRequest
+	response.Header().Set("Cache-Control", "no-store")
+	controller.executeMutation(response, request, "activateSellerService", &input, func(principal api.Principal) (any, error) {
+		return controller.service.ActivateSellerService(request.Context(), principal.Subject, sellerID, input)
+	}, http.StatusOK)
 }
 
 // createRoute validates and creates a seller-owned paid route.

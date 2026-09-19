@@ -90,9 +90,11 @@ The intended onboarding flow is:
 
 1. The seller creates an AgentPay seller account and storefront.
 2. The seller completes the required profile, enters and verifies a payout
-   address for a platform-supported testnet asset/network, and configures an
-   HTTPS service origin. The dashboard explains and links every missing
-   prerequisite; it does not expose MCP setup before eligibility.
+   address for a platform-supported testnet asset/network, configures an HTTPS
+   service origin, and explicitly enables AgentPay's public-key execution
+   capability verification for that origin. This activation does not create or
+   reveal a shared seller signing secret. The dashboard explains and links
+   every missing prerequisite; it does not expose MCP setup before eligibility.
 3. AgentPay issues a project-scoped integration credential once and displays
    the raw project key only in that creation response.
 4. The seller connects the AgentPay MCP server to a supported coding agent such

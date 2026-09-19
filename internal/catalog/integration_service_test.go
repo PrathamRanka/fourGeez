@@ -96,16 +96,25 @@ func TestIntegrationCatalogLifecycle(t *testing.T) {
 		t.Fatal("validation passed before seller activation")
 	}
 
+	clock.now = clock.now.Add(time.Minute)
+	activated, err := service.ActivateSellerService(
+		t.Context(),
+		"owner-123",
+		seller.SellerID,
+		catalog.ActivateSellerServiceRequest{ExpectedVersion: configured.Version},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activated.Status != catalog.SellerStatusActive {
+		t.Fatalf("activated seller = %#v", activated)
+	}
 	storedSeller, err := repository.GetSeller(t.Context(), seller.SellerID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	clock.now = clock.now.Add(time.Minute)
-	if err := storedSeller.Activate("secret/seller/demo", domain.NewTimestamp(clock.now)); err != nil {
-		t.Fatal(err)
-	}
-	if err := repository.UpdateSeller(t.Context(), storedSeller, configured.Version); err != nil {
-		t.Fatal(err)
+	if storedSeller.SigningSecretRef != "" {
+		t.Fatalf("ES256 seller has legacy signing reference %q", storedSeller.SigningSecretRef)
 	}
 
 	validation, err = service.ValidateRouteForIntegration(

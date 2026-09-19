@@ -128,6 +128,11 @@ type CreateSellerRequest struct {
 	UpstreamBaseURL string `json:"upstreamBaseUrl"`
 }
 
+// ActivateSellerServiceRequest enables public-key request verification for an owned HTTPS service.
+type ActivateSellerServiceRequest struct {
+	ExpectedVersion uint64 `json:"expectedVersion"`
+}
+
 // CreateRouteRequest is the paid-route creation HTTP request.
 type CreateRouteRequest struct {
 	DisplayName             string         `json:"displayName"`

@@ -8,6 +8,7 @@ vi.mock("@/features/auth/server/session", () => ({
   getSellerSession: vi.fn(),
 }));
 vi.mock("@/features/onboarding/controller", () => ({
+  activateSellerService: vi.fn(),
   createIntegrationCredential: vi.fn(),
   createStorefront: vi.fn(),
   listOnboardingResources: vi.fn(),

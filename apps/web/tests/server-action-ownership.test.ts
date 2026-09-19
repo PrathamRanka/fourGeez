@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSellerSession } from "@/features/auth/server/session";
 import { updateCurrentSellerPrincipal } from "@/features/auth/server/session";
-import { createIntegrationCredential } from "@/features/onboarding/controller";
+import {
+  activateSellerService,
+  createIntegrationCredential,
+} from "@/features/onboarding/controller";
 import { createDraft } from "@/features/products/controller";
 import { requestAgentPay } from "@/lib/agentpay-api";
 
@@ -48,6 +51,17 @@ describe("seller server-action ownership", () => {
     expect(requestAgentPay).toHaveBeenCalledWith(
       "/v1/sellers/sel_session_owner/routes",
       expect.anything(),
+    );
+  });
+
+  it("uses the session seller for service activation", async () => {
+    await activateSellerService({
+      sellerId: "sel_attacker",
+      expectedVersion: 1,
+    });
+    expect(requestAgentPay).toHaveBeenCalledWith(
+      "/v1/sellers/sel_session_owner/service-activation",
+      { method: "POST", body: { expectedVersion: 1 } },
     );
   });
 

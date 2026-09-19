@@ -42,6 +42,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 	operations := readOpenAPIOperations(t)
 	expected := map[string][]string{
 		"acceptStripeBillingEvent":                {"204", "400", "401", "409", "429", "503"},
+		"activateSellerService":                   {"200", "400", "401", "404", "409", "429", "503"},
 		"archivePaidRoute":                        {"200", "400", "401", "403", "404", "409", "429", "503"},
 		"cancelPurchaseIntent":                    {"200", "400", "401", "403", "404", "409", "410", "429", "503"},
 		"createBrowserPurchaseRecoveryChallenge":  {"201", "400", "404", "409", "410", "422", "429", "503"},
@@ -130,6 +131,7 @@ func TestImplementedOpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "getHealth", method: http.MethodGet, path: "/health", wantStatus: http.StatusOK},
 		{operationID: "getPaymentCapabilities", method: http.MethodGet, path: "/v1/payment-capabilities", wantStatus: http.StatusOK},
 		{operationID: "createSeller", method: http.MethodPost, path: "/v1/sellers", wantStatus: http.StatusUnauthorized},
+		{operationID: "activateSellerService", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/service-activation", wantStatus: http.StatusUnauthorized},
 		{operationID: "getCurrentSeller", method: http.MethodGet, path: "/v1/me/seller", wantStatus: http.StatusUnauthorized},
 		{operationID: "recordCurrentSellerSandboxPurchase", method: http.MethodPost, path: "/v1/me/onboarding/sandbox-purchases", wantStatus: http.StatusUnauthorized},
 		{operationID: "revokeCurrentSellerSession", method: http.MethodDelete, path: "/v1/me/session", wantStatus: http.StatusUnauthorized},

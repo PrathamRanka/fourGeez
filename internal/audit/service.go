@@ -80,6 +80,7 @@ var actionDefinitions = map[Action]actionDefinition{
 	ActionWebhookSubscriptionUpdated:  newActionDefinition(TargetTypeWebhookSubscription, "endpointUrl", "eventTypes", "status"),
 	ActionWebhookSubscriptionDisabled: newActionDefinition(TargetTypeWebhookSubscription, "status"),
 	ActionSellerSuspended:             newActionDefinition(TargetTypeSeller, "status"),
+	ActionServiceIntegrationActivated: newActionDefinition(TargetTypeSeller, "status"),
 	ActionManualRefundRecorded:        newActionDefinition(TargetTypeDispute, "amount", "asset", "network", "reference"),
 }
 

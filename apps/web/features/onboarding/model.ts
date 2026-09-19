@@ -120,6 +120,11 @@ export type CreateStorefrontInput = {
   upstreamBaseUrl: string;
 };
 
+export type ActivateSellerServiceInput = {
+  sellerId: string;
+  expectedVersion: number;
+};
+
 export type PreparePaymentDestinationInput = {
   sellerId: string;
   asset: string;
@@ -147,6 +152,9 @@ export type { ActionResult } from "@/lib/agentpay-api";
 export type OnboardingActions = {
   createStorefront: (
     input: CreateStorefrontInput,
+  ) => Promise<ActionResult<Seller>>;
+  activateSellerService: (
+    input: ActivateSellerServiceInput,
   ) => Promise<ActionResult<Seller>>;
   preparePaymentDestination: (
     input: PreparePaymentDestinationInput,

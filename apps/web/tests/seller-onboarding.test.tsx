@@ -124,6 +124,10 @@ function snapshot(input: Partial<OnboardingSnapshot> = {}): OnboardingSnapshot {
 function createActions(): OnboardingActions {
   return {
     createStorefront: vi.fn().mockResolvedValue({ ok: true, value: seller }),
+    activateSellerService: vi.fn().mockResolvedValue({
+      ok: true,
+      value: seller,
+    }),
     preparePaymentDestination: vi.fn().mockResolvedValue({
       ok: true,
       value: {
@@ -222,6 +226,33 @@ describe("seller onboarding MCP gate", () => {
     expect(
       screen.queryByText(/Connect this project to AgentPay/),
     ).not.toBeInTheDocument();
+  });
+
+  it("activates ES256 service readiness without revealing a shared secret", async () => {
+    const actions = createActions();
+    const draftSeller = { ...seller, status: "draft" as const, version: 1 };
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
+          seller: draftSeller,
+          onboarding: onboardingState({
+            service_connection_verified: "blocked",
+          }),
+        })}
+        actions={actions}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Enable secure service" }),
+    );
+
+    await waitFor(() =>
+      expect(actions.activateSellerService).toHaveBeenCalledWith({
+        sellerId: draftSeller.sellerId,
+        expectedVersion: 1,
+      }),
+    );
   });
 
   it("requires the seller-entered payout address to match the connected wallet", async () => {
