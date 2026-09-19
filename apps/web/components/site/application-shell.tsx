@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { SiteFooter } from "@/components/site/site-footer";
 
 type ApplicationShellProps = {
   children: ReactNode;
@@ -18,6 +19,7 @@ export function ApplicationShell({ children }: ApplicationShellProps) {
   return (
     <div className="public-shell">
       {children}
+      <SiteFooter />
     </div>
   );
 }
