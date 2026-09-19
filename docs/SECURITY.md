@@ -73,6 +73,8 @@ transaction authority.
 | Generated secret exposure | Write secrets only to ignored server-side configuration, scan generated changes, and never serialize secrets into browser code or model prompts |
 | Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |
 | Human checkout forgery or replay | Authenticate provider callbacks, bind them to immutable intents, process them idempotently, and reuse transaction replay protection |
+| Capability downgrade or false fallback | Publish only runtime-enabled payment capabilities, bind the selected rail/network/asset to the immutable intent and challenge, and never silently substitute another rail |
+| Unknown settlement causes double authorization | Persist the verified payment identifier and proof hash before settlement; require the identical proof and intent on recovery and reject a changed proof |
 | Payout-address substitution | Verify wallet ownership, bind destinations to seller and asset/network, require explicit confirmed rotation, and freeze the destination in each purchase intent |
 | Dashboard revenue inflation | Derive aggregates idempotently from authoritative payment and transaction events and keep assets/networks separate |
 | Forged seller webhook | Sign canonical payloads, include event IDs and timestamps, use constant-time verification, and make redelivery idempotent |
@@ -228,10 +230,16 @@ Forbidden:
   `invalid_credential`, `token_expired`, or `token_revoked`; `403` for
   `subscription_inactive`, `insufficient_scope`, or `permission_denied`; `404`
   for `not_found`; `409` for `state_conflict`, `idempotency_conflict`,
-  `payment_replayed`, or `token_replayed`; `410` for `seller_inactive` or an
-  expired one-time resource; `422` for `validation_failed`; `429` for
+  `payment_replayed`, or `token_replayed`; `410` for `seller_inactive`,
+  `payment_expired`, or an expired one-time resource; `422` for
+  `validation_failed` or `payment_capability_unsupported`; `429` for
   `rate_limited`; `402` for `payment_required`
-  or `payment_rejected`; and `503` for `dependency_unavailable`.
+  or `payment_rejected`; and `503` for `dependency_unavailable`,
+  `payment_unavailable`, or `payment_outcome_unknown`.
+- Payment recovery actions are limited to `connect_wallet`, `switch_network`,
+  `sign_fresh_authorization`, `retry_same_request`, `retry_same_payment`, and
+  `start_new_checkout`. Details never contain a raw proof, wallet signature,
+  cookie, authorization header, or private wallet material.
 - Authenticate and authorize the seller before consuming seller-scoped API
   quota so an attacker cannot exhaust another tenant's allowance.
 - Manual refund recording never moves funds. It derives `sellerId` and

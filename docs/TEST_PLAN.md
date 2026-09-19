@@ -32,6 +32,12 @@ Run without AWS or network access.
 - URL and IP SSRF rejection.
 - Payment-destination challenge expiry, invalid signatures, replay, activation,
   disabling, and rotation.
+- Runtime payment capabilities advertise only enabled adapters, and wallet
+  compatibility covers missing provider, disconnected account, wrong network,
+  unavailable chain switching, typed-data support, and buyer cancellation.
+- Payment recovery covers expired intents, rejected proofs, facilitator
+  unavailability before verification, unknown settlement after verification,
+  same-proof retry, changed-proof rejection, nonce replay, and idempotency.
 - Asset/network-separated aggregate updates and duplicate-event rejection.
 - Webhook signature, retry, dead-letter, redelivery, and SSRF behavior.
 - Plan quota boundaries and immutable usage-meter events.
@@ -64,6 +70,7 @@ Run without AWS or network access.
 - Reject undocumented fields on control-plane JSON requests.
 - Verify required authentication and idempotency headers.
 - Snapshot machine error codes, not prose-only messages.
+- Validate the public payment-capability schema and bounded recovery actions.
 - Validate receipt schemas 1 and 2 independently and reject a version-1
   document containing required version-2 semantics.
 - Assert every authenticated commerce operation documents its applicable 401,
@@ -90,6 +97,8 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
   is `PAYMENT_VERIFIED` and `paymentFinality=finalized`.
 - S3 event objects are append-only and verify against KMS signatures.
 - Facilitator timeout and rejection never call the seller.
+- Unknown settlement accepts only the same proof and still permits one
+  forwarding claimant after finality.
 - Seller timeout records delivery failure.
 - MCP credentials cannot cross seller boundaries or exceed their scopes.
 - MCP mutation retries return the original result and do not duplicate products.
@@ -155,6 +164,10 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     expiry, and sign-out. The smoke must use production cookies and clocks,
     must not add a test-only bypass, and must never render or commit the test
     recipient or generated password.
+16. Read the deployed payment-capability endpoint and exercise missing wallet,
+    wrong network, rejected authorization, expired intent, unavailable
+    facilitator, unknown settlement, and same-proof recovery without duplicate
+    payment or seller invocation.
 
 Historical M2 approval tests remain regression coverage for dormant code only.
 They are not Lean V1 acceptance tests, no approval server is started, and no

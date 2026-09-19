@@ -17,7 +17,7 @@ Until those milestones pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 
-OpenAPI 0.5 and the LCH-004 companion contracts describe the implemented M7.1
+OpenAPI 0.6 and the LCH-004/EXT-004 companion contracts describe the implemented M7.1
 runtime boundary. Production activation still depends on M8 infrastructure,
 external security/legal review, and M9 deployed verification.
 
