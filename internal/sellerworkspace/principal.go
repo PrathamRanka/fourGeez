@@ -3,6 +3,7 @@ package sellerworkspace
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/catalog"
@@ -49,6 +50,18 @@ type StaticAccountVerification bool
 
 func (verification StaticAccountVerification) EmailVerified(context.Context, string) (bool, error) {
 	return bool(verification), nil
+}
+
+// AuthenticatedAccountVerification treats the validated seller identity as
+// account verification. Cognito does not issue seller sessions to unconfirmed
+// users, and the local adapter enforces its equivalent contract.
+type AuthenticatedAccountVerification struct{}
+
+func (AuthenticatedAccountVerification) EmailVerified(_ context.Context, subject string) (bool, error) {
+	if strings.TrimSpace(subject) == "" {
+		return false, ErrAuthenticationRequired
+	}
+	return true, nil
 }
 
 type UnavailableBillingPortal struct{}

@@ -290,7 +290,7 @@ func main() {
 		WebhookSubscriptions: sellerworkspace.NewWebhookSubscriptionRepositoryReader(webhookSubscriptionRepository),
 		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
 		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{},
-		AccountVerification: sellerworkspace.StaticAccountVerification(os.Getenv("AGENTPAY_ENV") == "local"), Clock: clock,
+		AccountVerification: sellerworkspace.AuthenticatedAccountVerification{}, Clock: clock,
 	})
 	integrationService.SetCredentialIssuanceAuthorizer(workspaceService)
 	storefrontService := storefront.NewService(storefront.Dependencies{
@@ -318,7 +318,7 @@ func main() {
 		workspaceService,
 		sellerworkspace.NewContextPrincipalSource(
 			catalogService,
-			sellerworkspace.StaticAccountVerification(os.Getenv("AGENTPAY_ENV") == "local"),
+			sellerworkspace.AuthenticatedAccountVerification{},
 		),
 	).RegisterRoutes(mux)
 	mcpController := mcpserver.NewHTTPController(
