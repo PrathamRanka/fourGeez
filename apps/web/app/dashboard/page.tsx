@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, Boxes, FileCheck2, Settings2 } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Boxes,
+  FileCheck2,
+  Settings2,
+} from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { loadAnalyticsSnapshot } from "@/features/analytics/controller";
@@ -18,19 +24,19 @@ const operatingLinks = [
   {
     href: "/dashboard/products",
     label: "Manage products",
-    description: "Price, verify, and publish offers.",
+    description: "Pricing, publishing, and fulfillment.",
     icon: Boxes,
   },
   {
     href: "/dashboard/transactions",
     label: "Review transactions",
-    description: "Track settlement and fulfillment.",
+    description: "Settlement, delivery, and disputes.",
     icon: FileCheck2,
   },
   {
     href: "/dashboard/settings",
     label: "Open settings",
-    description: "Account, appearance, and store setup.",
+    description: "Storefront, account, and appearance.",
     icon: Settings2,
   },
 ] as const;
@@ -45,6 +51,51 @@ export default async function DashboardPage() {
   const snapshot = await loadAnalyticsSnapshot();
   const paymentPairs = buildPaymentPairSummaries(snapshot.aggregates);
   const dailyActivity = buildDailyActivity(snapshot.aggregates);
+  const stageCounts = dailyActivity.reduce(
+    (totals, day) => ({
+      fulfilled: totals.fulfilled + day.fulfilled,
+      processing: totals.processing + day.processing,
+      needsAttention: totals.needsAttention + day.failed + day.disputed,
+    }),
+    { fulfilled: 0, processing: 0, needsAttention: 0 },
+  );
+
+  const recommendedAction =
+    snapshot.routes.length === 0
+      ? {
+          title: "Publish your first product",
+          description:
+            "Create one paid offer so buyer agents can discover your storefront.",
+          href: "/dashboard/products",
+          label: "Publish your first product",
+        }
+      : stageCounts.needsAttention > 0
+        ? {
+            title: "Resolve open sales",
+            description:
+              "Review failed or disputed transactions before they interrupt fulfillment.",
+            href: "/dashboard/transactions",
+            label: `Review ${stageCounts.needsAttention} ${
+              stageCounts.needsAttention === 1
+                ? "transaction"
+                : "transactions"
+            }`,
+          }
+        : snapshot.transactionCount === 0
+          ? {
+              title: "Prepare for your first sale",
+              description:
+                "Confirm your product details and share the storefront with buyers.",
+              href: "/dashboard/products",
+              label: "Review published products",
+            }
+          : {
+              title: "Review recent sales",
+              description:
+                "Reconcile settled payments with completed fulfillment.",
+              href: "/dashboard/transactions",
+              label: "Review recent sales",
+            };
 
   return (
     <div className={styles.workspace}>
@@ -54,30 +105,40 @@ export default async function DashboardPage() {
           <h1>Commerce overview</h1>
           <p className={styles.welcome}>
             <strong>{session.principal.name}</strong>
-            <span>Monitor sales, settlement, and delivery.</span>
+            <span>Sales, settlement, and delivery at a glance.</span>
           </p>
         </div>
-        <div className={styles.networkStatus}>
+        <div className={styles.networkStatus} data-degraded={!!snapshot.error}>
           <span aria-hidden="true" />
           {snapshot.error ? "Reporting degraded" : "Systems operational"}
         </div>
       </header>
 
       <section className={styles.metrics} aria-label="Commerce metrics">
-        <article>
+        <article
+          role="status"
+          aria-label={`${snapshot.transactionCount} ${
+            snapshot.transactionCount === 1 ? "transaction" : "transactions"
+          }`}
+        >
           <span>Transactions</span>
           <strong>{snapshot.transactionCount}</strong>
-          <small>All recorded sales</small>
+          <small>Recorded in this window</small>
         </article>
         <article>
-          <span>Products</span>
-          <strong>{snapshot.routes.length}</strong>
-          <small>Configured paid routes</small>
+          <span>Fulfilled</span>
+          <strong>{stageCounts.fulfilled}</strong>
+          <small>Delivered successfully</small>
         </article>
         <article>
-          <span>Payment pairs</span>
-          <strong>{paymentPairs.length}</strong>
-          <small>Asset and network separated</small>
+          <span>Processing</span>
+          <strong>{stageCounts.processing}</strong>
+          <small>Moving through settlement</small>
+        </article>
+        <article data-attention={stageCounts.needsAttention > 0}>
+          <span>Needs attention</span>
+          <strong>{stageCounts.needsAttention}</strong>
+          <small>Failed or disputed</small>
         </article>
       </section>
 
@@ -91,11 +152,42 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      <section className={styles.commerceGrid} aria-label="Settlement overview">
+      <section className={styles.primaryGrid} aria-label="Operating overview">
+        <section
+          className={styles.briefPanel}
+          aria-label="Recommended next step"
+        >
+          <div>
+            <p className={styles.sectionLabel}>Recommended next step</p>
+            <h2>{recommendedAction.title}</h2>
+            <p className={styles.briefDescription}>
+              {recommendedAction.description}
+            </p>
+          </div>
+          <Link
+            href={recommendedAction.href}
+            aria-label={recommendedAction.label}
+            className={styles.primaryAction}
+          >
+            {recommendedAction.label}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+          <dl className={styles.briefFacts}>
+            <div>
+              <dt>Products</dt>
+              <dd>{snapshot.routes.length}</dd>
+            </div>
+            <div>
+              <dt>Payment pairs</dt>
+              <dd>{paymentPairs.length}</dd>
+            </div>
+          </dl>
+        </section>
+
         <article className={styles.activityPanel}>
           <div className={styles.panelHeading}>
             <div>
-              <p>Performance</p>
+              <p>Seven-day performance</p>
               <h2>Settlement activity</h2>
             </div>
             <span>Daily stage count · UTC</span>
@@ -104,32 +196,38 @@ export default async function DashboardPage() {
             <DailyActivityChart activity={dailyActivity} />
           ) : (
             <div className={styles.compactEmpty}>
-              Activity appears after the first verified purchase.
+              <strong>No activity yet</strong>
+              <span>Your first verified purchase will appear here.</span>
             </div>
           )}
         </article>
+      </section>
 
-        <aside className={styles.settlementPanel} aria-label="Payment pairs">
-          <div className={styles.settlementHeading}>
-            <div>
-              <p>Settlements</p>
-              <h2>Payment pairs</h2>
-            </div>
-            <div
-              className={styles.transactionCount}
-              role="status"
-              aria-label={`${snapshot.transactionCount} ${
-                snapshot.transactionCount === 1 ? "transaction" : "transactions"
-              }`}
-            >
-              <strong>{snapshot.transactionCount}</strong>
-              <span>Total</span>
-            </div>
+      <section className={styles.settlementPanel} aria-label="Payment pairs">
+        <div className={styles.settlementHeading}>
+          <div>
+            <p>Settlement book</p>
+            <h2>Funds by asset and network</h2>
           </div>
+          <Link href="/dashboard/analytics" aria-label="Open analytics">
+            Open analytics <ArrowUpRight aria-hidden="true" />
+          </Link>
+        </div>
 
-          {paymentPairs.length > 0 ? (
-            <div className={styles.pairList}>
-              {paymentPairs.map((paymentPair) => (
+        {paymentPairs.length > 0 ? (
+          <div className={styles.pairList}>
+            <div className={styles.pairColumns} aria-hidden="true">
+              <span>Payment pair</span>
+              <span>Verified</span>
+              <span>Fulfilled</span>
+              <span>Status</span>
+            </div>
+            {paymentPairs.map((paymentPair) => {
+              const requiresReview =
+                BigInt(paymentPair.failedAmount) > 0n ||
+                BigInt(paymentPair.disputedAmount) > 0n;
+
+              return (
                 <section
                   key={`${paymentPair.asset}:${paymentPair.network}`}
                   className={styles.pairCard}
@@ -159,30 +257,29 @@ export default async function DashboardPage() {
                       </dd>
                     </div>
                   </dl>
+                  <span
+                    className={styles.pairStatus}
+                    data-review={requiresReview}
+                  >
+                    {requiresReview ? "Review" : "Clear"}
+                  </span>
                 </section>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.emptyPairs}>
-              <strong>No settlements yet</strong>
-              <span>Verified payments will appear here.</span>
-            </div>
-          )}
-
-          <Link href="/dashboard/analytics" aria-label="Open analytics">
-            Open analytics <ArrowUpRight aria-hidden="true" />
-          </Link>
-        </aside>
+              );
+            })}
+          </div>
+        ) : (
+          <div className={styles.emptyPairs}>
+            <strong>No settlements yet</strong>
+            <span>Verified payments will appear here by asset and network.</span>
+          </div>
+        )}
       </section>
 
-      <section
-        aria-labelledby="seller-operations"
-        className={styles.operations}
-      >
+      <section aria-labelledby="seller-operations" className={styles.operations}>
         <div className={styles.sectionHeading}>
           <div>
-            <p>Quick actions</p>
-            <h2 id="seller-operations">Keep commerce moving.</h2>
+            <p>Workspace shortcuts</p>
+            <h2 id="seller-operations">Operate your storefront</h2>
           </div>
         </div>
         <div className={styles.operationList}>

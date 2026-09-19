@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import DashboardPage from "@/app/dashboard/page";
 import { loadAnalyticsSnapshot } from "@/features/analytics/controller";
@@ -59,6 +59,17 @@ describe("seller dashboard overview", () => {
       screen.getByRole("heading", { name: "Commerce overview" }),
     ).toBeVisible();
     expect(
+      screen.getByRole("region", { name: "Recommended next step" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Publish your first product" }),
+    ).toHaveAttribute("href", "/dashboard/products");
+    const commerceMetrics = screen.getByRole("region", {
+      name: "Commerce metrics",
+    });
+    expect(within(commerceMetrics).getByText("Needs attention")).toBeVisible();
+    expect(within(commerceMetrics).getByText("Processing")).toBeVisible();
+    expect(
       screen.queryByRole("region", { name: "AgentPay integration network" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Commerce network")).not.toBeInTheDocument();
@@ -85,5 +96,72 @@ describe("seller dashboard overview", () => {
     expect(
       screen.getByRole("link", { name: "Open analytics" }),
     ).toHaveAttribute("href", "/dashboard/analytics");
+  });
+
+  it("prioritizes transaction review when recorded sales need attention", async () => {
+    vi.mocked(getSellerSession).mockResolvedValue({
+      sessionId: "opaque-session",
+      accessToken: "server-token",
+      expiresAt: "2099-09-18T00:00:00Z",
+      principal: {
+        subject: "owner-subject",
+        email: "owner@example.com",
+        name: "Northstar Research",
+        sellerId: "sel_session_owner",
+        onboardingComplete: true,
+      },
+    });
+    vi.mocked(loadAnalyticsSnapshot).mockResolvedValue({
+      sellerId: "sel_session_owner",
+      transactionCount: 4,
+      routes: [
+        {
+          routeId: "rte_research",
+          displayName: "Research report",
+          pathPattern: "/reports/research",
+        },
+      ],
+      aggregates: [
+        {
+          sellerId: "sel_session_owner",
+          bucketDate: "2026-09-19",
+          asset: "USDC",
+          network: "eip155:84532",
+          stage: "fulfilled",
+          transactionCount: 2,
+          amount: "25000000",
+          lastTransactionAt: "2026-09-19T08:00:00Z",
+        },
+        {
+          sellerId: "sel_session_owner",
+          bucketDate: "2026-09-19",
+          asset: "USDC",
+          network: "eip155:84532",
+          stage: "failed",
+          transactionCount: 1,
+          amount: "5000000",
+          lastTransactionAt: "2026-09-19T09:00:00Z",
+        },
+        {
+          sellerId: "sel_session_owner",
+          bucketDate: "2026-09-19",
+          asset: "USDC",
+          network: "eip155:84532",
+          stage: "disputed",
+          transactionCount: 1,
+          amount: "7000000",
+          lastTransactionAt: "2026-09-19T10:00:00Z",
+        },
+      ],
+    });
+
+    render(await DashboardPage());
+
+    expect(
+      screen.getByRole("link", { name: "Review 2 transactions" }),
+    ).toHaveAttribute("href", "/dashboard/transactions");
+    expect(
+      screen.getByRole("region", { name: "USDC on eip155:84532" }),
+    ).toHaveTextContent("Review");
   });
 });
