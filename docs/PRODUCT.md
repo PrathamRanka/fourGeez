@@ -110,6 +110,18 @@ The intended onboarding flow is:
 8. Buyers use the hosted storefront or machine-readable AgentPay endpoints.
 9. Every successful sale appears in one seller dashboard regardless of channel.
 
+Before publication, an eligible seller can run one guided test purchase from
+the onboarding workspace. The control remains hidden until the account,
+service, entitlement, payout destination, project credential, connector, and
+at least one published testable product are ready. The workflow uses the same
+browser purchase-session, immutable intent, x402 challenge, payment,
+fulfillment, receipt, evidence, and seller-dashboard APIs as a buyer purchase.
+It labels local mock payment separately from Base Sepolia testnet payment and
+does not report success until the authoritative fulfilled transaction appears
+exactly once in the seller dashboard with a verifiable receipt and evidence
+chain. A completed test may be rerun without modifying or deleting historical
+transactions.
+
 A representative prompt is:
 
 ```text

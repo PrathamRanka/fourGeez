@@ -168,6 +168,13 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     wrong network, rejected authorization, expired intent, unavailable
     facilitator, unknown settlement, and same-proof recovery without duplicate
     payment or seller invocation.
+17. From authenticated seller onboarding, run the guided test purchase only
+    after all authoritative prerequisites and a published product are ready.
+    Assert each visible stage: immutable intent, explicitly labelled mock or
+    Base Sepolia x402 payment, exactly-once fulfillment, receipt/evidence
+    visibility, and exactly one reconciled dashboard transaction. Reset the
+    disposable launch-ready profile and complete this journey three consecutive
+    times without manual database repair.
 
 Historical M2 approval tests remain regression coverage for dormant code only.
 They are not Lean V1 acceptance tests, no approval server is started, and no
@@ -242,3 +249,5 @@ proofs, authorization headers, or purchase cookies in the evidence bundle.
 - [ ] Coding-agent setup produces a reviewable diff and cannot publish without confirmation.
 - [ ] Human and agent purchases appear in one seller transaction history.
 - [ ] Three consecutive three-minute rehearsals succeed without data repair.
+- [ ] The seller onboarding test-purchase control remains hidden until its
+      authoritative prerequisites are satisfied and reports no synthetic pass.
