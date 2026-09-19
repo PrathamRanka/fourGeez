@@ -13,23 +13,6 @@
   border-bottom: 1px solid var(--border);
   padding: clamp(3.5rem, 8vw, 7rem) clamp(1.25rem, 5vw, 5rem);
 }
-.hero::before {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(
-      circle at 52% 92%,
-      color-mix(in oklab, var(--blue-glow) 48%, transparent),
-      transparent 42%
-    ),
-    radial-gradient(
-      circle at 70% 100%,
-      color-mix(in oklab, var(--brand-orange) 22%, transparent),
-      transparent 34%
-    );
-  content: "";
-  opacity: 0.72;
-}
 .hero > * {
   position: relative;
 }
@@ -144,7 +127,7 @@
     transform 180ms ease;
 }
 .productCard:hover {
-  background: color-mix(in oklab, var(--card) 84%, var(--blue-soft));
+  background: var(--surface-subtle);
   transform: translateY(-0.15rem);
 }
 .productTopline {
@@ -301,7 +284,7 @@
 .checkoutAside {
   border-top: 1px solid var(--border);
   padding: clamp(1.25rem, 4vw, 3rem);
-  background: color-mix(in oklab, var(--card) 96%, var(--blue-soft));
+  background: var(--surface-subtle);
 }
 .checkoutLabel {
   margin-bottom: 0.75rem;

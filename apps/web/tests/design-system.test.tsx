@@ -112,6 +112,71 @@ describe("AgentPay web foundation", () => {
     expect(authStyles).toContain("background: #050506");
   });
 
+  it("uses the footer ink black for every shared application surface", () => {
+    const stylesheet = readFileSync(
+      path.resolve(process.cwd(), "app/globals.css"),
+      "utf8",
+    );
+
+    expect(stylesheet).toContain("--background: #050506");
+    expect(stylesheet).toContain("--dashboard-canvas: #050506");
+    expect(stylesheet).toContain("--status-success: #8ce1bb");
+    expect(stylesheet).toContain("--status-warning: #e1cd7e");
+    expect(stylesheet).toContain("--status-danger: #ffaaaa");
+    expect(stylesheet).not.toContain("#07101f");
+    expect(stylesheet).not.toContain("#0b1628");
+    expect(stylesheet).not.toContain("#10203a");
+    const bodyRule = stylesheet.match(/body\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(bodyRule).not.toContain("background-image");
+  });
+
+  it("keeps non-marketing pages and panels neutral black", () => {
+    const neutralSurfaceFiles = [
+      "app/docs/docs.module.css",
+      "components/dashboard/dashboard-shell.module.css",
+      "app/dashboard/analytics/analytics-page.module.css",
+      "features/analytics/view/seller-analytics-dashboard.module.css",
+      "features/analytics/view/daily-activity-chart.module.css",
+      "features/auth/view/auth-surface.module.css",
+      "features/buyer/view/buyer-activity.module.css",
+      "features/commerce/view/buyer-purchase-detail.module.css",
+      "features/storefront/view/storefront.module.css",
+    ];
+    const neutralSurfaceStyles = neutralSurfaceFiles
+      .map((fileName) =>
+        readFileSync(path.resolve(process.cwd(), fileName), "utf8"),
+      )
+      .join("\n");
+
+    expect(neutralSurfaceStyles).not.toMatch(
+      /background(?:-image)?:\s*(?:radial|conic)-gradient/i,
+    );
+    expect(neutralSurfaceStyles).not.toMatch(
+      /background:[^;]*(?:--blue-soft|--blue-glow|--brand-(?:blue|pink|orange))/i,
+    );
+    expect(neutralSurfaceStyles).not.toMatch(
+      /--(?:dash|analytics)-(?:canvas|surface|panel|raised|soft|bg):[^;]*#(?:fff(?:fff)?|fafaf8|f4f4f1)/i,
+    );
+    expect(neutralSurfaceStyles).not.toContain("color-scheme: light");
+    expect(neutralSurfaceStyles).not.toContain("#08090b");
+    expect(neutralSurfaceStyles).not.toContain("#090a0d");
+  });
+
+  it("does not use colored washes for application status surfaces", () => {
+    const stylesheet = readFileSync(
+      path.resolve(process.cwd(), "app/globals.css"),
+      "utf8",
+    );
+
+    expect(stylesheet).not.toContain("--accent: #171a24");
+    expect(stylesheet).not.toMatch(
+      /background:\s*(?:#0b1a16|#1c0d0d|#19170d|oklch\(0\.9[45]\s+0\.0(?:35|4|45|55|6))/i,
+    );
+    expect(stylesheet).not.toMatch(
+      /background:[^;]*color-mix\([^;]*(?:--blue-soft|--destructive)[^;]*\)/i,
+    );
+  });
+
   it("keeps shared registry components local and deterministic", () => {
     const sharedSources = [
       "components/ui/cloud-shader.tsx",

@@ -11,23 +11,6 @@
   border-bottom: 1px solid var(--border);
   padding: clamp(3.5rem, 8vw, 7rem) clamp(1.25rem, 5vw, 5rem);
 }
-.hero::after {
-  position: absolute;
-  right: -12rem;
-  bottom: -15rem;
-  width: 38rem;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 210deg,
-    var(--blue-glow),
-    color-mix(in oklab, var(--chart-5) 45%, transparent),
-    transparent 65%
-  );
-  content: "";
-  filter: blur(6rem);
-  opacity: 0.34;
-}
 .hero > * {
   position: relative;
   z-index: 1;
@@ -72,7 +55,7 @@
 }
 .trace {
   min-height: 26rem;
-  background: color-mix(in oklab, var(--card) 94%, var(--blue-soft));
+  background: var(--card);
 }
 .panelLabel {
   display: flex;

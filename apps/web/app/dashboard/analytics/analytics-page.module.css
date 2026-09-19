@@ -8,21 +8,15 @@
   justify-items: start;
   gap: 0.9rem;
   overflow: hidden;
-  border: 1px solid var(--dash-line, #e2e2e2);
+  border: 1px solid var(--dash-line, #27272a);
   border-radius: 0.8rem;
   padding: clamp(1.5rem, 6vw, 5rem);
-  background:
-    linear-gradient(
-      135deg,
-      transparent 48%,
-      color-mix(in srgb, var(--dash-copy, #111111) 3%, transparent)
-    ),
-    var(--dash-surface, #ffffff);
-  color: var(--dash-copy, #111111);
+  background: var(--dash-surface, #0a0a0b);
+  color: var(--dash-copy, #f5f5f7);
 }
 
 .missingContext > p {
-  color: var(--dash-muted, #6f6f73);
+  color: var(--dash-muted, #a1a1aa);
   font-family: var(--font-mono);
   font-size: 0.57rem;
   letter-spacing: 0.1em;
@@ -40,7 +34,7 @@
 
 .missingContext > span {
   max-width: 34rem;
-  color: var(--dash-muted, #6f6f73);
+  color: var(--dash-muted, #a1a1aa);
   font-size: 0.78rem;
   line-height: 1.55;
 }
@@ -48,11 +42,11 @@
 .action {
   min-height: 2.65rem;
   margin-top: 0.75rem;
-  border: 1px solid var(--dash-copy, #111111);
+  border: 1px solid var(--dash-copy, #f5f5f7);
   border-radius: 0.55rem;
-  background: var(--dash-copy, #111111);
+  background: var(--dash-copy, #f5f5f7);
   padding-inline: 0.95rem;
-  color: var(--dash-canvas, #ffffff);
+  color: var(--dash-canvas, #050506);
   font-family: var(--font-mono);
   font-size: 0.62rem;
 }

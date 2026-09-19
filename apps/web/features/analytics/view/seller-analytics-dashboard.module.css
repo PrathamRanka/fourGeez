@@ -1,12 +1,12 @@
 .workspace {
-  --analytics-bg: var(--dash-canvas, #ffffff);
-  --analytics-panel: var(--dash-surface, #ffffff);
-  --analytics-raised: var(--dash-surface-raised, #fafaf8);
-  --analytics-soft: var(--dash-surface-soft, #f4f4f1);
-  --analytics-line: var(--dash-line, #e5e5e2);
-  --analytics-line-strong: var(--dash-line-strong, #c9c9c4);
-  --analytics-text: var(--dash-copy, #080808);
-  --analytics-muted: var(--dash-muted, #70706b);
+  --analytics-bg: var(--dash-canvas, #050506);
+  --analytics-panel: var(--dash-surface, #0a0a0b);
+  --analytics-raised: var(--dash-surface-raised, #0d0d0f);
+  --analytics-soft: var(--dash-surface-soft, #111113);
+  --analytics-line: var(--dash-line, #27272a);
+  --analytics-line-strong: var(--dash-line-strong, #3f3f46);
+  --analytics-text: var(--dash-copy, #f5f5f7);
+  --analytics-muted: var(--dash-muted, #a1a1aa);
   display: grid;
   width: 100%;
   max-width: 90rem;

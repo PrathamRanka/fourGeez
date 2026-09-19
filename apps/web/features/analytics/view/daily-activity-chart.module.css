@@ -1,24 +1,14 @@
 .frame {
-  --chart-total: #080808;
-  --chart-fulfilled: #30302e;
-  --chart-processing: #8c8c86;
-  --chart-failed: #b9b9b3;
-  --chart-disputed: #deded9;
-  --chart-grid: #e5e5e2;
-  --chart-crosshair: #70706b;
-  min-width: 0;
-  padding: clamp(1rem, 2.8vw, 2rem);
-  background: var(--analytics-panel, var(--dash-surface, var(--card)));
-}
-
-:global(.dark) .frame {
-  --chart-total: #ffffff;
+  --chart-total: #f5f5f7;
   --chart-fulfilled: #e7e7e3;
   --chart-processing: #8d8d88;
   --chart-failed: #555552;
   --chart-disputed: #30302e;
   --chart-grid: #242424;
   --chart-crosshair: #9a9a94;
+  min-width: 0;
+  padding: clamp(1rem, 2.8vw, 2rem);
+  background: var(--analytics-panel, var(--dash-surface, var(--card)));
 }
 
 .chartTopline {

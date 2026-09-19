@@ -31,11 +31,7 @@
   justify-content: space-between;
   gap: 1.5rem;
   padding: clamp(2.5rem, 7vw, 5.5rem) clamp(1.25rem, 5vw, 4.5rem);
-  background: radial-gradient(
-    circle at 86% 100%,
-    color-mix(in oklab, var(--blue-glow) 30%, transparent),
-    transparent 36%
-  );
+  background: var(--background);
 }
 .eyebrow {
   color: var(--muted-foreground);
@@ -148,7 +144,7 @@
 .warning,
 .errorBox {
   border-left: 2px solid var(--destructive);
-  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  background: var(--surface-subtle);
   padding: 0.85rem;
   color: var(--destructive);
   font-size: 0.78rem;

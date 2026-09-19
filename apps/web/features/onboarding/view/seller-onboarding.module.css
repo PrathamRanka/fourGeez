@@ -175,7 +175,7 @@
   width: min(100%, 64rem);
   margin: 0 auto 0.75rem;
   border: 1px solid color-mix(in oklab, var(--destructive) 48%, var(--line));
-  background: color-mix(in oklab, var(--destructive) 8%, var(--surface));
+  background: var(--surface);
   padding: 0.8rem 0.9rem;
   color: var(--destructive);
   font-size: 0.74rem;
