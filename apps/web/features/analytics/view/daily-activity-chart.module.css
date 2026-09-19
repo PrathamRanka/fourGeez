@@ -1,18 +1,24 @@
 .frame {
-  --chart-total: #171717;
-  --chart-fulfilled: #767676;
-  --chart-grid: #e5e5e5;
-  --chart-crosshair: #a3a3a3;
+  --chart-total: #080808;
+  --chart-fulfilled: #30302e;
+  --chart-processing: #8c8c86;
+  --chart-failed: #b9b9b3;
+  --chart-disputed: #deded9;
+  --chart-grid: #e5e5e2;
+  --chart-crosshair: #70706b;
   min-width: 0;
-  padding: clamp(1rem, 2.4vw, 1.5rem);
+  padding: clamp(1rem, 2.8vw, 2rem);
   background: var(--analytics-panel, var(--dash-surface, var(--card)));
 }
 
 :global(.dark) .frame {
-  --chart-total: #f4f4f2;
-  --chart-fulfilled: #8d8d92;
-  --chart-grid: #262628;
-  --chart-crosshair: #626268;
+  --chart-total: #ffffff;
+  --chart-fulfilled: #e7e7e3;
+  --chart-processing: #8d8d88;
+  --chart-failed: #555552;
+  --chart-disputed: #30302e;
+  --chart-grid: #242424;
+  --chart-crosshair: #9a9a94;
 }
 
 .chartTopline {
@@ -20,20 +26,22 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 1.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.75rem;
 }
 
 .summary {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(3, minmax(6.5rem, 1fr));
+  grid-template-columns: repeat(3, minmax(7.5rem, 1fr));
   border: 1px solid var(--analytics-line, var(--border));
+  border-radius: 0.7rem;
+  background: var(--analytics-raised, var(--card));
 }
 
 .summary > div {
   min-width: 0;
   border-right: 1px solid var(--analytics-line, var(--border));
-  padding: 0.75rem 0.9rem;
+  padding: 0.9rem 1rem;
 }
 
 .summary > div:last-child {
@@ -58,12 +66,12 @@
 }
 
 .summary strong {
-  margin-top: 0.45rem;
+  margin-top: 0.5rem;
   color: var(--analytics-text, var(--foreground));
   font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 560;
-  letter-spacing: -0.035em;
+  font-size: 1.3rem;
+  font-weight: 540;
+  letter-spacing: -0.04em;
 }
 
 .legend {
@@ -71,46 +79,54 @@
   flex: none;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.65rem 1rem;
+  gap: 0.7rem 1rem;
 }
 
 .legend span {
   display: flex;
   align-items: center;
-  gap: 0.42rem;
+  gap: 0.45rem;
 }
 
 .legend i {
-  width: 0.9rem;
-  height: 2px;
+  width: 0.8rem;
+  height: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--chart-total) 14%, transparent);
   background: var(--chart-total);
 }
 
 .legend i[data-series="fulfilled"] {
-  height: 1px;
-  background: repeating-linear-gradient(
-    to right,
-    var(--chart-fulfilled) 0 3px,
-    transparent 3px 5px
-  );
+  background: var(--chart-fulfilled);
+}
+
+.legend i[data-series="processing"] {
+  background: var(--chart-processing);
+}
+
+.legend i[data-series="failed"] {
+  background: var(--chart-failed);
+}
+
+.legend i[data-series="disputed"] {
+  background: var(--chart-disputed);
 }
 
 .chart {
   width: 100%;
-  height: clamp(16rem, 30vw, 21rem);
+  height: clamp(22rem, 34vw, 30rem);
   min-height: 0;
   aspect-ratio: auto;
   color: var(--analytics-muted, var(--muted-foreground));
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.6rem;
 }
 
 .tooltip {
   border-color: var(--analytics-line-strong, var(--border));
-  border-radius: 0.5rem;
+  border-radius: 0.6rem;
   background: var(--analytics-panel, var(--popover));
   color: var(--analytics-text, var(--popover-foreground));
-  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 16%);
+  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 14%);
 }
 
 .accessibleTable {
@@ -136,15 +152,21 @@
   padding: 0;
 }
 
-@media (max-width: 48rem) {
-  .frame {
-    padding: 0.85rem;
-  }
-
+@media (max-width: 64rem) {
   .chartTopline {
     align-items: stretch;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: 1rem;
+  }
+
+  .legend {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 48rem) {
+  .frame {
+    padding: 1rem;
   }
 
   .summary {
@@ -153,15 +175,12 @@
   }
 
   .summary > div {
-    padding-inline: 0.65rem;
-  }
-
-  .legend {
-    justify-content: flex-start;
+    padding-inline: 0.7rem;
   }
 
   .chart {
-    height: 14rem;
+    height: 18rem;
+    font-size: 0.55rem;
   }
 }
 
@@ -177,5 +196,10 @@
 
   .summary > div:last-child {
     border-bottom: 0;
+  }
+
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

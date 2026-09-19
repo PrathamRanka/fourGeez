@@ -1,34 +1,22 @@
 .workspace {
   --analytics-bg: var(--dash-canvas, #ffffff);
   --analytics-panel: var(--dash-surface, #ffffff);
-  --analytics-soft: var(--dash-surface-soft, #f5f5f5);
-  --analytics-line: var(--dash-line, #e2e2e2);
-  --analytics-line-strong: var(--dash-line-strong, #c8c8c8);
-  --analytics-text: var(--dash-copy, #111111);
-  --analytics-muted: var(--dash-muted, #6f6f73);
+  --analytics-raised: var(--dash-surface-raised, #fafaf8);
+  --analytics-soft: var(--dash-surface-soft, #f4f4f1);
+  --analytics-line: var(--dash-line, #e5e5e2);
+  --analytics-line-strong: var(--dash-line-strong, #c9c9c4);
+  --analytics-text: var(--dash-copy, #080808);
+  --analytics-muted: var(--dash-muted, #70706b);
   display: grid;
   width: 100%;
   max-width: 90rem;
-  min-height: calc(100vh - 4.3rem);
+  min-height: calc(100svh - var(--dash-header-height, 4.5rem));
   margin-inline: auto;
-  gap: 0.75rem;
-  overflow: hidden;
-  padding: clamp(0.75rem, 2vw, 1.5rem);
+  gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 2rem);
   background: var(--analytics-bg);
   color: var(--analytics-text);
-}
-
-.hero,
-.pairs,
-.chartPanel,
-.routePanel,
-.errorState,
-.emptyState {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--analytics-line);
-  border-radius: 0.8rem;
-  background: var(--analytics-panel);
+  font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .hero {
@@ -37,19 +25,20 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 2rem;
-  border-width: 0 0 1px;
-  border-radius: 0;
-  padding: 0 0 1.25rem;
-  background: var(--analytics-bg);
+  padding: clamp(0.5rem, 2vw, 1.25rem) 0 1rem;
 }
 
 .eyebrow,
 .sectionIndex,
 .windowCount span,
 .sectionHeading > span,
+.healthHeading > span,
+.healthMetrics span,
+.healthMetrics small,
 .pair > header span,
 .metric p,
-.routePanel th {
+.routePanel th,
+.routePanel td::before {
   font-family: var(--font-mono);
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -58,23 +47,23 @@
 .eyebrow,
 .sectionIndex {
   color: var(--analytics-muted);
-  font-size: 0.57rem;
+  font-size: 0.6rem;
 }
 
 .hero h1 {
-  margin-top: 0.7rem;
+  margin-top: 0.65rem;
   font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 520;
-  line-height: 0.94;
+  line-height: 0.96;
   letter-spacing: -0.065em;
 }
 
 .hero > div:first-child > p:last-child {
-  max-width: 35rem;
-  margin-top: 1rem;
+  max-width: 40rem;
+  margin-top: 0.85rem;
   color: var(--analytics-muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 
@@ -86,72 +75,178 @@
 
 .windowCount strong {
   font-family: var(--font-display);
-  font-size: clamp(2.4rem, 5vw, 4rem);
-  font-weight: 440;
-  line-height: 0.8;
+  font-size: clamp(2.75rem, 5vw, 4.5rem);
+  font-weight: 450;
+  line-height: 0.78;
   letter-spacing: -0.075em;
 }
 
 .windowCount span {
-  margin-top: 0.75rem;
+  margin-top: 0.8rem;
+  color: var(--analytics-muted);
+  font-size: 0.53rem;
+}
+
+.healthPanel,
+.pairs,
+.chartPanel,
+.routePanel,
+.errorState,
+.emptyState {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--analytics-line);
+  border-radius: 1rem;
+  background: var(--analytics-panel);
+}
+
+.healthPanel {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.55fr) minmax(0, 2fr);
+}
+
+.healthHeading {
+  display: flex;
+  min-height: 10.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--analytics-line);
+  padding: 1.2rem;
+}
+
+.healthHeading h2,
+.sectionHeading h2,
+.errorState h2,
+.emptyState h2 {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2vw, 1.85rem);
+  font-weight: 540;
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.healthHeading > span,
+.sectionHeading > span {
   color: var(--analytics-muted);
   font-size: 0.52rem;
 }
 
+.healthMetrics {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(10.5rem, 0.85fr);
+}
+
+.healthMetrics article,
+.healthAction {
+  min-width: 0;
+  min-height: 10.5rem;
+  border-right: 1px solid var(--analytics-line);
+  padding: 1.2rem;
+}
+
+.healthMetrics article {
+  display: flex;
+  flex-direction: column;
+}
+
+.healthMetrics article[data-attention="true"] {
+  background: var(--analytics-soft);
+}
+
+.healthMetrics span,
+.healthMetrics small {
+  display: block;
+  overflow: hidden;
+  color: var(--analytics-muted);
+  font-size: 0.51rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.healthMetrics strong {
+  display: block;
+  margin-block: auto 0.65rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 2.5vw, 2.2rem);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.healthAction {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-right: 0;
+  background: var(--analytics-text);
+  color: var(--analytics-bg);
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+
+.healthAction span {
+  max-width: 11rem;
+  color: inherit;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+  white-space: normal;
+}
+
+.healthAction svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
 .sectionHeading {
   display: flex;
-  min-height: 6.3rem;
+  min-height: 5.6rem;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1.5rem;
   border-bottom: 1px solid var(--analytics-line);
-  padding: 1.15rem clamp(1rem, 3vw, 1.5rem);
-}
-
-.sectionHeading h2,
-.errorState h2,
-.emptyState h2 {
-  margin-top: 0.45rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.35rem, 2.4vw, 2.15rem);
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: -0.045em;
+  padding: 1.15rem 1.25rem;
 }
 
 .sectionHeading > span {
-  color: var(--analytics-muted);
-  font-size: 0.51rem;
   white-space: nowrap;
 }
 
 .pairGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
-  gap: 0.75rem;
-  padding: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 32rem), 1fr));
+  gap: 0.85rem;
+  padding: 0.85rem;
 }
 
 .pair {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--analytics-line);
-  border-radius: 0.65rem;
+  border-radius: 0.8rem;
   background: var(--analytics-panel);
 }
 
 .pair[data-accent="true"] {
-  background: var(--analytics-soft);
+  border-color: var(--analytics-line-strong);
+  background: var(--analytics-raised);
 }
 
 .pair > header {
   display: flex;
-  min-height: 4.3rem;
+  min-height: 5rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   border-bottom: 1px solid var(--analytics-line);
-  padding: 0.85rem 1rem;
+  padding: 1rem 1.15rem;
 }
 
 .pair > header strong,
@@ -161,13 +256,14 @@
 
 .pair > header strong {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 560;
+  letter-spacing: -0.035em;
 }
 
 .pair > header span {
   max-width: 18rem;
-  margin-top: 0.18rem;
+  margin-top: 0.2rem;
   overflow: hidden;
   color: var(--analytics-muted);
   font-size: 0.5rem;
@@ -181,50 +277,52 @@
 }
 
 .metric {
+  display: flex;
   min-width: 0;
-  min-height: 8.6rem;
+  min-height: 8.5rem;
+  flex-direction: column;
+  justify-content: space-between;
   border-right: 1px solid var(--analytics-line);
-  padding: 1rem;
+  padding: 1rem 1.05rem;
 }
 
 .metric:last-child {
   border-right: 0;
 }
 
-.metric svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  color: var(--analytics-muted);
-}
-
 .metric p {
-  margin-top: 1.7rem;
   color: var(--analytics-muted);
-  font-size: 0.48rem;
+  font-size: 0.49rem;
 }
 
 .metric strong {
   display: block;
-  margin-top: 0.45rem;
   overflow: hidden;
   font-family: var(--font-display);
-  font-size: clamp(0.95rem, 1.7vw, 1.4rem);
+  font-size: clamp(1.05rem, 1.6vw, 1.45rem);
   font-weight: 520;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.04em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.chartPanel {
+  min-height: 34rem;
+}
+
+.routePanel {
+  min-height: 20rem;
+}
+
 .tableWrap {
-  max-width: 100%;
+  width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  scrollbar-gutter: stable;
 }
 
 .routePanel table {
   width: 100%;
-  min-width: 46rem;
+  min-width: 58rem;
   border-collapse: collapse;
   text-align: left;
 }
@@ -233,7 +331,7 @@
 .routePanel td {
   border-right: 1px solid var(--analytics-line);
   border-bottom: 1px solid var(--analytics-line);
-  padding: 0.85rem 1rem;
+  padding: 1rem 1.1rem;
 }
 
 .routePanel th:last-child,
@@ -250,15 +348,18 @@
 }
 
 .routePanel th {
+  height: 3.35rem;
   color: var(--analytics-muted);
-  font-size: 0.49rem;
+  font-size: 0.51rem;
   font-weight: 500;
 }
 
 .routePanel td {
+  height: 5.4rem;
   color: var(--analytics-muted);
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
+  line-height: 1.45;
 }
 
 .routePanel td strong,
@@ -268,23 +369,33 @@
 
 .routePanel td strong {
   color: var(--analytics-text);
-  font-weight: 520;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .routePanel td small {
-  max-width: 16rem;
-  margin-top: 0.25rem;
+  max-width: 18rem;
+  margin-top: 0.3rem;
   overflow: hidden;
   color: var(--analytics-muted);
-  font-size: 0.53rem;
+  font-size: 0.55rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.productCell {
+  width: 23%;
+}
+
+.pairCell {
+  width: 24%;
 }
 
 .errorState,
 .emptyState {
   display: grid;
-  min-height: 20rem;
+  min-height: 23rem;
   align-items: center;
   gap: 1.5rem;
   padding: clamp(1.5rem, 5vw, 4rem);
@@ -296,11 +407,11 @@
 
 .errorIcon {
   display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3rem;
+  height: 3rem;
   place-items: center;
   border: 1px solid var(--analytics-line-strong);
-  border-radius: 0.55rem;
+  border-radius: 0.65rem;
   color: var(--analytics-text);
 }
 
@@ -314,7 +425,7 @@
   max-width: 38rem;
   margin-top: 0.65rem;
   color: var(--analytics-muted);
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   line-height: 1.55;
 }
 
@@ -326,16 +437,15 @@
   justify-content: center;
   gap: 0.45rem;
   border: 1px solid var(--analytics-line-strong);
-  border-radius: 0.55rem;
-  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
   color: var(--analytics-text);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 650;
   text-decoration: none;
   transition:
     border-color 150ms ease,
-    background-color 150ms ease,
-    color 150ms ease;
+    background-color 150ms ease;
 }
 
 .emptyState {
@@ -348,28 +458,68 @@
 }
 
 .mutedState {
-  padding: 2.5rem clamp(1rem, 3vw, 1.5rem);
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  padding: 2.5rem 1.25rem;
   color: var(--analytics-muted);
-  font-family: var(--font-mono);
-  font-size: 0.61rem;
+  font-size: 0.76rem;
+  text-align: center;
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .healthAction:hover {
+    opacity: 0.82;
+  }
+
   .errorState a:hover,
   .emptyState a:hover {
     border-color: var(--analytics-text);
-    background: var(--analytics-text);
-    color: var(--analytics-bg);
+    background: var(--analytics-raised);
   }
 
   .routePanel tbody tr:hover {
-    background: var(--analytics-soft);
+    background: var(--analytics-raised);
+  }
+}
+
+@media (max-width: 75rem) {
+  .healthPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .healthHeading {
+    min-height: auto;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--analytics-line);
+  }
+
+  .healthMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(9rem, 0.8fr);
   }
 }
 
 @media (max-width: 64rem) {
   .workspace {
-    min-height: calc(100vh - 6.95rem);
+    min-height: calc(100svh - 7.7rem);
+  }
+
+  .healthMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .healthMetrics article:nth-child(3) {
+    border-right: 0;
+  }
+
+  .healthAction {
+    min-height: 4.5rem;
+    grid-column: 1 / -1;
+    align-items: center;
+    border-top: 1px solid var(--analytics-line);
   }
 
   .metricGrid {
@@ -385,34 +535,135 @@
   }
 }
 
+@media (max-width: 56rem) {
+  .routePanel table,
+  .routePanel tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .routePanel thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    border: 0;
+    padding: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .routePanel tbody {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .routePanel tbody tr {
+    display: grid;
+    overflow: hidden;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--analytics-line);
+    border-radius: 0.75rem;
+    background: var(--analytics-panel);
+  }
+
+  .routePanel td,
+  .routePanel tbody tr:last-child td {
+    display: grid;
+    min-width: 0;
+    height: auto;
+    min-height: 4.5rem;
+    align-content: space-between;
+    gap: 0.75rem;
+    border-right: 1px solid var(--analytics-line);
+    border-bottom: 1px solid var(--analytics-line);
+    padding: 0.9rem;
+  }
+
+  .routePanel td:nth-child(even) {
+    border-right: 0;
+  }
+
+  .routePanel td:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .routePanel td::before {
+    color: var(--analytics-muted);
+    content: attr(data-label);
+    font-size: 0.48rem;
+  }
+
+  .routePanel .productCell,
+  .routePanel .pairCell {
+    width: auto;
+    grid-column: 1 / -1;
+    border-right: 0;
+  }
+
+  .routePanel .productCell {
+    min-height: 5.5rem;
+    background: var(--analytics-raised);
+  }
+
+  .routePanel .pairCell {
+    min-height: 5rem;
+  }
+}
+
 @media (max-width: 48rem) {
   .workspace {
-    gap: 0.6rem;
-    padding: 0.6rem;
+    gap: 0.75rem;
+    padding: 1rem;
   }
 
   .hero {
     min-height: auto;
     align-items: flex-start;
     flex-direction: column;
-    justify-content: flex-end;
     gap: 1.5rem;
-    padding: 1rem 0 1.25rem;
+    padding: 1.25rem 0 0.75rem;
   }
 
   .hero h1 {
-    font-size: clamp(2rem, 11vw, 3rem);
+    font-size: clamp(2.2rem, 11vw, 3rem);
   }
 
   .windowCount {
     justify-items: start;
   }
 
+  .healthHeading,
   .sectionHeading {
     min-height: auto;
     align-items: flex-start;
     flex-direction: column;
     gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .healthMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .healthMetrics article,
+  .healthMetrics article:nth-child(3) {
+    min-height: 7.25rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--analytics-line);
+    padding: 1rem;
+  }
+
+  .healthMetrics strong {
+    margin-top: 1.3rem;
+  }
+
+  .healthAction {
+    grid-column: auto;
     padding: 1rem;
   }
 
@@ -422,16 +673,20 @@
 
   .pairGrid {
     grid-template-columns: 1fr;
-    padding: 0.6rem;
+    padding: 0.65rem;
+  }
+
+  .pair > header {
+    padding-inline: 1rem;
   }
 
   .metric {
-    min-height: 7.5rem;
-    padding: 0.85rem;
+    min-height: 7.4rem;
+    padding: 0.9rem;
   }
 
-  .metric p {
-    margin-top: 1.25rem;
+  .chartPanel {
+    min-height: 29rem;
   }
 
   .errorState,
@@ -447,7 +702,12 @@
 }
 
 @media (max-width: 25rem) {
-  .metricGrid {
+  .workspace {
+    padding-inline: 0.75rem;
+  }
+
+  .metricGrid,
+  .routePanel tbody tr {
     grid-template-columns: 1fr;
   }
 
@@ -460,9 +720,22 @@
   .metric:last-child {
     border-bottom: 0;
   }
+
+  .routePanel td,
+  .routePanel td:nth-child(even),
+  .routePanel td:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--analytics-line);
+  }
+
+  .routePanel tbody tr:last-child td:last-child,
+  .routePanel tbody tr td:last-child {
+    border-bottom: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .healthAction,
   .errorState a,
   .emptyState a,
   .routePanel tbody tr {

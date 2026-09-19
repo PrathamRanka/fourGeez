@@ -109,6 +109,14 @@ describe("seller analytics dashboard", () => {
   it("shows daily activity and route performance without counting route rows twice", () => {
     render(<SellerAnalyticsDashboard snapshot={snapshot} />);
 
+    const salesHealth = screen.getByRole("region", { name: "Sales health" });
+    expect(within(salesHealth).getByText("40%")).toBeVisible();
+    expect(within(salesHealth).getByText("1 in flight")).toBeVisible();
+    expect(within(salesHealth).getByText("2 need review")).toBeVisible();
+    expect(
+      within(salesHealth).getByRole("link", { name: "Review 2 exceptions" }),
+    ).toHaveAttribute("href", "/dashboard/transactions");
+
     expect(
       screen.getByRole("img", { name: "Daily sales activity" }),
     ).toBeVisible();
@@ -117,8 +125,9 @@ describe("seller analytics dashboard", () => {
     });
     expect(within(legend).getByText("All activity")).toBeVisible();
     expect(within(legend).getByText("Fulfilled")).toBeVisible();
-    expect(within(legend).queryByText("Failed")).not.toBeInTheDocument();
-    expect(within(legend).queryByText("Disputed")).not.toBeInTheDocument();
+    expect(within(legend).getByText("Processing")).toBeVisible();
+    expect(within(legend).getByText("Failed")).toBeVisible();
+    expect(within(legend).getByText("Disputed")).toBeVisible();
     const chartSummary = screen.getByRole("group", {
       name: "Seven-day activity summary",
     });
@@ -139,8 +148,10 @@ describe("seller analytics dashboard", () => {
       name: "Product performance",
     });
     expect(within(routeTable).getByText("Research Report")).toBeVisible();
+    expect(within(routeTable).getByText(/Base Sepolia/)).toBeVisible();
     expect(within(routeTable).getByText("1 fulfilled")).toBeVisible();
     expect(within(routeTable).getByText("35 USDC")).toBeVisible();
+    expect(within(routeTable).getByText("100%")).toBeVisible();
   });
 
   it("renders an actionable empty state", () => {
@@ -151,6 +162,11 @@ describe("seller analytics dashboard", () => {
     );
 
     expect(screen.getByText("No sales in this window yet")).toBeVisible();
+    expect(
+      screen.getByRole("status", { name: "Analytics empty state" }),
+    ).toHaveTextContent(
+      "Publish and validate a product to begin tracking verified sales.",
+    );
     expect(
       screen.getByRole("link", { name: "Review products" }),
     ).toHaveAttribute("href", "/dashboard/products");

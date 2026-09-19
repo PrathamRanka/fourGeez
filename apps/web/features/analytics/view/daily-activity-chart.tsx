@@ -1,8 +1,7 @@
 "use client";
 
-import { useId } from "react";
 import {
-  Area,
+  Bar,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -15,59 +14,26 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type { DailyActivity } from "@/features/analytics/model";
+import {
+  buildSevenDayActivity,
+  type DailyActivity,
+} from "@/features/analytics/model";
 import styles from "./daily-activity-chart.module.css";
-
-type DailyActivityTrend = DailyActivity & { total: number };
-
-function buildSevenDayTrend(activity: DailyActivity[]): DailyActivityTrend[] {
-  if (activity.length === 0) {
-    return [];
-  }
-
-  const activityByDate = new Map(
-    activity.map((dailyActivity) => [dailyActivity.bucketDate, dailyActivity]),
-  );
-  const latestBucketDate = activity.reduce(
-    (latestDate, dailyActivity) =>
-      dailyActivity.bucketDate > latestDate
-        ? dailyActivity.bucketDate
-        : latestDate,
-    activity[0].bucketDate,
-  );
-  const latestDate = new Date(`${latestBucketDate}T00:00:00.000Z`);
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const bucketDateValue = new Date(latestDate);
-    bucketDateValue.setUTCDate(latestDate.getUTCDate() - (6 - index));
-    const bucketDate = bucketDateValue.toISOString().slice(0, 10);
-    const recordedActivity = activityByDate.get(bucketDate) ?? {
-      bucketDate,
-      fulfilled: 0,
-      processing: 0,
-      failed: 0,
-      disputed: 0,
-    };
-
-    return {
-      ...recordedActivity,
-      total:
-        recordedActivity.fulfilled +
-        recordedActivity.processing +
-        recordedActivity.failed +
-        recordedActivity.disputed,
-    };
-  });
-}
 
 const chartConfig = {
   total: { label: "All activity", color: "var(--chart-total)" },
   fulfilled: { label: "Fulfilled", color: "var(--chart-fulfilled)" },
+  processing: { label: "Processing", color: "var(--chart-processing)" },
+  failed: { label: "Failed", color: "var(--chart-failed)" },
+  disputed: { label: "Disputed", color: "var(--chart-disputed)" },
 } satisfies ChartConfig;
 
 const legendItems = [
   { key: "total", label: "All activity" },
   { key: "fulfilled", label: "Fulfilled" },
+  { key: "processing", label: "Processing" },
+  { key: "failed", label: "Failed" },
+  { key: "disputed", label: "Disputed" },
 ] as const;
 
 type DailyActivityChartProps = {
@@ -76,21 +42,19 @@ type DailyActivityChartProps = {
 
 // DailyActivityChart is the isolated client boundary for the Recharts runtime.
 export function DailyActivityChart({ activity }: DailyActivityChartProps) {
-  const trend = buildSevenDayTrend(activity);
-  const gradientId = `activity-fill-${useId().replace(/:/g, "")}`;
+  const trend = buildSevenDayActivity(activity);
   const totals = trend.reduce(
     (summary, day) => ({
       activity: summary.activity + day.total,
       fulfilled: summary.fulfilled + day.fulfilled,
+      exceptions: summary.exceptions + day.failed + day.disputed,
     }),
-    { activity: 0, fulfilled: 0 },
+    { activity: 0, fulfilled: 0, exceptions: 0 },
   );
   const fulfillmentRate =
     totals.activity === 0
       ? 0
       : Math.round((totals.fulfilled / totals.activity) * 100);
-  const latestBucket =
-    trend.at(-1)?.bucketDate.slice(5).replace("-", "/") ?? "--";
 
   return (
     <div className={styles.frame}>
@@ -109,8 +73,8 @@ export function DailyActivityChart({ activity }: DailyActivityChartProps) {
             <strong>{fulfillmentRate}%</strong>
           </div>
           <div>
-            <span>Latest close</span>
-            <strong>{latestBucket}</strong>
+            <span>Exceptions</span>
+            <strong>{totals.exceptions}</strong>
           </div>
         </div>
         <div
@@ -136,18 +100,11 @@ export function DailyActivityChart({ activity }: DailyActivityChartProps) {
           <ComposedChart
             accessibilityLayer
             data={trend}
-            margin={{ left: 0, right: 8, top: 10, bottom: 0 }}
+            margin={{ left: 0, right: 12, top: 16, bottom: 0 }}
           >
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.22} />
-                <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
             <CartesianGrid
               vertical={false}
               stroke="var(--chart-grid)"
-              strokeDasharray="2 6"
             />
             <XAxis
               dataKey="bucketDate"
@@ -169,28 +126,45 @@ export function DailyActivityChart({ activity }: DailyActivityChartProps) {
                 <ChartTooltipContent
                   className={styles.tooltip}
                   labelKey="bucketDate"
-                  indicator="line"
+                  indicator="dot"
                 />
               }
             />
-            <Area
-              type="monotone"
-              dataKey="total"
-              stroke="var(--color-total)"
-              fill={`url(#${gradientId})`}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 3, strokeWidth: 0 }}
+            <Bar
+              dataKey="fulfilled"
+              stackId="activity"
+              fill="var(--color-fulfilled)"
+              maxBarSize={28}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="processing"
+              stackId="activity"
+              fill="var(--color-processing)"
+              maxBarSize={28}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="failed"
+              stackId="activity"
+              fill="var(--color-failed)"
+              maxBarSize={28}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="disputed"
+              stackId="activity"
+              fill="var(--color-disputed)"
+              maxBarSize={28}
               isAnimationActive={false}
             />
             <Line
               type="monotone"
-              dataKey="fulfilled"
-              stroke="var(--color-fulfilled)"
-              strokeWidth={1.5}
-              strokeDasharray="4 5"
+              dataKey="total"
+              stroke="var(--color-total)"
+              strokeWidth={2}
               dot={false}
-              activeDot={{ r: 3, strokeWidth: 0 }}
+              activeDot={{ r: 3, strokeWidth: 1 }}
               isAnimationActive={false}
             />
           </ComposedChart>
@@ -208,6 +182,7 @@ export function DailyActivityChart({ activity }: DailyActivityChartProps) {
             <th>Processing</th>
             <th>Failed</th>
             <th>Disputed</th>
+            <th>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -218,6 +193,7 @@ export function DailyActivityChart({ activity }: DailyActivityChartProps) {
               <td>{day.processing}</td>
               <td>{day.failed}</td>
               <td>{day.disputed}</td>
+              <td>{day.total}</td>
             </tr>
           ))}
         </tbody>

@@ -1,9 +1,6 @@
 import {
-  AlertTriangle,
   ArrowUpRight,
-  CircleCheck,
   RefreshCw,
-  Scale,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -20,12 +17,33 @@ type SellerAnalyticsDashboardProps = {
   snapshot: AnalyticsSnapshot;
 };
 
-const metrics = [
-  { key: "grossVerifiedAmount", label: "Gross verified", icon: ArrowUpRight },
-  { key: "fulfilledAmount", label: "Fulfilled sales", icon: CircleCheck },
-  { key: "failedAmount", label: "Failures", icon: AlertTriangle },
-  { key: "disputedAmount", label: "Disputes", icon: Scale },
+const paymentMetrics = [
+  { key: "grossVerifiedAmount", label: "Gross verified" },
+  { key: "fulfilledAmount", label: "Fulfilled volume" },
+  { key: "failedAmount", label: "Failed volume" },
+  { key: "disputedAmount", label: "Disputed volume" },
 ] as const;
+
+const networkLabels: Readonly<Record<string, string>> = {
+  "eip155:84532": "Base Sepolia",
+  "eip155:11155111": "Ethereum Sepolia",
+};
+
+function networkLabel(network: string): string {
+  return networkLabels[network] ?? network;
+}
+
+function routeFulfillmentRate(route: {
+  fulfilledCount: number;
+  failedCount: number;
+  disputedCount: number;
+}): number {
+  const terminalCount =
+    route.fulfilledCount + route.failedCount + route.disputedCount;
+  return terminalCount === 0
+    ? 0
+    : Math.round((route.fulfilledCount / terminalCount) * 100);
+}
 
 // SellerAnalyticsDashboard presents authoritative, payment-pair-separated sales reporting.
 export function SellerAnalyticsDashboard({
@@ -37,15 +55,47 @@ export function SellerAnalyticsDashboard({
     snapshot.aggregates,
     snapshot.routes,
   );
+  const activityTotals = dailyActivity.reduce(
+    (totals, day) => ({
+      fulfilled: totals.fulfilled + day.fulfilled,
+      processing: totals.processing + day.processing,
+      exceptions: totals.exceptions + day.failed + day.disputed,
+    }),
+    { fulfilled: 0, processing: 0, exceptions: 0 },
+  );
+  const trackedTransactions =
+    activityTotals.fulfilled +
+    activityTotals.processing +
+    activityTotals.exceptions;
+  const fulfillmentRate =
+    trackedTransactions === 0
+      ? 0
+      : Math.round(
+          (activityTotals.fulfilled / trackedTransactions) * 100,
+        );
+  const prioritizedRoutes = [...routePerformance].sort((left, right) => {
+    const exceptionDifference =
+      right.failedCount +
+      right.disputedCount -
+      (left.failedCount + left.disputedCount);
+    if (exceptionDifference !== 0) {
+      return exceptionDifference;
+    }
+    if (right.fulfilledCount !== left.fulfilledCount) {
+      return right.fulfilledCount - left.fulfilledCount;
+    }
+    return left.routeLabel.localeCompare(right.routeLabel);
+  });
 
   return (
     <div className={styles.workspace}>
       <header className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Revenue intelligence / UTC</p>
+          <p className={styles.eyebrow}>Revenue Lens / trailing 30 days / UTC</p>
           <h1>Revenue Lens</h1>
           <p>
-            Verified commerce facts. Every asset and network stays distinct.
+            Read settlement health, exceptions, and product performance without
+            combining unlike assets.
           </p>
         </div>
         <div
@@ -71,12 +121,16 @@ export function SellerAnalyticsDashboard({
           <Link href="/dashboard/analytics">Reload analytics</Link>
         </section>
       ) : paymentPairs.length === 0 ? (
-        <section className={styles.emptyState}>
+        <section
+          className={styles.emptyState}
+          role="status"
+          aria-label="Analytics empty state"
+        >
           <div>
             <p className={styles.sectionIndex}>No recorded volume</p>
             <h2>No sales in this window yet</h2>
             <p>
-              Publish a validated product. Verified purchases will appear here.
+              Publish and validate a product to begin tracking verified sales.
             </p>
           </div>
           <Link href="/dashboard/products">
@@ -85,13 +139,56 @@ export function SellerAnalyticsDashboard({
         </section>
       ) : (
         <>
+          <section
+            className={styles.healthPanel}
+            aria-labelledby="sales-health"
+          >
+            <div className={styles.healthHeading}>
+              <div>
+                <p className={styles.sectionIndex}>Operating pulse</p>
+                <h2 id="sales-health">Sales health</h2>
+              </div>
+              <span>Current reconciliation state</span>
+            </div>
+            <div className={styles.healthMetrics}>
+              <article>
+                <span>Fulfillment rate</span>
+                <strong>{fulfillmentRate}%</strong>
+                <small>
+                  {activityTotals.fulfilled} of {trackedTransactions} tracked
+                </small>
+              </article>
+              <article>
+                <span>In flight</span>
+                <strong>{activityTotals.processing} in flight</strong>
+                <small>Awaiting a terminal outcome</small>
+              </article>
+              <article data-attention={activityTotals.exceptions > 0}>
+                <span>Exceptions</span>
+                <strong>{activityTotals.exceptions} need review</strong>
+                <small>Failed or disputed sales</small>
+              </article>
+              <Link
+                className={styles.healthAction}
+                href="/dashboard/transactions"
+              >
+                <span>
+                  {activityTotals.exceptions > 0
+                    ? `Review ${activityTotals.exceptions} exceptions`
+                    : "Review transactions"}
+                </span>
+                <ArrowUpRight aria-hidden="true" />
+              </Link>
+            </div>
+          </section>
+
           <section aria-labelledby="settlement-pairs" className={styles.pairs}>
             <header className={styles.sectionHeading}>
               <div>
-                <p className={styles.sectionIndex}>01 / Settlement pairs</p>
-                <h2 id="settlement-pairs">Revenue without false totals.</h2>
+                <p className={styles.sectionIndex}>Settlement comparison</p>
+                <h2 id="settlement-pairs">Money by payment pair</h2>
               </div>
-              <span>{paymentPairs.length} active pairs</span>
+              <span>{paymentPairs.length} active payment pairs</span>
             </header>
             <div className={styles.pairGrid}>
               {paymentPairs.map((summary, pairIndex) => (
@@ -104,26 +201,22 @@ export function SellerAnalyticsDashboard({
                   <header>
                     <div>
                       <strong>{summary.asset}</strong>
-                      <span>{summary.network}</span>
+                      <span>{networkLabel(summary.network)}</span>
                     </div>
-                    <span>Settlement pair</span>
+                    <span>{summary.network}</span>
                   </header>
                   <div className={styles.metricGrid}>
-                    {metrics.map((metric) => {
-                      const Icon = metric.icon;
-                      return (
-                        <div className={styles.metric} key={metric.key}>
-                          <Icon aria-hidden="true" />
-                          <p>{metric.label}</p>
-                          <strong>
-                            {formatAtomicPrice(
-                              summary[metric.key],
-                              summary.asset,
-                            )}
-                          </strong>
-                        </div>
-                      );
-                    })}
+                    {paymentMetrics.map((metric) => (
+                      <div className={styles.metric} key={metric.key}>
+                        <p>{metric.label}</p>
+                        <strong>
+                          {formatAtomicPrice(
+                            summary[metric.key],
+                            summary.asset,
+                          )}
+                        </strong>
+                      </div>
+                    ))}
                   </div>
                 </section>
               ))}
@@ -136,10 +229,10 @@ export function SellerAnalyticsDashboard({
           >
             <div className={styles.sectionHeading}>
               <div>
-                <p className={styles.sectionIndex}>02 / Reconciliation flow</p>
+                <p className={styles.sectionIndex}>Reconciliation flow</p>
                 <h2 id="daily-activity">Daily sales activity</h2>
               </div>
-              <span>Count by current stage / UTC</span>
+              <span>Seven daily closes / current stage</span>
             </div>
             <DailyActivityChart activity={dailyActivity} />
           </section>
@@ -150,10 +243,10 @@ export function SellerAnalyticsDashboard({
           >
             <div className={styles.sectionHeading}>
               <div>
-                <p className={styles.sectionIndex}>03 / Products</p>
+                <p className={styles.sectionIndex}>Product decisions</p>
                 <h2 id="product-performance">Product performance</h2>
               </div>
-              <span>Fulfillment by exact payment pair</span>
+              <span>Exceptions first / payment pairs remain separate</span>
             </div>
             {routePerformance.length === 0 ? (
               <div className={styles.mutedState}>
@@ -168,32 +261,40 @@ export function SellerAnalyticsDashboard({
                       <th>Payment pair</th>
                       <th>Fulfilled</th>
                       <th>Volume</th>
+                      <th>Success rate</th>
                       <th>Failures</th>
                       <th>Disputes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {routePerformance.map((route) => (
+                    {prioritizedRoutes.map((route) => (
                       <tr
                         key={`${route.routeId}:${route.asset}:${route.network}`}
                       >
-                        <td>
+                        <td data-label="Product" className={styles.productCell}>
                           <strong>{route.routeLabel}</strong>
                           <small>{route.routeId}</small>
                         </td>
-                        <td>
+                        <td data-label="Payment pair" className={styles.pairCell}>
                           <strong>{route.asset}</strong>
-                          <small>{route.network}</small>
+                          <small>
+                            {networkLabel(route.network)} / {route.network}
+                          </small>
                         </td>
-                        <td>{route.fulfilledCount} fulfilled</td>
-                        <td>
+                        <td data-label="Fulfilled">
+                          {route.fulfilledCount} fulfilled
+                        </td>
+                        <td data-label="Volume">
                           {formatAtomicPrice(
                             route.fulfilledAmount,
                             route.asset,
                           )}
                         </td>
-                        <td>{route.failedCount}</td>
-                        <td>{route.disputedCount}</td>
+                        <td data-label="Success rate">
+                          {routeFulfillmentRate(route)}%
+                        </td>
+                        <td data-label="Failures">{route.failedCount}</td>
+                        <td data-label="Disputes">{route.disputedCount}</td>
                       </tr>
                     ))}
                   </tbody>
