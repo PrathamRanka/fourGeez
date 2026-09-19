@@ -18,6 +18,11 @@ type PaymentFinality string
 
 // ReconciliationStage identifies the mutually exclusive amount bucket shown to sellers.
 type ReconciliationStage string
+type CommerceState string
+type PaymentState string
+type FulfillmentState string
+type RefundState string
+type RecoveryAction string
 
 type PurchaseChannel string
 type PaymentRail string
@@ -34,6 +39,37 @@ const (
 	StatusDisputed          TransactionStatus = "DISPUTED"
 	StatusRefundRecommended TransactionStatus = "REFUND_RECOMMENDED"
 	StatusResolved          TransactionStatus = "RESOLVED"
+)
+
+const (
+	CommerceStateAwaitingPayment       CommerceState    = "awaiting_payment"
+	CommerceStatePaymentProcessing     CommerceState    = "payment_processing"
+	CommerceStatePaid                  CommerceState    = "paid"
+	CommerceStateFulfilling            CommerceState    = "fulfilling"
+	CommerceStateFulfilled             CommerceState    = "fulfilled"
+	CommerceStateFailed                CommerceState    = "failed"
+	CommerceStateDisputed              CommerceState    = "disputed"
+	CommerceStateRefundRecommended     CommerceState    = "refund_recommended"
+	CommerceStateResolved              CommerceState    = "resolved"
+	PaymentStatePending                PaymentState     = "pending"
+	PaymentStateConfirmed              PaymentState     = "confirmed"
+	PaymentStateFinalized              PaymentState     = "finalized"
+	PaymentStateFailed                 PaymentState     = "failed"
+	FulfillmentStateNotStarted         FulfillmentState = "not_started"
+	FulfillmentStateInProgress         FulfillmentState = "in_progress"
+	FulfillmentStateSucceeded          FulfillmentState = "succeeded"
+	FulfillmentStateFailed             FulfillmentState = "failed"
+	RefundStateNotRequested            RefundState      = "not_requested"
+	RefundStateDisputed                RefundState      = "disputed"
+	RefundStateRecommended             RefundState      = "recommended"
+	RefundStateSellerReported          RefundState      = "seller_reported"
+	RecoveryActionRetrySameRequest     RecoveryAction   = "retry_same_request"
+	RecoveryActionAwaitReconciliation  RecoveryAction   = "await_reconciliation"
+	RecoveryActionCreateNewIntent      RecoveryAction   = "create_new_intent"
+	RecoveryActionOpenDispute          RecoveryAction   = "open_dispute"
+	RecoveryActionAwaitResolution      RecoveryAction   = "await_resolution"
+	RecoveryActionRecordExternalRefund RecoveryAction   = "record_external_refund"
+	RecoveryActionNone                 RecoveryAction   = "none"
 )
 
 const (
@@ -115,30 +151,41 @@ type Transaction struct {
 
 // Response is the public transaction representation without payment secrets.
 type Response struct {
-	TransactionID        domain.ID             `json:"transactionId"`
-	IntentID             domain.ID             `json:"intentId"`
-	SellerID             domain.ID             `json:"sellerId"`
-	RouteID              domain.ID             `json:"routeId"`
-	BuyerID              string                `json:"buyerId"`
-	PurchaseSessionID    string                `json:"purchaseSessionId,omitempty"`
-	ProductDisplayName   string                `json:"productDisplayName,omitempty"`
-	ProductSlug          string                `json:"productSlug,omitempty"`
-	PaymentDestinationID domain.ID             `json:"paymentDestinationId,omitempty"`
-	PurchaseChannel      PurchaseChannel       `json:"purchaseChannel"`
-	PaymentRail          PaymentRail           `json:"paymentRail"`
-	Status               TransactionStatus     `json:"status"`
-	Amount               domain.Amount         `json:"amount"`
-	Asset                string                `json:"asset"`
-	Network              string                `json:"network"`
-	PaymentFinality      PaymentFinality       `json:"paymentFinality,omitempty"`
-	PaymentReference     string                `json:"paymentReference,omitempty"`
-	ReconciledAt         *domain.Timestamp     `json:"reconciledAt,omitempty"`
-	Reconciliation       *Reconciliation       `json:"reconciliation,omitempty"`
-	UpstreamStatus       *int                  `json:"upstreamStatus,omitempty"`
-	ResponseHash         *intents.SHA256Digest `json:"responseHash,omitempty"`
-	FailureCode          string                `json:"failureCode,omitempty"`
-	CreatedAt            domain.Timestamp      `json:"createdAt"`
-	UpdatedAt            domain.Timestamp      `json:"updatedAt"`
+	TransactionID        domain.ID                   `json:"transactionId"`
+	IntentID             domain.ID                   `json:"intentId"`
+	SellerID             domain.ID                   `json:"sellerId"`
+	RouteID              domain.ID                   `json:"routeId"`
+	BuyerID              string                      `json:"buyerId"`
+	PurchaseSessionID    string                      `json:"purchaseSessionId,omitempty"`
+	ProductDisplayName   string                      `json:"productDisplayName,omitempty"`
+	ProductSlug          string                      `json:"productSlug,omitempty"`
+	PaymentDestinationID domain.ID                   `json:"paymentDestinationId,omitempty"`
+	PurchaseChannel      PurchaseChannel             `json:"purchaseChannel"`
+	PaymentRail          PaymentRail                 `json:"paymentRail"`
+	Status               TransactionStatus           `json:"status"`
+	Amount               domain.Amount               `json:"amount"`
+	Asset                string                      `json:"asset"`
+	Network              string                      `json:"network"`
+	PriceBreakdown       intents.ExactPriceBreakdown `json:"priceBreakdown"`
+	CommerceLifecycle    CommerceLifecycleProjection `json:"commerceLifecycle"`
+	PaymentFinality      PaymentFinality             `json:"paymentFinality,omitempty"`
+	PaymentReference     string                      `json:"paymentReference,omitempty"`
+	ReconciledAt         *domain.Timestamp           `json:"reconciledAt,omitempty"`
+	Reconciliation       *Reconciliation             `json:"reconciliation,omitempty"`
+	UpstreamStatus       *int                        `json:"upstreamStatus,omitempty"`
+	ResponseHash         *intents.SHA256Digest       `json:"responseHash,omitempty"`
+	FailureCode          string                      `json:"failureCode,omitempty"`
+	CreatedAt            domain.Timestamp            `json:"createdAt"`
+	UpdatedAt            domain.Timestamp            `json:"updatedAt"`
+}
+
+type CommerceLifecycleProjection struct {
+	ExternalReference string           `json:"externalReference"`
+	CommerceState     CommerceState    `json:"commerceState"`
+	PaymentState      PaymentState     `json:"paymentState"`
+	FulfillmentState  FulfillmentState `json:"fulfillmentState"`
+	RefundState       RefundState      `json:"refundState"`
+	RecoveryAction    RecoveryAction   `json:"recoveryAction"`
 }
 
 // Reconciliation contains the amount and safe reference for one reporting stage.
@@ -352,4 +399,77 @@ func (transaction Transaction) UpdatedAt() domain.Timestamp {
 // Version returns the optimistic-concurrency version.
 func (transaction Transaction) Version() uint64 {
 	return transaction.version
+}
+
+func (transaction Transaction) PriceBreakdown() intents.ExactPriceBreakdown {
+	return intents.ExactPriceBreakdown{
+		Calculation: intents.PriceCalculationFixedSingleProduct,
+		Quantity:    1,
+		UnitAmount:  transaction.amount,
+		Subtotal:    transaction.amount,
+		Adjustments: domain.MustParseAmount("0"),
+		Total:       transaction.amount,
+		Asset:       transaction.asset,
+		Network:     transaction.network,
+	}
+}
+
+func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) CommerceLifecycleProjection {
+	projection := CommerceLifecycleProjection{
+		ExternalReference: transaction.transactionID.String(),
+		CommerceState:     CommerceStateAwaitingPayment,
+		PaymentState:      PaymentStatePending,
+		FulfillmentState:  FulfillmentStateNotStarted,
+		RefundState:       RefundStateNotRequested,
+		RecoveryAction:    RecoveryActionRetrySameRequest,
+	}
+	if transaction.paymentFinality == PaymentFinalityConfirmed {
+		projection.CommerceState = CommerceStatePaymentProcessing
+		projection.PaymentState = PaymentStateConfirmed
+		projection.RecoveryAction = RecoveryActionAwaitReconciliation
+	} else if transaction.paymentFinality == PaymentFinalityFinalized {
+		projection.CommerceState = CommerceStatePaid
+		projection.PaymentState = PaymentStateFinalized
+	} else if transaction.paymentFinality == PaymentFinalityFailed {
+		projection.CommerceState = CommerceStateFailed
+		projection.PaymentState = PaymentStateFailed
+		projection.RecoveryAction = RecoveryActionCreateNewIntent
+	}
+	if transaction.failureCode != "" {
+		projection.FulfillmentState = FulfillmentStateFailed
+	} else if transaction.upstreamStatus != nil && *transaction.upstreamStatus >= 200 && *transaction.upstreamStatus <= 299 {
+		projection.FulfillmentState = FulfillmentStateSucceeded
+	}
+	switch transaction.status {
+	case StatusForwarded:
+		projection.CommerceState = CommerceStateFulfilling
+		projection.FulfillmentState = FulfillmentStateInProgress
+	case StatusFulfilled:
+		projection.CommerceState = CommerceStateFulfilled
+		projection.FulfillmentState = FulfillmentStateSucceeded
+		projection.RecoveryAction = RecoveryActionNone
+	case StatusFailed:
+		projection.CommerceState = CommerceStateFailed
+		projection.FulfillmentState = FulfillmentStateFailed
+		if transaction.paymentFinality == PaymentFinalityFinalized {
+			projection.RecoveryAction = RecoveryActionOpenDispute
+		}
+	case StatusDisputed:
+		projection.CommerceState = CommerceStateDisputed
+		projection.RefundState = RefundStateDisputed
+		projection.RecoveryAction = RecoveryActionAwaitResolution
+	case StatusRefundRecommended:
+		projection.CommerceState = CommerceStateRefundRecommended
+		projection.RefundState = RefundStateRecommended
+		projection.RecoveryAction = RecoveryActionRecordExternalRefund
+	case StatusResolved:
+		projection.CommerceState = CommerceStateResolved
+		projection.RefundState = RefundStateDisputed
+		projection.RecoveryAction = RecoveryActionNone
+	}
+	if sellerReportedRefund {
+		projection.RefundState = RefundStateSellerReported
+		projection.RecoveryAction = RecoveryActionNone
+	}
+	return projection
 }

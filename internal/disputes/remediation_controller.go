@@ -30,6 +30,27 @@ func NewManualRemediationHTTPController(service *ManualRemediationService, idemp
 
 func (controller *ManualRemediationHTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sellers/{sellerId}/disputes/{disputeId}/refund-records", api.RequireSeller(http.HandlerFunc(controller.record)))
+	mux.Handle("GET /v1/sellers/{sellerId}/disputes/{disputeId}/refund-records/current", api.RequireSeller(http.HandlerFunc(controller.get)))
+}
+
+func (controller *ManualRemediationHTTPController) get(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Cache-Control", "no-store")
+	sellerID, err := domain.ParseID(request.PathValue("sellerId"), domain.SellerIDPrefix)
+	if err != nil {
+		writeRemediationError(response, request, persistence.ErrNotFound)
+		return
+	}
+	disputeID, err := domain.ParseID(request.PathValue("disputeId"), domain.DisputeIDPrefix)
+	if err != nil {
+		writeRemediationError(response, request, persistence.ErrNotFound)
+		return
+	}
+	record, err := controller.service.GetManualRefund(request.Context(), disputeID, sellerID)
+	if err != nil {
+		writeRemediationError(response, request, err)
+		return
+	}
+	_ = api.WriteJSON(response, http.StatusOK, record)
 }
 
 func (controller *ManualRemediationHTTPController) record(response http.ResponseWriter, request *http.Request) {

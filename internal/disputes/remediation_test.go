@@ -9,6 +9,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
@@ -107,6 +108,44 @@ func TestRecordManualRefundConcealsCrossSellerDispute(t *testing.T) {
 	}
 }
 
+func TestGetManualRefundReturnsSellerReportedRecordToOwningSeller(t *testing.T) {
+	t.Parallel()
+
+	dispute := mustRefundDispute(t)
+	transaction := mustRefundTransaction(t)
+	repository := &memoryRefundRecordRepository{}
+	service := NewManualRemediationService(
+		&refundDisputeRepository{dispute: dispute},
+		&refundTransactionRepository{transaction: transaction},
+		repository,
+		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 5, 0, 0, time.UTC)},
+	)
+	request := RecordManualRefundRequest{
+		DisputeID: dispute.DisputeID, SellerID: transaction.SellerID(), Amount: transaction.Amount(), Asset: transaction.Asset(),
+		Network: transaction.Network(), Reference: "0xrefund-reference", RecordedBy: "operator@example.com",
+	}
+	recorded, err := service.RecordManualRefund(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := service.GetManualRefund(t.Context(), dispute.DisputeID, transaction.SellerID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded != recorded {
+		t.Fatalf("GetManualRefund() = %#v, want %#v", loaded, recorded)
+	}
+	if loaded.VerificationState != RefundVerificationSellerReported {
+		t.Fatalf("verification state = %q, want %q", loaded.VerificationState, RefundVerificationSellerReported)
+	}
+
+	otherSellerID := mustDisputeID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9HZ", domain.SellerIDPrefix)
+	if _, err := service.GetManualRefund(t.Context(), dispute.DisputeID, otherSellerID); !errors.Is(err, ErrRemediationAccess) {
+		t.Fatalf("cross-seller GetManualRefund() error = %v, want concealed access error", err)
+	}
+}
+
 type refundDisputeRepository struct{ dispute Dispute }
 
 func (repository *refundDisputeRepository) Create(context.Context, Dispute) error { return nil }
@@ -131,6 +170,13 @@ func (repository *memoryRefundRecordRepository) SaveIfAbsent(_ context.Context, 
 	}
 	repository.record = &record
 	return record, true, nil
+}
+
+func (repository *memoryRefundRecordRepository) Get(_ context.Context, disputeID domain.ID) (ManualRefundRecord, error) {
+	if repository.record == nil || repository.record.DisputeID != disputeID {
+		return ManualRefundRecord{}, persistence.ErrNotFound
+	}
+	return *repository.record, nil
 }
 
 func mustRefundDispute(t *testing.T) Dispute {

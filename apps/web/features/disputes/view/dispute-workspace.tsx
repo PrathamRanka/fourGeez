@@ -15,6 +15,7 @@ import type {
   Dispute,
   DisputeAction,
   DisputeReason,
+  ManualRefundRecord,
 } from "@/features/disputes/model";
 import {
   disputeReasonLabel,
@@ -159,9 +160,11 @@ export function DisputePanel({
 export function DisputeDetail({
   dispute,
   evidenceValid,
+  refundRecord,
 }: {
   dispute: Dispute;
   evidenceValid: boolean;
+  refundRecord?: ManualRefundRecord;
 }) {
   return (
     <div className={styles.workspace}>
@@ -186,6 +189,42 @@ export function DisputeDetail({
         </Link>
       </header>
       <DisputeOutcome dispute={dispute} evidenceValid={evidenceValid} />
+      {refundRecord ? (
+        <section className={styles.outcome} aria-label="External refund record">
+          <header className={styles.outcomeHeader}>
+            <div>
+              <p className={styles.eyebrow}>Seller remediation</p>
+              <h2>Seller-reported external refund</h2>
+            </div>
+          </header>
+          <div className={styles.outcomeGrid}>
+            <article className={styles.explanation}>
+              <span>Verification status</span>
+              <p>Not network-verified by AgentPay.</p>
+            </article>
+            <dl className={styles.facts}>
+              <div>
+                <dt>Amount</dt>
+                <dd>
+                  {refundRecord.amount} {refundRecord.asset}
+                </dd>
+              </div>
+              <div>
+                <dt>Network</dt>
+                <dd>{refundRecord.network}</dd>
+              </div>
+              <div>
+                <dt>External reference</dt>
+                <dd>{refundRecord.reference}</dd>
+              </div>
+              <div>
+                <dt>Recorded</dt>
+                <dd>{formatUTC(refundRecord.recordedAt)}</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

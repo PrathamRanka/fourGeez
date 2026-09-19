@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	maximumRefundReferenceLength = 512
-	maximumRecordedByLength      = 256
+	maximumRefundReferenceLength     = 512
+	maximumRecordedByLength          = 256
+	RefundVerificationSellerReported = "seller_reported"
 )
 
 var (
@@ -33,19 +34,21 @@ type RecordManualRefundRequest struct {
 }
 
 type ManualRefundRecord struct {
-	DisputeID     domain.ID        `json:"disputeId"`
-	TransactionID domain.ID        `json:"transactionId"`
-	SellerID      domain.ID        `json:"sellerId"`
-	Amount        domain.Amount    `json:"amount"`
-	Asset         string           `json:"asset"`
-	Network       string           `json:"network"`
-	Reference     string           `json:"reference"`
-	RecordedBy    string           `json:"recordedBy"`
-	RecordedAt    domain.Timestamp `json:"recordedAt"`
+	DisputeID         domain.ID        `json:"disputeId"`
+	TransactionID     domain.ID        `json:"transactionId"`
+	SellerID          domain.ID        `json:"sellerId"`
+	Amount            domain.Amount    `json:"amount"`
+	Asset             string           `json:"asset"`
+	Network           string           `json:"network"`
+	Reference         string           `json:"reference"`
+	RecordedBy        string           `json:"recordedBy"`
+	RecordedAt        domain.Timestamp `json:"recordedAt"`
+	VerificationState string           `json:"verificationState"`
 }
 
 type ManualRefundRecordRepository interface {
 	SaveIfAbsent(context.Context, ManualRefundRecord) (ManualRefundRecord, bool, error)
+	Get(context.Context, domain.ID) (ManualRefundRecord, error)
 }
 
 type ManualRemediationService struct {
@@ -114,7 +117,7 @@ func (service *ManualRemediationService) RecordManualRefund(
 		DisputeID: dispute.DisputeID, TransactionID: transaction.TransactionID(),
 		SellerID: transaction.SellerID(), Amount: transaction.Amount(), Asset: transaction.Asset(),
 		Network: transaction.Network(), Reference: reference, RecordedBy: recordedBy,
-		RecordedAt: domain.NewTimestamp(service.clock.Now()),
+		RecordedAt: domain.NewTimestamp(service.clock.Now()), VerificationState: RefundVerificationSellerReported,
 	}
 	stored, created, err := service.refunds.SaveIfAbsent(ctx, record)
 	if err != nil {
@@ -132,6 +135,9 @@ func (service *ManualRemediationService) RecordManualRefund(
 		}
 		return record, nil
 	}
+	if stored.VerificationState == "" {
+		stored.VerificationState = RefundVerificationSellerReported
+	}
 	if stored.DisputeID == record.DisputeID && stored.TransactionID == record.TransactionID &&
 		stored.SellerID == record.SellerID && stored.Amount.Compare(record.Amount) == 0 &&
 		stored.Asset == record.Asset && stored.Network == record.Network &&
@@ -139,4 +145,29 @@ func (service *ManualRemediationService) RecordManualRefund(
 		return stored, nil
 	}
 	return ManualRefundRecord{}, ErrRemediationConflict
+}
+
+func (service *ManualRemediationService) GetManualRefund(ctx context.Context, disputeID, sellerID domain.ID) (ManualRefundRecord, error) {
+	if service == nil || service.disputes == nil || service.transactions == nil || service.refunds == nil {
+		return ManualRefundRecord{}, ErrRefundNotAllowed
+	}
+	dispute, err := service.disputes.Get(ctx, disputeID)
+	if err != nil {
+		return ManualRefundRecord{}, err
+	}
+	transaction, err := service.transactions.Get(ctx, dispute.TransactionID)
+	if err != nil {
+		return ManualRefundRecord{}, err
+	}
+	if sellerID == "" || transaction.SellerID() != sellerID {
+		return ManualRefundRecord{}, ErrRemediationAccess
+	}
+	record, err := service.refunds.Get(ctx, disputeID)
+	if err != nil {
+		return ManualRefundRecord{}, err
+	}
+	if record.VerificationState == "" {
+		record.VerificationState = RefundVerificationSellerReported
+	}
+	return record, nil
 }

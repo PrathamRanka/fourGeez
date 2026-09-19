@@ -3,6 +3,8 @@ package intents
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -56,11 +58,44 @@ const (
 
 // PurchaseIntentStatus is the lifecycle state established at creation.
 type PurchaseIntentStatus string
+type CancellationReason string
+type PriceCalculation string
 
 const (
 	PurchaseIntentStatusReady           PurchaseIntentStatus = "ready"
+	PurchaseIntentStatusCancelled       PurchaseIntentStatus = "cancelled"
+	PurchaseIntentStatusExpired         PurchaseIntentStatus = "expired"
+	PurchaseIntentStatusExecuted        PurchaseIntentStatus = "executed"
 	PurchaseIntentStatusApprovalPending PurchaseIntentStatus = "approval_pending"
+	CancellationReasonBuyerRequested    CancellationReason   = "buyer_requested"
+	PriceCalculationFixedSingleProduct  PriceCalculation     = "fixed_single_product"
 )
+
+var (
+	ErrIntentAccess        = errors.New("purchase intent was not found")
+	ErrIntentExpired       = errors.New("purchase intent has expired")
+	ErrIntentStateConflict = errors.New("purchase intent state conflict")
+)
+
+type InvalidLifecycleTransitionError struct {
+	From PurchaseIntentStatus
+	To   PurchaseIntentStatus
+}
+
+func (transitionError InvalidLifecycleTransitionError) Error() string {
+	return fmt.Sprintf("purchase intent cannot transition from %s to %s", transitionError.From, transitionError.To)
+}
+
+type ExactPriceBreakdown struct {
+	Calculation PriceCalculation `json:"calculation"`
+	Quantity    int              `json:"quantity"`
+	UnitAmount  domain.Amount    `json:"unitAmount"`
+	Subtotal    domain.Amount    `json:"subtotal"`
+	Adjustments domain.Amount    `json:"adjustments"`
+	Total       domain.Amount    `json:"total"`
+	Asset       string           `json:"asset"`
+	Network     string           `json:"network"`
+}
 
 // PurchaseIntentParams contains every execution-relevant field frozen at creation.
 type PurchaseIntentParams struct {
@@ -108,8 +143,11 @@ type PurchaseIntent struct {
 	requiresApproval     bool
 	intentHash           SHA256Digest
 	status               PurchaseIntentStatus
+	cancelledAt          *domain.Timestamp
+	cancellationReason   CancellationReason
 	createdAt            domain.Timestamp
 	expiresAt            domain.Timestamp
+	version              uint64
 }
 
 // CreateIntentRequest is the purchase-intent HTTP request.
@@ -123,6 +161,11 @@ type CreateIntentRequest struct {
 type Repository interface {
 	Create(ctx context.Context, purchaseIntent PurchaseIntent) error
 	Get(ctx context.Context, intentID domain.ID) (PurchaseIntent, error)
+}
+
+type LifecycleRepository interface {
+	Repository
+	Update(ctx context.Context, purchaseIntent PurchaseIntent, expectedVersion uint64) error
 }
 
 // RouteRepository resolves the authoritative seller quote for an intent.
@@ -222,6 +265,33 @@ func (purchaseIntent PurchaseIntent) IntentHash() SHA256Digest {
 // Status returns the initial intent lifecycle state.
 func (purchaseIntent PurchaseIntent) Status() PurchaseIntentStatus {
 	return purchaseIntent.status
+}
+
+func (purchaseIntent PurchaseIntent) CancelledAt() *domain.Timestamp {
+	if purchaseIntent.cancelledAt == nil {
+		return nil
+	}
+	cancelledAt := *purchaseIntent.cancelledAt
+	return &cancelledAt
+}
+
+func (purchaseIntent PurchaseIntent) CancellationReason() CancellationReason {
+	return purchaseIntent.cancellationReason
+}
+
+func (purchaseIntent PurchaseIntent) Version() uint64 { return purchaseIntent.version }
+
+func (purchaseIntent PurchaseIntent) PriceBreakdown() ExactPriceBreakdown {
+	return ExactPriceBreakdown{
+		Calculation: PriceCalculationFixedSingleProduct,
+		Quantity:    1,
+		UnitAmount:  purchaseIntent.amount,
+		Subtotal:    purchaseIntent.amount,
+		Adjustments: domain.MustParseAmount("0"),
+		Total:       purchaseIntent.amount,
+		Asset:       purchaseIntent.asset,
+		Network:     purchaseIntent.network,
+	}
 }
 
 // CreatedAt returns the intent creation time.

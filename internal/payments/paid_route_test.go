@@ -146,6 +146,36 @@ func TestPaidRouteServiceRejectsExpiredIntent(t *testing.T) {
 	if !errors.Is(err, ErrIntentExpired) {
 		t.Fatalf("Resolve() error = %v", err)
 	}
+	if fixture.service.intentRepository.(*paidRouteIntentRepository).purchaseIntent.Status() != intents.PurchaseIntentStatusExpired {
+		t.Fatal("expired intent lifecycle was not persisted")
+	}
+}
+
+func TestPaidRouteServiceClaimsIntentBeforeChallengeAndRejectsCancellation(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	request := PaidRouteRequest{Slug: fixture.seller.Slug, Method: fixture.route.Method, ProxyPath: fixture.route.PathPattern, IntentID: fixture.purchaseIntent.IntentID(), BuyerID: fixture.purchaseIntent.BuyerID()}
+	if _, err := fixture.service.Resolve(t.Context(), request); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	repository := fixture.service.intentRepository.(*paidRouteIntentRepository)
+	if repository.purchaseIntent.Status() != intents.PurchaseIntentStatusExecuted {
+		t.Fatalf("intent status = %q", repository.purchaseIntent.Status())
+	}
+	fixture.clock.Value = fixture.purchaseIntent.ExpiresAt().Time().Add(time.Minute)
+	if _, err := fixture.service.Resolve(t.Context(), request); err != nil {
+		t.Fatalf("post-expiry retry Resolve() error = %v", err)
+	}
+
+	cancelledFixture := newPaidRouteFixture(t, false)
+	cancelledRepository := cancelledFixture.service.intentRepository.(*paidRouteIntentRepository)
+	if err := cancelledRepository.purchaseIntent.Cancel(domain.NewTimestamp(cancelledFixture.clock.Now().Add(time.Minute))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cancelledFixture.service.Resolve(t.Context(), request); !errors.Is(err, ErrIntentCancelled) {
+		t.Fatalf("Resolve() cancelled error = %v", err)
+	}
 }
 
 func TestPaidRouteServiceRejectsChangedAuthoritativeQuoteBeforeChallenge(t *testing.T) {
@@ -381,6 +411,14 @@ func (repository *paidRouteIntentRepository) Get(
 		return intents.PurchaseIntent{}, persistence.ErrNotFound
 	}
 	return repository.purchaseIntent, nil
+}
+
+func (repository *paidRouteIntentRepository) Update(_ context.Context, purchaseIntent intents.PurchaseIntent, expectedVersion uint64) error {
+	if repository.purchaseIntent.Version() != expectedVersion || purchaseIntent.Version() != expectedVersion+1 {
+		return persistence.ErrConditionFailed
+	}
+	repository.purchaseIntent = purchaseIntent
+	return nil
 }
 
 type paidRouteApprovalRepository struct {

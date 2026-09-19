@@ -49,6 +49,8 @@ var (
 	ErrPaidRouteMismatch = errors.New("paid route does not match purchase intent")
 	// ErrIntentExpired reports a purchase intent that can no longer execute.
 	ErrIntentExpired = errors.New("purchase intent has expired")
+	// ErrIntentCancelled reports a buyer-cancelled intent.
+	ErrIntentCancelled = errors.New("purchase intent has been cancelled")
 	// ErrApprovalRequired reports a missing approval for a protected intent.
 	ErrApprovalRequired = errors.New("purchase approval is required")
 	// ErrApprovalInvalid reports an invalid or stale approval token.
@@ -168,9 +170,10 @@ type PaidRouteAuthorizer interface {
 	AuthorizePaidRoute(context.Context, domain.ID) (catalog.Seller, catalog.PaidRoute, settlement.PaymentDestination, error)
 }
 
-// PaidRouteIntentRepository loads immutable purchase intents.
+// PaidRouteIntentRepository loads intents and conditionally claims their lifecycle.
 type PaidRouteIntentRepository interface {
 	Get(context.Context, domain.ID) (intents.PurchaseIntent, error)
+	Update(context.Context, intents.PurchaseIntent, uint64) error
 }
 
 // PaidRouteApprovalRepository loads the session named by an approval token.

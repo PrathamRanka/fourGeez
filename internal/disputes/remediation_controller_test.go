@@ -40,6 +40,9 @@ func TestManualRefundHTTPControllerRecordsSellerScopedRefundIdempotently(t *test
 	if response.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"verificationState":"seller_reported"`)) {
+		t.Fatalf("response = %s", response.Body.String())
+	}
 
 	replay := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
 	replay.Header = request.Header.Clone()
@@ -47,6 +50,14 @@ func TestManualRefundHTTPControllerRecordsSellerScopedRefundIdempotently(t *test
 	handler.ServeHTTP(replayResponse, replay)
 	if replayResponse.Code != http.StatusCreated || replayResponse.Body.String() != response.Body.String() {
 		t.Fatalf("replay = %d %s", replayResponse.Code, replayResponse.Body.String())
+	}
+
+	getRequest := httptest.NewRequest(http.MethodGet, path+"/current", nil)
+	getRequest.Header.Set("Authorization", "Bearer seller-secret")
+	getResponse := httptest.NewRecorder()
+	handler.ServeHTTP(getResponse, getRequest)
+	if getResponse.Code != http.StatusOK || !bytes.Contains(getResponse.Body.Bytes(), []byte(`"reference":"0xrefund-reference"`)) {
+		t.Fatalf("get = %d %s", getResponse.Code, getResponse.Body.String())
 	}
 }
 

@@ -199,6 +199,20 @@ func (repository *PurchaseIntentRepository) Get(_ context.Context, intentID doma
 	return purchaseIntent, nil
 }
 
+func (repository *PurchaseIntentRepository) Update(_ context.Context, purchaseIntent intents.PurchaseIntent, expectedVersion uint64) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	stored, exists := repository.intents[purchaseIntent.IntentID()]
+	if !exists {
+		return persistence.ErrNotFound
+	}
+	if stored.Version() != expectedVersion || purchaseIntent.Version() != expectedVersion+1 {
+		return persistence.ErrConditionFailed
+	}
+	repository.intents[purchaseIntent.IntentID()] = purchaseIntent
+	return nil
+}
+
 type ApprovalRepository struct {
 	mutex    sync.RWMutex
 	sessions map[domain.ID]approvals.Session

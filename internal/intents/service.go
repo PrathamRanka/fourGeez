@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"mime"
 	"regexp"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
 )
@@ -198,7 +200,111 @@ func createPurchaseIntent(params PurchaseIntentParams) (PurchaseIntent, error) {
 		status:               status,
 		createdAt:            params.CreatedAt,
 		expiresAt:            params.ExpiresAt,
+		version:              1,
 	}, nil
+}
+
+func (purchaseIntent *PurchaseIntent) Cancel(at domain.Timestamp) error {
+	if purchaseIntent.status == PurchaseIntentStatusCancelled {
+		return nil
+	}
+	if purchaseIntent.status != PurchaseIntentStatusReady {
+		return InvalidLifecycleTransitionError{From: purchaseIntent.status, To: PurchaseIntentStatusCancelled}
+	}
+	if !at.Time().Before(purchaseIntent.expiresAt.Time()) {
+		return ErrIntentExpired
+	}
+	if at.Time().Before(purchaseIntent.createdAt.Time()) {
+		return domain.NewValidationError("cancelledAt", "chronology", "must not precede intent creation")
+	}
+	purchaseIntent.status = PurchaseIntentStatusCancelled
+	cancelledAt := at
+	purchaseIntent.cancelledAt = &cancelledAt
+	purchaseIntent.cancellationReason = CancellationReasonBuyerRequested
+	purchaseIntent.version++
+	return nil
+}
+
+func (purchaseIntent *PurchaseIntent) Expire(at domain.Timestamp) error {
+	if purchaseIntent.status == PurchaseIntentStatusExpired {
+		return nil
+	}
+	if purchaseIntent.status != PurchaseIntentStatusReady || at.Time().Before(purchaseIntent.expiresAt.Time()) {
+		return InvalidLifecycleTransitionError{From: purchaseIntent.status, To: PurchaseIntentStatusExpired}
+	}
+	purchaseIntent.status = PurchaseIntentStatusExpired
+	purchaseIntent.version++
+	return nil
+}
+
+func (purchaseIntent *PurchaseIntent) Claim(at domain.Timestamp) error {
+	if purchaseIntent.status == PurchaseIntentStatusExecuted {
+		return nil
+	}
+	if purchaseIntent.status != PurchaseIntentStatusReady {
+		return InvalidLifecycleTransitionError{From: purchaseIntent.status, To: PurchaseIntentStatusExecuted}
+	}
+	if !at.Time().Before(purchaseIntent.expiresAt.Time()) {
+		return ErrIntentExpired
+	}
+	if at.Time().Before(purchaseIntent.createdAt.Time()) {
+		return domain.NewValidationError("executedAt", "chronology", "must not precede intent creation")
+	}
+	purchaseIntent.status = PurchaseIntentStatusExecuted
+	purchaseIntent.version++
+	return nil
+}
+
+func (service *Service) Cancel(ctx context.Context, intentID domain.ID, buyerID string) (PurchaseIntent, error) {
+	repository, ok := service.repository.(LifecycleRepository)
+	if !ok {
+		return PurchaseIntent{}, errors.New("purchase intent lifecycle persistence is unavailable")
+	}
+	purchaseIntent, err := repository.Get(ctx, intentID)
+	if err != nil {
+		return PurchaseIntent{}, err
+	}
+	if strings.TrimSpace(buyerID) == "" || purchaseIntent.BuyerID() != strings.TrimSpace(buyerID) {
+		return PurchaseIntent{}, ErrIntentAccess
+	}
+	now := domain.NewTimestamp(service.clock.Now())
+	switch purchaseIntent.Status() {
+	case PurchaseIntentStatusCancelled:
+		return purchaseIntent, nil
+	case PurchaseIntentStatusExpired:
+		return PurchaseIntent{}, ErrIntentExpired
+	case PurchaseIntentStatusExecuted, PurchaseIntentStatusApprovalPending:
+		return PurchaseIntent{}, ErrIntentStateConflict
+	}
+	if !now.Time().Before(purchaseIntent.ExpiresAt().Time()) {
+		if purchaseIntent.Status() == PurchaseIntentStatusReady {
+			expectedVersion := purchaseIntent.Version()
+			if expireErr := purchaseIntent.Expire(now); expireErr == nil {
+				if updateErr := repository.Update(ctx, purchaseIntent, expectedVersion); updateErr != nil && !errors.Is(updateErr, persistence.ErrConditionFailed) {
+					return PurchaseIntent{}, updateErr
+				}
+			}
+		}
+		return PurchaseIntent{}, ErrIntentExpired
+	}
+	expectedVersion := purchaseIntent.Version()
+	if err := purchaseIntent.Cancel(now); err != nil {
+		return PurchaseIntent{}, ErrIntentStateConflict
+	}
+	if err := repository.Update(ctx, purchaseIntent, expectedVersion); err != nil {
+		if !errors.Is(err, persistence.ErrConditionFailed) {
+			return PurchaseIntent{}, err
+		}
+		current, loadErr := repository.Get(ctx, intentID)
+		if loadErr != nil {
+			return PurchaseIntent{}, loadErr
+		}
+		if current.Status() == PurchaseIntentStatusCancelled {
+			return current, nil
+		}
+		return PurchaseIntent{}, ErrIntentStateConflict
+	}
+	return purchaseIntent, nil
 }
 
 // parseSHA256Digest validates the canonical lowercase digest representation.

@@ -14,6 +14,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
+	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
 	x402 "github.com/x402-foundation/x402/go/v2"
@@ -129,8 +130,9 @@ func (service *PaidRouteService) Resolve(
 	if err != nil {
 		return ResolvedPaidRoute{}, err
 	}
-	if !service.clock.Now().Before(purchaseIntent.ExpiresAt().Time()) {
-		return ResolvedPaidRoute{}, ErrIntentExpired
+	now := domain.NewTimestamp(service.clock.Now())
+	if err := service.ensureIntentCanExecute(ctx, &purchaseIntent, now); err != nil {
+		return ResolvedPaidRoute{}, err
 	}
 	var seller catalog.Seller
 	var route catalog.PaidRoute
@@ -168,6 +170,28 @@ func (service *PaidRouteService) Resolve(
 			return ResolvedPaidRoute{}, err
 		}
 	}
+	if purchaseIntent.Status() == intents.PurchaseIntentStatusReady {
+		expectedVersion := purchaseIntent.Version()
+		if err := purchaseIntent.Claim(now); err != nil {
+			return ResolvedPaidRoute{}, err
+		}
+		if err := service.intentRepository.Update(ctx, purchaseIntent, expectedVersion); err != nil {
+			if !errors.Is(err, persistence.ErrConditionFailed) {
+				return ResolvedPaidRoute{}, err
+			}
+			current, loadErr := service.intentRepository.Get(ctx, request.IntentID)
+			if loadErr != nil {
+				return ResolvedPaidRoute{}, loadErr
+			}
+			if current.Status() != intents.PurchaseIntentStatusExecuted {
+				if current.Status() == intents.PurchaseIntentStatusCancelled {
+					return ResolvedPaidRoute{}, ErrIntentCancelled
+				}
+				return ResolvedPaidRoute{}, ErrIntentExpired
+			}
+			purchaseIntent = current
+		}
+	}
 
 	return ResolvedPaidRoute{
 		Seller:         seller,
@@ -186,6 +210,36 @@ func (service *PaidRouteService) Resolve(
 			MaxTimeoutSeconds: route.UpstreamTimeoutSeconds,
 		},
 	}, nil
+}
+
+func (service *PaidRouteService) ensureIntentCanExecute(ctx context.Context, purchaseIntent *intents.PurchaseIntent, now domain.Timestamp) error {
+	switch purchaseIntent.Status() {
+	case intents.PurchaseIntentStatusExecuted:
+		return nil
+	case intents.PurchaseIntentStatusCancelled:
+		return ErrIntentCancelled
+	case intents.PurchaseIntentStatusExpired:
+		return ErrIntentExpired
+	case intents.PurchaseIntentStatusApprovalPending:
+		if !now.Time().Before(purchaseIntent.ExpiresAt().Time()) {
+			return ErrIntentExpired
+		}
+		return nil
+	case intents.PurchaseIntentStatusReady:
+		if now.Time().Before(purchaseIntent.ExpiresAt().Time()) {
+			return nil
+		}
+		expectedVersion := purchaseIntent.Version()
+		if err := purchaseIntent.Expire(now); err != nil {
+			return ErrIntentExpired
+		}
+		if updateErr := service.intentRepository.Update(ctx, *purchaseIntent, expectedVersion); updateErr != nil && !errors.Is(updateErr, persistence.ErrConditionFailed) {
+			return updateErr
+		}
+		return ErrIntentExpired
+	default:
+		return ErrPaidRouteMismatch
+	}
 }
 
 // verifyApproval validates the token and its persisted approved session.

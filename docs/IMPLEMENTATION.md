@@ -234,7 +234,7 @@ release dependencies rather than being represented as complete.
 
 ## Parallel track EXT — MVP extension work
 
-- [-] **EXT-002** Preserve `purchaseIntent` and `transaction` as the canonical
+- [x] **EXT-002** Preserve `purchaseIntent` and `transaction` as the canonical
   lifecycle while adding buyer-owned pre-checkout cancellation with an
   expiration-first conditional claim, deterministic single-product exact-price
   breakdowns, an order-compatible derived transaction lifecycle/recovery

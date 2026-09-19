@@ -4,6 +4,7 @@ import (
 	"context"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/persistence"
@@ -12,6 +13,31 @@ import (
 // PurchaseIntentRepository persists immutable purchase intents in DynamoDB.
 type PurchaseIntentRepository struct {
 	repositoryBase
+}
+
+// Update replaces lifecycle metadata when the stored version matches.
+func (repository *PurchaseIntentRepository) Update(ctx context.Context, purchaseIntent intents.PurchaseIntent, expectedVersion uint64) error {
+	record, err := newStoredRecord(intentPartitionKey(purchaseIntent.IntentID().String()), profileSortKey, "purchaseIntent", purchaseIntent.Snapshot())
+	if err != nil {
+		return err
+	}
+	record.Version = purchaseIntent.Version()
+	item, err := marshalStoredRecord(record)
+	if err != nil {
+		return err
+	}
+	condition := "#version = :expectedVersion"
+	_, err = repository.client.PutItem(ctx, &awssdk.PutItemInput{
+		TableName:                 &repository.tableName,
+		Item:                      item,
+		ConditionExpression:       &condition,
+		ExpressionAttributeNames:  map[string]string{"#version": "version"},
+		ExpressionAttributeValues: map[string]types.AttributeValue{":expectedVersion": numberAttributeValue(expectedVersion)},
+	})
+	if isConditionalFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
 }
 
 // NewPurchaseIntentRepository creates a DynamoDB-backed intent repository.
@@ -35,6 +61,7 @@ func (repository *PurchaseIntentRepository) Create(
 	if err != nil {
 		return err
 	}
+	intentRecord.Version = purchaseIntent.Version()
 
 	intentItem, err := marshalStoredRecord(intentRecord)
 	if err != nil {

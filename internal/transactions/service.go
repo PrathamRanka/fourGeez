@@ -185,6 +185,8 @@ func transactionResponse(transaction Transaction) Response {
 		Amount:               transaction.Amount(),
 		Asset:                transaction.Asset(),
 		Network:              transaction.Network(),
+		PriceBreakdown:       transaction.PriceBreakdown(),
+		CommerceLifecycle:    transaction.CommerceLifecycle(false),
 		PaymentFinality:      transaction.PaymentFinality(),
 		PaymentReference:     transaction.PaymentReference(),
 		ReconciledAt:         transaction.ReconciledAt(),

@@ -95,6 +95,52 @@ func TestPurchaseIntentRejectsMaximumBelowQuote(t *testing.T) {
 	}
 }
 
+func TestPurchaseIntentCanBeCancelledIdempotently(t *testing.T) {
+	t.Parallel()
+
+	handler, route := newIntentHandler(t)
+	requestBody := "{\"routeId\":\"" + route.RouteID.String() +
+		"\",\"requestBodyHash\":\"" + strings.Repeat("a", 64) +
+		"\",\"maximumAmount\":\"40000000\"}"
+	createRequest := httptest.NewRequest(http.MethodPost, "/v1/intents", bytes.NewBufferString(requestBody))
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.Header.Set(api.AgentKeyHeader, "agent-secret")
+	createRequest.Header.Set("Idempotency-Key", "intent-cancel-create")
+	createResponse := httptest.NewRecorder()
+	handler.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body = %s", createResponse.Code, createResponse.Body.String())
+	}
+	var created intents.Snapshot
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	path := "/v1/intents/" + created.IntentID.String() + "/cancel"
+	cancelRequest := httptest.NewRequest(http.MethodPost, path, nil)
+	cancelRequest.Header.Set(api.AgentKeyHeader, "agent-secret")
+	cancelRequest.Header.Set("Idempotency-Key", "intent-cancel-1")
+	cancelResponse := httptest.NewRecorder()
+	handler.ServeHTTP(cancelResponse, cancelRequest)
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf("cancel status = %d, body = %s", cancelResponse.Code, cancelResponse.Body.String())
+	}
+	var cancelled intents.Response
+	if err := json.Unmarshal(cancelResponse.Body.Bytes(), &cancelled); err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != intents.PurchaseIntentStatusCancelled || cancelled.CancelledAt == nil || cancelled.Version != 2 {
+		t.Fatalf("cancelled = %#v", cancelled)
+	}
+
+	replay := httptest.NewRequest(http.MethodPost, path, nil)
+	replay.Header = cancelRequest.Header.Clone()
+	replayResponse := httptest.NewRecorder()
+	handler.ServeHTTP(replayResponse, replay)
+	if replayResponse.Code != http.StatusOK || replayResponse.Body.String() != cancelResponse.Body.String() {
+		t.Fatalf("replay = %d %s", replayResponse.Code, replayResponse.Body.String())
+	}
+}
+
 func TestPurchaseIntentMapsInactiveCommerceToGone(t *testing.T) {
 	t.Parallel()
 
