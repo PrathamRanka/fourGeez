@@ -210,7 +210,7 @@ authorization, revocation, transaction, and failure semantics proven locally.
 
 - [x] **AWS-000** Replace the existing CDK placeholder with Terraform modules, remote state, environment configuration, and CI validation.
 - [x] **AWS-001** Bootstrap the development AWS account and Terraform state backend. The development backend is deployed in Mumbai with encrypted, versioned S3 state, public access blocked, TLS-only access, and verified native S3 lock-file contention.
-- [ ] **AWS-002** Create DynamoDB tables and required secondary indexes.
+- [x] **AWS-002** Create DynamoDB tables and required secondary indexes. The Mumbai development table uses on-demand billing, AWS-owned encryption, point-in-time recovery, and the four documented seller, payment, storefront, and route indexes.
 - [ ] **AWS-003** Create versioned Object Lock evidence bucket and KMS signing key.
 - [ ] **AWS-004** Create Secrets Manager entries, KMS/HSM-backed capability-signing keys, API-key digest pepper storage, JWKS publication/rotation support, and least-privilege IAM roles without exposing signing material to application configuration or sellers.
 - [ ] **AWS-005** Deploy Lambda, HTTP API, WebSocket API, MCP endpoint, stages, throttles, and access logs.

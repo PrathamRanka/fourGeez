@@ -71,6 +71,11 @@ Only names, local mock values, and non-sensitive URLs belong in `.env.example`. 
 
 Object Lock cannot be treated as a later toggle. Terraform must create the evidence bucket with Object Lock enabled, and lifecycle rules must prevent routine destruction.
 
+The development table is named `agentpay-dev-main`; application processes use
+the Terraform `table_name` output rather than hardcoding that value. Development
+keeps deletion protection off for controlled teardown, while demo and production
+enable it.
+
 ### Identity module
 
 - Cognito user pool for seller accounts.

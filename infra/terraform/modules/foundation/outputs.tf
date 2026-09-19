@@ -8,3 +8,13 @@ output "deployment" {
     tags            = var.tags
   }
 }
+
+output "table_name" {
+  description = "DynamoDB table used by the AgentPay runtime."
+  value       = aws_dynamodb_table.agentpay.name
+}
+
+output "table_arn" {
+  description = "DynamoDB table ARN used by least-privilege runtime policies."
+  value       = aws_dynamodb_table.agentpay.arn
+}
