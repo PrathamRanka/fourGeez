@@ -82,7 +82,6 @@ func TestPaymentDestinationRepositoryPersistsChallengeHash(t *testing.T) {
 // TestPaymentDestinationRepositoryUsesConditionalChallengeAndActivationWrites verifies WAL-002 concurrency.
 func TestPaymentDestinationRepositoryUsesConditionalChallengeAndActivationWrites(t *testing.T) {
 	t.Parallel()
-
 	destination := testDynamoPaymentDestination(t)
 	client := &fakeClient{}
 	repository := NewPaymentDestinationRepository(client, "agentpay-dev")
@@ -111,6 +110,16 @@ func TestPaymentDestinationRepositoryUsesConditionalChallengeAndActivationWrites
 	}
 	if client.transactWriteInput == nil || len(client.transactWriteInput.TransactItems) != 2 {
 		t.Fatalf("activation transaction = %#v", client.transactWriteInput)
+	}
+	claimPut := client.transactWriteInput.TransactItems[0].Put
+	if claimPut == nil {
+		t.Fatalf("activation claim write = %#v", client.transactWriteInput.TransactItems[0])
+	}
+	if claimPut.ExpressionAttributeValues != nil {
+		t.Fatalf(
+			"create-only active-destination claim must omit expression values, got %#v",
+			claimPut.ExpressionAttributeValues,
+		)
 	}
 }
 

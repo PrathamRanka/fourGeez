@@ -156,8 +156,9 @@ func (repository *PaymentDestinationRepository) Activate(
 		return err
 	}
 	claimCondition := "attribute_not_exists(PK) AND attribute_not_exists(SK)"
-	claimValues := map[string]types.AttributeValue{}
+	var claimValues map[string]types.AttributeValue
 	if activation.RotatedDestination != nil {
+		claimValues = make(map[string]types.AttributeValue, 1)
 		claimCondition = "destinationId = :expectedDestinationId"
 		claimValues[":expectedDestinationId"] = stringAttributeValue(
 			activation.RotatedDestination.DestinationID.String(),
