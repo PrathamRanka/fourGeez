@@ -222,6 +222,7 @@ Each task remains independently tested and committed.
 - [x] **DX-001** Expose deterministic maintained-stack detection through the authenticated MCP and allow repository route analysis for every language family represented by the exact 21-stack matrix. The coding agent must use bounded committed evidence and cannot select an unevidenced stack.
 - [x] **DX-002** Add a Windows/PowerShell-first connector preflight and actionable secret-safe diagnostics, then publish exact Claude Code, Codex, and generic-host setup steps that do not place a project key in committed configuration.
 - [x] **DX-003** Gate seller MCP setup and project-key issuance on authoritative seller ownership, verified account/profile state, active launch entitlement, a verified platform-supported testnet payment destination, and HTTPS service readiness. Ineligible sellers receive a prerequisite checklist with completion links and no project-key or MCP invitation. Eligible sellers receive reveal-once credential handling, exact Claude Code/Codex/generic local-connector configuration, Windows PowerShell preflight, credential and connector lifecycle diagnostics (`disconnected`, `connected`, `expired`, or `revoked`), validation results with retry guidance, and canonical storefront/product URLs after publication. Record the first authenticated connector authorization idempotently and fail closed when it cannot be recorded. Keep prices, payout destinations, publication, credential rotation, and deployment seller-confirmed. Stripe subscription checkout remains disabled for this launch.
+- [ ] **DX-004** Produce reproducible, self-contained private release artifacts for `@agentpay/local-mcp-connector` and `@agentpay/merchant-sdk`. Validate exact packed contents and clean installation, include the proprietary license and reviewed notice, generate SHA-256 checksums and source-commit provenance, and publish a Windows-first installation runbook for Claude Code, Codex, and generic stdio MCP hosts. Registry publication remains blocked; a release owner may distribute the artifacts only from a protected immutable release after approving customer-use terms and third-party provenance.
 
 M7.2 acceptance: an eligible first-time seller can identify an evidenced
 maintained stack, select the matching setup workflow, diagnose local connector
@@ -231,6 +232,15 @@ setup invitation. Prices and payout destinations remain seller-controlled, and
 published products expose their canonical storefront URLs in the dashboard.
 Package-registry publication and deployed AWS reachability remain explicit
 release dependencies rather than being represented as complete.
+
+DX-004 acceptance: two independently generated artifact sets from the same
+clean commit have identical package checksums; each tarball installs into an
+empty Node.js project without registry access; the connector exposes only its
+documented executable and the merchant SDK has no unresolved AgentPay runtime
+dependency; packed files contain no source maps, tests, local configuration,
+credentials, or secret values; checksum and provenance verification fail
+closed; and every documented seller command uses a downloaded immutable
+artifact rather than an unsupported Git workspace-subdirectory install.
 
 ## Milestone M7.3 — Public discovery and commerce extensions
 

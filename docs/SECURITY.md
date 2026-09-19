@@ -168,6 +168,30 @@ version, expiry, revocation, or prior consumption fails before mutation.
 Caller-supplied `approved`, `summary`, and `confirmedAt` values are display
 metadata only during migration and are forbidden as production authority.
 
+## Seller package supply chain
+
+Lean V1 seller packages are distributed as immutable release artifacts, not
+from a mutable branch, workspace subdirectory, or unpinned URL. A release must:
+
+- originate from a clean protected commit and record its full Git SHA;
+- produce deterministic npm tarballs whose second build has identical SHA-256
+  digests;
+- include only declared runtime files, the package README, proprietary license,
+  and reviewed notice;
+- install into an empty project without registry access or lifecycle scripts;
+- contain no source maps, tests, caches, environment files, credentials,
+  private keys, authorization material, or seller data;
+- publish a checksum manifest and machine-readable provenance document beside
+  the tarballs; and
+- remain blocked from npm publication while `private: true` is set and until
+  customer-use terms, contributor provenance, third-party notices, protected
+  release tags, and registry credentials are explicitly approved.
+
+Seller instructions verify the checksum before installation and keep the
+reveal-once project key outside repository files and host configuration. An
+installed connector remains untrusted and receives no cloud signing or payment
+authority.
+
 Buyer-side approval invitation, cookie, token, and WebSocket mechanisms are
 disabled for Lean V1. Historical M2 code and records are not transaction
 authority and must not be exposed by the launch runtime. Seller sessions,
