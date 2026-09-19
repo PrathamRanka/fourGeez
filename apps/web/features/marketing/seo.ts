@@ -3,13 +3,32 @@ import type { Metadata, MetadataRoute } from "next";
 export const agentPaySiteOrigin = "https://agentpay.prathamranka.in";
 
 export const marketingDescription =
-  "Prepare an agent-ready storefront, x402 testnet checkout, signed fulfillment, and machine-readable discovery for your existing API.";
+  "AgentPay helps API sellers create agent-ready storefronts with x402 testnet checkout, signed fulfillment, MCP integration, and machine-readable discovery.";
+
+const socialImage = {
+  url: `${agentPaySiteOrigin}/opengraph-image`,
+  width: 1200,
+  height: 630,
+  alt: "AgentPay — seller-first x402 API storefronts for AI agents",
+};
+
+const marketingKeywords = [
+  "AI agent commerce",
+  "x402 payments",
+  "API monetization",
+  "API storefront",
+  "MCP integration",
+  "USDC payments",
+  "agent-ready API",
+  "seller infrastructure",
+] as const;
 
 export const marketingMetadata: Metadata = {
   title: {
     absolute: "AgentPay | Seller-first x402 storefronts for APIs",
   },
   description: marketingDescription,
+  keywords: [...marketingKeywords],
   alternates: { canonical: `${agentPaySiteOrigin}/` },
   openGraph: {
     type: "website",
@@ -18,22 +37,72 @@ export const marketingMetadata: Metadata = {
     title: "AgentPay | Seller-first x402 storefronts for APIs",
     description: marketingDescription,
     url: `${agentPaySiteOrigin}/`,
+    images: [socialImage],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "AgentPay | Seller-first x402 storefronts for APIs",
     description: marketingDescription,
+    images: [socialImage.url],
   },
   robots: { index: true, follow: true },
 };
 
 export const marketingStructuredData = {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "AgentPay",
-  url: `${agentPaySiteOrigin}/`,
-  description: marketingDescription,
-  inLanguage: "en",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${agentPaySiteOrigin}/#organization`,
+      name: "AgentPay",
+      url: `${agentPaySiteOrigin}/`,
+      logo: `${agentPaySiteOrigin}/brand/agentpay-icon-512.png`,
+      founder: [
+        {
+          "@type": "Person",
+          name: "Pratham Ranka",
+          url: "https://www.linkedin.com/in/prathamranka06/",
+        },
+        { "@type": "Person", name: "Ayush Garg" },
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${agentPaySiteOrigin}/#website`,
+      name: "AgentPay",
+      url: `${agentPaySiteOrigin}/`,
+      description: marketingDescription,
+      inLanguage: "en",
+      publisher: { "@id": `${agentPaySiteOrigin}/#organization` },
+    },
+    {
+      "@type": "WebApplication",
+      "@id": `${agentPaySiteOrigin}/#application`,
+      name: "AgentPay",
+      url: `${agentPaySiteOrigin}/`,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description: marketingDescription,
+      featureList: [
+        "Seller storefront generation",
+        "x402 testnet checkout",
+        "MCP-assisted repository integration",
+        "Signed fulfillment",
+        "Machine-readable product discovery",
+      ],
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": `${agentPaySiteOrigin}/#source`,
+      name: "AgentPay",
+      codeRepository: "https://github.com/PrathamRanka/fourGeez",
+      programmingLanguage: ["Go", "TypeScript"],
+      copyrightHolder: [
+        { "@type": "Person", name: "Pratham Ranka" },
+        { "@type": "Person", name: "Ayush Garg" },
+      ],
+    },
+  ],
 } as const;
 
 function buildSupportingPageMetadata({
@@ -57,11 +126,13 @@ function buildSupportingPageMetadata({
       title: `${title} | AgentPay`,
       description,
       url: canonicalUrl,
+      images: [socialImage],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: `${title} | AgentPay`,
       description,
+      images: [socialImage.url],
     },
     robots: { index: true, follow: true },
   };
@@ -165,6 +236,12 @@ AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, N
 - Security: ${agentPaySiteOrigin}/security
 - Privacy: ${agentPaySiteOrigin}/privacy
 - Terms: ${agentPaySiteOrigin}/terms
+
+## Project and maintainers
+
+- Source repository: https://github.com/PrathamRanka/fourGeez
+- Maintainers: Pratham Ranka and Ayush Garg
+- Pratham Ranka: https://www.linkedin.com/in/prathamranka06/
 
 ## Limits
 

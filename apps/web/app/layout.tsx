@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -19,6 +19,16 @@ export const metadata: Metadata = {
     template: "%s | AgentPay",
   },
   description: marketingDescription,
+  authors: [
+    {
+      name: "Pratham Ranka",
+      url: "https://www.linkedin.com/in/prathamranka06/",
+    },
+    { name: "Ayush Garg" },
+  ],
+  creator: "Pratham Ranka and Ayush Garg",
+  publisher: "AgentPay",
+  category: "Developer tools",
   manifest: "/manifest.webmanifest",
   referrer: "origin-when-cross-origin",
   icons: {
@@ -45,7 +55,13 @@ export const metadata: Metadata = {
         type: "image/png",
       },
     ],
+    shortcut: "/favicon.ico",
   },
+};
+
+export const viewport: Viewport = {
+  colorScheme: "dark",
+  themeColor: "#050506",
 };
 
 // RootLayout applies the shared public product shell and design system.

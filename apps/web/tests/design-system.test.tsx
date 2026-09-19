@@ -20,8 +20,23 @@ describe("AgentPay web foundation", () => {
       screen.getByRole("navigation", { name: "Legal links" }),
     ).toBeVisible();
     expect(
+      screen.getByRole("navigation", { name: "Developer links" }),
+    ).toBeVisible();
+    expect(
       screen.getByRole("link", { name: "Create your storefront" }),
     ).toHaveAttribute("href", "/sign-up");
+    expect(
+      screen.getByRole("link", { name: "GitHub repository" }),
+    ).toHaveAttribute("href", "https://github.com/PrathamRanka/fourGeez");
+    expect(
+      screen.getByRole("link", { name: "Pratham Ranka on LinkedIn" }),
+    ).toHaveAttribute(
+      "href",
+      "https://www.linkedin.com/in/prathamranka06/",
+    );
+    expect(
+      screen.getByText(/built by pratham ranka and ayush garg/i),
+    ).toBeVisible();
   });
 
   it("defines the approved dual-theme typography, bento, and motion tokens", () => {

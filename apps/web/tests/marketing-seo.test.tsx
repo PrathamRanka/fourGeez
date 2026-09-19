@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import HomePage, { metadata as homeMetadata } from "@/app/page";
 import { GET as getLlmsText } from "@/app/llms.txt/route";
+import { alt as socialImageAlt, size as socialImageSize } from "@/app/opengraph-image";
 import manifest from "@/app/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
@@ -24,8 +25,36 @@ describe("AgentPay marketing discovery", () => {
       type: "website",
       url: `${canonicalOrigin}/`,
       siteName: "AgentPay",
+      images: [
+        expect.objectContaining({
+          url: `${canonicalOrigin}/opengraph-image`,
+          width: 1200,
+          height: 630,
+        }),
+      ],
     });
-    expect(homeMetadata.twitter).toMatchObject({ card: "summary" });
+    expect(homeMetadata.twitter).toMatchObject({
+      card: "summary_large_image",
+      images: [`${canonicalOrigin}/opengraph-image`],
+    });
+    expect(homeMetadata.keywords).toEqual(
+      expect.arrayContaining([
+        "x402 payments",
+        "API monetization",
+        "MCP integration",
+        "AI agent commerce",
+      ]),
+    );
+    expect(rootMetadata.authors).toEqual([
+      {
+        name: "Pratham Ranka",
+        url: "https://www.linkedin.com/in/prathamranka06/",
+      },
+      { name: "Ayush Garg" },
+    ]);
+    expect(rootMetadata.icons).toMatchObject({ shortcut: "/favicon.ico" });
+    expect(socialImageSize).toEqual({ width: 1200, height: 630 });
+    expect(socialImageAlt).toMatch(/AgentPay.*API storefronts/i);
   });
 
   it("publishes canonical social metadata for public supporting pages", () => {
@@ -37,7 +66,9 @@ describe("AgentPay marketing discovery", () => {
       url: `${canonicalOrigin}/docs`,
       siteName: "AgentPay",
     });
-    expect(docsMetadata.twitter).toMatchObject({ card: "summary" });
+    expect(docsMetadata.twitter).toMatchObject({
+      card: "summary_large_image",
+    });
 
     expect(demoMetadata.alternates).toEqual({
       canonical: `${canonicalOrigin}/demo/agent-checkout`,
@@ -47,7 +78,9 @@ describe("AgentPay marketing discovery", () => {
       url: `${canonicalOrigin}/demo/agent-checkout`,
       siteName: "AgentPay",
     });
-    expect(demoMetadata.twitter).toMatchObject({ card: "summary" });
+    expect(demoMetadata.twitter).toMatchObject({
+      card: "summary_large_image",
+    });
   });
 
   it("keeps private workflow routes out of crawl while exposing discovery", () => {
@@ -118,6 +151,8 @@ describe("AgentPay marketing discovery", () => {
     expect(body).toContain("21 maintained stacks");
     expect(body).toContain("x402 testnet");
     expect(body).toContain("does not guarantee search ranking");
+    expect(body).toContain("https://github.com/PrathamRanka/fourGeez");
+    expect(body).toContain("Pratham Ranka and Ayush Garg");
     expect(body).not.toContain("production-ready");
   });
 
@@ -134,12 +169,30 @@ describe("AgentPay marketing discovery", () => {
     const structuredData = Array.from(
       container.querySelectorAll('script[type="application/ld+json"]'),
     ).map((script) => JSON.parse(script.textContent ?? "{}"));
-    expect(structuredData).toContainEqual(expect.objectContaining({
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      name: "AgentPay",
-      url: `${canonicalOrigin}/`,
-    }));
+    expect(structuredData).toContainEqual(
+      expect.objectContaining({
+        "@context": "https://schema.org",
+        "@graph": expect.arrayContaining([
+          expect.objectContaining({
+            "@type": "WebSite",
+            name: "AgentPay",
+            url: `${canonicalOrigin}/`,
+          }),
+          expect.objectContaining({
+            "@type": "Organization",
+            name: "AgentPay",
+          }),
+          expect.objectContaining({
+            "@type": "WebApplication",
+            name: "AgentPay",
+          }),
+          expect.objectContaining({
+            "@type": "SoftwareSourceCode",
+            codeRepository: "https://github.com/PrathamRanka/fourGeez",
+          }),
+        ]),
+      }),
+    );
     expect(structuredData).toContainEqual(expect.objectContaining({
       "@context": "https://schema.org",
       "@type": "FAQPage",

@@ -1377,7 +1377,7 @@
 
   .footer-layout {
     display: grid;
-    grid-template-columns: 1.4fr 1fr;
+    grid-template-columns: minmax(18rem, 1.1fr) minmax(0, 1.45fr);
     gap: clamp(3rem, 8vw, 8rem);
     padding-block: clamp(3.5rem, 7vw, 6rem);
   }
@@ -1405,8 +1405,8 @@
 
   .footer-groups {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(1.25rem, 3vw, 2rem);
   }
 
   .footer-group-title {

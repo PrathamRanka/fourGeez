@@ -126,6 +126,7 @@ describe("AgentPay brand assets", () => {
           type: "image/png",
         },
       ],
+      shortcut: "/favicon.ico",
     });
 
     expect(manifest()).toMatchObject({

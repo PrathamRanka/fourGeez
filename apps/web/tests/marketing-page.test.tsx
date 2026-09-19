@@ -17,8 +17,8 @@ describe("AgentPay public site", () => {
       "/sign-up",
     );
     expect(
-      screen.getByRole("link", { name: "Watch agent checkout" }),
-    ).toHaveAttribute("href", "/demo/agent-checkout");
+      screen.queryByRole("link", { name: "Watch agent checkout" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("animated-gradient-background")).toHaveAttribute(
       "aria-hidden",
       "true",

@@ -1,4 +1,4 @@
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Code2, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandMark } from "@/components/site/brand-mark";
 import { CloudShader } from "@/components/ui/cloud-shader";
@@ -29,6 +29,24 @@ const footerGroups = [
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
       { href: "/security", label: "Security" },
+    ],
+  },
+  {
+    label: "Developer links",
+    title: "Developers",
+    links: [
+      {
+        href: "https://github.com/PrathamRanka/fourGeez",
+        label: "GitHub repository",
+        icon: Code2,
+        external: true,
+      },
+      {
+        href: "https://www.linkedin.com/in/prathamranka06/",
+        label: "Pratham Ranka on LinkedIn",
+        icon: UserRound,
+        external: true,
+      },
     ],
   },
 ] as const;
@@ -74,15 +92,28 @@ export function SiteFooter() {
             <nav key={group.label} aria-label={group.label}>
               <p className="footer-group-title">{group.title}</p>
               <div className="footer-links">
-                {group.links.map((link) => (
-                  <Link
-                    key={`${group.label}-${link.label}`}
-                    href={link.href}
-                    className="footer-link"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                {group.links.map((link) =>
+                  "external" in link && link.external ? (
+                    <a
+                      key={`${group.label}-${link.label}`}
+                      href={link.href}
+                      className="footer-link"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <link.icon aria-hidden="true" className="size-4" />
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link
+                      key={`${group.label}-${link.label}`}
+                      href={link.href}
+                      className="footer-link"
+                    >
+                      {link.label}
+                    </Link>
+                  ),
+                )}
               </div>
             </nav>
           ))}
@@ -90,7 +121,7 @@ export function SiteFooter() {
       </div>
 
       <div className="site-container footer-bottom">
-        <span>© 2026 AgentPay</span>
+        <span>© 2026 AgentPay. Built by Pratham Ranka and Ayush Garg.</span>
         <span>Buyer funds settle directly to verified seller wallets.</span>
       </div>
     </footer>

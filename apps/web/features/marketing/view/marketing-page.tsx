@@ -67,9 +67,6 @@ function HeroSection() {
             Start selling
             <ArrowRight aria-hidden="true" />
           </Link>
-          <Link className={styles.secondaryAction} href="/demo/agent-checkout">
-            Watch agent checkout
-          </Link>
         </div>
       </div>
 
