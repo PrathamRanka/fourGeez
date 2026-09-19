@@ -178,6 +178,76 @@ func TestPaidRouteServiceClaimsIntentBeforeChallengeAndRejectsCancellation(t *te
 	}
 }
 
+func TestPaidRouteServiceRechecksExpiryAfterAuthorization(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	destination := settlement.PaymentDestination{
+		DestinationID: fixture.purchaseIntent.PaymentDestinationID(),
+		SellerID:      fixture.seller.SellerID,
+		Asset:         fixture.route.Asset,
+		Network:       fixture.route.Network,
+		Address:       fixture.purchaseIntent.PayTo(),
+		Status:        settlement.PaymentDestinationStatusActive,
+	}
+	fixture.service = NewAuthorizedPaidRouteService(
+		&paidRouteCatalogRepository{seller: fixture.seller, route: fixture.route},
+		fixture.service.intentRepository,
+		&paidRouteApprovalRepository{},
+		nil,
+		&paidRouteAuthorizer{
+			seller: fixture.seller, route: fixture.route, destination: destination,
+			onAuthorize: func() {
+				fixture.clock.Value = fixture.purchaseIntent.ExpiresAt().Time()
+			},
+		},
+		fixture.clock,
+		"https://api.example",
+	)
+
+	_, err := fixture.service.Resolve(t.Context(), PaidRouteRequest{
+		Slug: fixture.seller.Slug, Method: fixture.route.Method,
+		ProxyPath: fixture.route.PathPattern, IntentID: fixture.purchaseIntent.IntentID(),
+		BuyerID: fixture.purchaseIntent.BuyerID(),
+	})
+	if !errors.Is(err, ErrIntentExpired) {
+		t.Fatalf("Resolve() error = %v, want expired after authorization crossed the deadline", err)
+	}
+	repository := fixture.service.intentRepository.(*paidRouteIntentRepository)
+	if repository.purchaseIntent.Status() != intents.PurchaseIntentStatusExpired {
+		t.Fatalf("intent status = %q, want expired", repository.purchaseIntent.Status())
+	}
+}
+
+func TestPaidRouteServiceAllowsConcurrentClaimThatWonBeforeExpiry(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	repository := fixture.service.intentRepository.(*paidRouteIntentRepository)
+	fixture.clock.Value = fixture.purchaseIntent.ExpiresAt().Time()
+	repository.onUpdate = func(_ intents.PurchaseIntent, _ uint64) error {
+		claimed := fixture.purchaseIntent
+		if err := claimed.Claim(fixture.purchaseIntent.ExpiresAt().Add(-time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		repository.purchaseIntent = claimed
+		repository.onUpdate = nil
+		return persistence.ErrConditionFailed
+	}
+
+	resolved, err := fixture.service.Resolve(t.Context(), PaidRouteRequest{
+		Slug: fixture.seller.Slug, Method: fixture.route.Method,
+		ProxyPath: fixture.route.PathPattern, IntentID: fixture.purchaseIntent.IntentID(),
+		BuyerID: fixture.purchaseIntent.BuyerID(),
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v, want the pre-expiry claim to remain executable", err)
+	}
+	if resolved.PurchaseIntent.Status() != intents.PurchaseIntentStatusExecuted {
+		t.Fatalf("resolved intent status = %q", resolved.PurchaseIntent.Status())
+	}
+}
+
 func TestPaidRouteServiceRejectsChangedAuthoritativeQuoteBeforeChallenge(t *testing.T) {
 	t.Parallel()
 	fixture := newPaidRouteFixture(t, false)
@@ -195,9 +265,13 @@ type paidRouteAuthorizer struct {
 	seller      catalog.Seller
 	route       catalog.PaidRoute
 	destination settlement.PaymentDestination
+	onAuthorize func()
 }
 
 func (authorizer *paidRouteAuthorizer) AuthorizePaidRoute(context.Context, domain.ID) (catalog.Seller, catalog.PaidRoute, settlement.PaymentDestination, error) {
+	if authorizer.onAuthorize != nil {
+		authorizer.onAuthorize()
+	}
 	return authorizer.seller, authorizer.route, authorizer.destination, nil
 }
 
@@ -400,6 +474,7 @@ func (repository *paidRouteCatalogRepository) GetRoute(
 
 type paidRouteIntentRepository struct {
 	purchaseIntent intents.PurchaseIntent
+	onUpdate       func(intents.PurchaseIntent, uint64) error
 }
 
 // Get returns the requested immutable purchase intent.
@@ -414,6 +489,9 @@ func (repository *paidRouteIntentRepository) Get(
 }
 
 func (repository *paidRouteIntentRepository) Update(_ context.Context, purchaseIntent intents.PurchaseIntent, expectedVersion uint64) error {
+	if repository.onUpdate != nil {
+		return repository.onUpdate(purchaseIntent, expectedVersion)
+	}
 	if repository.purchaseIntent.Version() != expectedVersion || purchaseIntent.Version() != expectedVersion+1 {
 		return persistence.ErrConditionFailed
 	}

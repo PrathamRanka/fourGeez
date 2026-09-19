@@ -27,6 +27,9 @@ func (repository *PurchaseIntentRepository) Update(ctx context.Context, purchase
 		return err
 	}
 	condition := "#version = :expectedVersion"
+	if expectedVersion == 1 {
+		condition = "attribute_not_exists(#version) OR #version = :expectedVersion"
+	}
 	_, err = repository.client.PutItem(ctx, &awssdk.PutItemInput{
 		TableName:                 &repository.tableName,
 		Item:                      item,

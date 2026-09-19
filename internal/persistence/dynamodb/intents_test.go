@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,7 +36,8 @@ func TestPurchaseIntentUpdateUsesExpectedVersionCondition(t *testing.T) {
 		t.Fatal(err)
 	}
 	if client.putInput == nil || client.putInput.ConditionExpression == nil ||
-		*client.putInput.ConditionExpression != "#version = :expectedVersion" {
+		!strings.Contains(*client.putInput.ConditionExpression, "attribute_not_exists(#version)") ||
+		!strings.Contains(*client.putInput.ConditionExpression, "#version = :expectedVersion") {
 		t.Fatalf("intent update condition = %#v", client.putInput)
 	}
 	expectedVersionAttribute, ok := client.putInput.ExpressionAttributeValues[":expectedVersion"].(*types.AttributeValueMemberN)

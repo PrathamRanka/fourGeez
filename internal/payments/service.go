@@ -170,9 +170,13 @@ func (service *PaidRouteService) Resolve(
 			return ResolvedPaidRoute{}, err
 		}
 	}
+	claimAt := domain.NewTimestamp(service.clock.Now())
+	if err := service.ensureIntentCanExecute(ctx, &purchaseIntent, claimAt); err != nil {
+		return ResolvedPaidRoute{}, err
+	}
 	if purchaseIntent.Status() == intents.PurchaseIntentStatusReady {
 		expectedVersion := purchaseIntent.Version()
-		if err := purchaseIntent.Claim(now); err != nil {
+		if err := purchaseIntent.Claim(claimAt); err != nil {
 			return ResolvedPaidRoute{}, err
 		}
 		if err := service.intentRepository.Update(ctx, purchaseIntent, expectedVersion); err != nil {
@@ -233,8 +237,23 @@ func (service *PaidRouteService) ensureIntentCanExecute(ctx context.Context, pur
 		if err := purchaseIntent.Expire(now); err != nil {
 			return ErrIntentExpired
 		}
-		if updateErr := service.intentRepository.Update(ctx, *purchaseIntent, expectedVersion); updateErr != nil && !errors.Is(updateErr, persistence.ErrConditionFailed) {
-			return updateErr
+		if updateErr := service.intentRepository.Update(ctx, *purchaseIntent, expectedVersion); updateErr != nil {
+			if !errors.Is(updateErr, persistence.ErrConditionFailed) {
+				return updateErr
+			}
+			current, loadErr := service.intentRepository.Get(ctx, purchaseIntent.IntentID())
+			if loadErr != nil {
+				return loadErr
+			}
+			switch current.Status() {
+			case intents.PurchaseIntentStatusExecuted:
+				*purchaseIntent = current
+				return nil
+			case intents.PurchaseIntentStatusCancelled:
+				return ErrIntentCancelled
+			default:
+				return ErrIntentExpired
+			}
 		}
 		return ErrIntentExpired
 	default:
