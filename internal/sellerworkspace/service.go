@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/mail"
+	"net/url"
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/billing"
@@ -19,6 +20,11 @@ import (
 )
 
 const dashboardPageSize = 100
+
+const (
+	launchAsset   = "USDC"
+	launchNetwork = "eip155:84532"
+)
 
 type Service struct {
 	dependencies Dependencies
@@ -256,8 +262,76 @@ func (service *Service) AuthorizePublication(ctx context.Context, sellerID domai
 	return nil
 }
 
+// AuthorizeCredentialIssuance gates reveal-once project keys on authoritative
+// pre-connector requirements only. Full signed sandbox validation follows MCP
+// integration and remains mandatory for publication.
+func (service *Service) AuthorizeCredentialIssuance(ctx context.Context, ownerSubject string, sellerID domain.ID) error {
+	principal := Principal{Subject: ownerSubject, SellerID: &sellerID}
+	if service.dependencies.AccountVerification == nil {
+		return integrations.ErrCredentialIssuanceUnavailable
+	}
+	verified, err := service.dependencies.AccountVerification.EmailVerified(ctx, ownerSubject)
+	if err != nil {
+		return err
+	}
+	principal.EmailVerified = verified
+	seller, err := service.resolveSeller(ctx, principal)
+	if err != nil {
+		return err
+	}
+	destinations, err := service.dependencies.PaymentDestinations.ListPaymentDestinations(ctx, sellerID)
+	if err != nil {
+		return err
+	}
+	entitlement, err := service.dependencies.Billing.ResolveSellerPlan(ctx, sellerID)
+	if err != nil {
+		return err
+	}
+	now := domain.NewTimestamp(service.dependencies.Clock.Now())
+	if !verified || !sellerProfileReady(seller) || !serviceConnectionReady(seller) ||
+		!hasSupportedActiveDestination(destinations) ||
+		entitlement.Assignment.Status != billing.EntitlementStatusActive ||
+		entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled ||
+		!now.Before(entitlement.Assignment.AccessEndsAt) {
+		return ErrCredentialIssuanceBlocked
+	}
+	if _, err := service.loadOrCreateState(ctx, principal, sellerID); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (service *Service) RecordConnectorVerification(ctx context.Context, principal Principal) error {
 	return service.recordProgress(ctx, principal, func(state *WorkspaceState, now domain.Timestamp) { state.ConnectorVerifiedAt = &now })
+}
+
+// RecordAuthenticatedConnectorVerification records the cloud-authorized MCP
+// boundary without trusting caller-supplied seller progress. Replays are no-ops.
+func (service *Service) RecordAuthenticatedConnectorVerification(ctx context.Context, sellerID domain.ID) error {
+	state, err := service.dependencies.Workspaces.Get(ctx, sellerID)
+	if err != nil {
+		return err
+	}
+	if state.ConnectorVerifiedAt != nil {
+		return nil
+	}
+	expectedVersion := state.Version
+	now := domain.NewTimestamp(service.dependencies.Clock.Now())
+	state.ConnectorVerifiedAt = &now
+	state.UpdatedAt = now
+	state.Version++
+	state.Settings.Version = state.Version
+	state.Settings.UpdatedAt = now
+	if err := service.dependencies.Workspaces.Put(ctx, state, expectedVersion); err != nil {
+		if errors.Is(err, persistence.ErrConditionFailed) {
+			latest, loadErr := service.dependencies.Workspaces.Get(ctx, sellerID)
+			if loadErr == nil && latest.ConnectorVerifiedAt != nil {
+				return nil
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 func (service *Service) RecordSandboxPurchase(ctx context.Context, principal Principal, transactionID domain.ID) error {
@@ -406,9 +480,9 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 	}{
 		{StepAccountVerified, principal.EmailVerified, !principal.EmailVerified, "Verify the seller account email."},
 		{StepStorefrontCreated, state.SellerID != "", state.SellerID == "", "Create the seller storefront."},
-		{StepServiceConnectionVerified, seller.Status == catalog.SellerStatusActive && strings.TrimSpace(seller.SigningSecretRef) != "", seller.Status != catalog.SellerStatusActive || strings.TrimSpace(seller.SigningSecretRef) == "", "Verify the service endpoint and AgentPay request signing."},
-		{StepSubscriptionActive, entitlementErr == nil && entitlement.Assignment.NetworkAccess == billing.NetworkAccessEnabled && now.Before(entitlement.Assignment.AccessEndsAt), entitlementErr != nil || entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled, "Activate a paid seller subscription."},
-		{StepPaymentDestinationVerified, hasActiveDestination(destinations), false, "Verify an active payment destination."},
+		{StepServiceConnectionVerified, serviceConnectionReady(seller), !serviceConnectionReady(seller), "Configure an active HTTPS service endpoint and AgentPay request signing."},
+		{StepSubscriptionActive, entitlementErr == nil && entitlement.Assignment.NetworkAccess == billing.NetworkAccessEnabled && now.Before(entitlement.Assignment.AccessEndsAt), entitlementErr != nil || entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled, "Request an active testnet launch entitlement."},
+		{StepPaymentDestinationVerified, hasSupportedActiveDestination(destinations), false, "Verify USDC on Base Sepolia to a seller-controlled address."},
 		{StepProjectKeyCreated, hasActiveCredential(credentials, now), false, "Create an active project connection key."},
 		{StepConnectorVerified, state.ConnectorVerifiedAt != nil, false, "Connect and verify the local MCP connector."},
 		{StepProductConfigured, len(routes) > 0, false, "Configure at least one product."},
@@ -511,6 +585,24 @@ func hasActiveDestination(destinations []settlement.PaymentDestination) bool {
 		}
 	}
 	return false
+}
+
+func hasSupportedActiveDestination(destinations []settlement.PaymentDestination) bool {
+	for _, destination := range destinations {
+		if destination.Status == settlement.PaymentDestinationStatusActive && destination.Asset == launchAsset && destination.Network == launchNetwork {
+			return true
+		}
+	}
+	return false
+}
+
+func sellerProfileReady(seller catalog.Seller) bool {
+	return strings.TrimSpace(seller.Name) != "" && strings.TrimSpace(seller.Slug) != ""
+}
+
+func serviceConnectionReady(seller catalog.Seller) bool {
+	serviceURL, err := url.Parse(strings.TrimSpace(seller.UpstreamBaseURL))
+	return err == nil && serviceURL.Scheme == "https" && serviceURL.Host != "" && seller.Status == catalog.SellerStatusActive && strings.TrimSpace(seller.SigningSecretRef) != ""
 }
 func hasActiveCredential(credentials []integrations.CredentialView, now domain.Timestamp) bool {
 	return summarizeCredentials(credentials, now).Active > 0

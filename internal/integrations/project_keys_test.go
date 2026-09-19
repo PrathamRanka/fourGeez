@@ -38,6 +38,7 @@ func TestServiceCreatesAPC2CredentialWithKeyedDigest(t *testing.T) {
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 		audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Production connector", Scopes: []Scope{ScopeRead, ScopeConfigure}})
 	if err != nil {
@@ -76,6 +77,7 @@ func TestAuthorizeExchangeChecksRateLimitCredentialEntitlementQuotaAndLastUsed(t
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)}, &credentialClock{now: now}, audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
 		WithExchangeAuthorization(entitlements, limiter, quota),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead, ScopeConfigure}})
 	if err != nil {
@@ -106,6 +108,7 @@ func TestAuthorizeExchangeDeniesAtExactAccessBoundary(t *testing.T) {
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)}, clock, audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
 		WithExchangeAuthorization(&exchangeEntitlementResolver{response: activeExchangeEntitlement(boundary)}, &exchangeLimiter{}, quota),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead}})
 	if err != nil {
@@ -134,6 +137,7 @@ func TestAuthorizeExchangeDeniesStaleEntitlementEpochBeforeQuota(t *testing.T) {
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)}, &credentialClock{now: now}, audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
 		WithExchangeAuthorization(resolver, &exchangeLimiter{}, quota),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead}})
 	if err != nil {
@@ -155,6 +159,7 @@ func TestServiceRotatesCredentialAtomically(t *testing.T) {
 		repository, &sellerAuthorizer{}, ids, &credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)}, audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead, ScopeConfigure}})
 	if err != nil {
@@ -191,6 +196,7 @@ func TestServiceReplaysCommittedCredentialRotationExactly(t *testing.T) {
 		repository, &sellerAuthorizer{}, ids, &credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)}, audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead}})
 	if err != nil {
@@ -219,6 +225,7 @@ func TestServiceRejectsCredentialRotationIdempotencyConflict(t *testing.T) {
 		repository, &sellerAuthorizer{}, ids, &credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)}, audit.NoopRecorder{},
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead}})
 	if err != nil {
@@ -245,6 +252,7 @@ func TestAuthorizeExchangeAppendsSuccessAndDenialAuditEvents(t *testing.T) {
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)}, &credentialClock{now: now}, recorder,
 		WithCredentialDigester(NewHMACCredentialDigester(StaticCredentialPepperProvider{Value: []byte(strings.Repeat("p", 32))})),
 		WithExchangeAuthorization(&exchangeEntitlementResolver{response: activeExchangeEntitlement(now.Add(time.Minute))}, &exchangeLimiter{}, &exchangeQuota{}),
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	created, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Connector", Scopes: []Scope{ScopeRead}})
 	if err != nil {

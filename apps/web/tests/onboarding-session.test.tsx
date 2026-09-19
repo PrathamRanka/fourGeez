@@ -53,6 +53,14 @@ describe("resumable seller onboarding", () => {
     vi.mocked(listOnboardingResources).mockResolvedValue({
       paymentDestinations: [],
       credentials: [],
+      onboarding: {
+        sellerId: "sel_session_owner",
+        complete: false,
+        currentStep: "payment_destination_verified",
+        steps: [],
+        publication: { allowed: false, blockers: [] },
+        version: 1,
+      },
     });
 
     render(await OnboardingPage());

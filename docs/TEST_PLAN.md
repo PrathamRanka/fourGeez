@@ -149,6 +149,12 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     the seller entitlement, and prove both lose MCP, publication, discovery,
     intent, x402, and transaction authority while historical access follows the
     subscription contract.
+15. Against the canonical deployed origin, use an approved private email test
+    recipient to complete seller sign-up, email-code verification, sign-in,
+    onboarding redirect, access-token refresh, eight-hour absolute session
+    expiry, and sign-out. The smoke must use production cookies and clocks,
+    must not add a test-only bypass, and must never render or commit the test
+    recipient or generated password.
 
 Historical M2 approval tests remain regression coverage for dormant code only.
 They are not Lean V1 acceptance tests, no approval server is started, and no

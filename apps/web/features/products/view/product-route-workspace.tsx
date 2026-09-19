@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   AlertDialog,
@@ -57,13 +58,17 @@ const historyDateFormatter = new Intl.DateTimeFormat("en", {
 
 type ProductRouteWorkspaceProps = {
   actions: ProductRouteActions;
+  canonicalOrigin?: string;
   initialSnapshot: ProductRouteSnapshot;
+  sellerSlug?: string;
 };
 
 // ProductRouteWorkspace gives sellers one controlled surface for route configuration.
 export function ProductRouteWorkspace({
   actions,
+  canonicalOrigin,
   initialSnapshot,
+  sellerSlug,
 }: ProductRouteWorkspaceProps) {
   const [routes, setRoutes] = useState(initialSnapshot.routes);
   const [selectedRouteId, setSelectedRouteId] = useState(
@@ -272,7 +277,11 @@ export function ProductRouteWorkspace({
             aria-controls="new-product-panel"
             onClick={() => setIsCreateOpen((open) => !open)}
           >
-            {isCreateOpen ? <X aria-hidden="true" /> : <Plus aria-hidden="true" />}
+            {isCreateOpen ? (
+              <X aria-hidden="true" />
+            ) : (
+              <Plus aria-hidden="true" />
+            )}
             {isCreateOpen ? "Close new product" : "New product"}
           </Button>
         </div>
@@ -281,19 +290,27 @@ export function ProductRouteWorkspace({
       {errorMessage ? (
         <section className="product-error-state" role="alert">
           <div>
-            <span className="product-state-icon"><AlertTriangle aria-hidden="true" /></span>
+            <span className="product-state-icon">
+              <AlertTriangle aria-hidden="true" />
+            </span>
             <div>
               <h2>Catalog unavailable</h2>
               <p>{errorMessage}</p>
             </div>
           </div>
-          <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.location.reload()}
+          >
             <RefreshCw aria-hidden="true" />
             Retry catalog
           </Button>
         </section>
       ) : null}
-      <p className="dashboard-status" aria-live="polite">{statusMessage}</p>
+      <p className="dashboard-status" aria-live="polite">
+        {statusMessage}
+      </p>
 
       {isCreateOpen ? (
         <CreateProductPanel
@@ -314,7 +331,9 @@ export function ProductRouteWorkspace({
           </div>
           {routes.length === 0 ? (
             <div className="product-empty-state product-empty-catalog">
-              <span className="product-state-icon"><Package aria-hidden="true" /></span>
+              <span className="product-state-icon">
+                <Package aria-hidden="true" />
+              </span>
               <h2>Nothing is published yet</h2>
               <p>Your first draft is ready to be configured above.</p>
             </div>
@@ -352,7 +371,9 @@ export function ProductRouteWorkspace({
               actionsPending={pendingAction}
               auditEvents={initialSnapshot.auditEvents}
               confirmEmergencyDisable={confirmEmergencyDisable}
+              canonicalOrigin={canonicalOrigin}
               route={selectedRoute}
+              sellerSlug={sellerSlug}
               validation={validation}
               onArchive={() => runLifecycleAction("archive")}
               onCancelEmergencyDisable={() => setConfirmEmergencyDisable(false)}
@@ -365,9 +386,14 @@ export function ProductRouteWorkspace({
             />
           ) : (
             <div className="product-empty-state product-empty-inspector">
-              <span className="product-state-icon"><Package aria-hidden="true" /></span>
+              <span className="product-state-icon">
+                <Package aria-hidden="true" />
+              </span>
               <h2 id="route-detail-title">Product editor ready</h2>
-              <p>Add the buyer-facing offer first. Technical delivery remains tucked away.</p>
+              <p>
+                Add the buyer-facing offer first. Technical delivery remains
+                tucked away.
+              </p>
             </div>
           )}
         </section>
@@ -400,13 +426,24 @@ function CreateProductPanel({
           <h2 id="new-product-title">
             {isFirstProduct ? "Create your first product" : "Create a product"}
           </h2>
-          <p>Start with what buyers need. Publish only after validation passes.</p>
+          <p>
+            Start with what buyers need. Publish only after validation passes.
+          </p>
         </div>
       </div>
-      <form aria-label="Create product draft" className="product-create-form" onSubmit={onSubmit}>
+      <form
+        aria-label="Create product draft"
+        className="product-create-form"
+        onSubmit={onSubmit}
+      >
         <label>
           <span>Product name</span>
-          <input name="displayName" required maxLength={120} placeholder="Board-ready market report" />
+          <input
+            name="displayName"
+            required
+            maxLength={120}
+            placeholder="Board-ready market report"
+          />
         </label>
         <label>
           <span>Product URL name</span>
@@ -444,7 +481,11 @@ function CreateProductPanel({
         </label>
         <label className="product-field-route">
           <span>Verified payment destination</span>
-          <input name="payTo" required placeholder="0x verified wallet address" />
+          <input
+            name="payTo"
+            required
+            placeholder="0x verified wallet address"
+          />
         </label>
         <Accordion className="product-advanced-fields">
           <AccordionItem value="technical-setup">
@@ -460,11 +501,20 @@ function CreateProductPanel({
                 </label>
                 <label>
                   <span>API path</span>
-                  <input name="pathPattern" required pattern="/[A-Za-z0-9/_-]+" placeholder="/reports/market-brief" />
+                  <input
+                    name="pathPattern"
+                    required
+                    pattern="/[A-Za-z0-9/_-]+"
+                    placeholder="/reports/market-brief"
+                  />
                 </label>
                 <label>
                   <span>Output MIME type</span>
-                  <input name="mimeType" required defaultValue="application/json" />
+                  <input
+                    name="mimeType"
+                    required
+                    defaultValue="application/json"
+                  />
                 </label>
                 <label>
                   <span>Payment network</span>
@@ -472,14 +522,24 @@ function CreateProductPanel({
                 </label>
                 <label>
                   <span>Service timeout in seconds</span>
-                  <input name="upstreamTimeoutSeconds" required inputMode="numeric" pattern="[0-9]+" defaultValue="20" />
+                  <input
+                    name="upstreamTimeoutSeconds"
+                    required
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    defaultValue="20"
+                  />
                 </label>
               </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
         <Button type="submit" disabled={isPending}>
-          {isPending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Plus aria-hidden="true" />}
+          {isPending ? (
+            <LoaderCircle className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Plus aria-hidden="true" />
+          )}
           {isPending ? "Creating draft…" : "Create draft"}
         </Button>
       </form>
@@ -499,7 +559,9 @@ type RouteInspectorProps = {
   actionsPending: string | null;
   auditEvents: RouteAuditEvent[];
   confirmEmergencyDisable: boolean;
+  canonicalOrigin?: string;
   route: PaidRoute;
+  sellerSlug?: string;
   validation: RouteValidationResult | null;
   onArchive: () => void;
   onCancelEmergencyDisable: () => void;
@@ -515,7 +577,9 @@ function RouteInspector({
   actionsPending,
   auditEvents,
   confirmEmergencyDisable,
+  canonicalOrigin,
   route,
+  sellerSlug,
   validation,
   onArchive,
   onCancelEmergencyDisable,
@@ -526,16 +590,27 @@ function RouteInspector({
   onSubmitPrice,
   onValidate,
 }: RouteInspectorProps) {
-  const routeHistory = auditEvents.filter((event) => event.targetId === route.routeId);
-  const canPublish = ["draft", "paused", "emergency_disabled"].includes(route.lifecycleStatus);
-  const canArchive = ["draft", "paused", "emergency_disabled"].includes(route.lifecycleStatus);
+  const routeHistory = auditEvents.filter(
+    (event) => event.targetId === route.routeId,
+  );
+  const canPublish = ["draft", "paused", "emergency_disabled"].includes(
+    route.lifecycleStatus,
+  );
+  const canArchive = ["draft", "paused", "emergency_disabled"].includes(
+    route.lifecycleStatus,
+  );
   const isBusy = actionsPending !== null;
   const validationState = validation
     ? validation.valid
       ? "Verified"
       : "Blocked"
     : "Not checked";
-  const availabilityState = route.lifecycleStatus === "published" ? "Live" : "Offline";
+  const availabilityState =
+    route.lifecycleStatus === "published" ? "Live" : "Offline";
+  const canonicalURL =
+    route.lifecycleStatus === "published" && canonicalOrigin && sellerSlug
+      ? `${canonicalOrigin.replace(/\/$/, "")}/store/${encodeURIComponent(sellerSlug)}/products/${encodeURIComponent(route.productSlug)}`
+      : null;
 
   return (
     <>
@@ -544,6 +619,11 @@ function RouteInspector({
           <p className="product-section-kicker">Selected product</p>
           <h2 id="route-detail-title">{route.displayName}</h2>
           <p>{route.description}</p>
+          {canonicalURL ? (
+            <Link href={canonicalURL} target="_blank" rel="noreferrer">
+              Open canonical storefront product
+            </Link>
+          ) : null}
         </div>
         <div className="product-detail-meta">
           <RouteStatusBadge route={route} />
@@ -578,10 +658,17 @@ function RouteInspector({
             <strong>{formatAtomicPrice(route.amount, route.asset)}</strong>
           </div>
           <dl className="product-customer-details">
-            <Definition label="Storefront path" value={`/products/${route.productSlug}`} />
+            <Definition
+              label="Storefront path"
+              value={`/products/${route.productSlug}`}
+            />
             <Definition label="Settlement destination" value={route.payTo} />
           </dl>
-          <form aria-label="Update product price" className="product-price-form" onSubmit={onSubmitPrice}>
+          <form
+            aria-label="Update product price"
+            className="product-price-form"
+            onSubmit={onSubmitPrice}
+          >
             <label>
               <span>Price</span>
               <input
@@ -594,8 +681,14 @@ function RouteInspector({
                 disabled={route.lifecycleStatus === "archived" || isBusy}
               />
             </label>
-            <Button type="submit" variant="outline" disabled={route.lifecycleStatus === "archived" || isBusy}>
-              {actionsPending === "price" ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={route.lifecycleStatus === "archived" || isBusy}
+            >
+              {actionsPending === "price" ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : null}
               {actionsPending === "price" ? "Updating…" : "Update price"}
             </Button>
           </form>
@@ -608,18 +701,33 @@ function RouteInspector({
               <h3>Publication checks</h3>
               <p>Refresh the authoritative checks before going live.</p>
             </div>
-            <Button type="button" variant="outline" onClick={onValidate} disabled={route.lifecycleStatus === "archived" || isBusy}>
-              {actionsPending === "validate" ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onValidate}
+              disabled={route.lifecycleStatus === "archived" || isBusy}
+            >
+              {actionsPending === "validate" ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw aria-hidden="true" />
+              )}
               {actionsPending === "validate" ? "Checking…" : "Validate product"}
             </Button>
           </div>
           {validation ? (
             <div className="product-validation" data-valid={validation.valid}>
-              <strong>{validation.valid ? "Ready to publish" : "Needs attention"}</strong>
+              <strong>
+                {validation.valid ? "Ready to publish" : "Needs attention"}
+              </strong>
               <ul aria-label="Publication checks">
                 {validation.checks.map((check) => (
                   <li key={check.name}>
-                    {check.passed ? <Check aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
+                    {check.passed ? (
+                      <Check aria-hidden="true" />
+                    ) : (
+                      <AlertTriangle aria-hidden="true" />
+                    )}
                     <span>{check.message}</span>
                     <small>{check.passed ? "Passed" : "Blocked"}</small>
                   </li>
@@ -641,24 +749,44 @@ function RouteInspector({
           <div>
             <p className="product-section-kicker">Availability</p>
             <h3>Product controls</h3>
-            <p>Change whether new buyers can discover and purchase this product.</p>
+            <p>
+              Change whether new buyers can discover and purchase this product.
+            </p>
           </div>
         </div>
         <div className="product-control-row">
           {canPublish ? (
             <Button type="button" onClick={onPublish} disabled={isBusy}>
-              {actionsPending === "publish" ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <CirclePlay aria-hidden="true" />}
+              {actionsPending === "publish" ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <CirclePlay aria-hidden="true" />
+              )}
               {actionsPending === "publish" ? "Publishing…" : "Publish product"}
             </Button>
           ) : null}
           {route.lifecycleStatus === "published" ? (
-            <Button type="button" variant="outline" onClick={onPause} disabled={isBusy}>
-              {actionsPending === "pause" ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <CirclePause aria-hidden="true" />}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onPause}
+              disabled={isBusy}
+            >
+              {actionsPending === "pause" ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <CirclePause aria-hidden="true" />
+              )}
               {actionsPending === "pause" ? "Pausing…" : "Pause product"}
             </Button>
           ) : null}
           {canArchive ? (
-            <Button type="button" variant="outline" onClick={onArchive} disabled={isBusy}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onArchive}
+              disabled={isBusy}
+            >
               <Archive aria-hidden="true" />
               {actionsPending === "archive" ? "Archiving…" : "Archive product"}
             </Button>
@@ -666,23 +794,40 @@ function RouteInspector({
           {route.lifecycleStatus === "published" ? (
             <AlertDialog
               open={confirmEmergencyDisable}
-              onOpenChange={(open) => open ? onRequestEmergencyDisable() : onCancelEmergencyDisable()}
+              onOpenChange={(open) =>
+                open ? onRequestEmergencyDisable() : onCancelEmergencyDisable()
+              }
             >
-              <AlertDialogTrigger render={<Button type="button" variant="destructive" disabled={isBusy} />}>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={isBusy}
+                  />
+                }
+              >
                 <ShieldAlert aria-hidden="true" />
                 Emergency disable product
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogMedia><ShieldAlert aria-hidden="true" /></AlertDialogMedia>
+                  <AlertDialogMedia>
+                    <ShieldAlert aria-hidden="true" />
+                  </AlertDialogMedia>
                   <AlertDialogTitle>Disable this product now?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    New purchase attempts stop immediately. Existing payment and evidence records remain unchanged.
+                    New purchase attempts stop immediately. Existing payment and
+                    evidence records remain unchanged.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction variant="destructive" onClick={onConfirmEmergencyDisable} disabled={actionsPending === "emergency"}>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={onConfirmEmergencyDisable}
+                    disabled={actionsPending === "emergency"}
+                  >
                     Confirm emergency disable
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -715,7 +860,10 @@ function RouteInspector({
                   <Definition label="HTTP method" value={route.method} />
                   <Definition label="Output MIME type" value={route.mimeType} />
                   <Definition label="Payment network" value={route.network} />
-                  <Definition label="Service timeout" value={`${route.upstreamTimeoutSeconds} seconds`} />
+                  <Definition
+                    label="Service timeout"
+                    value={`${route.upstreamTimeoutSeconds} seconds`}
+                  />
                   <Definition label="Atomic amount" value={route.amount} />
                 </dl>
               </AccordionContent>
@@ -734,7 +882,12 @@ type ReadinessStepProps = {
   blocked?: boolean;
 };
 
-function ReadinessStep({ label, state, complete = false, blocked = false }: ReadinessStepProps) {
+function ReadinessStep({
+  label,
+  state,
+  complete = false,
+  blocked = false,
+}: ReadinessStepProps) {
   return (
     <li data-state={blocked ? "blocked" : complete ? "complete" : "pending"}>
       <span className="product-readiness-marker" aria-hidden="true">
@@ -750,7 +903,11 @@ function ReadinessStep({ label, state, complete = false, blocked = false }: Read
 
 function RouteHistory({ events }: { events: RouteAuditEvent[] }) {
   if (events.length === 0) {
-    return <p className="product-muted-copy">No recorded changes for this product yet.</p>;
+    return (
+      <p className="product-muted-copy">
+        No recorded changes for this product yet.
+      </p>
+    );
   }
 
   return (
@@ -761,7 +918,8 @@ function RouteHistory({ events }: { events: RouteAuditEvent[] }) {
           <div>
             <strong>{auditActionLabel(event.action)}</strong>
             <small>
-              {historyDateFormatter.format(new Date(event.occurredAt))} UTC · {event.changedFields.length} fields changed
+              {historyDateFormatter.format(new Date(event.occurredAt))} UTC ·{" "}
+              {event.changedFields.length} fields changed
             </small>
           </div>
         </li>

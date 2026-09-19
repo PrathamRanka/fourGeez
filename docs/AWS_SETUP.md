@@ -253,6 +253,30 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'
 
 No step may require an undocumented console change except initial account/Bedrock provider access. If a console action is unavoidable, add it here with the exact verification command.
 
+### Deployed seller-auth smoke
+
+Run the smoke only after AWS-005 and AWS-008 are complete and the canonical
+Vercel deployment is using Cognito. Supply the approved private test recipient
+through the terminal environment; it is never rendered by the public site or
+committed to source. The runner generates a temporary password in memory and
+prompts locally for the six-digit Cognito email code.
+
+```powershell
+$env:AGENTPAY_SMOKE_EMAIL = "<approved-private-test-recipient>"
+npm run smoke:auth:deployed
+Remove-Item Env:AGENTPAY_SMOKE_EMAIL
+```
+
+The standard run verifies sign-up, email-code verification, sign-in, the
+unauthenticated-to-onboarding redirect, the Secure HttpOnly session cookie,
+authenticated onboarding access, coordinated sign-out, and rejection after
+sign-out. Set `AGENTPAY_SMOKE_WAIT_FOR_REFRESH=true` to retain the process until
+the 60-minute Cognito access-token refresh boundary. Set
+`AGENTPAY_SMOKE_WAIT_FOR_EXPIRY=true` only for the scheduled eight-hour
+absolute-session-expiry release run. These long-running checks use the deployed
+clock and production cookie path; no test-only endpoint or production lifetime
+override is permitted.
+
 ## Seed and smoke test
 
 The seed command must create:

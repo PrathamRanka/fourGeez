@@ -53,7 +53,11 @@ export default async function ProductRoutesPage() {
   return (
     <ProductRouteWorkspace
       actions={productRouteActions}
+      canonicalOrigin={
+        process.env.AGENTPAY_WEB_ORIGIN ?? "http://localhost:3000"
+      }
       initialSnapshot={snapshot}
+      sellerSlug={session.principal.storefront?.slug}
     />
   );
 }

@@ -20,7 +20,18 @@ export default async function OnboardingPage() {
   const storefront = session?.principal.storefront ?? null;
   const resources = storefront
     ? await listOnboardingResources()
-    : { paymentDestinations: [], credentials: [] };
+    : {
+        paymentDestinations: [],
+        credentials: [],
+        onboarding: {
+          sellerId: null,
+          complete: false,
+          currentStep: "storefront_created" as const,
+          steps: [],
+          publication: { allowed: false, blockers: [] },
+          version: 0,
+        },
+      };
   const initialSnapshot: OnboardingSnapshot = {
     seller: storefront,
     ...resources,

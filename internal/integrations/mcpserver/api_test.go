@@ -98,6 +98,62 @@ func TestHTTPControllerConsumesAuthenticatedMCPQuota(t *testing.T) {
 	}
 }
 
+func TestHTTPControllerRecordsAuthenticatedConnectorBeforeDispatch(t *testing.T) {
+	t.Parallel()
+
+	recorder := &connectorVerificationRecorder{}
+	controller := NewHTTPController(&testCredentialAuthenticator{}, newTestResourceService(t), nil, nil)
+	controller.SetConnectorVerificationRecorder(recorder)
+	request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json, text/event-stream")
+	response := httptest.NewRecorder()
+
+	controller.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || recorder.calls != 1 || recorder.sellerID != domain.ID(testSellerID) {
+		t.Fatalf("status/calls/seller = %d/%d/%s", response.Code, recorder.calls, recorder.sellerID)
+	}
+}
+
+func TestHTTPControllerFailsClosedWhenConnectorVerificationCannotBeRecorded(t *testing.T) {
+	t.Parallel()
+
+	recorderError := errors.New("workspace unavailable")
+	recorder := &connectorVerificationRecorder{err: recorderError}
+	quota := &mcpQuotaEnforcer{}
+	controller := NewHTTPController(&testCredentialAuthenticator{}, newTestResourceService(t), nil, nil)
+	controller.SetConnectorVerificationRecorder(recorder)
+	controller.SetQuotaEnforcer(quota)
+	request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`))
+	request.Header.Set("Authorization", "Bearer valid-token")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json, text/event-stream")
+	response := httptest.NewRecorder()
+
+	controller.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable || quota.calls != 0 {
+		t.Fatalf("status/quota calls = %d/%d", response.Code, quota.calls)
+	}
+	if strings.Contains(response.Body.String(), recorderError.Error()) {
+		t.Fatalf("response exposed recorder failure: %s", response.Body.String())
+	}
+}
+
+type connectorVerificationRecorder struct {
+	calls    int
+	sellerID domain.ID
+	err      error
+}
+
+func (recorder *connectorVerificationRecorder) RecordAuthenticatedConnectorVerification(_ context.Context, sellerID domain.ID) error {
+	recorder.calls++
+	recorder.sellerID = sellerID
+	return recorder.err
+}
+
 type mcpQuotaEnforcer struct {
 	calls int
 	err   error
