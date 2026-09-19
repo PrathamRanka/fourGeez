@@ -37,6 +37,9 @@ module "application" {
   throttling_burst_limit               = var.api_throttling_burst_limit
   throttling_rate_limit                = var.api_throttling_rate_limit
   log_retention_days                   = var.api_log_retention_days
+  alarm_action_arns                    = var.operational_alarm_action_arns
+  api_p95_latency_alarm_ms             = var.api_p95_latency_alarm_ms
+  lambda_p95_duration_alarm_ms         = var.lambda_p95_duration_alarm_ms
   api_runtime_role_arn                 = module.foundation.api_runtime_role_arn
   api_runtime_role_name                = module.foundation.api_runtime_role_name
   table_name                           = module.foundation.table_name

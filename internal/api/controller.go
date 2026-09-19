@@ -25,6 +25,9 @@ func WriteError(
 	message string,
 	details map[string]any,
 ) {
+	if recorder, ok := response.(interface{ setErrorCode(string) }); ok {
+		recorder.setErrorCode(code)
+	}
 	requestID, _ := RequestIDFromContext(request.Context())
 	_ = WriteJSON(response, status, ErrorResponse{
 		Error: ErrorBody{

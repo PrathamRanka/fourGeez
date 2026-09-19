@@ -75,6 +75,11 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   );
   assert.match(variables, /variable\s+"api_deployment_enabled"/);
   assert.match(variables, /default\s*=\s*false/);
+  assert.match(application, /aws_servicequotas_service_quota/);
+  assert.match(
+    application,
+    /value\s*>\s*10\s*\+\s*var\.lambda_reserved_concurrency/,
+  );
 });
 
 test("AWS-005 locks Lambda payments to the credential-free Base Sepolia profile", () => {

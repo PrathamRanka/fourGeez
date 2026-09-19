@@ -245,3 +245,51 @@ variable "api_log_retention_days" {
     error_message = "api_log_retention_days must be a supported short CloudWatch retention period."
   }
 }
+
+variable "operational_alarm_action_arns" {
+  description = "Optional SNS topic ARNs for seller-path operational alarms."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.operational_alarm_action_arns : can(regex("^arn:aws:sns:[a-z0-9-]+:[0-9]{12}:[A-Za-z0-9_-]+$", arn))
+    ])
+    error_message = "operational_alarm_action_arns must contain only SNS topic ARNs."
+  }
+}
+
+variable "launch_entitlement_operator_principal_arns" {
+  description = "IAM principals allowed to assume the narrow launch-entitlement operator role."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.launch_entitlement_operator_principal_arns : can(regex("^arn:aws:iam::[0-9]{12}:(user|role)/[A-Za-z0-9+=,.@_/-]+$", arn))
+    ])
+    error_message = "launch_entitlement_operator_principal_arns must contain IAM user or role ARNs; root is not accepted."
+  }
+}
+
+variable "api_p95_latency_alarm_ms" {
+  description = "HTTP API p95 latency alarm threshold in milliseconds."
+  type        = number
+  default     = 2000
+
+  validation {
+    condition     = var.api_p95_latency_alarm_ms >= 300 && var.api_p95_latency_alarm_ms <= 10000
+    error_message = "api_p95_latency_alarm_ms must be between 300 and 10000."
+  }
+}
+
+variable "lambda_p95_duration_alarm_ms" {
+  description = "Lambda p95 duration alarm threshold in milliseconds."
+  type        = number
+  default     = 12000
+
+  validation {
+    condition     = var.lambda_p95_duration_alarm_ms >= 1000 && var.lambda_p95_duration_alarm_ms < var.api_timeout_seconds * 1000
+    error_message = "lambda_p95_duration_alarm_ms must be at least 1000 and below the Lambda timeout."
+  }
+}

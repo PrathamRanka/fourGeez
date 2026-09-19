@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/observability"
 )
 
 const (
@@ -172,6 +173,12 @@ func (service *DeliveryService) Attempt(
 	}
 	if err := service.deliveryRepository.Update(ctx, delivery, expectedVersion); err != nil {
 		return DeliveryView{}, err
+	}
+	if delivery.Status() == DeliveryStatusRetryScheduled {
+		observability.Record(observability.EventWebhookRetryScheduled)
+	}
+	if delivery.Status() == DeliveryStatusDeadLetter {
+		observability.Record(observability.EventWebhookDeadLetter)
 	}
 	return deliveryView(delivery), nil
 }

@@ -12,6 +12,28 @@ Use separate AWS accounts when available:
 
 The default development region is Mumbai, `ap-south-1`. Confirm that every required service is available in the selected region. Never hardcode account IDs, URLs, addresses, or secrets in source. Bedrock is disabled for the seller-first V1 deployment.
 
+## Verified environment snapshot — September 19, 2026
+
+Read-only checks against the configured `agentpay-india` profile established:
+
+- the caller is the non-root IAM user `agentpay-deployer` in the intended account;
+- the configured region is `ap-south-1`;
+- the applied Lambda regional concurrency quota is `400` with no functions;
+- no HTTP APIs or CloudWatch alarms are currently deployed;
+- the Terraform-managed development budget is healthy at `$10/month` and
+  reported `$0` actual spend at the time of inspection;
+- Terraform state contains the foundation, protected evidence, signing,
+  secrets-container, DynamoDB, and Cognito outputs, but no `http_api_url`; and
+- Vercel CLI is authenticated, the `web` project serves the canonical domain,
+  and all required production environment-variable names exist. Their
+  encrypted values remain unverified until Terraform produces the API origin.
+
+The current deployer user still has AWS-managed `AdministratorAccess`. That is
+an external production blocker: use it only to create narrow Terraform roles,
+then remove broad standing access before public launch. Manual entitlement
+changes are rejected unless the command is running through the
+Terraform-managed assumed operator role.
+
 ## Local prerequisites
 
 - Node.js 24 or the repository-pinned version once added.
@@ -120,8 +142,10 @@ for Lean V1. AWS deployment must not expose their REST or WebSocket surfaces.
 - CloudWatch structured JSON logs with request IDs and redaction.
 
 AWS-005 application resources are reproducible but remain disabled by
-`api_deployment_enabled = false` until the durable composition and account
-concurrency gate both pass. The production composition uses DynamoDB
+`api_deployment_enabled = false` until the reviewed application plan is
+approved. On September 19, 2026, the Mumbai account reported an applied Lambda
+concurrency quota of 400, so the former quota-10 blocker is resolved. The
+production composition uses DynamoDB
 repositories, Secrets Manager/KMS-backed cryptography and webhook secrets,
 protected S3 evidence storage, KMS signing, and the Lambda HTTP adapter. Do not
 enable or apply the application module merely to deploy an empty shell or to
@@ -137,11 +161,18 @@ aws lambda get-account-settings --profile agentpay-india --region ap-south-1
 aws service-quotas list-service-quotas --service-code lambda --profile agentpay-india --region ap-south-1
 ```
 
-Do not remove `reserved_concurrent_executions` to work around this gate. Submit
-the quota request required by AWS, keep `api_deployment_enabled = false`, and
-leave no partial Lambda or HTTP API deployed until the applied concurrency is
-greater than `10 + api_reserved_concurrency`. After approval, regenerate and
-review the plan; never reuse a plan created before the quota change.
+Do not remove `reserved_concurrent_executions` to work around this gate. If the
+applied quota is not greater than `10 + api_reserved_concurrency`, submit a
+quota request, keep `api_deployment_enabled = false`, and leave no partial
+Lambda or HTTP API deployed. After any quota change, regenerate and review the
+plan; never reuse an older plan. Terraform also enforces this condition as a
+Lambda resource precondition so an apply fails before runtime creation when
+the account cannot preserve AWS's ten unreserved executions.
+
+A fresh plan generated on September 19, 2026 with the API runtime enabled and
+the launch-entitlement role configured contained **37 additions, 0 changes,
+and 0 destroys**. It was not applied. Regenerate it after every code, quota,
+configuration, or state change.
 
 ### Bedrock application permissions
 
@@ -293,6 +324,28 @@ it through Terraform, or paste it into issue or chat history:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
+The repository script validates Terraform outputs and CORS alignment before it
+changes Vercel. Its default mode is read-only:
+
+```powershell
+npm run ops:vercel:configure
+npm run ops:vercel:configure -- --apply --project web --scope prathams-projects-077823c3
+```
+
+On the first deployment only, add `--initialize-session-key`. This generates
+the key in memory and passes it to Vercel as a sensitive value without printing
+or storing it:
+
+```powershell
+npm run ops:vercel:configure -- --apply --initialize-session-key --project web --scope prathams-projects-077823c3
+```
+
+Do not use `--initialize-session-key` during ordinary redeployments because
+rotating it invalidates current seller sessions. The linked Vercel project is
+`web`; on September 19, 2026 its production environment contained all required
+variable names, but their encrypted values could not be compared with an HTTP
+API output because AWS-005 was still disabled.
+
 No step may require an undocumented console change except initial account/Bedrock provider access. If a console action is unavoidable, add it here with the exact verification command.
 
 ### Deployed seller-auth smoke
@@ -351,7 +404,17 @@ Emit metrics for:
 - Duplicate/replay attempts.
 - Bedrock latency, errors, and fallback usage.
 
-Create alarms for any evidence-write failure, repeated payment replay, 5xx spikes, facilitator failure rate, and seller timeout rate. Alarms notify a configured development channel; the notification integration is supplied at deployment time.
+Terraform creates one low-cost dashboard, native API Gateway/Lambda alarms, and
+log-derived alarms for MCP, checkout, facilitator, evidence, seller forwarding,
+webhook retry, and webhook dead-letter failures. Missing data is healthy, and
+the dashboard/alarms exist only when the API runtime exists. Configure reviewed
+SNS topic ARNs through `operational_alarm_action_arns`; an empty list creates
+alarms without notifications and must not be used for a public launch.
+
+Manual launch entitlement operations are documented in
+[`runbooks/LAUNCH_ENTITLEMENT.md`](runbooks/LAUNCH_ENTITLEMENT.md). Webhook live
+verification is documented in
+[`runbooks/WEBHOOK_CANARY.md`](runbooks/WEBHOOK_CANARY.md).
 
 ## Cost controls
 

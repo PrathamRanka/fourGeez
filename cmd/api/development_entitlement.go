@@ -23,15 +23,16 @@ type localOnboardingEntitlementRepository struct {
 	clock      domain.Clock
 }
 
-// configureOnboardingEntitlementRepository gives local and AWS development
-// sellers a no-charge Starter entitlement without weakening demo/production.
+// configureOnboardingEntitlementRepository gives only the local runtime a
+// no-charge Starter entitlement. Cloud environments require audited operator
+// provisioning while subscription checkout is disabled.
 func configureOnboardingEntitlementRepository(
 	environment string,
 	repository billing.Repository,
 	sellers onboardingSellerReader,
 	clock domain.Clock,
 ) billing.Repository {
-	if environment != localEnvironment && environment != "dev" {
+	if environment != localEnvironment {
 		return repository
 	}
 	return &localOnboardingEntitlementRepository{

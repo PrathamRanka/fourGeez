@@ -64,6 +64,24 @@ variable "log_retention_days" {
   type        = number
 }
 
+variable "alarm_action_arns" {
+  description = "SNS topic ARNs notified when an operational alarm changes state."
+  type        = list(string)
+  default     = []
+}
+
+variable "api_p95_latency_alarm_ms" {
+  description = "Pilot HTTP API p95 latency threshold in milliseconds."
+  type        = number
+  default     = 2000
+}
+
+variable "lambda_p95_duration_alarm_ms" {
+  description = "Pilot Lambda p95 duration threshold in milliseconds."
+  type        = number
+  default     = 12000
+}
+
 variable "api_runtime_role_arn" {
   description = "Least-privilege role attached to the API Lambda."
   type        = string

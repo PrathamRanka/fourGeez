@@ -10,6 +10,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fourgeez/agentpay/internal/approvals"
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -281,6 +282,36 @@ func TestSellerEntitlementRepositoryAtomicallyWritesProjectionAndReconciliation(
 		readStringAttribute(projection.Item["SK"]) != sellerPlanSortKey ||
 		projection.ConditionExpression == nil || *projection.ConditionExpression != createItemCondition {
 		t.Fatalf("entitlement item = %#v", projection)
+	}
+}
+
+func TestSellerEntitlementRepositoryAppliesOperatorAuditAtomically(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	repository := NewSellerEntitlementRepository(client, "agentpay-dev")
+	entitlement, reconciliation := testDynamoSellerEntitlement(t)
+	event, err := audit.NewEvent(audit.EventParams{
+		AuditEventID: mustDynamoID(t, "aud_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.AuditEventIDPrefix),
+		SellerID:     entitlement.SellerID(), ActorType: audit.ActorTypeAdministrator,
+		ActorID: "arn:aws:iam::123456789012:user/operator", Action: audit.ActionEntitlementChanged,
+		TargetType: audit.TargetTypeSeller, TargetID: entitlement.SellerID().String(),
+		Outcome: audit.OutcomeSucceeded, RequestID: "ops-request-1",
+		ChangedFields: []string{"status", "accessEndsAt", "entitlementEpoch", "sourceRevision", "credentialRotationRequired"},
+		OccurredAt:    testDynamoTime(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.ApplyWithAudit(t.Context(), entitlement, reconciliation, 0, event); err != nil {
+		t.Fatal(err)
+	}
+	input := client.transactWriteInput
+	if input == nil || len(input.TransactItems) != 3 {
+		t.Fatalf("operator transaction = %#v", input)
+	}
+	if got := readStringAttribute(input.TransactItems[2].Put.Item["SK"]); !strings.HasPrefix(got, "AUDIT#") {
+		t.Fatalf("audit sort key = %q", got)
 	}
 }
 

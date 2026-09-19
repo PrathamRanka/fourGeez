@@ -99,7 +99,7 @@ func TestNonLocalOnboardingDoesNotCreateMissingEntitlement(t *testing.T) {
 	}
 }
 
-func TestAWSDevelopmentOnboardingProvisionsNoChargeStarterEntitlement(t *testing.T) {
+func TestAWSDevelopmentOnboardingRequiresExplicitLaunchEntitlement(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC)
@@ -118,9 +118,8 @@ func TestAWSDevelopmentOnboardingProvisionsNoChargeStarterEntitlement(t *testing
 	}
 	storedEntitlements := memory.NewSellerEntitlementRepository()
 	entitlements := configureOnboardingEntitlementRepository("dev", storedEntitlements, catalogRepository, clock)
-	loaded, err := entitlements.Get(t.Context(), sellerID)
-	if err != nil || loaded.Status() != billing.EntitlementStatusActive || loaded.Source() != billing.EntitlementSourceLocal {
-		t.Fatalf("dev entitlement = %#v, %v", loaded.Snapshot(), err)
+	if _, err := entitlements.Get(t.Context(), sellerID); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("Get() error = %v, want explicit provisioning requirement", err)
 	}
 }
 

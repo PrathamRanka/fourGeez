@@ -184,8 +184,13 @@ Buyer settlement remains independent:
 
 ## Implementation gate
 
-LCH-005 changes contracts only. The current Go `SellerPlan` implementation
-still supports only `active` and `suspended`, auto-creates a default plan, and
-does not enforce `accessEndsAt`. Production activation remains blocked until
-LCH-010, LCH-016, LCH-021 through LCH-023, LCH-027, LCH-040, LCH-041 and
-AWS-013 implement and verify this lifecycle.
+The Go billing domain implements the full entitlement state vocabulary,
+exclusive `accessEndsAt`, epoch invalidation, reconciliation history, and
+credential-rotation requirement. Automatic entitlement creation is restricted
+to the local runtime. While Stripe is disabled, cloud pilot access is granted
+only through the version-bound, assumed-role operator workflow in
+[`runbooks/LAUNCH_ENTITLEMENT.md`](runbooks/LAUNCH_ENTITLEMENT.md).
+
+Production activation remains blocked on the AWS application runtime,
+asynchronous outbox/reconciliation workers, authenticated Stripe callbacks,
+and deployed lifecycle verification under AWS-005, AWS-012, AWS-013, and M9.
