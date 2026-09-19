@@ -1,5 +1,5 @@
 {
-  "name": "@agentpay/verify-node",
+  "name": "@agentpay/merchant-sdk",
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
@@ -13,7 +13,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": false,
   "scripts": {
@@ -21,8 +22,14 @@
     "test": "npm run build && node --test test/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "@agentpay/verify-node": "0.1.0"
+  },
   "devDependencies": {
     "@types/node": "24.7.0",
     "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   }
 }

@@ -1,0 +1,6 @@
+{
+  "query": "mutation AgentPayRecord($transactionId: String!) { agentPayRecord(transactionId: $transactionId) { id } }",
+  "variables": {
+    "transactionId": "txn_test"
+  }
+}

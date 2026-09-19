@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "2",
+  "eventId": "evt_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+  "sellerId": "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7",
+  "eventType": "fulfillment.succeeded",
+  "occurredAt": "2026-09-19T12:00:00Z",
+  "payload": {
+    "transactionId": "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7"
+  }
+}

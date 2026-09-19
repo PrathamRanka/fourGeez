@@ -11,6 +11,7 @@ npm-debug.log*
 *.test
 coverage.out
 verification/node/dist/
+packages/merchant-sdk/dist/
 verification/dotnet/**/bin/
 verification/dotnet/**/obj/
 
