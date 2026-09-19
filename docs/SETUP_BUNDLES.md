@@ -69,31 +69,33 @@ Lean V1.
 
 The MCP prompt `prepare_agentpay_integration` requires `host` and `stack`
 arguments in version 2. Supported hosts are `claude-code`, `codex`, and
-`generic-mcp`. The coding agent must detect the stack from committed package and
-framework manifests and must reject a caller-provided stack that conflicts with
-the repository.
+`generic-mcp`. Before selecting the prompt, the coding agent calls
+`detect_repository_stacks` with bounded committed package/framework manifests
+and allowlisted source markers. It must select one returned stack that owns the
+paid route and reject a caller-provided stack absent from that result.
 
 The prompt instructs the coding agent to:
 
 1. inspect repository instructions and existing tests;
-2. read the authenticated seller, route, and setup-bundle resources;
-3. analyze only the allowlisted repository manifest and OpenAPI contract;
-4. install the maintained AgentPay verification package;
-5. add raw-body signature verification before fulfillment and the dedicated
+2. call `detect_repository_stacks` with only committed allowlisted evidence and select the stack that owns the paid route;
+3. read the authenticated seller, route, and setup-bundle resources;
+4. analyze only the allowlisted repository manifest and OpenAPI contract;
+5. install the maintained AgentPay verification package;
+6. add raw-body signature verification before fulfillment and the dedicated
    side-effect-free `POST /.well-known/agentpay/sandbox` endpoint;
-6. generate storefront discovery and integration code from published routes;
-7. generate stack-native title and description metadata, canonical URLs,
+7. generate storefront discovery and integration code from published routes;
+8. generate stack-native title and description metadata, canonical URLs,
    Open Graph and social metadata, robots directives, sitemap entries,
    semantically correct product content, and truthful JSON-LD supported by
    visible page facts;
-8. generate and cross-check `llms.txt` and the AgentPay storefront manifest for
+9. generate and cross-check `llms.txt` and the AgentPay storefront manifest for
    agent and answer-engine discovery;
-9. add focused signature, stale-request, replay, payment-gating, sandbox, SEO,
+10. add focused signature, stale-request, replay, payment-gating, sandbox, SEO,
    accessibility, and metadata-consistency tests;
-10. measure the generated artifacts, call `validate_storefront_artifacts`, and
+11. measure the generated artifacts, call `validate_storefront_artifacts`, and
     fix every failed deterministic check;
-11. run the repository's existing checks and the bundle's focused test; and
-12. present the diff, validation result, route proposals, SEO/AEO changes, and
+12. run the repository's existing checks and the bundle's focused test; and
+13. present the diff, validation result, route proposals, SEO/AEO changes, and
    commands for seller review.
 
 The prompt must state that the coding agent cannot invent prices, publish a
@@ -137,6 +139,13 @@ markers supplied by the coding agent. It does not read `.env` files, lockfile
 credentials, deployment secrets, or arbitrary repository contents. Package
 dependencies are stronger evidence than source markers and are matched by exact
 package name, never substring guessing.
+
+The `detect_repository_stacks` input allowlist is limited to repository-relative
+`package.json`, `go.mod`, `.go`, `requirements.txt`, `pyproject.toml`, `.csproj`,
+`pom.xml`, `.gradle`, `.gradle.kts`, `Gemfile`, and `composer.json` paths. Nested
+manifests are supported for monorepos. Any other path, absolute path, traversal,
+more than 100 files, or more than 1 MiB of total evidence is rejected before
+detection.
 
 | Stack | Required evidence | Initial tier |
 |---|---|---|

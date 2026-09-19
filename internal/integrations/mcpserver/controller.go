@@ -14,13 +14,14 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/integrations/discovery"
+	"github.com/fourgeez/agentpay/internal/integrations/stacks"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	serverName    = "agentpay"
-	serverVersion = "0.4.0"
+	serverVersion = "0.5.0"
 )
 
 type principalContextKey struct{}
@@ -200,12 +201,48 @@ func (controller *HTTPController) serverForRequest(
 		controller.registerSandboxTool(server, principal)
 	}
 	if controller.analyzerService != nil {
+		controller.registerStackDetectionTool(server, principal)
 		controller.registerAnalyzerTool(server, principal)
 	}
 	if controller.discoveryService != nil {
 		controller.registerDiscoveryTool(server, principal)
 	}
 	return server
+}
+
+// registerStackDetectionTool exposes the bounded detector used before prompt selection.
+func (controller *HTTPController) registerStackDetectionTool(
+	server *protocol.Server,
+	principal integrations.Principal,
+) {
+	protocol.AddTool(
+		server,
+		&protocol.Tool{
+			Name:        "detect_repository_stacks",
+			Description: "Detect maintained stacks from bounded committed repository evidence",
+			Annotations: &protocol.ToolAnnotations{
+				IdempotentHint: true,
+				ReadOnlyHint:   true,
+			},
+		},
+		func(
+			_ context.Context,
+			_ *protocol.CallToolRequest,
+			input stacks.DetectionRequest,
+		) (*protocol.CallToolResult, stacks.DetectionResult, error) {
+			if !principal.HasScope(integrations.ScopeValidate) {
+				return nil, stacks.DetectionResult{}, integrations.ErrScopeDenied
+			}
+			detections, err := stacks.NewService().Detect(input.Files)
+			if err != nil {
+				return nil, stacks.DetectionResult{}, err
+			}
+			return nil, stacks.DetectionResult{
+				SchemaVersion: stacks.DetectionSchemaVersion,
+				Detections:    detections,
+			}, nil
+		},
+	)
 }
 
 // registerDiscoveryTool adds deterministic storefront quality validation.

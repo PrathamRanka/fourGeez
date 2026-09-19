@@ -89,9 +89,15 @@ func validateManifest(manifest RepositoryManifest) error {
 		return errors.New("serviceName must contain 1-120 characters")
 	}
 	switch manifest.Framework {
-	case FrameworkGo, FrameworkNode, FrameworkPython:
+	case FrameworkGo,
+		FrameworkNode,
+		FrameworkPython,
+		FrameworkDotNet,
+		FrameworkJava,
+		FrameworkRuby,
+		FrameworkPHP:
 	default:
-		return errors.New("framework must be go, node, or python")
+		return errors.New("framework must be go, node, python, dotnet, java, ruby, or php")
 	}
 	cleanPath := filepath.ToSlash(filepath.Clean(manifest.OpenAPIPath))
 	if cleanPath == "." || filepath.IsAbs(manifest.OpenAPIPath) ||

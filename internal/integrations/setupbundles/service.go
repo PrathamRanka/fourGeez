@@ -39,7 +39,7 @@ Verification recipe:
 %s
 
 1. Read the repository instructions and existing tests before editing.
-2. Detect the stack from committed manifests and reject this requested stack if the evidence conflicts.
+2. Call detect_repository_stacks with bounded committed evidence. Continue only if this requested stack appears in the result; never guess or select an unevidenced stack.
 3. Read agentpay://seller, agentpay://routes, and agentpay://integration/setup/v2/%s.
 4. Install the pinned verification package with: %s
 5. Add raw-body AgentPay signature verification before fulfillment and a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware.
@@ -283,7 +283,7 @@ func workflowSteps() []string {
 func workflowStepsV2() []string {
 	return []string{
 		"Read repository instructions and inspect existing code and tests.",
-		"Detect the stack from committed manifests and verify the selected stack.",
+		"Call detect_repository_stacks with bounded committed evidence and select an evidenced stack that owns the paid route.",
 		"Read authenticated seller, route, and version-two setup resources.",
 		"Install the maintained language verification package.",
 		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint.",
