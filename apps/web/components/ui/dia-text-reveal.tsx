@@ -221,7 +221,7 @@ export function DiaTextReveal({
       return;
     }
     if (!shouldPlay) return;
-    if (once && hasPlayedRef.current) return;
+    if (startOnView && once && hasPlayedRef.current) return;
     hasPlayedRef.current = true;
     play();
 
@@ -229,7 +229,7 @@ export function DiaTextReveal({
       stopRef.current?.();
       clearTimeout(timerRef.current);
     };
-  }, [once, play, prefersReducedMotion, shouldPlay, sweepPos]);
+  }, [once, play, prefersReducedMotion, shouldPlay, startOnView, sweepPos]);
 
   const fixedW =
     isMulti && fixedWidth && measuredWidths.length > 0

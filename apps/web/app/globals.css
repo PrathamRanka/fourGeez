@@ -7,13 +7,7 @@
 @import "@fontsource/ibm-plex-mono/500.css";
 
 .hero-headline-line {
-  position: relative;
   display: block;
-}
-
-.hero-headline-effect {
-  position: absolute;
-  inset: 0;
 }
 
 @custom-variant dark (&:is(.dark *));

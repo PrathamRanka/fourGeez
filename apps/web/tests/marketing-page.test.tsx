@@ -10,7 +10,16 @@ describe("AgentPay public site", () => {
       screen.getByRole("heading", { name: "Sell to agents. Settle on-chain." }),
     ).toBeVisible();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    expect(screen.getByTestId("hero-headline-reveal")).toBeInTheDocument();
+    const heroTitle = screen.getByRole("heading", {
+      name: "Sell to agents. Settle on-chain.",
+    });
+    const revealLines = heroTitle.querySelectorAll(
+      '[data-testid="hero-headline-reveal"]',
+    );
+    expect(revealLines).toHaveLength(2);
+    expect(revealLines[0]).toHaveTextContent("Sell to agents.");
+    expect(revealLines[1]).toHaveTextContent("Settle on-chain.");
+    expect(heroTitle.querySelectorAll(".hero-headline-effect")).toHaveLength(0);
     expect(
       screen.getByText(/give people and software agents one storefront/i),
     ).toBeVisible();
@@ -90,7 +99,9 @@ describe("AgentPay public site", () => {
     expect(within(productFacts).getByText("01")).toBeVisible();
     expect(within(productFacts).getByText("02")).toBeVisible();
     expect(within(productFacts).getByText("03")).toBeVisible();
-    expect(within(productFacts).getByText("21 maintained stacks")).toBeVisible();
+    expect(
+      within(productFacts).getByText("21 maintained stacks"),
+    ).toBeVisible();
     expect(
       screen.queryByText("Built for the stack you already run"),
     ).not.toBeInTheDocument();
@@ -148,9 +159,7 @@ describe("AgentPay public site", () => {
   it("states payment and discovery limits truthfully", () => {
     render(<HomePage />);
 
-    expect(
-      screen.getByText(/buyer funds go directly to you/i),
-    ).toBeVisible();
+    expect(screen.getByText(/buyer funds go directly to you/i)).toBeVisible();
     expect(
       screen.getByText(/without taking custody of buyer funds/i),
     ).toBeVisible();
