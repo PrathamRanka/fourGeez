@@ -166,7 +166,8 @@ AgentPay provides:
   canonical metadata, and paid URLs.
 
 Before package-registry publication is approved, the local connector and
-TypeScript merchant SDK are installed from versioned private release tarballs.
+TypeScript merchant SDK are installed from versioned proprietary release
+tarballs.
 Each release is bound to one immutable source commit by a provenance document
 and SHA-256 checksum manifest. The merchant SDK artifact is self-contained and
 does not require an unpublished AgentPay workspace package at install time.

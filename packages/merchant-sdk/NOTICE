@@ -1,0 +1,11 @@
+AgentPay merchant SDK notice
+
+This artifact contains AgentPay-authored proprietary code and bundles the exact
+`@agentpay/verify-node` 0.1.0 runtime from the same source commit. That bundled
+runtime is AgentPay-authored proprietary code. No third-party runtime npm
+dependency is included in the artifact.
+
+Build and test dependencies are not included and remain governed by their own
+licenses. Distribution requires release-owner review of contributor provenance
+and the customer-use terms described in the repository governance
+documentation.

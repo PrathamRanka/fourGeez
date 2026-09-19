@@ -1,8 +1,18 @@
 # `@agentpay/merchant-sdk`
 
 Server-only TypeScript helpers for receiving AgentPay fulfillment requests and
-seller webhooks. Version `0.1.0` is currently consumed from this monorepo; it is
-not published to a package registry yet.
+seller webhooks. Version `0.1.0` is distributed as a checksummed private release
+tarball; it is not published to a package registry.
+
+Install the verified artifact with lifecycle scripts disabled:
+
+```powershell
+npm install --ignore-scripts --no-audit --no-fund --save-exact .\agentpay-merchant-sdk-0.1.0.tgz
+```
+
+The release artifact bundles its exact `@agentpay/verify-node` runtime, so npm
+does not need registry access to resolve an unpublished AgentPay dependency.
+Do not install a workspace subdirectory directly from Git.
 
 ## What it includes
 
