@@ -67,6 +67,7 @@ access, and data lifecycle before dependent code is implemented.
 | ADR-050 | Use one public decorative palette across shader and gradient surfaces: ink black `#050506`, electric blue `#2979FF`, signal pink `#FF5AA5`, and payment orange `#FF6D00`. Keep semantic state and data-series colors independent. Render the cloud footer on a permanent black base with low-contrast graphite clouds and restrained palette edge lighting. | Consistent decorative color makes the public experience feel intentional, while separating visual identity from semantic colors preserves status clarity and data readability. |
 | ADR-051 | Supersede the footer portion of ADR-050: apply the landing palette to non-footer public decorative gradients, but preserve the restored cloud CTA footer's existing shader parameters and CSS unchanged. | The cloud footer is an intentionally distinct closing scene and should remain visually recognizable while the rest of the public site adopts a tighter shared palette. |
 | ADR-052 | Publish launch pricing at $6/month for Starter, $10/month for Growth, and $15/month for Scale while Stripe checkout remains disabled. Public pricing must map to the implemented plan limits and clearly distinguish announced pricing from active billing collection. | Sellers need concrete pricing to evaluate AgentPay without the interface implying that an unavailable payment flow is operational. |
+| ADR-053 | Add a bounded deterministic public product directory and `/.well-known/agentpay` capability manifest without adding ranking, recommendations, or transaction authority. Published-route lifecycle writes maintain a DynamoDB directory projection atomically with the route record. Directory listing queries one dedicated partition; search queries an exact normalized-term partition and applies AND matching for additional terms. Every candidate is freshly revalidated against current seller, entitlement, publication-readiness, route, and payment-destination state before it is returned. | Buyers and agents need one truthful entry point across storefronts, while a query-only projection and fresh authorization checks prevent production scans and stale discovery from becoming commerce authority. |
 
 ## Hackathon assumptions
 
@@ -88,7 +89,7 @@ access, and data lifecycle before dependent code is implemented.
 - Real custodial wallets.
 - Direct remote MCP OAuth clients and discovery metadata.
 - Redis-backed distributed authorization caching and invalidation.
-- A global cross-seller directory and ranking system.
+- Cross-seller ranking, recommendations, personalization, and fuzzy or semantic search.
 - A full internal operator web console; Lean V1 uses audited administrative APIs and runbooks.
 - Multi-owner seller teams and granular team RBAC.
 - Enterprise buyer policy and configurable N-of-M approval, including any

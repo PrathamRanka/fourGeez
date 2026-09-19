@@ -56,9 +56,12 @@ The V1 information architecture has four distinct surfaces:
 
 Human buyers purchase from storefront product pages and do not require a
 general AgentPay buyer account in V1. Software agents discover products through
-the central AgentPay directory, signed storefront manifests, `llms.txt`,
-buyer-facing API resources, and paid URLs. The seller-authenticated coding-agent
-MCP is a separate integration surface and is not buyer discovery. The
+the deterministic AgentPay public directory, `/.well-known/agentpay`, signed
+storefront manifests, `llms.txt`, buyer-facing API resources, and paid URLs.
+The directory exposes active products in stable lexical order and supports
+exact normalized-term filtering; it does not rank, recommend, personalize, or
+authorize a transaction. The seller-authenticated coding-agent MCP is a
+separate integration surface and is not buyer discovery. The
 interactive agent demonstration lives at `/demo/agent-checkout`; it explains
 and exercises the agent channel but is not the authoritative discovery registry
 or a separate commerce pipeline.
@@ -172,6 +175,14 @@ MCP capability; it is not a transaction credential.
 Agents discover products through the storefront manifest or `llms.txt`, create
 an immutable purchase intent, enforce the buyer-provided maximum, pay through
 the x402 adapter, and call the AgentPay paid URL.
+
+Agents may also begin at `/.well-known/agentpay` to identify the public product
+directory, signed-discovery and JWKS endpoints, supported buyer channels, and
+the currently enabled payment protocol. Directory results are candidate
+records only. AgentPay freshly rechecks seller entitlement, seller and route
+status, publication readiness, and the verified payment destination before a
+candidate is returned, then repeats transaction-critical authorization during
+purchase.
 
 Discovery is candidate information only. Even an authentic, unexpired manifest
 does not authorize a purchase; the cloud rechecks current seller entitlement,
