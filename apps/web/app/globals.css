@@ -1304,12 +1304,11 @@
   }
 
   .site-footer {
-    border-top: 1px solid var(--border);
-    background: color-mix(
-      in oklab,
-      var(--background) 92%,
-      var(--surface-subtle)
-    );
+    --footer-line: rgb(255 255 255 / 0.12);
+    --footer-muted: rgb(245 245 247 / 0.62);
+    border-top: 1px solid var(--footer-line);
+    background: #050506;
+    color: #f5f5f7;
   }
 
   .footer-cta-wrap {
@@ -1384,6 +1383,19 @@
     background: white;
   }
 
+  .site-footer .brand-symbol,
+  .site-footer .brand-wordmark {
+    color: #f5f5f7;
+  }
+
+  .site-footer .footer-link {
+    color: var(--footer-muted);
+  }
+
+  .site-footer .footer-link:hover {
+    color: #ffffff;
+  }
+
   .footer-layout {
     display: grid;
     grid-template-columns: 1.4fr 1fr;
@@ -1394,7 +1406,7 @@
   .footer-description {
     max-width: 19rem;
     margin-top: 1.2rem;
-    color: var(--muted-foreground);
+    color: var(--footer-muted);
     font-size: 0.85rem;
     line-height: 1.65;
   }
@@ -1404,11 +1416,11 @@
     margin-top: 1.4rem;
     align-items: center;
     gap: 0.55rem;
-    border: 1px solid var(--border);
+    border: 1px solid var(--footer-line);
     border-radius: 999px;
-    background: var(--surface-elevated);
+    background: rgb(255 255 255 / 0.04);
     padding: 0.65rem 0.8rem;
-    color: var(--muted-foreground);
+    color: var(--footer-muted);
     font-size: 0.7rem;
   }
 
@@ -1419,7 +1431,7 @@
   }
 
   .footer-group-title {
-    color: var(--muted-foreground);
+    color: rgb(245 245 247 / 0.48);
     font-size: 0.68rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1437,9 +1449,9 @@
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--footer-line);
     padding-block: 1.2rem;
-    color: var(--muted-foreground);
+    color: rgb(245 245 247 / 0.48);
     font-size: 0.67rem;
   }
 
