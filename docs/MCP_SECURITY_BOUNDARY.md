@@ -149,7 +149,7 @@ integrity, remote deletion, or a kill switch in seller-controlled code.
 
 ## Deployment and release gate
 
-OpenAPI 0.5 and this document describe the implemented local runtime boundary.
+OpenAPI 0.6 and this document describe the implemented local runtime boundary.
 The confirmation-grant store, authenticated issuance endpoint, atomic
 consumption, short-lived MCP authorization, entitlement checks, and
 fork-resistance tests are present in the repository. Public production use

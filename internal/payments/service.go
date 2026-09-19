@@ -102,6 +102,69 @@ func NewX402AdapterWithFacilitator(
 	}
 }
 
+// PaymentCapabilities returns the one x402 capability enabled by this adapter.
+func (adapter *X402Adapter) PaymentCapabilities() PaymentCapabilityCatalog {
+	return PaymentCapabilityCatalog{
+		SchemaVersion: PaymentCapabilitySchemaVersion,
+		Environment:   PaymentEnvironmentTestnet,
+		SelectionRule: PaymentSelectionFirstCompatible,
+		Capabilities: []PaymentCapability{{
+			CapabilityID: X402BaseSepoliaUSDCCapabilityID,
+			Rail:         PaymentRailX402,
+			Scheme:       ExactScheme,
+			Network:      BaseSepoliaNetwork,
+			Asset: PaymentCapabilityAsset{
+				Identifier: BaseSepoliaUSDCAsset,
+				Symbol:     "USDC",
+				Decimals:   6,
+			},
+			AmountMode: ExactScheme,
+			Settlement: PaymentSettlementDirectToSeller,
+			Custody:    false,
+			Channels:   []string{PaymentChannelAgent, PaymentChannelBrowser},
+			Wallet: &PaymentWalletCapability{
+				ProviderStandard:      "EIP-1193",
+				ChainID:               84532,
+				ChainIDHex:            "0x14a34",
+				AuthorizationStandard: "EIP-712",
+				TransferStandard:      "EIP-3009",
+				RequiredMethods: []string{
+					"eth_accounts",
+					"eth_requestAccounts",
+					"eth_chainId",
+					"wallet_switchEthereumChain",
+					"eth_signTypedData_v4",
+				},
+			},
+		}},
+	}
+}
+
+// PaymentCapabilities returns the clearly labeled local-only mock capability.
+func (adapter *MockAdapter) PaymentCapabilities() PaymentCapabilityCatalog {
+	return PaymentCapabilityCatalog{
+		SchemaVersion: PaymentCapabilitySchemaVersion,
+		Environment:   PaymentEnvironmentLocal,
+		SelectionRule: PaymentSelectionFirstCompatible,
+		Capabilities: []PaymentCapability{{
+			CapabilityID: MockExactPaymentCapabilityID,
+			Rail:         PaymentRailMock,
+			Scheme:       ExactScheme,
+			Network:      BaseSepoliaNetwork,
+			Asset: PaymentCapabilityAsset{
+				Identifier: BaseSepoliaUSDCAsset,
+				Symbol:     "USDC",
+				Decimals:   6,
+			},
+			AmountMode: ExactScheme,
+			Settlement: PaymentSettlementDirectToSeller,
+			Custody:    false,
+			Channels:   []string{PaymentChannelAgent, PaymentChannelBrowser},
+			Wallet:     nil,
+		}},
+	}
+}
+
 // NewPaidRouteService creates the paid-route resolution service.
 func NewPaidRouteService(
 	catalogRepository PaidRouteCatalogRepository,
@@ -451,6 +514,12 @@ func (adapter *X402Adapter) Settle(
 	if err != nil {
 		return SettlementResult{}, classifyFacilitatorError(ctx, err)
 	}
+	if response != nil &&
+		!response.Success &&
+		response.ErrorReason == x402.ErrSettlementPending &&
+		strings.TrimSpace(response.Transaction) != "" {
+		return SettlementResult{}, ErrPaymentUnavailable
+	}
 	if response == nil ||
 		!response.Success ||
 		response.Transaction == "" ||
@@ -666,6 +735,9 @@ func parsePaymentProof(
 	if err != nil || payload.X402Version != 2 {
 		return nil, "", ErrPaymentRejected
 	}
+	if !matchesPaymentCapability(payload.Accepted, requirements) {
+		return nil, "", ErrPaymentCapabilityUnsupported
+	}
 	if !matchesRequirements(payload.Accepted, requirements) {
 		return nil, "", ErrPaymentRejected
 	}
@@ -681,6 +753,15 @@ func parsePaymentProof(
 	paymentIdentifier := x402PaymentIdentifierPrefix +
 		hex.EncodeToString(digest[:])
 	return payloadBytes, paymentIdentifier, nil
+}
+
+func matchesPaymentCapability(
+	accepted x402types.PaymentRequirements,
+	requirements Requirements,
+) bool {
+	return accepted.Scheme == requirements.Scheme &&
+		accepted.Network == requirements.Network &&
+		strings.EqualFold(accepted.Asset, requirements.Asset)
 }
 
 func matchesResource(
@@ -732,6 +813,10 @@ func classifyFacilitatorError(parent context.Context, err error) error {
 	}
 	var settleError *x402.SettleError
 	if errors.As(err, &settleError) {
+		if settleError.ErrorReason == x402.ErrSettlementPending &&
+			strings.TrimSpace(settleError.Transaction) != "" {
+			return ErrPaymentUnavailable
+		}
 		return ErrPaymentRejected
 	}
 	return ErrPaymentUnavailable

@@ -163,6 +163,15 @@ describe("AgentPay public site", () => {
     expect(
       screen.getByText(/without taking custody of buyer funds/i),
     ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "What if an agent cannot pay with x402?",
+      }),
+    );
+    expect(
+      screen.getByText(/only exact Base Sepolia USDC is enabled/i),
+    ).toBeVisible();
+    expect(screen.getByText(/retries the same signed payment/i)).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Create your storefront" }),
     ).toHaveAttribute("href", "/sign-up");

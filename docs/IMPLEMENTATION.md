@@ -280,6 +280,10 @@ registry publication remains a release dependency, and Shopify/WooCommerce are
 described as tested reference adapters rather than managed or certified
 integrations.
 
+- [x] **EXT-004** Publish the runtime-enabled payment capability catalog and deterministic compatibility contract; negotiate only the enabled adapter (currently exact x402 on Base Sepolia USDC in the testnet runtime); provide actionable unsupported-wallet, expired, rejected, facilitator-unavailable, and unknown-settlement recovery responses; and expose the same behavior in browser checkout and payment-specific public copy. Browser wallet checkout remains a presentation path over the existing purchase intent and `/pay` operation. Card checkout, automatic refunds, mainnet, additional networks, and additional assets remain disabled. Acceptance requires contract tests, payment-domain tests for exact amount/network/asset/expiry/nonce/replay/idempotency/safe retry, and accessible checkout tests for every recovery action.
+
+EXT-004 acceptance: every buyer can discover the payment capabilities enabled by the running environment, determine compatibility without guessing, and follow one bounded recovery action after a payment failure without creating a second charge or bypassing the immutable purchase intent.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same

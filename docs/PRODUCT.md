@@ -193,6 +193,12 @@ status, publication readiness, and the verified payment destination before a
 candidate is returned, then repeats transaction-critical authorization during
 purchase.
 
+Before authorizing payment, agents may read `GET /v1/payment-capabilities`.
+The response lists only capabilities enabled by the running environment, in
+deterministic preference order. The testnet x402 runtime advertises one
+capability: exact Base Sepolia USDC payment, direct seller settlement, and no
+custody. Omitted rails, networks, and assets are unsupported.
+
 Discovery is candidate information only. Even an authentic, unexpired manifest
 does not authorize a purchase; the cloud rechecks current seller entitlement,
 route publication, destination, quote, payment, and replay state at
@@ -205,6 +211,11 @@ and may complete an x402-compatible wallet payment through browser instructions
 or a supported wallet flow. Agent and browser purchases enter the same intent,
 transaction, evidence, receipt, fulfillment, and dispute pipeline. Card checkout
 is deferred and is not required for the agent-first release.
+
+The browser evaluates the challenge and injected wallet before requesting a
+signature. Missing wallets, disconnected accounts, wrong networks, unavailable
+chain switching, and unavailable typed-data signing produce specific guidance.
+No card, alternate stablecoin, or alternate-network fallback is implied.
 
 The public storefront is the browser buyer experience. A separate `/buyer`
 account area is not part of V1. Agent-specific interaction is demonstrated at
@@ -250,6 +261,14 @@ but its REST routes, WebSocket channel, `428 approval_required` branch, approval
 tokens, and approval UI are disabled and excluded from Lean V1. Seller
 confirmation for publication, price changes, credentials, and deployment is a
 separate control-plane safeguard and remains required.
+
+Payment recovery is deterministic. Wallet cancellation submits no payment and
+may retry the same unexpired challenge. A rejected proof requires a fresh exact
+authorization. Facilitator failure before verification permits the same request
+to be retried. Settlement uncertainty after durable verification requires the
+same proof and intent; the buyer must not sign a second authorization. Expired
+intents and definitive settlement rejection require a new checkout. Responses
+identify the safe recovery action without exposing raw payment proofs.
 
 ## Seller payment and reporting
 

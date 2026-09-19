@@ -535,6 +535,13 @@ network outcome is unknown. Records written before this migration that contain
 a payment identifier but no finality are interpreted conservatively as
 `confirmed`, never `finalized`.
 
+Recovery does not create a second transaction or mutate the quote. Before
+verification, a rejected proof may be replaced under the same unexpired intent.
+After verification, an unavailable settlement must retry the identical proof
+whose hash and payment identifier are already stored; a changed proof is a
+replay conflict. Definitive settlement rejection is terminal and requires a new
+browser purchase session or agent intent.
+
 The forwarding claim is one conditional mutation requiring all of
 `status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the expected transaction
 version, and no prior forwarding owner. Only that winner changes the status to

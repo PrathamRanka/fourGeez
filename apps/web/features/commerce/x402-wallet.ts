@@ -7,6 +7,34 @@ export type EIP1193Provider = {
   request(input: { method: string; params?: unknown[] }): Promise<unknown>;
 };
 
+export type PaymentRecoveryAction =
+  | "connect_wallet"
+  | "switch_network"
+  | "sign_fresh_authorization"
+  | "retry_same_request"
+  | "retry_same_payment"
+  | "start_new_checkout";
+
+export type WalletCompatibility =
+  | { compatible: true }
+  | {
+      compatible: false;
+      code: string;
+      message: string;
+      recoveryAction: PaymentRecoveryAction;
+    };
+
+export class PaymentCapabilityError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly recoveryAction: PaymentRecoveryAction,
+  ) {
+    super(message);
+    this.name = "PaymentCapabilityError";
+  }
+}
+
 type PaymentRequirements = {
   scheme: "exact";
   network: string;
@@ -52,6 +80,52 @@ export function getInjectedWallet(): EIP1193Provider | null {
     return null;
   }
   return (window as Window & { ethereum?: EIP1193Provider }).ethereum ?? null;
+}
+
+export async function detectWalletCompatibility(
+  provider: EIP1193Provider | null,
+): Promise<WalletCompatibility> {
+  if (!provider) {
+    return {
+      compatible: false,
+      code: "wallet_missing",
+      message: "Install or open an EVM wallet to continue.",
+      recoveryAction: "connect_wallet",
+    };
+  }
+  try {
+    const chainID = await provider.request({ method: "eth_chainId" });
+    const accounts = asStringArray(
+      await provider.request({ method: "eth_accounts" }),
+    );
+    if (accounts.length === 0 || !ethereumAddressPattern.test(accounts[0])) {
+      return {
+        compatible: false,
+        code: "wallet_disconnected",
+        message: "Connect your wallet account to continue.",
+        recoveryAction: "connect_wallet",
+      };
+    }
+    if (
+      typeof chainID !== "string" ||
+      chainID.toLowerCase() !== baseSepoliaChainHex
+    ) {
+      return {
+        compatible: false,
+        code: "network_switch_required",
+        message: "Switch the wallet to Base Sepolia to continue.",
+        recoveryAction: "switch_network",
+      };
+    }
+    return { compatible: true };
+  } catch {
+    return {
+      compatible: false,
+      code: "wallet_provider_unsupported",
+      message: "Use an EIP-1193 wallet that supports Base Sepolia.",
+      recoveryAction: "connect_wallet",
+    };
+  }
 }
 
 export function decodePaymentRequired(
@@ -138,17 +212,39 @@ export async function createX402PaymentSignature(
   if (challenge.mode !== "x402") {
     throw new Error("A wallet signature is not required for local mock mode.");
   }
-  const [account] = asStringArray(
-    await provider.request({ method: "eth_requestAccounts" }),
-  );
+  let accounts: string[];
+  try {
+    accounts = asStringArray(
+      await provider.request({ method: "eth_requestAccounts" }),
+    );
+  } catch (error) {
+    throw walletCapabilityError(
+      error,
+      "wallet_connection_rejected",
+      "The wallet connection was cancelled. No payment was made.",
+      "connect_wallet",
+    );
+  }
+  const [account] = accounts;
   if (!account || !ethereumAddressPattern.test(account)) {
     throw new Error("Connect an EVM wallet to continue.");
   }
 
-  await provider.request({
-    method: "wallet_switchEthereumChain",
-    params: [{ chainId: baseSepoliaChainHex }],
-  });
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: baseSepoliaChainHex }],
+    });
+  } catch (error) {
+    const code = walletErrorCode(error);
+    throw new PaymentCapabilityError(
+      code === 4001 ? "network_switch_rejected" : "network_unsupported",
+      code === 4001
+        ? "The Base Sepolia network switch was cancelled. No payment was made."
+        : "This wallet cannot switch to Base Sepolia. Add or select that network, then retry.",
+      "switch_network",
+    );
+  }
 
   const requirements = challenge.requirements;
   const authorization = {
@@ -185,10 +281,22 @@ export async function createX402PaymentSignature(
     primaryType: "TransferWithAuthorization",
     message: authorization,
   };
-  const signature = await provider.request({
-    method: "eth_signTypedData_v4",
-    params: [account, JSON.stringify(typedData)],
-  });
+  let signature: unknown;
+  try {
+    signature = await provider.request({
+      method: "eth_signTypedData_v4",
+      params: [account, JSON.stringify(typedData)],
+    });
+  } catch (error) {
+    const code = walletErrorCode(error);
+    throw new PaymentCapabilityError(
+      code === -32601 ? "typed_data_unsupported" : "wallet_request_rejected",
+      code === -32601
+        ? "This wallet does not support the EIP-712 authorization required for x402."
+        : "The wallet authorization was cancelled. No payment was submitted.",
+      code === -32601 ? "connect_wallet" : "sign_fresh_authorization",
+    );
+  }
   if (typeof signature !== "string" || !signature.startsWith("0x")) {
     throw new Error("The wallet did not return a valid payment signature.");
   }
@@ -254,6 +362,26 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string")
     : [];
+}
+
+function walletCapabilityError(
+  error: unknown,
+  code: string,
+  message: string,
+  recoveryAction: PaymentRecoveryAction,
+): PaymentCapabilityError {
+  if (walletErrorCode(error) === 4001) {
+    return new PaymentCapabilityError(code, message, recoveryAction);
+  }
+  return new PaymentCapabilityError(
+    "wallet_provider_unsupported",
+    "Use an EIP-1193 wallet that supports Base Sepolia.",
+    "connect_wallet",
+  );
+}
+
+function walletErrorCode(error: unknown): number | null {
+  return isRecord(error) && typeof error.code === "number" ? error.code : null;
 }
 
 function randomNonce(): string {

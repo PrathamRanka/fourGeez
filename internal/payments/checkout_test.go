@@ -328,9 +328,12 @@ func TestCheckoutServiceRejectsSettlementForDifferentPaymentIdentifier(t *testin
 	)
 	request := checkoutRequest(fixture)
 	request.PaymentProof = MockApprovedProof
-	_, err := service.Execute(t.Context(), request)
+	result, err := service.Execute(t.Context(), request)
 	if !errors.Is(err, ErrPaymentRejected) {
 		t.Fatalf("Execute() error = %v, want payment rejected", err)
+	}
+	if result.RecoveryAction != RecoveryActionStartNewCheckout {
+		t.Fatalf("recovery action = %q", result.RecoveryAction)
 	}
 	if executor.calls != 0 {
 		t.Fatalf("executor calls = %d, want 0", executor.calls)
@@ -355,9 +358,12 @@ func TestCheckoutServiceRejectedProofNeverSettlesOrFulfills(t *testing.T) {
 	request := checkoutRequest(fixture)
 	request.PaymentProof = "rejected-proof"
 
-	_, err := service.Execute(t.Context(), request)
+	result, err := service.Execute(t.Context(), request)
 	if !errors.Is(err, ErrPaymentRejected) {
 		t.Fatalf("Execute() error = %v, want payment rejected", err)
+	}
+	if result.RecoveryAction != RecoveryActionSignFreshAuthorization {
+		t.Fatalf("recovery action = %q", result.RecoveryAction)
 	}
 	if adapter.verifyCalls != 1 || adapter.settleCalls != 0 || executor.calls != 0 {
 		t.Fatalf("calls = verify %d settle %d execute %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
@@ -373,6 +379,31 @@ func TestCheckoutServiceRejectedProofNeverSettlesOrFulfills(t *testing.T) {
 	}
 	if transaction.Status() != transactions.StatusPaymentRequired || transaction.PaymentIdentifier() != "" {
 		t.Fatalf("transaction after rejection = %#v", transaction.Snapshot())
+	}
+}
+
+func TestCheckoutServiceClassifiesVerificationUnavailableForSafeRetry(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	adapter := &recordingCheckoutAdapter{verifyError: ErrPaymentUnavailable}
+	service := NewCheckoutService(
+		fixture.service,
+		adapter,
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		&checkoutExecutor{},
+		fixture.clock,
+	)
+	request := checkoutRequest(fixture)
+	request.PaymentProof = MockApprovedProof
+
+	result, err := service.Execute(t.Context(), request)
+	if !errors.Is(err, ErrPaymentUnavailable) || result.RecoveryAction != RecoveryActionRetrySameRequest {
+		t.Fatalf("Execute() = (%#v, %v)", result, err)
+	}
+	if adapter.verifyCalls != 1 || adapter.settleCalls != 0 {
+		t.Fatalf("calls = verify %d settle %d", adapter.verifyCalls, adapter.settleCalls)
 	}
 }
 
@@ -402,6 +433,37 @@ func TestCheckoutServiceRejectsChangedProofAfterVerificationFailure(t *testing.T
 	}
 	if adapter.verifyCalls != 1 || adapter.settleCalls != 1 || executor.calls != 0 {
 		t.Fatalf("calls after replay = verify %d settle %d execute %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
+	}
+}
+
+func TestCheckoutServiceRetriesSameProofAfterUnknownSettlement(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	adapter := &recordingCheckoutAdapter{settleError: ErrPaymentUnavailable}
+	executor := &checkoutExecutor{}
+	service := NewCheckoutService(
+		fixture.service,
+		adapter,
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		executor,
+		fixture.clock,
+	)
+	request := checkoutRequest(fixture)
+	request.PaymentProof = MockApprovedProof
+
+	result, err := service.Execute(t.Context(), request)
+	if !errors.Is(err, ErrPaymentUnavailable) || result.RecoveryAction != RecoveryActionRetrySamePayment {
+		t.Fatalf("first Execute() = (%#v, %v)", result, err)
+	}
+	adapter.settleError = nil
+	result, err = service.Execute(t.Context(), request)
+	if err != nil {
+		t.Fatalf("retry Execute() error = %v", err)
+	}
+	if result.Response == nil || adapter.verifyCalls != 1 || adapter.settleCalls != 2 || executor.calls != 1 {
+		t.Fatalf("retry result/calls = %#v verify=%d settle=%d execute=%d", result, adapter.verifyCalls, adapter.settleCalls, executor.calls)
 	}
 }
 
@@ -452,6 +514,10 @@ type recordingCheckoutAdapter struct {
 	settlementIdentifier string
 	verifyError          error
 	settleError          error
+}
+
+func (adapter *recordingCheckoutAdapter) PaymentCapabilities() PaymentCapabilityCatalog {
+	return NewMockAdapter().PaymentCapabilities()
 }
 
 func (adapter *recordingCheckoutAdapter) CreateChallenge(_ context.Context, requirements Requirements) (Challenge, error) {

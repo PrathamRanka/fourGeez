@@ -83,7 +83,9 @@ One deployable Go binary owns all authoritative business rules through isolated 
   code is disabled for Lean V1.
 - `approvals`: preserved M2 implementation for compatibility and future
   enterprise work; it has no active Lean V1 route, WebSocket, or payment gate.
-- `payments`: x402 challenge creation and facilitator verification.
+- `payments`: runtime payment-capability publication, deterministic enabled-rail
+  selection, x402 challenge creation, facilitator verification, and recovery
+  classification.
 - `settlement`: seller payment destinations, ownership verification, rotation,
   and reconciliation status.
 - `proxy`: upstream request forwarding and seller request signatures.
@@ -315,28 +317,31 @@ destination, and workspace publication prerequisites before signing.
 
 ## Purchase lifecycle
 
-1. The buyer reads a short-lived signed AgentPay manifest or product document.
-2. A buyer agent authenticates with its buyer credential; a browser creates a
+1. The buyer reads a short-lived signed AgentPay manifest or product document
+   and may read the runtime payment-capability catalog.
+2. The buyer selects the first compatible enabled capability. The current
+   testnet runtime exposes only exact x402, Base Sepolia, and USDC.
+3. A buyer agent authenticates with its buyer credential; a browser creates a
    bounded server-side purchase session for the selected product. Either channel creates a
    purchase intent containing the immutable route, product snapshot, request
    hash, destination, quote, channel, and expiration.
-3. The policy engine verifies that the fixed seller quote does not exceed the
+4. The policy engine verifies that the fixed seller quote does not exceed the
    buyer-provided `maximumAmount`. No buyer-side approval session is created.
-4. Before checkout starts, the buyer may cancel the still-`ready` intent. At
+5. Before checkout starts, the buyer may cancel the still-`ready` intent. At
    `expiresAt`, expiration wins if the intent is still `ready`. The first
    paid-route request conditionally claims `ready -> executed`; a claim won
    before expiration may continue only through the same deterministic
    transaction identity.
-5. The buyer requests the paid route with the intent identifier, and the
-   gateway returns an x402 challenge when payment is absent.
-6. The buyer wallet authorizes the exact asset, network, amount, destination,
+6. The buyer requests the paid route with the intent identifier.
+7. The gateway returns an x402 challenge when payment is absent.
+8. The buyer wallet authorizes the exact asset, network, amount, destination,
    and resource, then retries with payment proof.
-7. The gateway rechecks current entitlement, verifies and settles payment, and
+9. The gateway rechecks current entitlement, verifies and settles payment, and
    records finality.
-8. One conditional-write winner claims the finalized transaction for
+10. One conditional-write winner claims the finalized transaction for
     forwarding and receives a one-time execution capability.
-9. Evidence is appended for verification, forwarding, response, and final outcome.
-10. The proxy forwards exactly once with the execution capability and returns
+11. Evidence is appended for verification, forwarding, response, and final outcome.
+12. The proxy forwards exactly once with the execution capability and returns
     the upstream response.
 
 ## Consistency and idempotency
@@ -355,8 +360,14 @@ destination, and workspace publication prerequisites before signing.
 
 | Failure | Required behavior |
 |---|---|
+| Wallet missing or incompatible | Return or render `payment_capability_unsupported` with the missing capability and a non-payment recovery action; never substitute another rail. |
+| Wallet authorization rejected | State that no payment was submitted and allow the unexpired challenge to be authorized again. |
+| Intent expired | Return `410 payment_expired` with `recoveryAction=start_new_checkout`; never accept a late proof. |
+| Proof rejected before verification | Return `402 payment_rejected` with a fresh exact challenge and `recoveryAction=sign_fresh_authorization`. |
 | Bedrock timeout | Offer deterministic buyer fallback; never bypass the buyer maximum or wallet authorization. |
-| Facilitator unavailable | Return retriable `503`; do not call the seller. |
+| Facilitator unavailable before verification | Return `503 payment_unavailable` with `recoveryAction=retry_same_request`; do not call the seller. |
+| Settlement unavailable after verification | Keep finality `confirmed`, return `503 payment_outcome_unknown` with `recoveryAction=retry_same_payment`, and require the identical proof and intent. |
+| Definitive settlement rejection | Record finality `failed`, return `402 payment_rejected` with `recoveryAction=start_new_checkout`, and never forward. |
 | Evidence append fails before forwarding | Stop and return `503`; do not call the seller. |
 | Seller timeout | Record delivery failure and classify `not_delivered` disputes as refund-recommended. |
 | Invalid manual refund record | Reject before persistence; require the authenticated owning seller, a finalized payment, `refund_recommended` status, and an exact amount/asset/network match. |

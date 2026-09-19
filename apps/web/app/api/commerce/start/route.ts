@@ -19,7 +19,15 @@ export async function POST(request: Request) {
   const result = await startCommerce(input);
   if (!result.ok) {
     return NextResponse.json(
-      { error: { code: result.code, message: result.message } },
+      {
+        error: {
+          code: result.code,
+          message: result.message,
+          ...(result.recoveryAction
+            ? { details: { recoveryAction: result.recoveryAction } }
+            : {}),
+        },
+      },
       { status: result.status, headers: { "Cache-Control": "no-store" } },
     );
   }

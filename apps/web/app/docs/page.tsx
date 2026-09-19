@@ -24,6 +24,11 @@ const navigationGroups: DocsNavGroup[] = [
       { id: "integration-prompt", label: "Generate changes", nested: true },
       { id: "review-publish", label: "Review and publish", nested: true },
       { id: "commerce-flow", label: "Checkout path" },
+      {
+        id: "payment-capabilities",
+        label: "Payment compatibility",
+        nested: true,
+      },
     ],
   },
   {
@@ -321,6 +326,15 @@ export default function DocsPage() {
               finalized testnet payment, claims fulfillment once, then forwards
               a short-lived signed execution request to the seller.
             </p>
+            <div className={styles.subsection} id="payment-capabilities">
+              <h3>Check payment compatibility</h3>
+              <p>
+                Read <code>GET /v1/payment-capabilities</code> before presenting
+                payment. The development runtime currently enables exact x402
+                on Base Sepolia USDC only. Browser and agent buyers use the same
+                immutable quote and payment path; card checkout is not enabled.
+              </p>
+            </div>
             <div className={styles.sequence}>
               <div>
                 <span>01</span>
@@ -450,6 +464,7 @@ export default function DocsPage() {
             <a href="#connect-mcp">Connect MCP</a>
             <a href="#integration-prompt">Generate changes</a>
             <a href="#commerce-flow">Checkout path</a>
+            <a href="#payment-capabilities">Payment compatibility</a>
             <a href="#supported-stacks">Supported stacks</a>
             <a href="#security-model">Security model</a>
             <a href="#current-limits">Current limits</a>

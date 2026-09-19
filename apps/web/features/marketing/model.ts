@@ -167,7 +167,7 @@ export const frequentlyAskedQuestions = [
   {
     question: "What if an agent cannot pay with x402?",
     answer:
-      "The purchase remains payment-required and your fulfillment route is not called. AgentPay provides a browser-wallet handoff, while card checkout remains a later payment rail.",
+      "Only exact Base Sepolia USDC is enabled in the current testnet runtime. The purchase remains payment-required and fulfillment is not called when that capability is unavailable. If settlement confirmation is temporarily unavailable after verification, AgentPay retries the same signed payment instead of asking for a second authorization. Card checkout remains deferred.",
   },
   {
     question: "Will AgentPay put my products at the top of search?",
