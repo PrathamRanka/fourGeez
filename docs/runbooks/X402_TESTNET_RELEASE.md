@@ -15,6 +15,16 @@ production assets, card checkout, platform fees, or custody.
   on that seller's payment destination
 - Facilitator credential: none
 
+## Current validation fixture
+
+These are public Base Sepolia values for the release exercise only. They are
+not application defaults and must not be placed in Terraform state or secret
+storage.
+
+- Seller payout: `0xbaF8eb4B7C5Dce1C80E1C3d308a89f5F55Ac366f`
+- Buyer wallet: `0xb4F21d0fC70b56B4e586E4629b19d1Cc58fe39F3`
+- Exact price: `100000` atomic units (`0.1 USDC` at 6 decimals)
+
 The buyer's funded test wallet is required only to perform the real testnet
 release purchase. Keep its key in the browser wallet or an isolated release
 runner secret. Never provide it to the API Lambda, seller onboarding, source
@@ -36,6 +46,34 @@ control, Terraform state, logs, screenshots, or evidence objects.
    balance; never record the private key or seed phrase.
 6. Create an evidence directory outside source control. Redact cookies,
    authorization headers, `PAYMENT-SIGNATURE`, raw proofs, and one-time tokens.
+
+## Manual wallet signatures
+
+The seller first connects the wallet whose address exactly matches the payout
+address above. AgentPay requests `personal_sign` over the one-time ownership
+challenge returned by the API. The seller approves that message signature; it
+does not transfer funds.
+
+For the purchase, connect the buyer wallet above and let AgentPay request a
+switch to Base Sepolia (`0x14a34`). Review the wallet's EIP-712
+`TransferWithAuthorization` prompt and confirm all of these values before
+signing:
+
+- `from`: `0xb4F21d0fC70b56B4e586E4629b19d1Cc58fe39F3`
+- `to`: `0xbaF8eb4B7C5Dce1C80E1C3d308a89f5F55Ac366f`
+- `value`: `100000`
+- domain chain ID: `84532`
+- verifying contract: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+- primary type: `TransferWithAuthorization`
+- `validAfter`: `0`
+- `validBefore`: the current Unix time plus the challenge's
+  `maxTimeoutSeconds`
+- `nonce`: the fresh random 32-byte value shown in the prompt
+
+Approve the typed-data signature in the wallet. AgentPay packages that
+signature into the x402 `PAYMENT-SIGNATURE` request header and submits it to the
+API; never copy a private key or seed phrase into AgentPay, a terminal, logs,
+or the evidence bundle.
 
 ## REL-003 — one real testnet transaction
 
