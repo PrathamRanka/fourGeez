@@ -129,6 +129,53 @@ func TestX402AdapterRejectsMismatchedSettlementFacts(t *testing.T) {
 	}
 }
 
+func TestX402AdapterKeepsPendingSettlementRetryable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		facilitator *fakeFacilitatorClient
+	}{
+		{
+			name: "pending response",
+			facilitator: &fakeFacilitatorClient{settleResponse: &x402.SettleResponse{
+				Success:     false,
+				ErrorReason: x402.ErrSettlementPending,
+				Transaction: "0xpending",
+				Network:     x402.Network(BaseSepoliaNetwork),
+			}},
+		},
+		{
+			name: "pending error",
+			facilitator: &fakeFacilitatorClient{settle: func(context.Context, []byte, []byte) (*x402.SettleResponse, error) {
+				return nil, x402.NewSettleError(
+					x402.ErrSettlementPending,
+					"0x2222222222222222222222222222222222222222",
+					x402.Network(BaseSepoliaNetwork),
+					"0xpending",
+					"receipt confirmation timed out",
+				)
+			}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			adapter := NewX402AdapterWithFacilitator(test.facilitator, testVerificationTimeout)
+			_, err := adapter.Settle(
+				t.Context(),
+				validPaymentProof(t, validRequirements()),
+				validRequirements(),
+			)
+			if !errors.Is(err, ErrPaymentUnavailable) || !IsRetryable(err) {
+				t.Fatalf("Settle() error = %v, want retryable payment unavailable", err)
+			}
+		})
+	}
+}
+
 // TestX402AdapterRejectsModifiedPaymentProof verifies exact quote binding.
 func TestX402AdapterRejectsModifiedPaymentProof(t *testing.T) {
 	t.Parallel()
@@ -606,10 +653,17 @@ type facilitatorVerifyFunc func(
 	[]byte,
 ) (*x402.VerifyResponse, error)
 
+type facilitatorSettleFunc func(
+	context.Context,
+	[]byte,
+	[]byte,
+) (*x402.SettleResponse, error)
+
 type fakeFacilitatorClient struct {
 	verifyResponse *x402.VerifyResponse
 	settleResponse *x402.SettleResponse
 	verify         facilitatorVerifyFunc
+	settle         facilitatorSettleFunc
 }
 
 // Verify returns the configured facilitator verification result.
@@ -626,10 +680,13 @@ func (client *fakeFacilitatorClient) Verify(
 
 // Settle returns the configured facilitator settlement result.
 func (client *fakeFacilitatorClient) Settle(
-	context.Context,
-	[]byte,
-	[]byte,
+	ctx context.Context,
+	payload []byte,
+	requirements []byte,
 ) (*x402.SettleResponse, error) {
+	if client.settle != nil {
+		return client.settle(ctx, payload, requirements)
+	}
 	return client.settleResponse, nil
 }
 

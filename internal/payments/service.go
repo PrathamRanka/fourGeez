@@ -441,6 +441,12 @@ func (adapter *X402Adapter) Settle(
 	if err != nil {
 		return SettlementResult{}, classifyFacilitatorError(ctx, err)
 	}
+	if response != nil &&
+		!response.Success &&
+		response.ErrorReason == x402.ErrSettlementPending &&
+		strings.TrimSpace(response.Transaction) != "" {
+		return SettlementResult{}, ErrPaymentUnavailable
+	}
 	if response == nil ||
 		!response.Success ||
 		response.Transaction == "" ||
@@ -734,6 +740,10 @@ func classifyFacilitatorError(parent context.Context, err error) error {
 	}
 	var settleError *x402.SettleError
 	if errors.As(err, &settleError) {
+		if settleError.ErrorReason == x402.ErrSettlementPending &&
+			strings.TrimSpace(settleError.Transaction) != "" {
+			return ErrPaymentUnavailable
+		}
 		return ErrPaymentRejected
 	}
 	return ErrPaymentUnavailable

@@ -341,7 +341,7 @@ export function CommerceCheckout({
                 <span>{product.asset}</span>
               </div>
               <small id={maximumSpendHelpID}>
-                A ceiling only. AgentPay charges the seller&apos;s exact{" "}
+                A ceiling only. Your wallet authorizes the seller&apos;s exact{" "}
                 {exactPrice} quote.
               </small>
             </label>
@@ -433,20 +433,15 @@ export function CommerceCheckout({
                 onClick={
                   checkoutError.recoveryAction === "retry_same_payment" ||
                   checkoutError.recoveryAction === "retry_same_request" ||
-                  checkoutError.recoveryAction === "sign_fresh_authorization"
+                  checkoutError.recoveryAction === "sign_fresh_authorization" ||
+                  checkoutError.recoveryAction === "connect_wallet" ||
+                  checkoutError.recoveryAction === "switch_network"
                     ? completeCheckout
                     : resetCheckout
                 }
               >
                 <RotateCcw aria-hidden="true" />
-                {checkoutError.recoveryAction === "retry_same_payment"
-                  ? "Retry settlement check"
-                  : checkoutError.recoveryAction === "retry_same_request"
-                    ? "Retry payment verification"
-                    : checkoutError.recoveryAction ===
-                        "sign_fresh_authorization"
-                      ? "Retry wallet authorization"
-                      : "Try again"}
+                {paymentRecoveryLabel(checkoutError.recoveryAction)}
               </Button>
             ) : null}
           </div>
@@ -628,6 +623,23 @@ function isPaymentRecoveryAction(
     value === "retry_same_payment" ||
     value === "start_new_checkout"
   );
+}
+
+function paymentRecoveryLabel(action?: PaymentRecoveryAction): string {
+  switch (action) {
+    case "connect_wallet":
+      return "Connect wallet and retry";
+    case "switch_network":
+      return "Retry network switch";
+    case "sign_fresh_authorization":
+      return "Retry wallet authorization";
+    case "retry_same_request":
+      return "Retry payment verification";
+    case "retry_same_payment":
+      return "Retry settlement check";
+    default:
+      return "Try again";
+  }
 }
 
 function assertPaymentTerms(

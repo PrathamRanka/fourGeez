@@ -53,6 +53,7 @@ function jsonResponse(body: unknown, status = 200) {
 describe("commerce checkout", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    window.ethereum = undefined;
   });
 
   it("completes the local x402 demo without a buyer approval step", async () => {
@@ -102,6 +103,10 @@ describe("commerce checkout", () => {
       ),
     ).toBeVisible();
     expect(screen.getByLabelText("Maximum spend")).toHaveValue("35");
+    expect(
+      screen.getByText(/your wallet authorizes the seller's exact 35 USDC quote/i),
+    ).toBeVisible();
+    expect(screen.queryByText(/AgentPay charges/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/manager approval/i)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Request body (JSON)"), {
@@ -182,6 +187,99 @@ describe("commerce checkout", () => {
     expect(
       screen.getByRole("button", { name: "Check for wallet again" }),
     ).toBeEnabled();
+  });
+
+  it("retries a cancelled wallet connection against the same frozen checkout", async () => {
+    const buyerAddress = "0x2222222222222222222222222222222222222222";
+    let connectionAttempts = 0;
+    window.ethereum = {
+      request: vi.fn().mockImplementation(({ method }) => {
+        switch (method) {
+          case "eth_chainId":
+            return Promise.resolve("0x14a34");
+          case "eth_accounts":
+            return Promise.resolve([buyerAddress]);
+          case "eth_requestAccounts":
+            connectionAttempts += 1;
+            return connectionAttempts === 1
+              ? Promise.reject({ code: 4001 })
+              : Promise.resolve([buyerAddress]);
+          case "wallet_switchEthereumChain":
+            return Promise.resolve(null);
+          case "eth_signTypedData_v4":
+            return Promise.resolve("0xsigned");
+          default:
+            return Promise.reject(new Error(`unexpected method ${method}`));
+        }
+      }),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchaseIntent: intent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          paymentRequired: btoa(
+            JSON.stringify({
+              x402Version: 2,
+              accepts: [
+                {
+                  scheme: "exact",
+                  network: product.network,
+                  asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                  amount: product.amount,
+                  payTo: intent.payTo,
+                  maxTimeoutSeconds: 60,
+                  extra: { name: "USDC", version: "2" },
+                },
+              ],
+              resource: {
+                url: "http://localhost:8080/pay/northstar/research/basic",
+                description: product.description,
+                mimeType: product.mimeType,
+              },
+            }),
+          ),
+          paymentMode: "x402",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "fulfilled",
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          settlementReference: "0xtestnet",
+          contentType: "application/json",
+          fulfillment: { reportId: "report_demo" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={product}
+        sellerSlug="northstar"
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Confirm 35 USDC in wallet",
+      }),
+    );
+
+    expect(
+      await screen.findByText(/wallet connection was cancelled/i),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Connect wallet and retry" }),
+    );
+
+    expect(await screen.findByText("Paid and fulfilled")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("announces a retryable checkout error and permits another attempt", async () => {
