@@ -23,7 +23,7 @@ export function HeroHeadline() {
         className="hero-headline-line"
         colors={["#2979ff", "#ff5aa5", "#ff6d00"]}
         data-testid="hero-headline-reveal"
-        delay={0.55}
+        delay={0.25}
         duration={3.2}
         startOnView={false}
         text="Settle on-chain."
