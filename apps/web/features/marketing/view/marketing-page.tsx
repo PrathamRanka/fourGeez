@@ -133,11 +133,11 @@ function SignalStrip() {
               <span
                 className={styles.stackBadge}
                 key={`${stack.name}-${index}`}
+                role="img"
+                aria-label={stack.name}
+                title={stack.name}
               >
-                <b aria-hidden="true">
-                  <StackIcon title="" />
-                </b>
-                <span>{stack.name}</span>
+                <StackIcon aria-hidden="true" title="" />
               </span>
             );
           })}
@@ -494,7 +494,7 @@ function ClosingSection() {
 export function MarketingPage() {
   return (
     <main id="main-content" className={styles.page}>
-      <div className={styles.frame}>
+      <div className={styles.frame} data-full-width="true">
         <HeroSection />
         <SignalStrip />
         <ProductBento />

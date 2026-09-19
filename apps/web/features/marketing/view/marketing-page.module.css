@@ -16,9 +16,7 @@
 }
 
 .frame {
-  width: min(calc(100% - clamp(2rem, 8vw, 8rem)), 82rem);
-  margin-inline: auto;
-  border-inline: 1px solid var(--marketing-line);
+  width: 100%;
 }
 
 .hero {
@@ -352,8 +350,7 @@
 .stackTicker {
   overflow: hidden;
   grid-column: 1 / -1;
-  border-top: 1px solid var(--marketing-line);
-  padding-block: 1rem;
+  padding-block: clamp(1.5rem, 3vw, 2.25rem);
   mask-image: linear-gradient(
     to right,
     transparent,
@@ -365,49 +362,44 @@
 
 .stackTrack {
   display: flex;
-  gap: 0.65rem;
+  align-items: center;
+  gap: clamp(2.4rem, 5vw, 5rem);
   width: max-content;
-  padding-inline: 0.4rem;
+  padding-inline: 1rem;
   animation: ticker 58s linear infinite;
 }
 
 .stackBadge {
-  display: inline-flex;
-  min-height: 2.65rem;
-  align-items: center;
-  gap: 0.7rem;
-  border: 1px solid var(--marketing-line);
-  border-radius: 0.65rem;
-  background: var(--marketing-panel-soft);
-  padding: 0.45rem 0.85rem 0.45rem 0.45rem;
-  color: var(--marketing-text);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  white-space: nowrap;
-}
-
-.stackBadge > b {
   display: inline-grid;
-  width: 1.75rem;
-  height: 1.75rem;
-  place-items: center;
-  border: 1px solid var(--marketing-line-strong);
-  border-radius: 0.45rem;
-  background: #050506;
-  color: var(--marketing-blue);
+  width: clamp(3.2rem, 5vw, 4.6rem);
+  height: clamp(3.2rem, 5vw, 4.6rem);
+  align-items: center;
+  justify-items: center;
+  color: var(--marketing-text);
+  opacity: 0.86;
+  transition:
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
-.stackBadge > b svg {
-  width: 0.9rem;
-  height: 0.9rem;
+.stackBadge:hover {
+  color: var(--marketing-blue);
+  opacity: 1;
+  transform: translateY(-0.15rem) scale(1.05);
+}
+
+.stackBadge > svg {
+  width: clamp(2rem, 3.2vw, 3rem);
+  height: clamp(2rem, 3.2vw, 3rem);
   fill: currentColor;
 }
 
-.stackBadge:nth-child(3n + 2) > b {
+.stackBadge:nth-child(3n + 2) {
   color: var(--marketing-pink);
 }
 
-.stackBadge:nth-child(3n) > b {
+.stackBadge:nth-child(3n) {
   color: var(--marketing-orange);
 }
 
@@ -1454,9 +1446,6 @@
 }
 
 @media (max-width: 960px) {
-  .frame {
-    width: calc(100% - 1rem);
-  }
   .heroRail {
     grid-template-columns: 1fr;
   }
@@ -1500,10 +1489,6 @@
 }
 
 @media (max-width: 640px) {
-  .frame {
-    width: 100%;
-    border-inline: 0;
-  }
   .hero {
     min-height: 42rem;
     padding: 4.75rem 1rem 1rem;
@@ -1666,6 +1651,10 @@
   .planAction,
   .planPrimary,
   .arrowLink svg {
+    transition: none;
+  }
+
+  .stackBadge {
     transition: none;
   }
 }

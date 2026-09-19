@@ -66,7 +66,7 @@ export const marketingStructuredData = {
         {
           "@type": "Person",
           name: "Ayush Garg",
-          url: "https://github.com/gargayush1911",
+          url: "https://www.linkedin.com/in/gargayush1911/",
         },
       ],
     },
@@ -106,7 +106,7 @@ export const marketingStructuredData = {
         {
           "@type": "Person",
           name: "Ayush Garg",
-          url: "https://github.com/gargayush1911",
+          url: "https://www.linkedin.com/in/gargayush1911/",
         },
       ],
     },
@@ -259,6 +259,7 @@ AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, N
 - Source repository: https://github.com/PrathamRanka/fourGeez
 - Maintainers: Pratham Ranka and Ayush Garg
 - Pratham Ranka: https://www.linkedin.com/in/prathamranka06/
+- Ayush Garg: https://www.linkedin.com/in/gargayush1911/
 
 ## Limits
 

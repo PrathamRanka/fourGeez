@@ -26,17 +26,17 @@ describe("AgentPay web foundation", () => {
       screen.getByRole("link", { name: "Create your storefront" }),
     ).toHaveAttribute("href", "/sign-up");
     expect(
-      screen.getByRole("link", { name: "GitHub repository" }),
-    ).toHaveAttribute("href", "https://github.com/PrathamRanka/fourGeez");
-    expect(
       screen.getByRole("link", { name: "Meet the developers" }),
     ).toHaveAttribute("href", "/developers");
     expect(
-      screen.getByRole("link", { name: "Pratham Ranka on LinkedIn" }),
-    ).toHaveAttribute(
-      "href",
-      "https://www.linkedin.com/in/prathamranka06/",
-    );
+      screen.queryByRole("link", { name: "GitHub repository" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Pratham Ranka on LinkedIn" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Agent Checkout" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(/built by pratham ranka and ayush garg/i),
     ).toBeVisible();

@@ -2,7 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import HomePage, { metadata as homeMetadata } from "@/app/page";
 import { GET as getLlmsText } from "@/app/llms.txt/route";
-import { alt as socialImageAlt, size as socialImageSize } from "@/app/opengraph-image";
+import {
+  alt as socialImageAlt,
+  size as socialImageSize,
+} from "@/app/opengraph-image";
 import manifest from "@/app/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
@@ -50,7 +53,10 @@ describe("AgentPay marketing discovery", () => {
         name: "Pratham Ranka",
         url: "https://www.linkedin.com/in/prathamranka06/",
       },
-      { name: "Ayush Garg", url: "https://github.com/gargayush1911" },
+      {
+        name: "Ayush Garg",
+        url: "https://www.linkedin.com/in/gargayush1911/",
+      },
     ]);
     expect(rootMetadata.icons).toMatchObject({ shortcut: "/favicon.ico" });
     expect(socialImageSize).toEqual({ width: 1200, height: 630 });
@@ -194,15 +200,17 @@ describe("AgentPay marketing discovery", () => {
         ]),
       }),
     );
-    expect(structuredData).toContainEqual(expect.objectContaining({
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: expect.arrayContaining([
-        expect.objectContaining({
-          "@type": "Question",
-          name: "Will AgentPay put my products at the top of search?",
-        }),
-      ]),
-    }));
+    expect(structuredData).toContainEqual(
+      expect.objectContaining({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: expect.arrayContaining([
+          expect.objectContaining({
+            "@type": "Question",
+            name: "Will AgentPay put my products at the top of search?",
+          }),
+        ]),
+      }),
+    );
   });
 });

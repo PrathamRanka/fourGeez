@@ -63,7 +63,12 @@ describe("AgentPay public routes", () => {
     expect(
       screen.getByRole("heading", { name: "Built by people who ship." }),
     ).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Pratham Ranka" })).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Back to AgentPay" }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      screen.getByRole("heading", { name: "Pratham Ranka" }),
+    ).toBeVisible();
     expect(screen.getByRole("heading", { name: "Ayush Garg" })).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Pratham Ranka on GitHub" }),
@@ -74,6 +79,8 @@ describe("AgentPay public routes", () => {
     expect(
       screen.getByRole("link", { name: "Ayush Garg on GitHub" }),
     ).toHaveAttribute("href", "https://github.com/gargayush1911");
-    expect(screen.getByText("LinkedIn profile not published")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Ayush Garg on LinkedIn" }),
+    ).toHaveAttribute("href", "https://www.linkedin.com/in/gargayush1911/");
   });
 });

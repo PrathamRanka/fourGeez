@@ -83,9 +83,19 @@ describe("AgentPay public site", () => {
       "Rails",
       "Laravel",
     ]) {
-      expect(screen.getAllByText(stack).length).toBeGreaterThan(0);
+      expect(within(stackStrip).getAllByLabelText(stack)).toHaveLength(2);
+      expect(within(stackStrip).queryByText(stack)).not.toBeInTheDocument();
     }
     expect(screen.queryByText("Perl")).not.toBeInTheDocument();
+  });
+
+  it("uses the full viewport width without a framed landing-page gutter", () => {
+    render(<HomePage />);
+
+    expect(screen.getByRole("main").firstElementChild).toHaveAttribute(
+      "data-full-width",
+      "true",
+    );
   });
 
   it("switches the commerce demonstration between buyer and seller views", () => {

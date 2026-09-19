@@ -1,4 +1,4 @@
-import { ArrowUpRight, Code2, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { BrandMark } from "@/components/site/brand-mark";
 import { CloudShader } from "@/components/ui/cloud-shader";
@@ -8,7 +8,6 @@ const footerGroups = [
     label: "Product links",
     title: "Product",
     links: [
-      { href: "/demo/agent-checkout", label: "Agent Checkout" },
       { href: "/#product", label: "Revenue Lens" },
       { href: "/#security", label: "Trust Gate" },
     ],
@@ -38,18 +37,6 @@ const footerGroups = [
       {
         href: "/developers",
         label: "Meet the developers",
-      },
-      {
-        href: "https://github.com/PrathamRanka/fourGeez",
-        label: "GitHub repository",
-        icon: Code2,
-        external: true,
-      },
-      {
-        href: "https://www.linkedin.com/in/prathamranka06/",
-        label: "Pratham Ranka on LinkedIn",
-        icon: UserRound,
-        external: true,
       },
     ],
   },
@@ -96,28 +83,15 @@ export function SiteFooter() {
             <nav key={group.label} aria-label={group.label}>
               <p className="footer-group-title">{group.title}</p>
               <div className="footer-links">
-                {group.links.map((link) =>
-                  "external" in link && link.external ? (
-                    <a
-                      key={`${group.label}-${link.label}`}
-                      href={link.href}
-                      className="footer-link"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <link.icon aria-hidden="true" className="size-4" />
-                      {link.label}
-                    </a>
-                  ) : (
-                    <Link
-                      key={`${group.label}-${link.label}`}
-                      href={link.href}
-                      className="footer-link"
-                    >
-                      {link.label}
-                    </Link>
-                  ),
-                )}
+                {group.links.map((link) => (
+                  <Link
+                    key={`${group.label}-${link.label}`}
+                    href={link.href}
+                    className="footer-link"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </div>
             </nav>
           ))}
