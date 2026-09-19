@@ -27,7 +27,7 @@ access, and data lifecycle before dependent code is implemented.
 | ADR-010 | The platform recommends refunds but does not unilaterally move production funds. | Keeps the initial product outside custody and settlement ownership. |
 | ADR-011 | Use deterministic dispute rules; no RL in the first milestone. | There is no reliable training dataset yet. |
 | ADR-012 | `AgentPay` is a working name only. | Naming and trademark review are required before launch. |
-| ADR-013 | Default development/demo region is `us-east-1`, overridable by deployment configuration. | Provides one documented default while requiring Bedrock model availability verification. |
+| ADR-013 | Default development/demo region is Mumbai, `ap-south-1`, overridable by deployment configuration. | Keeps seller-V1 infrastructure near the initial operator and audience; Bedrock remains disabled and is not a seller-launch dependency. |
 | ADR-014 | Treat each published paid route as the V1 product record. | Supports API calls and digitally fulfilled products without introducing a speculative catalog abstraction. |
 | ADR-015 | Make seller onboarding agent-assisted through a remote MCP server and supported coding-agent instructions. | Sellers can prepare an integration from their existing repository while AgentPay retains validation and authorization. |
 | ADR-016 | Require explicit seller confirmation for price changes, publication, credential rotation, and production deployment. | Repository content and model output are untrusted and cannot authorize commercial or security-sensitive changes. |

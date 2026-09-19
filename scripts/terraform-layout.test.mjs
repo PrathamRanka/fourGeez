@@ -66,3 +66,13 @@ test("environment templates keep account-specific values out of committed defaul
 
   assert.equal(existsSync(terraformRoot), true);
 });
+
+test("the locked AWS region decision matches the Mumbai deployment", () => {
+  const decisions = read("docs/DECISIONS.md");
+
+  assert.match(
+    decisions,
+    /ADR-013 \| Default development\/demo region is Mumbai, `ap-south-1`/,
+  );
+  assert.doesNotMatch(decisions, /ADR-013[^\n]*`us-east-1`/);
+});
