@@ -1,6 +1,6 @@
 # Verified sources and implementation unknowns
 
-Last reviewed: 2026-09-18.
+Last reviewed: 2026-09-19.
 
 Only official documentation and repositories should determine protocol wire behavior, SDK imports, AWS resource behavior, and security-sensitive configuration. Blog posts may provide context but cannot override these sources.
 
@@ -11,11 +11,11 @@ Only official documentation and repositories should determine protocol wire beha
 | Seller quickstart and current HTTP flow | https://docs.x402.org/getting-started/quickstart-for-sellers | Verified 2026-09-17 |
 | Protocol repository | https://github.com/coinbase/x402 | Verified as official repository entry point 2026-09-17 |
 | v2 HTTP headers | Official x402 documentation/repository: `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, `PAYMENT-RESPONSE` | Verified 2026-09-17 |
-| Go SDK module path and pinned version | Official `x402-foundation/x402` Go module and `go/v2.9.0` release tag | Verified 2026-09-17: module `github.com/x402-foundation/x402/go`; pin `v0.0.0-20260413171033-1059e866484f` because the module omits a `/v2` suffix |
+| Go SDK module path and pinned version | Official `x402-foundation/x402` Go module and `go/v2.26.0` release tag | Verified 2026-09-19: module `github.com/x402-foundation/x402/go/v2`; pin `v2.26.0` |
 | Standard-library HTTP adapter | Official `go/http/nethttp` package added in Go SDK `v2.8.0` | Verified 2026-09-17; compatible with AgentPay's `net/http` transport |
-| Testnet facilitator URL | Official seller quickstart | Verified 2026-09-17: `https://x402.org/facilitator` |
-| Testnet network identifier | Official seller quickstart and Go SDK network constants | Verified 2026-09-17: Base Sepolia `eip155:84532` |
-| Testnet asset identifier | Official Go SDK Base Sepolia asset configuration | Verified 2026-09-17: USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
+| Testnet facilitator URL | Official seller quickstart | Reverified 2026-09-19: `https://x402.org/facilitator`; testnet-only and requires no provider credential |
+| Testnet network identifier | Official seller quickstart and network-support table | Reverified 2026-09-19: Base Sepolia `eip155:84532` |
+| Testnet asset identifier | Official x402 default-asset table | Reverified 2026-09-19: USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`, 6 decimals, EIP-3009 |
 | Protocol headers | Official Go HTTP package and tests | Verified 2026-09-17: `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and `PAYMENT-RESPONSE` |
 | License and compatibility | Official repository `LICENSE` and Go module | Verified 2026-09-17: Apache-2.0; SDK requires Go 1.24 and AgentPay uses Go 1.26 |
 | Security review notes | Official Go changelog and module dependencies | Reviewed 2026-09-17: `v2.6.0` closed fail-open verification paths; `v2.8.0` pins the indirect QUIC security fix. AgentPay will use only the core and HTTP client types required at its payment boundary. |
@@ -72,7 +72,7 @@ before changing a published setup-bundle version.
 |---|---|---|
 | RFC 8785 JSON canonicalization for request and intent hashing | https://github.com/gowebpki/jcs | `v1.0.1` |
 | Sortable ULID generation | https://github.com/oklog/ulid | `v2.1.2` |
-| x402 v2 Go SDK | https://github.com/x402-foundation/x402/tree/go/v2.9.0/go | `v0.0.0-20260413171033-1059e866484f` (`go/v2.9.0`) |
+| x402 v2 Go SDK | https://github.com/x402-foundation/x402/tree/go/v2.26.0/go | `v2.26.0` |
 | Official MCP Go SDK | https://github.com/modelcontextprotocol/go-sdk | `v1.8.0`; supports the pinned `2026-07-28` protocol and stateless Streamable HTTP |
 
 ## Open questions that block production, not the hackathon

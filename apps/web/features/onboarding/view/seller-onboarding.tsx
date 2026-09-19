@@ -427,6 +427,9 @@ export function SellerOnboarding({
                 aria-label="Verify payout destination"
                 onSubmit={verifyPayoutAddress}
               >
+                <p className="onboarding-muted-state" role="note">
+                  Testnet only · Base Sepolia USDC · no real-money production
+                </p>
                 <label>
                   <span>Asset and network</span>
                   <select name="assetNetwork" defaultValue="USDC:eip155:84532">

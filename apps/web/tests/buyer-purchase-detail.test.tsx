@@ -107,11 +107,19 @@ describe("buyer purchase detail", () => {
     ).toBeVisible();
     expect(screen.getByText("Purchase ledger")).toBeVisible();
     expect(
+      screen.getByText(
+        "Testnet payment · Base Sepolia USDC · no real-money production",
+      ),
+    ).toBeVisible();
+    expect(
       within(
         screen.getByRole("region", { name: "Purchase summary" }),
       ).getByText("Fulfilled"),
     ).toBeVisible();
     expect(screen.getByText("35 USDC")).toBeVisible();
+    expect(
+      screen.getByText("Base Sepolia testnet (eip155:84532)"),
+    ).toBeVisible();
     expect(screen.getAllByText("Evidence chain verified")).toHaveLength(2);
     expect(screen.getByText("fulfillment.succeeded")).toBeVisible();
 

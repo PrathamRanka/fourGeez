@@ -436,6 +436,9 @@ function CreateProductPanel({
         className="product-create-form"
         onSubmit={onSubmit}
       >
+        <p className="product-testnet-notice" role="note">
+          Testnet only · Base Sepolia USDC · no real-money production
+        </p>
         <label>
           <span>Product name</span>
           <input
@@ -477,7 +480,7 @@ function CreateProductPanel({
         </label>
         <label>
           <span>Price asset</span>
-          <input name="asset" required defaultValue="USDC" />
+          <input name="asset" required readOnly value="USDC" />
         </label>
         <label className="product-field-route">
           <span>Verified payment destination</span>
@@ -518,7 +521,12 @@ function CreateProductPanel({
                 </label>
                 <label>
                   <span>Payment network</span>
-                  <input name="network" required defaultValue="eip155:84532" />
+                  <input
+                    name="network"
+                    required
+                    readOnly
+                    value="eip155:84532"
+                  />
                 </label>
                 <label>
                   <span>Service timeout in seconds</span>

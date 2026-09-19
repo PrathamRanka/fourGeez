@@ -124,6 +124,17 @@ variable "monthly_budget_limit_usd" {
   }
 }
 
+variable "payment_mode" {
+  description = "Locked seller-first payment mode; mainnet and card rails remain disabled."
+  type        = string
+  default     = "x402"
+
+  validation {
+    condition     = var.payment_mode == "x402"
+    error_message = "payment_mode must remain x402 for the testnet deployment."
+  }
+}
+
 variable "api_deployment_enabled" {
   description = "Creates the AWS-005 Lambda and HTTP API only after durable runtime readiness passes."
   type        = bool

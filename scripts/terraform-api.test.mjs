@@ -76,3 +76,32 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   assert.match(variables, /variable\s+"api_deployment_enabled"/);
   assert.match(variables, /default\s*=\s*false/);
 });
+
+test("AWS-005 locks Lambda payments to the credential-free Base Sepolia profile", () => {
+  const root = read("infra/terraform/main.tf");
+  const rootVariables = read("infra/terraform/variables.tf");
+  const application = read("infra/terraform/modules/application/main.tf");
+
+  assert.match(root, /payment_mode\s*=\s*var\.payment_mode/);
+  assert.match(root, /facilitator_url\s*=\s*var\.x402_facilitator_url/);
+  assert.match(root, /x402_network\s*=\s*var\.x402_network/);
+  assert.match(root, /x402_asset\s*=\s*var\.x402_asset/);
+  assert.match(rootVariables, /default\s*=\s*"x402"/);
+  assert.match(
+    rootVariables,
+    /default\s*=\s*"https:\/\/x402\.org\/facilitator"/,
+  );
+  assert.match(rootVariables, /default\s*=\s*"eip155:84532"/);
+  assert.match(
+    rootVariables,
+    /default\s*=\s*"0x036CbD53842c5426634e7929541eC2318f3dCF7e"/,
+  );
+  assert.match(application, /AGENTPAY_PAYMENT_MODE\s*=\s*var\.payment_mode/);
+  assert.match(
+    application,
+    /AGENTPAY_FACILITATOR_URL\s*=\s*var\.facilitator_url/,
+  );
+  assert.match(application, /AGENTPAY_X402_NETWORK\s*=\s*var\.x402_network/);
+  assert.match(application, /AGENTPAY_X402_ASSET\s*=\s*var\.x402_asset/);
+  assert.doesNotMatch(application, /TEST_WALLET|FACILITATOR_(API_)?KEY/);
+});

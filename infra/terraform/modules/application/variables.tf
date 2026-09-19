@@ -18,6 +18,11 @@ variable "web_origin" {
   type        = string
 }
 
+variable "payment_mode" {
+  description = "Payment adapter mode passed to the API runtime."
+  type        = string
+}
+
 variable "lambda_artifact_path" {
   description = "Path to the reviewed Lambda ZIP."
   type        = string

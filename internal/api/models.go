@@ -34,6 +34,9 @@ const (
 	ErrorCodeInsufficientScope     = "insufficient_scope"
 	ErrorCodeIdempotencyConflict   = "idempotency_conflict"
 	ErrorCodeTokenReplayed         = "token_replayed"
+	ErrorCodePaymentRejected       = "payment_rejected"
+	ErrorCodePaymentReplayed       = "payment_replayed"
+	ErrorCodeSellerInactive        = "seller_inactive"
 )
 
 // IdempotencyDecision contains either a replay or permission to execute.

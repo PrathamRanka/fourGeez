@@ -155,9 +155,19 @@ func (controller *HTTPController) writeError(
 	err error,
 ) {
 	if result.Challenge != nil && errors.Is(err, ErrPaymentRejected) {
-		controller.writeChallenge(response, request, *result.Challenge)
+		response.Header().Set(paymentRequiredHeader, result.Challenge.Header)
+		response.Header().Set("Cache-Control", "no-store")
+		api.WriteError(
+			response,
+			request,
+			http.StatusPaymentRequired,
+			api.ErrorCodePaymentRejected,
+			"payment proof was rejected",
+			nil,
+		)
 		return
 	}
+	response.Header().Set("Cache-Control", "no-store")
 	status := http.StatusInternalServerError
 	code := api.ErrorCodeInternal
 	message := err.Error()
@@ -167,7 +177,7 @@ func (controller *HTTPController) writeError(
 		code = api.ErrorCodeGone
 	case errors.Is(err, domain.ErrCommerceUnavailable):
 		status = http.StatusGone
-		code = api.ErrorCodeGone
+		code = api.ErrorCodeSellerInactive
 		message = "seller commerce is unavailable"
 	case errors.Is(err, ErrPaidRouteMismatch),
 		errors.Is(err, persistence.ErrNotFound):
@@ -175,7 +185,10 @@ func (controller *HTTPController) writeError(
 		code = api.ErrorCodeNotFound
 	case errors.Is(err, ErrPaymentReplay):
 		status = http.StatusConflict
-		code = api.ErrorCodeConflict
+		code = api.ErrorCodePaymentReplayed
+	case errors.Is(err, ErrPaymentRejected):
+		status = http.StatusPaymentRequired
+		code = api.ErrorCodePaymentRejected
 	case errors.Is(err, ErrSubscriptionInactive):
 		status = http.StatusForbidden
 		code = "subscription_inactive"

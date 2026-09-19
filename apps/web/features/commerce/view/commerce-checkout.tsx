@@ -219,6 +219,9 @@ export function CommerceCheckout({
           </p>
           <h2 id="checkout-title">{heading}</h2>
           <small className={styles.guardLabel}>Protected x402 settlement</small>
+          <small className={styles.testnetNotice}>
+            Testnet only · Base Sepolia USDC · no real-money production
+          </small>
         </div>
         <span>{exactPrice}</span>
       </header>

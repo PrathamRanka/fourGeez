@@ -43,8 +43,8 @@ import (
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/storefront"
 	"github.com/fourgeez/agentpay/internal/transactions"
-	x402 "github.com/x402-foundation/x402/go"
-	x402http "github.com/x402-foundation/x402/go/http"
+	x402 "github.com/x402-foundation/x402/go/v2"
+	x402http "github.com/x402-foundation/x402/go/v2/http"
 )
 
 const awsDependencyHealthTimeout = 5 * time.Second
@@ -128,6 +128,7 @@ type runtimeConfig struct {
 	ConfirmationPepperSecretARN  string
 	SellerUserPoolID             string
 	SellerUserPoolClientID       string
+	PaymentMode                  string
 	FacilitatorURL               string
 	X402Network                  string
 	X402Asset                    string
@@ -145,7 +146,7 @@ func loadRuntimeConfig() (runtimeConfig, error) {
 		CredentialPepperSecretARN:   os.Getenv("AGENTPAY_CREDENTIAL_PEPPER_SECRET_ARN"),
 		ConfirmationPepperSecretARN: os.Getenv("AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN"),
 		SellerUserPoolID:            os.Getenv("AGENTPAY_SELLER_USER_POOL_ID"), SellerUserPoolClientID: os.Getenv("AGENTPAY_SELLER_USER_POOL_CLIENT_ID"),
-		FacilitatorURL: os.Getenv("AGENTPAY_FACILITATOR_URL"), X402Network: os.Getenv("AGENTPAY_X402_NETWORK"), X402Asset: os.Getenv("AGENTPAY_X402_ASSET"),
+		PaymentMode: os.Getenv("AGENTPAY_PAYMENT_MODE"), FacilitatorURL: os.Getenv("AGENTPAY_FACILITATOR_URL"), X402Network: os.Getenv("AGENTPAY_X402_NETWORK"), X402Asset: os.Getenv("AGENTPAY_X402_ASSET"),
 	}
 	if config.HTTPAddress == "" {
 		config.HTTPAddress = ":8080"
@@ -159,6 +160,12 @@ func loadRuntimeConfig() (runtimeConfig, error) {
 		}
 		if config.WebOrigin == "" {
 			config.WebOrigin = "http://localhost:3000"
+		}
+		if err := validatePaymentRuntimeConfig(paymentRuntimeConfig{
+			Environment: config.Environment, Mode: config.PaymentMode,
+			FacilitatorURL: config.FacilitatorURL, Network: config.X402Network, Asset: config.X402Asset,
+		}); err != nil {
+			return runtimeConfig{}, err
 		}
 		return config, nil
 	}
@@ -175,6 +182,7 @@ func loadRuntimeConfig() (runtimeConfig, error) {
 		"AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN": config.ConfirmationPepperSecretARN,
 		"AGENTPAY_SELLER_USER_POOL_ID":                  config.SellerUserPoolID,
 		"AGENTPAY_SELLER_USER_POOL_CLIENT_ID":           config.SellerUserPoolClientID,
+		"AGENTPAY_PAYMENT_MODE":                         config.PaymentMode,
 		"AGENTPAY_FACILITATOR_URL":                      config.FacilitatorURL, "AGENTPAY_X402_NETWORK": config.X402Network,
 		"AGENTPAY_X402_ASSET": config.X402Asset,
 	} {
@@ -182,8 +190,11 @@ func loadRuntimeConfig() (runtimeConfig, error) {
 			return runtimeConfig{}, errors.New(name + " is required for the AWS runtime")
 		}
 	}
-	if config.X402Network != payments.BaseSepoliaNetwork || !strings.EqualFold(config.X402Asset, payments.BaseSepoliaUSDCAsset) {
-		return runtimeConfig{}, errors.New("AWS runtime is restricted to Base Sepolia USDC")
+	if err := validatePaymentRuntimeConfig(paymentRuntimeConfig{
+		Environment: config.Environment, Mode: config.PaymentMode,
+		FacilitatorURL: config.FacilitatorURL, Network: config.X402Network, Asset: config.X402Asset,
+	}); err != nil {
+		return runtimeConfig{}, err
 	}
 	return config, nil
 }
@@ -283,7 +294,7 @@ func newLocalRuntimeDependencies(config runtimeConfig, clock domain.Clock) (runt
 		confirmationGrantPepper:   integrations.StaticCredentialPepperProvider{Value: mustRandomSecret("confirmation grant pepper")},
 		rotationReplayProtector:   rotationReplayProtector,
 		capabilityKeys:            capabilityKeys, evidenceSigner: evidenceSigner, sellerSigner: sellerSigner,
-		webhookSecrets: webhookSecrets, paymentAdapter: localPaymentAdapter(), sellerForwarder: sellerForwarder,
+		webhookSecrets: webhookSecrets, paymentAdapter: localPaymentAdapter(config), sellerForwarder: sellerForwarder,
 		healthController:         healthController,
 		configureDevelopmentSeed: seed, stripeProviderEventEnabled: os.Getenv("AGENTPAY_STRIPE_WEBHOOK_SECRET") != "",
 	}, nil
@@ -370,11 +381,11 @@ func newAWSRuntimeDependencies(ctx context.Context, config runtimeConfig, clock 
 	}, nil
 }
 
-func localPaymentAdapter() payments.Adapter {
-	if os.Getenv("AGENTPAY_USE_MOCK_PAYMENT") == "true" {
+func localPaymentAdapter(config runtimeConfig) payments.Adapter {
+	if config.PaymentMode == paymentModeMock {
 		return payments.NewMockAdapter()
 	}
-	return payments.NewX402Adapter()
+	return payments.NewX402AdapterForFacilitator(config.FacilitatorURL)
 }
 
 func newAWSDependencyHealthController(catalogRepository catalog.Repository, evidenceRepository evidence.Repository, evidenceSigner evidence.Signer, capabilityKeys capabilityKeyRing, credentialPepper, confirmationPepper integrations.CredentialPepperProvider, facilitator x402.FacilitatorClient) (*health.Controller, error) {

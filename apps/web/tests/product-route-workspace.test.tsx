@@ -228,6 +228,17 @@ describe("product route workspace", () => {
     expect(
       screen.getByRole("button", { name: "Close new product" }),
     ).toBeVisible();
+    expect(
+      screen.getByText(/testnet only.*no real-money production/i),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Price asset")).toHaveAttribute("readonly");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Advanced product setup" }),
+    );
+    expect(screen.getByLabelText("Payment network")).toHaveAttribute(
+      "readonly",
+    );
   });
 
   it("turns an empty catalog into a direct creation path", () => {

@@ -56,6 +56,8 @@ describe("x402 wallet", () => {
           from: "0x2222222222222222222222222222222222222222",
           to: challenge.accepts[0].payTo,
           value: "35000000",
+          validAfter: "0",
+          validBefore: "1758200060",
         },
       },
     });
@@ -76,6 +78,22 @@ describe("x402 wallet", () => {
           JSON.stringify({
             ...challenge,
             accepts: [{ ...challenge.accepts[0], scheme: "upto" }],
+          }),
+        ),
+      ),
+    ).toThrow(/supports only exact Base Sepolia/i);
+
+    expect(() =>
+      decodePaymentRequired(
+        btoa(
+          JSON.stringify({
+            ...challenge,
+            accepts: [
+              {
+                ...challenge.accepts[0],
+                asset: "0x1111111111111111111111111111111111111111",
+              },
+            ],
           }),
         ),
       ),

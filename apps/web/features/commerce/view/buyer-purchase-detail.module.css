@@ -63,6 +63,13 @@
   color: var(--muted-foreground);
   line-height: 1.65;
 }
+.header > div > .testnetNotice {
+  margin-top: 0.75rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+}
 .evidenceBadge {
   display: inline-flex;
   align-items: center;

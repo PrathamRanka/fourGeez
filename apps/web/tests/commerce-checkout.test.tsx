@@ -96,6 +96,11 @@ describe("commerce checkout", () => {
     );
 
     expect(screen.getByText("Protected x402 settlement")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Testnet only · Base Sepolia USDC · no real-money production",
+      ),
+    ).toBeVisible();
     expect(screen.getByLabelText("Maximum spend")).toHaveValue("35");
     expect(screen.queryByText(/manager approval/i)).not.toBeInTheDocument();
 
@@ -172,6 +177,7 @@ describe("commerce checkout", () => {
     );
 
     expect(await screen.findByText("Wallet required")).toBeVisible();
+    expect(screen.getByText(/testnet only/i)).toBeVisible();
     expect(screen.getByText(/install or open an EVM wallet/i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Check for wallet again" }),

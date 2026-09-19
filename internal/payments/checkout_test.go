@@ -337,6 +337,74 @@ func TestCheckoutServiceRejectsSettlementForDifferentPaymentIdentifier(t *testin
 	}
 }
 
+func TestCheckoutServiceRejectedProofNeverSettlesOrFulfills(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	transactionRepository := memory.NewTransactionRepository()
+	adapter := &recordingCheckoutAdapter{verifyError: ErrPaymentRejected}
+	executor := &checkoutExecutor{}
+	service := NewCheckoutService(
+		fixture.service,
+		adapter,
+		transactionRepository,
+		newCheckoutEvidenceRecorder(t, fixture),
+		executor,
+		fixture.clock,
+	)
+	request := checkoutRequest(fixture)
+	request.PaymentProof = "rejected-proof"
+
+	_, err := service.Execute(t.Context(), request)
+	if !errors.Is(err, ErrPaymentRejected) {
+		t.Fatalf("Execute() error = %v, want payment rejected", err)
+	}
+	if adapter.verifyCalls != 1 || adapter.settleCalls != 0 || executor.calls != 0 {
+		t.Fatalf("calls = verify %d settle %d execute %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
+	}
+
+	transactionID, err := transactionIDForIntent(fixture.purchaseIntent.IntentID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := transactionRepository.Get(t.Context(), transactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Status() != transactions.StatusPaymentRequired || transaction.PaymentIdentifier() != "" {
+		t.Fatalf("transaction after rejection = %#v", transaction.Snapshot())
+	}
+}
+
+func TestCheckoutServiceRejectsChangedProofAfterVerificationFailure(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	adapter := &recordingCheckoutAdapter{settleError: ErrPaymentUnavailable}
+	executor := &checkoutExecutor{}
+	service := NewCheckoutService(
+		fixture.service,
+		adapter,
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		executor,
+		fixture.clock,
+	)
+	request := checkoutRequest(fixture)
+	request.PaymentProof = MockApprovedProof
+	if _, err := service.Execute(t.Context(), request); !errors.Is(err, ErrPaymentUnavailable) {
+		t.Fatalf("first Execute() error = %v, want payment unavailable", err)
+	}
+
+	request.PaymentProof = "changed-proof"
+	if _, err := service.Execute(t.Context(), request); !errors.Is(err, ErrPaymentReplay) {
+		t.Fatalf("replay Execute() error = %v, want payment replay", err)
+	}
+	if adapter.verifyCalls != 1 || adapter.settleCalls != 1 || executor.calls != 0 {
+		t.Fatalf("calls after replay = verify %d settle %d execute %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
+	}
+}
+
 func checkoutRequest(fixture paidRouteFixture) CheckoutRequest {
 	return CheckoutRequest{PaidRouteRequest: PaidRouteRequest{
 		Slug: fixture.seller.Slug, Method: fixture.route.Method,
@@ -382,6 +450,8 @@ type recordingCheckoutAdapter struct {
 	settleCalls          int
 	afterSettlement      func()
 	settlementIdentifier string
+	verifyError          error
+	settleError          error
 }
 
 func (adapter *recordingCheckoutAdapter) CreateChallenge(_ context.Context, requirements Requirements) (Challenge, error) {
@@ -391,11 +461,17 @@ func (adapter *recordingCheckoutAdapter) CreateChallenge(_ context.Context, requ
 
 func (adapter *recordingCheckoutAdapter) Verify(_ context.Context, _ string, _ Requirements) (VerificationResult, error) {
 	adapter.verifyCalls++
+	if adapter.verifyError != nil {
+		return VerificationResult{}, adapter.verifyError
+	}
 	return VerificationResult{Valid: true, PaymentIdentifier: "payment-test"}, nil
 }
 
 func (adapter *recordingCheckoutAdapter) Settle(_ context.Context, _ string, _ Requirements) (SettlementResult, error) {
 	adapter.settleCalls++
+	if adapter.settleError != nil {
+		return SettlementResult{}, adapter.settleError
+	}
 	if adapter.afterSettlement != nil {
 		adapter.afterSettlement()
 	}

@@ -23,6 +23,8 @@ const (
 	BaseSepoliaNetwork = "eip155:84532"
 	// BaseSepoliaUSDCAsset identifies USDC on Base Sepolia.
 	BaseSepoliaUSDCAsset = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+	// TestnetFacilitatorURL is the official credential-free x402 development facilitator.
+	TestnetFacilitatorURL = "https://x402.org/facilitator"
 
 	// MockApprovedProof deterministically represents an accepted payment.
 	MockApprovedProof = "mock-approved-proof"

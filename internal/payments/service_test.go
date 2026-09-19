@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/domain"
-	x402 "github.com/x402-foundation/x402/go"
-	x402types "github.com/x402-foundation/x402/go/types"
+	x402 "github.com/x402-foundation/x402/go/v2"
+	x402types "github.com/x402-foundation/x402/go/v2/types"
 )
 
 const testVerificationTimeout = 20 * time.Millisecond
@@ -154,6 +154,65 @@ func TestX402AdapterRejectsModifiedPaymentProof(t *testing.T) {
 	}
 	if calls.Load() != 0 {
 		t.Fatalf("facilitator calls = %d", calls.Load())
+	}
+}
+
+func TestX402AdapterRejectsUnapprovedNetworkOrAssetBeforeChallenge(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*Requirements)
+	}{
+		{
+			name: "mainnet network",
+			mutate: func(requirements *Requirements) {
+				requirements.Network = "eip155:8453"
+			},
+		},
+		{
+			name: "different token",
+			mutate: func(requirements *Requirements) {
+				requirements.Asset = "0x1111111111111111111111111111111111111111"
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			requirements := validRequirements()
+			test.mutate(&requirements)
+			if _, err := NewX402Adapter().CreateChallenge(t.Context(), requirements); err == nil {
+				t.Fatal("CreateChallenge() error = nil")
+			}
+		})
+	}
+}
+
+func TestX402AdapterNormalizesSymbolicUSDCToBaseSepoliaContract(t *testing.T) {
+	t.Parallel()
+
+	requirements := validRequirements()
+	requirements.Asset = "USDC"
+	challenge, err := NewX402Adapter().CreateChallenge(t.Context(), requirements)
+	if err != nil {
+		t.Fatalf("CreateChallenge() error = %v", err)
+	}
+	if challenge.Requirements.Asset != BaseSepoliaUSDCAsset {
+		t.Fatalf("challenge asset = %q", challenge.Requirements.Asset)
+	}
+
+	paymentRequiredBytes, err := base64.StdEncoding.DecodeString(challenge.Header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paymentRequired, err := x402types.ToPaymentRequired(paymentRequiredBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paymentRequired.Accepts) != 1 || paymentRequired.Accepts[0].Asset != BaseSepoliaUSDCAsset {
+		t.Fatalf("payment requirements = %#v", paymentRequired.Accepts)
 	}
 }
 

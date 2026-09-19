@@ -60,7 +60,6 @@ export function createLocalRuntimeConfig(environment = process.env, options = {}
     AGENTPAY_WEB_ORIGIN: webOrigin,
     AGENTPAY_REPOSITORY_MODE: "memory",
     AGENTPAY_PAYMENT_MODE: "mock",
-    AGENTPAY_USE_MOCK_PAYMENT: "true",
     AGENTPAY_MOCK_FACILITATOR_URL: `http://127.0.0.1:${ports.facilitator}`,
     AGENTPAY_PAYMENT_READINESS_URL: `http://127.0.0.1:${ports.facilitator}/verify`,
     AGENTPAY_SELLER_READINESS_URL: `http://127.0.0.1:${ports.seller}/research/basic`,

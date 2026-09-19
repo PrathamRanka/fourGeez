@@ -43,6 +43,14 @@
   margin-top: 0.3rem;
   color: color-mix(in oklab, var(--chart-2) 70%, var(--muted-foreground));
 }
+.testnetNotice {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  line-height: 1.45;
+}
 .icon {
   display: grid;
   width: 2.35rem;

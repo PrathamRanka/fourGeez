@@ -16,9 +16,9 @@ import (
 	"github.com/fourgeez/agentpay/internal/intents"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
-	x402 "github.com/x402-foundation/x402/go"
-	x402http "github.com/x402-foundation/x402/go/http"
-	x402types "github.com/x402-foundation/x402/go/types"
+	x402 "github.com/x402-foundation/x402/go/v2"
+	x402http "github.com/x402-foundation/x402/go/v2/http"
+	x402types "github.com/x402-foundation/x402/go/v2/types"
 )
 
 const (
@@ -71,10 +71,15 @@ func NewMockAdapter() *MockAdapter {
 
 // NewX402Adapter creates the official x402-backed payment adapter.
 func NewX402Adapter() *X402Adapter {
+	return NewX402AdapterForFacilitator(TestnetFacilitatorURL)
+}
+
+// NewX402AdapterForFacilitator creates an adapter for an explicitly approved facilitator URL.
+func NewX402AdapterForFacilitator(facilitatorURL string) *X402Adapter {
 	return NewX402AdapterWithFacilitator(
 		x402http.NewHTTPFacilitatorClient(
 			&x402http.FacilitatorConfig{
-				URL:     x402http.DefaultFacilitatorURL,
+				URL:     facilitatorURL,
 				Timeout: defaultFacilitatorTimeout,
 			},
 		),
@@ -250,6 +255,10 @@ func (adapter *X402Adapter) CreateChallenge(
 	if err := validateRequirements(requirements); err != nil {
 		return Challenge{}, err
 	}
+	requirements, err := normalizeX402Requirements(requirements)
+	if err != nil {
+		return Challenge{}, err
+	}
 
 	resourceServer := x402.Newx402ResourceServer()
 	paymentRequired := resourceServer.CreatePaymentRequiredResponse(
@@ -289,6 +298,10 @@ func (adapter *X402Adapter) Verify(
 	requirements Requirements,
 ) (VerificationResult, error) {
 	if err := validateRequirements(requirements); err != nil {
+		return VerificationResult{}, err
+	}
+	requirements, err := normalizeX402Requirements(requirements)
+	if err != nil {
 		return VerificationResult{}, err
 	}
 	payloadBytes, paymentIdentifier, err := parsePaymentProof(
@@ -334,6 +347,10 @@ func (adapter *X402Adapter) Settle(
 	requirements Requirements,
 ) (SettlementResult, error) {
 	if err := validateRequirements(requirements); err != nil {
+		return SettlementResult{}, err
+	}
+	requirements, err := normalizeX402Requirements(requirements)
+	if err != nil {
 		return SettlementResult{}, err
 	}
 	payloadBytes, paymentIdentifier, err := parsePaymentProof(
@@ -539,6 +556,25 @@ func validateRequirements(requirements Requirements) error {
 		return domain.NewValidationError("maxTimeoutSeconds", "positive", "must be greater than zero")
 	}
 	return nil
+}
+
+func normalizeX402Requirements(requirements Requirements) (Requirements, error) {
+	if requirements.Network != BaseSepoliaNetwork {
+		return Requirements{}, domain.NewValidationError(
+			"network",
+			"supported",
+			"must use Base Sepolia testnet",
+		)
+	}
+	if requirements.Asset != "USDC" && !strings.EqualFold(requirements.Asset, BaseSepoliaUSDCAsset) {
+		return Requirements{}, domain.NewValidationError(
+			"asset",
+			"supported",
+			"must use Base Sepolia USDC",
+		)
+	}
+	requirements.Asset = BaseSepoliaUSDCAsset
+	return requirements, nil
 }
 
 // parsePaymentProof decodes and binds a v2 proof to the frozen exact quote.

@@ -54,12 +54,23 @@ AGENTPAY_SESSION_ENCRYPTION_KEY=<Vercel-only base64url 32-byte secret>
 AGENTPAY_HTTP_API_URL=<Terraform output>
 AGENTPAY_MCP_URL=<Terraform output>
 AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
-AGENTPAY_FACILITATOR_URL=<verified testnet facilitator URL>
-AGENTPAY_X402_NETWORK=<verified SDK network identifier>
-AGENTPAY_X402_ASSET=<verified testnet asset identifier>
+AGENTPAY_PAYMENT_MODE=x402
+AGENTPAY_FACILITATOR_URL=https://x402.org/facilitator
+AGENTPAY_X402_NETWORK=eip155:84532
+AGENTPAY_X402_ASSET=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 ```
 
 Only names, local mock values, and non-sensitive URLs belong in `.env.example`. Actual values are environment configuration; secrets belong in Secrets Manager.
+
+The seller-first deployment is locked to the official credential-free x402
+test facilitator, Base Sepolia, and Base Sepolia USDC. Mainnet, card checkout,
+platform transaction fees, and custody are disabled. A seller supplies a public
+payment address through onboarding and proves control with the documented
+one-time ownership challenge; there is no global seller payout address and no
+seller private key in AgentPay configuration. A funded buyer wallet is required
+only for the REL-003/REL-008 testnet release exercises. If automation stores
+that test wallet, `AGENTPAY_REL003_BUYER_WALLET_SECRET_ARN` belongs only to the
+isolated release-test runner, never the API Lambda or seller signup path.
 
 ## Terraform module layout
 

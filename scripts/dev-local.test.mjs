@@ -29,7 +29,8 @@ test("local runtime config starts every production-shaped dependency", () => {
   );
   assert.equal(config.repositoryMode, "memory");
   assert.equal(config.buyerMode, "deterministic");
-  assert.equal(config.processes[2].env.AGENTPAY_USE_MOCK_PAYMENT, "true");
+  assert.equal(config.processes[2].env.AGENTPAY_PAYMENT_MODE, "mock");
+  assert.equal(config.processes[2].env.AGENTPAY_USE_MOCK_PAYMENT, undefined);
   assert.equal(config.processes[2].env.AGENTPAY_LOCAL_SEED_PROFILE, "launch-ready");
   assert.equal(
     config.processes[2].env.AGENTPAY_PAYMENT_READINESS_URL,

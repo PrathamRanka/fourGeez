@@ -28,6 +28,7 @@ module "application" {
   environment                          = var.environment
   project_name                         = var.project_name
   web_origin                           = var.web_origin
+  payment_mode                         = var.payment_mode
   lambda_artifact_path                 = var.api_lambda_artifact_path
   lambda_artifact_sha256               = var.api_deployment_enabled ? filebase64sha256(var.api_lambda_artifact_path) : null
   lambda_memory_size_mb                = var.api_memory_size_mb

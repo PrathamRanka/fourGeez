@@ -155,8 +155,8 @@ export async function createX402PaymentSignature(
     from: account,
     to: requirements.payTo,
     value: requirements.amount,
-    validAfter: String(nowSeconds),
-    validBefore: String(nowSeconds + 3600),
+    validAfter: "0",
+    validBefore: String(nowSeconds + requirements.maxTimeoutSeconds),
     nonce: randomNonce(),
   };
   const typedData = {
@@ -211,7 +211,7 @@ function isSupportedRequirements(value: unknown): value is PaymentRequirements {
     isPaymentRequirements(value) &&
     value.scheme === "exact" &&
     value.network === baseSepoliaNetwork &&
-    (ethereumAddressPattern.test(value.asset) || value.asset === "USDC") &&
+    value.asset.toLowerCase() === baseSepoliaUSDC.toLowerCase() &&
     ethereumAddressPattern.test(value.payTo)
   );
 }

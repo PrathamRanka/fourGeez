@@ -135,7 +135,7 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 7. Disable Bedrock and complete the purchase through deterministic fallback.
 8. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
 9. Buy the same published product through a browser wallet and an agent/x402
-    flow and verify both sales appear once in the seller dashboard.
+   flow and verify both sales appear once in the seller dashboard.
 10. Rotate the seller payment destination and prove existing intents retain the
     old frozen destination while new intents use the verified replacement.
 11. Disable seller webhooks, complete a purchase, and prove the dashboard and
@@ -213,6 +213,9 @@ Dependency audit
 ```
 
 End-to-end testnet payment is a demo-release gate, not a per-commit gate.
+Execute and preserve the payment release evidence according to
+`runbooks/X402_TESTNET_RELEASE.md`; never capture wallet secrets, raw payment
+proofs, authorization headers, or purchase cookies in the evidence bundle.
 
 ## Demo release checklist
 

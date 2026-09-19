@@ -177,6 +177,10 @@ describe("seller onboarding MCP gate", () => {
       />,
     );
 
+    expect(
+      screen.getByText(/testnet only.*no real-money production/i),
+    ).toBeVisible();
+
     fireEvent.change(screen.getByLabelText("Payout address"), {
       target: { value: address },
     });

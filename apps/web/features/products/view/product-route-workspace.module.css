@@ -200,6 +200,16 @@
   margin-top: 1.5rem;
 }
 
+.workspace :global(.product-testnet-notice) {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  padding: 0.75rem 0.9rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
 .workspace :global(.product-create-form > label) {
   grid-column: span 3;
 }

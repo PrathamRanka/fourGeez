@@ -2,6 +2,7 @@ package payments
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -105,6 +106,52 @@ func TestPaidRouteControllerMapsInactiveCommerceToGone(t *testing.T) {
 	controller.writeError(response, request, CheckoutResult{}, domain.ErrCommerceUnavailable)
 	if response.Code != http.StatusGone {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	assertPaymentErrorCode(t, response, "seller_inactive")
+}
+
+func TestPaidRouteControllerMapsReplayToPaymentSpecificConflict(t *testing.T) {
+	t.Parallel()
+
+	controller := &HTTPController{}
+	request := httptest.NewRequest(http.MethodPost, "/pay/demo-seller/weather", nil)
+	response := httptest.NewRecorder()
+	controller.writeError(response, request, CheckoutResult{}, ErrPaymentReplay)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q", response.Header().Get("Cache-Control"))
+	}
+	assertPaymentErrorCode(t, response, "payment_replayed")
+}
+
+func TestPaidRouteControllerLabelsRejectedProofWithoutLosingChallenge(t *testing.T) {
+	t.Parallel()
+
+	controller := &HTTPController{}
+	request := httptest.NewRequest(http.MethodPost, "/pay/demo-seller/weather", nil)
+	response := httptest.NewRecorder()
+	controller.writeError(response, request, CheckoutResult{Challenge: &Challenge{Header: "encoded-challenge"}}, ErrPaymentRejected)
+
+	if response.Code != http.StatusPaymentRequired {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(paymentRequiredHeader) != "encoded-challenge" {
+		t.Fatalf("PAYMENT-REQUIRED = %q", response.Header().Get(paymentRequiredHeader))
+	}
+	assertPaymentErrorCode(t, response, "payment_rejected")
+}
+
+func assertPaymentErrorCode(t *testing.T, response *httptest.ResponseRecorder, expected string) {
+	t.Helper()
+	var body api.ErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != expected {
+		t.Fatalf("error code = %q, want %q", body.Error.Code, expected)
 	}
 }
 

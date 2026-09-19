@@ -167,6 +167,9 @@ export function BuyerPurchaseDetail({
               {transactionOutcome(transaction.status)} Payment, fulfillment,
               receipt, and support records remain bound to this purchase.
             </p>
+            <p className={styles.testnetNotice}>
+              Testnet payment · Base Sepolia USDC · no real-money production
+            </p>
           </div>
           <span className={styles.evidenceBadge} data-valid={evidence.valid}>
             {evidence.valid ? (
@@ -197,7 +200,10 @@ export function BuyerPurchaseDetail({
                 : "Awaiting payment"
             }
           />
-          <Fact label="Network" value={transaction.network} />
+          <Fact
+            label="Network"
+            value={paymentNetworkLabel(transaction.network)}
+          />
         </section>
 
         <div className={styles.detailGrid}>
@@ -627,6 +633,12 @@ function formatUTC(value: string): string {
 
 function titleCase(value: string): string {
   return value[0].toUpperCase() + value.slice(1);
+}
+
+function paymentNetworkLabel(network: string): string {
+  return network === "eip155:84532"
+    ? "Base Sepolia testnet (eip155:84532)"
+    : network;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
