@@ -60,9 +60,6 @@ func (repository *ManualRefundRecordRepository) SaveIfAbsent(ctx context.Context
 	if getErr := unmarshalPayload(output.Item, &existing); getErr != nil {
 		return disputes.ManualRefundRecord{}, false, getErr
 	}
-	if existing != record {
-		return disputes.ManualRefundRecord{}, false, disputes.ErrRemediationConflict
-	}
 	return existing, false, nil
 }
 

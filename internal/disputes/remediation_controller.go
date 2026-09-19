@@ -122,6 +122,8 @@ func writeRemediationError(response http.ResponseWriter, request *http.Request, 
 		status, code = http.StatusNotFound, api.ErrorCodeNotFound
 	case errors.Is(err, ErrRefundNotAllowed):
 		status, code = http.StatusUnprocessableEntity, api.ErrorCodeUnprocessable
+	case errors.Is(err, ErrRemediationStateConflict):
+		status, code = http.StatusConflict, api.ErrorCodeConflict
 	case errors.Is(err, ErrRemediationConflict), errors.Is(err, api.ErrIdempotencyConflict), errors.Is(err, persistence.ErrConditionFailed):
 		status, code = http.StatusConflict, api.ErrorCodeConflict
 	}

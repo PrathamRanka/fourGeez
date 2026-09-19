@@ -22,9 +22,6 @@ func (repository *ManualRefundRecordRepository) SaveIfAbsent(_ context.Context, 
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 	if stored, exists := repository.records[record.DisputeID]; exists {
-		if stored != record {
-			return disputes.ManualRefundRecord{}, false, disputes.ErrRemediationConflict
-		}
 		return stored, false, nil
 	}
 	repository.records[record.DisputeID] = record

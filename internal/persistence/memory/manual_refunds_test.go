@@ -1,14 +1,14 @@
 package memory
 
 import (
-	"errors"
 	"testing"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
-func TestManualRefundRepositoryIsIdempotentAndRejectsChangedReplay(t *testing.T) {
+func TestManualRefundRepositoryReturnsExistingRecordAfterConcurrentCreate(t *testing.T) {
 	t.Parallel()
 	repository := NewManualRefundRecordRepository()
 	record := testManualRefundRecord(t)
@@ -16,14 +16,11 @@ func TestManualRefundRepositoryIsIdempotentAndRejectsChangedReplay(t *testing.T)
 	if err != nil || !created || stored != record {
 		t.Fatalf("first save = (%#v, %v, %v)", stored, created, err)
 	}
-	stored, created, err = repository.SaveIfAbsent(t.Context(), record)
+	retry := record
+	retry.RecordedAt = record.RecordedAt.Add(time.Second)
+	stored, created, err = repository.SaveIfAbsent(t.Context(), retry)
 	if err != nil || created || stored != record {
 		t.Fatalf("replay = (%#v, %v, %v)", stored, created, err)
-	}
-	changed := record
-	changed.Reference = "different"
-	if _, _, err := repository.SaveIfAbsent(t.Context(), changed); !errors.Is(err, disputes.ErrRemediationConflict) {
-		t.Fatalf("changed replay error = %v", err)
 	}
 }
 

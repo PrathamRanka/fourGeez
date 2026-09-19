@@ -61,6 +61,39 @@ func TestManualRefundHTTPControllerRecordsSellerScopedRefundIdempotently(t *test
 	}
 }
 
+func TestManualRefundHTTPControllerRejectsNonRecommendedDisputeWithConflict(t *testing.T) {
+	t.Parallel()
+
+	dispute := mustRefundDispute(t)
+	dispute.Status = StatusOpen
+	transaction := mustRefundTransaction(t)
+	service := NewManualRemediationService(
+		&refundDisputeRepository{dispute: dispute},
+		&refundTransactionRepository{transaction: transaction},
+		&memoryRefundRecordRepository{},
+		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 5, 0, 0, time.UTC)},
+	)
+	mux := http.NewServeMux()
+	NewManualRemediationHTTPController(service, newRemediationIdempotencyStore()).RegisterRoutes(mux)
+	handler := api.Middleware(api.Config{
+		Authenticator:    refundAuthenticator{},
+		SellerAuthorizer: refundSellerAuthorizer{sellerID: transaction.SellerID()},
+	}, mux)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/sellers/"+transaction.SellerID().String()+"/disputes/"+dispute.DisputeID.String()+"/refund-records",
+		bytes.NewBufferString(`{"amount":"100","asset":"USDC","network":"eip155:84532","reference":"0xrefund-reference"}`),
+	)
+	request.Header.Set("Authorization", "Bearer seller-secret")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "refund-record-state-conflict")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
 type remediationIdempotencyStore struct {
 	records map[string]domain.IdempotencyRecord
 }

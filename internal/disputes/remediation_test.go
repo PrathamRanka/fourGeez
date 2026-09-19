@@ -87,6 +87,28 @@ func TestRecordManualRefundRejectsUnboundedOrUnfinalizedRefunds(t *testing.T) {
 	}
 }
 
+func TestRecordManualRefundRejectsNonRecommendedDisputeAsStateConflict(t *testing.T) {
+	t.Parallel()
+
+	dispute := mustRefundDispute(t)
+	dispute.Status = StatusOpen
+	transaction := mustRefundTransaction(t)
+	service := NewManualRemediationService(
+		&refundDisputeRepository{dispute: dispute},
+		&refundTransactionRepository{transaction: transaction},
+		&memoryRefundRecordRepository{},
+		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 5, 0, 0, time.UTC)},
+	)
+	_, err := service.RecordManualRefund(t.Context(), RecordManualRefundRequest{
+		DisputeID: dispute.DisputeID, SellerID: transaction.SellerID(), Amount: transaction.Amount(),
+		Asset: transaction.Asset(), Network: transaction.Network(), Reference: "0xrefund-reference",
+		RecordedBy: "operator@example.com",
+	})
+	if !errors.Is(err, ErrRemediationStateConflict) {
+		t.Fatalf("RecordManualRefund() error = %v, want state conflict", err)
+	}
+}
+
 func TestRecordManualRefundConcealsCrossSellerDispute(t *testing.T) {
 	t.Parallel()
 	dispute := mustRefundDispute(t)

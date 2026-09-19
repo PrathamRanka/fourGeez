@@ -18,9 +18,10 @@ const (
 )
 
 var (
-	ErrRefundNotAllowed    = errors.New("manual refund record is not allowed")
-	ErrRemediationConflict = errors.New("manual remediation conflicts with the existing record")
-	ErrRemediationAccess   = errors.New("manual remediation record was not found")
+	ErrRefundNotAllowed         = errors.New("manual refund record is not allowed")
+	ErrRemediationConflict      = errors.New("manual remediation conflicts with the existing record")
+	ErrRemediationStateConflict = errors.New("manual remediation requires a refund-recommended dispute")
+	ErrRemediationAccess        = errors.New("manual remediation record was not found")
 )
 
 type RecordManualRefundRequest struct {
@@ -98,8 +99,10 @@ func (service *ManualRemediationService) RecordManualRefund(
 	if request.SellerID == "" || transaction.SellerID() != request.SellerID {
 		return ManualRefundRecord{}, ErrRemediationAccess
 	}
-	if dispute.Status != StatusRefundRecommended ||
-		transaction.PaymentFinality() != transactions.PaymentFinalityFinalized ||
+	if dispute.Status != StatusRefundRecommended {
+		return ManualRefundRecord{}, ErrRemediationStateConflict
+	}
+	if transaction.PaymentFinality() != transactions.PaymentFinalityFinalized ||
 		request.Amount.Compare(transaction.Amount()) != 0 ||
 		strings.TrimSpace(request.Asset) != transaction.Asset() ||
 		strings.TrimSpace(request.Network) != transaction.Network() {
