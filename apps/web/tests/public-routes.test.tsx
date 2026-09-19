@@ -70,6 +70,11 @@ describe("AgentPay public routes", () => {
       screen.getByRole("heading", { name: "Pratham Ranka" }),
     ).toBeVisible();
     expect(screen.getByRole("heading", { name: "Ayush Garg" })).toBeVisible();
+    expect(screen.getAllByText("Co-Founder")).toHaveLength(2);
+    expect(screen.queryByText("Engineering")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Product and engineering"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Pratham Ranka on GitHub" }),
     ).toHaveAttribute("href", "https://github.com/PrathamRanka");

@@ -168,6 +168,7 @@ export function DiaTextReveal({
   );
 
   const isInView = useInView(spanRef, { once, amount: 0.1 });
+  const shouldPlay = !startOnView || isInView;
 
   useEffect(() => {
     optsRef.current = {
@@ -219,7 +220,7 @@ export function DiaTextReveal({
       sweepPos.set(SWEEP_END);
       return;
     }
-    if (startOnView && !isInView) return;
+    if (!shouldPlay) return;
     if (once && hasPlayedRef.current) return;
     hasPlayedRef.current = true;
     play();
@@ -228,7 +229,7 @@ export function DiaTextReveal({
       stopRef.current?.();
       clearTimeout(timerRef.current);
     };
-  }, [isInView, startOnView, once, play, prefersReducedMotion, sweepPos]);
+  }, [once, play, prefersReducedMotion, shouldPlay, sweepPos]);
 
   const fixedW =
     isMulti && fixedWidth && measuredWidths.length > 0

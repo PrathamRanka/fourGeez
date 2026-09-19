@@ -9,6 +9,8 @@ describe("AgentPay public site", () => {
     expect(
       screen.getByRole("heading", { name: "Sell to agents. Settle on-chain." }),
     ).toBeVisible();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("hero-headline-reveal")).toBeInTheDocument();
     expect(
       screen.getByText(/give people and software agents one storefront/i),
     ).toBeVisible();

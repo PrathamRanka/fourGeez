@@ -165,7 +165,7 @@ export const agentCheckoutDemoMetadata = buildSupportingPageMetadata({
 export const developersMetadata = buildSupportingPageMetadata({
   title: "Developers",
   description:
-    "Meet Pratham Ranka and Ayush Garg, the developers building AgentPay's seller-first commerce infrastructure.",
+    "Meet Pratham Ranka and Ayush Garg, the co-founders building AgentPay's seller-first commerce infrastructure.",
   path: "/developers",
 });
 

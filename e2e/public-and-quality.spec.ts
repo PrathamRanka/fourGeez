@@ -140,3 +140,36 @@ test("@visual public surfaces render without overflow and produce responsive scr
     });
   }
 });
+
+test("landing bento copy aligns with its product preview", async ({ page }) => {
+  await page.goto("/");
+
+  for (const card of [
+    {
+      heading: "Launch with one prompt",
+      preview: "AgentPay setup sequence",
+    },
+    {
+      heading: "Track every verified sale",
+      preview: "Illustrative asset-separated revenue",
+    },
+    {
+      heading: "Ship with machine-readable discovery",
+      preview: "Generated discovery files",
+    },
+  ]) {
+    const article = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: card.heading }),
+    });
+    const headingBox = await article
+      .getByRole("heading", { name: card.heading })
+      .boundingBox();
+    const previewBox = await article.getByLabel(card.preview).boundingBox();
+
+    expect(headingBox).not.toBeNull();
+    expect(previewBox).not.toBeNull();
+    expect(Math.abs((headingBox?.y ?? 0) - (previewBox?.y ?? 0))).toBeLessThan(
+      80,
+    );
+  }
+});

@@ -14,7 +14,7 @@ export const metadata: Metadata = developersMetadata;
 const developers = [
   {
     name: "Pratham Ranka",
-    role: "Product and engineering",
+    role: "Co-Founder",
     summary:
       "Building the seller experience, product direction, and the systems that turn APIs into agent-ready storefronts.",
     github: "https://github.com/PrathamRanka",
@@ -23,7 +23,7 @@ const developers = [
   },
   {
     name: "Ayush Garg",
-    role: "Engineering",
+    role: "Co-Founder",
     summary:
       "Building and maintaining AgentPay's application foundations, integrations, and production delivery path.",
     github: "https://github.com/gargayush1911",

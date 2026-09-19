@@ -547,13 +547,26 @@
 }
 
 .cardLabel {
-  margin-top: auto;
-  padding-top: 2rem;
+  margin-top: clamp(2.25rem, 4vw, 4rem);
   color: var(--marketing-muted);
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.discoveryCard .cardLabel {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  margin-top: 0;
+  padding-left: 3.25rem;
+}
+
+.discoveryCard .cardIcon {
+  position: absolute;
+  top: clamp(1.35rem, 3vw, 2rem);
+  left: clamp(1.35rem, 3vw, 2rem);
 }
 
 .cardCopy h3 {
@@ -1575,7 +1588,7 @@
     min-height: auto;
   }
   .cardCopy {
-    min-height: 16rem;
+    min-height: auto;
   }
   .setupTerminal,
   .revenuePreview,

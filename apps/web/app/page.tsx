@@ -3,7 +3,6 @@ import {
   marketingMetadata,
   marketingStructuredData,
 } from "@/features/marketing/seo";
-import { HomepageExperience } from "@/features/marketing/view/homepage-experience";
 import { MarketingPage } from "@/features/marketing/view/marketing-page";
 
 export const metadata: Metadata = marketingMetadata;
@@ -21,9 +20,7 @@ export default function HomePage() {
           ),
         }}
       />
-      <HomepageExperience>
-        <MarketingPage />
-      </HomepageExperience>
+      <MarketingPage />
     </>
   );
 }
