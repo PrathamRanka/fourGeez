@@ -7,14 +7,11 @@ import { cn } from "@/lib/utils";
 const DEFAULT_GRADIENT_COLORS = [
   "#0A0A0A",
   "#2979FF",
-  "#FF80AB",
+  "#FF5AA5",
   "#FF6D00",
-  "#FFD600",
-  "#00E676",
-  "#3D5AFE",
 ] as const;
 
-const DEFAULT_GRADIENT_STOPS = [35, 50, 60, 70, 80, 90, 100] as const;
+const DEFAULT_GRADIENT_STOPS = [42, 63, 82, 100] as const;
 
 interface AnimatedGradientBackgroundProps {
   startingGap?: number;

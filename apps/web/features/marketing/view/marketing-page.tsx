@@ -23,6 +23,7 @@ import {
 } from "@/features/marketing/model";
 import { CommerceDemo } from "@/features/marketing/view/commerce-demo";
 import { FrequentlyAskedQuestions } from "@/features/marketing/view/frequently-asked-questions";
+import { HeroMascot } from "@/features/marketing/view/hero-mascot";
 import styles from "./marketing-page.module.css";
 
 const setupSteps = [
@@ -51,11 +52,11 @@ function HeroSection() {
         animationSpeed={0.025}
         breathingRange={6}
         containerClassName={styles.heroGradient}
-        gradientStops={[18, 34, 49, 64, 77, 90, 100]}
-        startingGap={94}
-        topOffset={10}
+        startingGap={120}
+        topOffset={8}
       />
       <div className={styles.heroCopy}>
+        <HeroMascot className={styles.heroMascot} />
         <p className={styles.kicker}>Commerce infrastructure for software</p>
         <h1 id="hero-title">Sell to agents. Settle on-chain.</h1>
         <p className={styles.heroDescription}>

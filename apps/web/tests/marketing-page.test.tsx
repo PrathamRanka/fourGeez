@@ -23,6 +23,10 @@ describe("AgentPay public site", () => {
       "aria-hidden",
       "true",
     );
+    expect(screen.getByTestId("hero-mascot")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
   });
 
   it("shows the bounded product, integration, and network story", () => {
