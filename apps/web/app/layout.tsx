@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ApplicationShell } from "@/components/site/application-shell";
 import { SmoothScroll } from "@/components/site/smooth-scroll";
 import {
@@ -60,6 +61,7 @@ export default function RootLayout({
         </a>
         <ApplicationShell>{children}</ApplicationShell>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
