@@ -23,6 +23,9 @@ This register records issues found during the real seller onboarding, MCP config
 ### P1
 
 4. The seller journey has not been repeated from a completely clean account after all production fixes.
+   - A secret-safe production-shaped rehearsal harness and runbook are prepared
+     for execution after issues 1-3 merge. The issue remains open until that
+     deployed clean-account run passes and its sanitized evidence is reviewed.
 5. Seller onboarding wording can blur the distinction between configuring a store and buying from it.
 6. The dashboard needs a clear publication and integration-health status without buyer-facing controls.
 6a. The founder journey currently requires too many separate screens, technical decisions, and manual checks before a product is ready.
