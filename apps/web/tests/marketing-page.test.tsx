@@ -68,11 +68,30 @@ describe("AgentPay public site", () => {
   it("groups the maintained stack matrix into distinct ecosystem marks", () => {
     render(<HomePage />);
 
+    expect(
+      screen.getByRole("heading", {
+        name: "Keep your stack. Open a new sales channel.",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "AgentPay turns existing API routes into products people and software agents can buy.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("Keep your product")).toBeVisible();
+    expect(screen.getByText("Control every offer")).toBeVisible();
+    expect(screen.getByText("Get paid directly")).toBeVisible();
+    expect(
+      screen.getByText("21 maintained recipes across 13 ecosystems"),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Built for the stack you already run"),
+    ).not.toBeInTheDocument();
+
     const stackStrip = screen.getByRole("region", {
       name: "13 supported ecosystems covering 21 maintained stacks",
     });
     expect(stackStrip).toHaveAttribute("data-slot", "marquee");
-    expect(screen.getByText("21", { selector: "strong" })).toBeVisible();
     expect(stackStrip.querySelectorAll("svg")).toHaveLength(26);
     for (const ecosystem of [
       "Next.js",

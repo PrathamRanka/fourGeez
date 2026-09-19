@@ -24,6 +24,7 @@ import {
 } from "@/features/marketing/model";
 import { CommerceDemo } from "@/features/marketing/view/commerce-demo";
 import { FrequentlyAskedQuestions } from "@/features/marketing/view/frequently-asked-questions";
+import { HeroHeadline } from "@/features/marketing/view/hero-headline";
 import { HeroMascot } from "@/features/marketing/view/hero-mascot";
 import styles from "./marketing-page.module.css";
 
@@ -57,7 +58,7 @@ function HeroSection() {
         <p className={styles.kicker}>
           Seller-first x402 commerce · Development preview
         </p>
-        <h1 id="hero-title">Sell to agents. Settle on-chain.</h1>
+        <HeroHeadline />
         <p className={styles.heroDescription}>
           Give people and software agents one storefront for your existing API.
           Prepare x402 testnet checkout, signed fulfillment, and
@@ -111,38 +112,49 @@ function SignalStrip() {
   return (
     <section className={styles.signalStrip} aria-label="AgentPay product facts">
       <div className={styles.signalIntro}>
-        <span>Maintained integrations</span>
-        <strong>Built for the stack you already run</strong>
+        <span>Built around your business</span>
+        <h2>Keep your stack. Open a new sales channel.</h2>
+        <p>
+          AgentPay turns existing API routes into products people and software
+          agents can buy.
+        </p>
       </div>
       {launchSignals.map((signal) => (
         <div className={styles.signal} key={signal.label}>
+          <span>{signal.eyebrow}</span>
           <strong>{signal.value}</strong>
-          <span>{signal.label}</span>
+          <p>{signal.label}</p>
         </div>
       ))}
-      <Marquee
-        className={styles.stackTicker}
-        role="region"
-        aria-label="13 supported ecosystems covering 21 maintained stacks"
-        pauseOnHover
-        speed={38}
-      >
-        {supportedEcosystems.map((ecosystem) => {
-          const EcosystemIcon = ecosystem.icon;
-          return (
-            <span
-              className={styles.stackBadge}
-              key={ecosystem.name}
-              role="img"
-              aria-label={ecosystem.name}
-              title={ecosystem.name}
-              style={{ color: ecosystem.color }}
-            >
-              <EcosystemIcon aria-hidden="true" title="" />
-            </span>
-          );
-        })}
-      </Marquee>
+      <div className={styles.stackRail}>
+        <div className={styles.stackRailCopy}>
+          <span>Supported today</span>
+          <strong>21 maintained recipes across 13 ecosystems</strong>
+        </div>
+        <Marquee
+          className={styles.stackTicker}
+          role="region"
+          aria-label="13 supported ecosystems covering 21 maintained stacks"
+          pauseOnHover
+          speed={42}
+        >
+          {supportedEcosystems.map((ecosystem) => {
+            const EcosystemIcon = ecosystem.icon;
+            return (
+              <span
+                className={styles.stackBadge}
+                key={ecosystem.name}
+                role="img"
+                aria-label={ecosystem.name}
+                title={ecosystem.name}
+                style={{ color: ecosystem.color }}
+              >
+                <EcosystemIcon aria-hidden="true" title="" />
+              </span>
+            );
+          })}
+        </Marquee>
+      </div>
     </section>
   );
 }

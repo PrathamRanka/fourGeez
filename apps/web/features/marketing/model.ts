@@ -91,9 +91,21 @@ export const supportedAgents = [
 ] as const;
 
 export const launchSignals = [
-  { value: "1 prompt", label: "Repository setup" },
-  { value: "21", label: "Maintained stacks" },
-  { value: "0", label: "Wallet keys held" },
+  {
+    eyebrow: "No rebuild",
+    value: "Keep your product",
+    label: "Connect the API and checkout flow you already operate.",
+  },
+  {
+    eyebrow: "You decide",
+    value: "Control every offer",
+    label: "Approve routes, prices, and launch changes before they go live.",
+  },
+  {
+    eyebrow: "Your revenue",
+    value: "Get paid directly",
+    label: "Buyer funds settle to your verified wallet.",
+  },
 ] as const;
 
 export const agentPayPlans = [
