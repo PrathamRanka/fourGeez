@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
@@ -18,6 +20,20 @@ import (
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/gowebpki/jcs"
 )
+
+const (
+	defaultDirectoryLimit   = 12
+	maximumDirectoryLimit   = 24
+	directoryQueryBatchSize = 24
+	maximumDirectoryBatches = 10
+)
+
+type directoryCursor struct {
+	SearchTerms []string `json:"searchTerms,omitempty"`
+	Asset       string   `json:"asset,omitempty"`
+	Network     string   `json:"network,omitempty"`
+	After       string   `json:"after"`
+}
 
 type Service struct{ Dependencies }
 
@@ -34,6 +50,199 @@ func NewService(dependencies Dependencies) *Service {
 		dependencies.APIOrigin = dependencies.CanonicalOrigin
 	}
 	return &Service{Dependencies: dependencies}
+}
+
+func (service *Service) GetPlatformManifest() AgentPayPlatformManifest {
+	return AgentPayPlatformManifest{
+		SchemaVersion:     PlatformManifestSchemaVersion,
+		Name:              "AgentPay",
+		Status:            PlatformStatusDevelopment,
+		CanonicalOrigin:   service.CanonicalOrigin,
+		APIOrigin:         service.APIOrigin,
+		DirectoryEndpoint: service.APIOrigin + "/v1/discovery/products",
+		JWKSURI:           service.APIOrigin + "/.well-known/jwks.json",
+		Capabilities: PlatformCapabilities{
+			BuyerChannels: []string{BuyerChannelAgent, BuyerChannelBrowser},
+			Discovery: PlatformDiscoveryCapabilities{
+				PublicDirectory:           true,
+				SignedStorefrontManifests: true,
+				SignedProductDocuments:    true,
+				LLMSText:                  true,
+			},
+			Payments: []PlatformPaymentCapability{{
+				Protocol: PaymentProtocolX402, Environment: PaymentEnvironmentTestnet, ExactPrice: true, Network: SupportedX402Network,
+			}},
+			Ranking: false,
+		},
+	}
+}
+
+func (service *Service) ListPublicProducts(ctx context.Context, request PublicDirectoryRequest) (PublicProductDirectoryPage, error) {
+	limit := request.Limit
+	if limit == 0 {
+		limit = defaultDirectoryLimit
+	}
+	if limit < 1 || limit > maximumDirectoryLimit {
+		return PublicProductDirectoryPage{}, domain.NewValidationError("limit", "range", "limit must be between 1 and 24")
+	}
+	if utf8.RuneCountInString(request.Query) > 131 || utf8.RuneCountInString(request.Asset) > 160 || utf8.RuneCountInString(request.Network) > 80 || len(request.Cursor) > 2048 {
+		return PublicProductDirectoryPage{}, domain.NewValidationError("query", "length", "directory query exceeds the allowed length")
+	}
+	terms, err := catalog.NormalizePublicDirectoryQuery(request.Query)
+	if err != nil {
+		return PublicProductDirectoryPage{}, err
+	}
+	searchTerm := ""
+	if len(terms) > 0 {
+		searchTerm = terms[0]
+	}
+	after, err := decodeDirectoryCursor(request.Cursor, terms, request.Asset, request.Network)
+	if err != nil {
+		return PublicProductDirectoryPage{}, err
+	}
+	page := PublicProductDirectoryPage{
+		SchemaVersion: DirectorySchemaVersion, Query: strings.TrimSpace(request.Query), Ordering: DirectoryOrderingLexical,
+		AuthoritativeForPurchase: false, Items: make([]PublicProductDirectoryItem, 0, limit),
+	}
+	lastProcessed := after
+	moreCandidates := false
+	for batch := 0; batch < maximumDirectoryBatches && len(page.Items) < limit; batch++ {
+		candidates, queryErr := service.Directory.ListPublicDirectoryCandidates(ctx, catalog.PublicDirectoryQuery{
+			SearchTerm: searchTerm, After: lastProcessed, Limit: directoryQueryBatchSize,
+		})
+		if queryErr != nil {
+			return PublicProductDirectoryPage{}, queryErr
+		}
+		if len(candidates.Items) == 0 {
+			moreCandidates = false
+			break
+		}
+		for candidateIndex, candidate := range candidates.Items {
+			lastProcessed = candidate.SortKey
+			if !containsAllDirectoryTerms(candidate.Projection.SearchTerms, terms) {
+				continue
+			}
+			item, available, itemErr := service.publicDirectoryItem(ctx, candidate.Projection)
+			if itemErr != nil {
+				return PublicProductDirectoryPage{}, itemErr
+			}
+			if !available || (request.Asset != "" && item.Product.Asset != request.Asset) || (request.Network != "" && item.Product.Network != request.Network) {
+				continue
+			}
+			page.Items = append(page.Items, item)
+			if len(page.Items) == limit {
+				if candidateIndex < len(candidates.Items)-1 || !candidates.Exhausted {
+					page.NextCursor, err = encodeDirectoryCursor(terms, request.Asset, request.Network, lastProcessed)
+					if err != nil {
+						return PublicProductDirectoryPage{}, err
+					}
+				}
+				return page, nil
+			}
+		}
+		moreCandidates = !candidates.Exhausted
+		if candidates.Exhausted {
+			break
+		}
+	}
+	if moreCandidates && lastProcessed != "" {
+		page.NextCursor, err = encodeDirectoryCursor(terms, request.Asset, request.Network, lastProcessed)
+		if err != nil {
+			return PublicProductDirectoryPage{}, err
+		}
+	}
+	return page, nil
+}
+
+func (service *Service) publicDirectoryItem(ctx context.Context, projection catalog.PublicDirectoryProjection) (PublicProductDirectoryItem, bool, error) {
+	route, err := service.Directory.GetPublicDirectoryRoute(ctx, projection.SellerID, projection.RouteID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	if err != nil {
+		return PublicProductDirectoryItem{}, false, err
+	}
+	if route.SellerID != projection.SellerID || route.Version != projection.RouteVersion || route.LifecycleStatus != catalog.RouteLifecyclePublished || !route.Enabled {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	seller, err := service.Catalog.GetSeller(ctx, route.SellerID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	if err != nil {
+		return PublicProductDirectoryItem{}, false, err
+	}
+	if seller.Status != catalog.SellerStatusActive || !seller.HasCurrentServiceEndpointVerification() || service.PublicationReadiness == nil || service.PublicationReadiness.AuthorizePublication(ctx, seller.SellerID) != nil {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	entitlement, err := service.Entitlements.ResolveSellerPlan(ctx, seller.SellerID)
+	if errors.Is(err, billing.ErrSellerEntitlementNotFound) || errors.Is(err, persistence.ErrNotFound) {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	if err != nil {
+		return PublicProductDirectoryItem{}, false, err
+	}
+	if entitlement.Assignment.Status != billing.EntitlementStatusActive || entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled || !service.Clock.Now().Before(entitlement.Assignment.AccessEndsAt.Time()) {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	destinations, err := service.Destinations.ListBySeller(ctx, seller.SellerID)
+	if err != nil {
+		return PublicProductDirectoryItem{}, false, err
+	}
+	if matchingDestination(route, destinations) == nil {
+		return PublicProductDirectoryItem{}, false, nil
+	}
+	product := service.publicProduct(seller, route)
+	return PublicProductDirectoryItem{
+		Seller:  PublicSeller{Name: seller.Name, Slug: seller.Slug},
+		Product: product,
+		Capabilities: PublicProductCapabilities{
+			BuyerChannels: []string{BuyerChannelAgent, BuyerChannelBrowser},
+			Payment: PublicPaymentCapability{
+				Protocol: PaymentProtocolX402, Environment: PaymentEnvironmentTestnet, ExactPrice: true, Asset: route.Asset, Network: route.Network,
+			},
+			Fulfillment: PublicFulfillmentCapability{Mode: FulfillmentModeSynchronous, OutputMIMEType: route.MIMEType},
+		},
+	}, true, nil
+}
+
+func containsAllDirectoryTerms(candidateTerms, queryTerms []string) bool {
+	if len(queryTerms) <= 1 {
+		return true
+	}
+	available := make(map[string]struct{}, len(candidateTerms))
+	for _, term := range candidateTerms {
+		available[term] = struct{}{}
+	}
+	for _, term := range queryTerms[1:] {
+		if _, exists := available[term]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+func encodeDirectoryCursor(searchTerms []string, asset, network, after string) (string, error) {
+	encoded, err := json.Marshal(directoryCursor{SearchTerms: searchTerms, Asset: asset, Network: network, After: after})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(encoded), nil
+}
+
+func decodeDirectoryCursor(raw string, searchTerms []string, asset, network string) (string, error) {
+	if raw == "" {
+		return "", nil
+	}
+	encoded, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return "", domain.NewValidationError("cursor", "format", "cursor is invalid")
+	}
+	var cursor directoryCursor
+	if json.Unmarshal(encoded, &cursor) != nil || cursor.After == "" || !slices.Equal(cursor.SearchTerms, searchTerms) || cursor.Asset != asset || cursor.Network != network {
+		return "", domain.NewValidationError("cursor", "binding", "cursor does not match this directory query")
+	}
+	return cursor.After, nil
 }
 
 func (service *Service) RecordServiceEndpointVerification(ctx context.Context, sellerID domain.ID, actorID string) error {

@@ -272,7 +272,7 @@ func main() {
 	})
 	integrationService.SetCredentialIssuanceAuthorizer(workspaceService)
 	storefrontService := storefront.NewService(storefront.Dependencies{
-		Catalog: catalogRepository, Destinations: paymentDestinationRepository,
+		Catalog: catalogRepository, Directory: catalogRepository, Destinations: paymentDestinationRepository,
 		Entitlements: billingService, PublicationReadiness: workspaceService,
 		Publications: storefrontPublicationRepository, Signer: capabilityKeys,
 		Clock: clock, CanonicalOrigin: webOrigin, APIOrigin: apiOrigin, AuditRecorder: auditAppender,

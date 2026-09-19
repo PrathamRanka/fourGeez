@@ -80,6 +80,57 @@ func TestHTTPControllerReturnsDependencyUnavailableWithoutLeakingCause(t *testin
 	}
 }
 
+func TestHTTPControllerServesPlatformManifestAndDirectory(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+	handler := storefrontHandler(fixture.service)
+
+	manifestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(manifestResponse, httptest.NewRequest(http.MethodGet, "/.well-known/agentpay", nil))
+	if manifestResponse.Code != http.StatusOK {
+		t.Fatalf("platform manifest status = %d, body = %s", manifestResponse.Code, manifestResponse.Body.String())
+	}
+	var platform AgentPayPlatformManifest
+	if err := json.Unmarshal(manifestResponse.Body.Bytes(), &platform); err != nil {
+		t.Fatal(err)
+	}
+	if platform.DirectoryEndpoint == "" || platform.Capabilities.Ranking {
+		t.Fatalf("platform manifest = %#v", platform)
+	}
+
+	directoryResponse := httptest.NewRecorder()
+	handler.ServeHTTP(directoryResponse, httptest.NewRequest(http.MethodGet, "/v1/discovery/products?q=research&limit=12", nil))
+	if directoryResponse.Code != http.StatusOK {
+		t.Fatalf("directory status = %d, body = %s", directoryResponse.Code, directoryResponse.Body.String())
+	}
+	var page PublicProductDirectoryPage
+	if err := json.Unmarshal(directoryResponse.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 || page.Items[0].Product.RouteID != fixture.route.RouteID {
+		t.Fatalf("directory page = %#v", page)
+	}
+}
+
+func TestHTTPControllerRejectsInvalidDirectoryQuery(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	tests := []string{
+		"/v1/discovery/products?q=a",
+		"/v1/discovery/products?q=",
+		"/v1/discovery/products?asset=",
+		"/v1/discovery/products?limit=",
+	}
+	for _, path := range tests {
+		response := httptest.NewRecorder()
+		storefrontHandler(fixture.service).ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("path %q status = %d, body = %s", path, response.Code, response.Body.String())
+		}
+	}
+}
+
 func storefrontHandler(service *Service) http.Handler {
 	mux := http.NewServeMux()
 	NewHTTPController(service).RegisterRoutes(mux)

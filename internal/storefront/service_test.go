@@ -129,6 +129,152 @@ func TestAuthorizeCommerceReturnsVerifiedDestinationAndFrozenQuote(t *testing.T)
 	}
 }
 
+func TestServicePublishesPlatformCapabilitiesAndFreshDirectoryResults(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+
+	platform := fixture.service.GetPlatformManifest()
+	if platform.SchemaVersion != PlatformManifestSchemaVersion ||
+		platform.DirectoryEndpoint != "https://api.agentpay.example/v1/discovery/products" ||
+		platform.Capabilities.Ranking {
+		t.Fatalf("platform manifest = %#v", platform)
+	}
+
+	page, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Query: "research report", Limit: 1})
+	if err != nil {
+		t.Fatalf("ListPublicProducts() error = %v", err)
+	}
+	if page.SchemaVersion != DirectorySchemaVersion || page.AuthoritativeForPurchase || len(page.Items) != 1 {
+		t.Fatalf("directory page = %#v", page)
+	}
+	if page.NextCursor != "" {
+		t.Fatalf("single-result page must not advertise another page: %#v", page)
+	}
+	item := page.Items[0]
+	if item.Seller.Slug != fixture.seller.Slug || item.Product.RouteID != fixture.route.RouteID ||
+		item.Capabilities.Payment.Protocol != "x402" || item.Capabilities.Payment.Network != fixture.route.Network {
+		t.Fatalf("directory item = %#v", item)
+	}
+
+	fixture.entitlements.response.Assignment.Status = billing.EntitlementStatusCancelled
+	fixture.entitlements.response.Assignment.NetworkAccess = billing.NetworkAccessBlocked
+	page, err = fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Limit: 12})
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("inactive seller directory page = %#v, error = %v", page, err)
+	}
+}
+
+func TestServiceRejectsInvalidDirectoryQueries(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+
+	if _, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Query: "one two three four five", Limit: 12}); err == nil {
+		t.Fatal("invalid directory query must fail")
+	}
+	if _, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Limit: 25}); err == nil {
+		t.Fatal("directory limit above 24 must fail")
+	}
+}
+
+func TestServiceBindsDirectoryCursorToAllFilters(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+	secondRouteID := mustID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9HA", domain.RouteIDPrefix)
+	secondRoute, err := catalog.NewDraftPaidRoute(catalog.PaidRouteParams{
+		RouteID: secondRouteID, SellerID: fixture.seller.SellerID, DisplayName: "Weather Report", ProductSlug: "weather-report",
+		Method: catalog.RouteMethodPost, PathPattern: "/weather", Description: "A bounded forecast", MIMEType: "application/json",
+		Amount: domain.MustParseAmount("20000000"), Asset: fixture.route.Asset, Network: fixture.route.Network,
+		PayTo: fixture.route.PayTo, UpstreamTimeoutSeconds: 20, CreatedAt: fixture.now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := secondRoute.Publish(fixture.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.catalog.CreateRoute(t.Context(), secondRoute); err != nil {
+		t.Fatal(err)
+	}
+
+	page, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Asset: fixture.route.Asset, Limit: 1})
+	if err != nil || page.NextCursor == "" {
+		t.Fatalf("first page = %#v, error = %v", page, err)
+	}
+	if _, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Asset: "EURC", Limit: 1, Cursor: page.NextCursor}); err == nil {
+		t.Fatal("cursor reused with a different asset filter must fail")
+	}
+}
+
+func TestServiceDropsStaleDirectoryProjectionAfterRouteVersionChanges(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+	projection, ok := catalog.NewPublicDirectoryProjection(fixture.route)
+	if !ok {
+		t.Fatal("published route projection missing")
+	}
+	updatedRoute := fixture.route
+	if err := updatedRoute.ChangePrice(domain.MustParseAmount("36000000"), fixture.now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	fixture.service.Directory = staticDirectoryRepository{projection: projection, route: updatedRoute}
+
+	page, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Limit: 12})
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("stale route-version candidate page = %#v, error = %v", page, err)
+	}
+}
+
+func TestServiceFreshlyRevalidatesEveryDirectoryEligibilityPrerequisite(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, *serviceFixture)
+	}{
+		{name: "endpoint verification", mutate: func(_ *testing.T, _ *serviceFixture) {}},
+		{name: "seller status", mutate: func(t *testing.T, fixture *serviceFixture) {
+			fixture.verifyEndpoint(t)
+			seller, err := fixture.catalog.GetSeller(t.Context(), fixture.seller.SellerID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedVersion := seller.Version
+			if err := seller.Suspend(fixture.now.Add(time.Minute)); err != nil {
+				t.Fatal(err)
+			}
+			if err := fixture.catalog.UpdateSeller(t.Context(), seller, expectedVersion); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "entitlement", mutate: func(t *testing.T, fixture *serviceFixture) {
+			fixture.verifyEndpoint(t)
+			fixture.entitlements.response.Assignment.AccessEndsAt = fixture.now
+		}},
+		{name: "publication readiness", mutate: func(t *testing.T, fixture *serviceFixture) {
+			fixture.verifyEndpoint(t)
+			fixture.service.PublicationReadiness = denyPublication{}
+		}},
+		{name: "payment destination", mutate: func(t *testing.T, fixture *serviceFixture) {
+			fixture.verifyEndpoint(t)
+			fixture.destinations.items = nil
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newServiceFixture(t)
+			test.mutate(t, fixture)
+			page, err := fixture.service.ListPublicProducts(t.Context(), PublicDirectoryRequest{Limit: 12})
+			if err != nil || len(page.Items) != 0 {
+				t.Fatalf("ineligible directory page = %#v, error = %v", page, err)
+			}
+		})
+	}
+}
+
 type serviceFixture struct {
 	now          domain.Timestamp
 	seller       catalog.Seller
@@ -176,7 +322,7 @@ func newServiceFixture(t *testing.T) *serviceFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(Dependencies{Catalog: repository, Destinations: destinations, Entitlements: entitlements, PublicationReadiness: allowPublication{}, Publications: memory.NewStorefrontPublicationRepository(), Signer: keys, Clock: domain.FixedClock{Value: now.Time()}, CanonicalOrigin: "https://store.agentpay.example", APIOrigin: "https://api.agentpay.example", AuditRecorder: audit.NoopRecorder{}})
+	service := NewService(Dependencies{Catalog: repository, Directory: repository, Destinations: destinations, Entitlements: entitlements, PublicationReadiness: allowPublication{}, Publications: memory.NewStorefrontPublicationRepository(), Signer: keys, Clock: domain.FixedClock{Value: now.Time()}, CanonicalOrigin: "https://store.agentpay.example", APIOrigin: "https://api.agentpay.example", AuditRecorder: audit.NoopRecorder{}})
 	return &serviceFixture{now: now, seller: seller, route: route, destination: destination, catalog: repository, destinations: destinations, entitlements: entitlements, keys: keys, service: service}
 }
 
@@ -207,6 +353,27 @@ func (reader *entitlementReader) ResolveSellerPlan(context.Context, domain.ID) (
 type allowPublication struct{}
 
 func (allowPublication) AuthorizePublication(context.Context, domain.ID) error { return nil }
+
+type denyPublication struct{}
+
+func (denyPublication) AuthorizePublication(context.Context, domain.ID) error {
+	return ErrPublicationBlocked
+}
+
+type staticDirectoryRepository struct {
+	projection catalog.PublicDirectoryProjection
+	route      catalog.PaidRoute
+}
+
+func (repository staticDirectoryRepository) ListPublicDirectoryCandidates(context.Context, catalog.PublicDirectoryQuery) (catalog.PublicDirectoryCandidatePage, error) {
+	return catalog.PublicDirectoryCandidatePage{
+		Items: []catalog.PublicDirectoryCandidate{{Projection: repository.projection, SortKey: "PRODUCT#stale"}}, Exhausted: true,
+	}, nil
+}
+
+func (repository staticDirectoryRepository) GetPublicDirectoryRoute(context.Context, domain.ID, domain.ID) (catalog.PaidRoute, error) {
+	return repository.route, nil
+}
 
 func mustID(t *testing.T, raw string, prefix domain.IDPrefix) domain.ID {
 	t.Helper()

@@ -113,7 +113,7 @@ func TestCatalogRepositoryAtomicallyClaimsSellerProductSlug(t *testing.T) {
 		t.Fatal(err)
 	}
 	transaction := client.transactWriteInput
-	if transaction == nil || len(transaction.TransactItems) != 2 {
+	if transaction == nil || len(transaction.TransactItems) != 5 {
 		t.Fatalf("route transaction = %#v", transaction)
 	}
 	claim := transaction.TransactItems[0].Put
@@ -173,7 +173,7 @@ func TestCatalogRepositoryBackfillsLegacyProductIdentityAtomically(t *testing.T)
 		SellerID:               mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
 		Method:                 catalog.RouteMethodPost,
 		PathPattern:            "/research",
-		Description:            "Research Report",
+		Description:            "Research",
 		MIMEType:               "application/json",
 		Amount:                 domain.MustParseAmount("35000000"),
 		Asset:                  "test-usdc",
@@ -213,13 +213,15 @@ func TestCatalogRepositoryBackfillsLegacyProductIdentityAtomically(t *testing.T)
 		t.Fatal(err)
 	}
 	transaction := client.transactWriteInput
-	if transaction == nil || len(transaction.TransactItems) != 2 {
+	if transaction == nil || len(transaction.TransactItems) != 7 {
 		t.Fatalf("legacy migration transaction = %#v", transaction)
 	}
 	claim := transaction.TransactItems[0].Put
 	if readStringAttribute(claim.Item["SK"]) != productSlugClaimSortKey(updated.ProductSlug) {
 		t.Fatalf("legacy product slug claim = %#v", claim.Item)
 	}
+	assertDirectoryDeleteExists(t, transaction.TransactItems, directoryProductsPartitionKey())
+	assertDirectoryDeleteExists(t, transaction.TransactItems, directoryTermPartitionKey("research"))
 }
 
 // TestQuotaCounterRepositoryUsesConditionalAtomicWrites verifies persisted quota safety.

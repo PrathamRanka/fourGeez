@@ -699,6 +699,34 @@ inactive slugs return `410`. The cloud ES256 signature covers the
 `agentpay.discovery.v1` domain separator and RFC 8785 canonical JSON. Cached or
 seller-hosted discovery cannot authorize intent creation or payment.
 
+### PublicDirectoryProduct
+
+`PublicDirectoryProduct` is a denormalized candidate index for deterministic
+public listing and exact-term search. It is not a transaction-authority record.
+Each projection stores `sellerId`, `routeId`, normalized `searchTerms`, the
+route version, and `updatedAt`; seller display data, pricing, lifecycle,
+entitlement, payment destination, and canonical URLs are loaded from their
+authoritative records before an API result is returned.
+
+A published-route write atomically writes the owning `PaidRoute`, one listing
+projection, and at most sixteen unique normalized term projections. Pausing,
+archiving, or emergency-disabling a route atomically deletes those projections.
+A price change to a published route replaces them with the new route version.
+Terms are lowercase Unicode letter-or-digit runs of 2-32 characters derived
+from the public product display name and description. Search accepts at most
+four terms, queries the first exact term partition, and requires every
+remaining term to exist in the candidate's stored term set. Results are sorted
+by normalized display name, seller ID, and route ID; no score or ranking field
+exists.
+
+Entitlement or seller-state changes may leave a stale candidate projection
+until a later lifecycle repair, but a stale candidate is never returned:
+directory reads freshly require an active seller, active unexpired network
+entitlement, current publication readiness, a published route, and a matching
+active verified payment destination. Missing authoritative state fails closed.
+Directory pagination cursors are opaque continuations and do not carry
+authorization.
+
 ### ExecutionCapability
 
 An execution capability is a non-persisted cloud-signed JWT issued only after
@@ -934,6 +962,8 @@ PK=DISPUTE#dsp_123      SK=REFUND_RECORD
 PK=IDEMPOTENCY#<scope>  SK=<key>
 PK=PAYMENT#<paymentIdentifier> SK=CLAIM
 PK=SLUG#<slug>          SK=CLAIM
+PK=DISCOVERY#PRODUCTS   SK=PRODUCT#<displaySort>#<sellerId>#<routeId>
+PK=DISCOVERY#TERM#<term> SK=PRODUCT#<displaySort>#<sellerId>#<routeId>
 ```
 
 The `APPROVAL#...` and `APPROVAL_GRANT#...` forms above are historical M2/M3
@@ -945,6 +975,12 @@ authorization use point/query operations. Production authentication must never
 scan by token hash.
 
 `PAYMENT#...` and `SLUG#...` claim items are created in the same DynamoDB transaction as their owning record with `attribute_not_exists(PK)` conditions. `PRODUCT_SLUG#...` claims are created in the seller partition with `attribute_not_exists(PK) AND attribute_not_exists(SK)`. They enforce global payment/storefront uniqueness and seller-scoped product-slug uniqueness respectively; the corresponding GSIs remain the query paths for transaction and storefront lookup.
+
+`DISCOVERY#PRODUCTS` and `DISCOVERY#TERM#<term>` are base-table query
+partitions, not secondary indexes. Production directory requests use DynamoDB
+`Query` with a bounded limit and opaque continuation key; they never use
+`Scan`. Projection items contain only public identifiers and normalized public
+search terms.
 
 Required secondary indexes:
 

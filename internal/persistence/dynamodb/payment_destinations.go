@@ -87,6 +87,7 @@ func (repository *PaymentDestinationRepository) ListBySeller(
 	keyCondition := "PK = :partitionKey AND begins_with(SK, :sortKeyPrefix)"
 	output, err := repository.client.Query(ctx, &awssdk.QueryInput{
 		TableName:              &repository.tableName,
+		ConsistentRead:         boolPointer(true),
 		KeyConditionExpression: &keyCondition,
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":partitionKey": stringAttributeValue(

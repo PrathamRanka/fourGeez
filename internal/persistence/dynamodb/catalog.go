@@ -254,19 +254,25 @@ func (repository *CatalogRepository) CreateRoute(ctx context.Context, route cata
 		return err
 	}
 
+	writes := []types.TransactWriteItem{
+		{Put: &types.Put{
+			TableName:           &repository.tableName,
+			Item:                productSlugClaimItem,
+			ConditionExpression: stringPointer(createItemCondition),
+		}},
+		{Put: &types.Put{
+			TableName:           &repository.tableName,
+			Item:                routeItem,
+			ConditionExpression: stringPointer(createItemCondition),
+		}},
+	}
+	directoryWrites, err := repository.directoryProjectionPuts(route)
+	if err != nil {
+		return err
+	}
+	writes = append(writes, directoryWrites...)
 	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
-		TransactItems: []types.TransactWriteItem{
-			{Put: &types.Put{
-				TableName:           &repository.tableName,
-				Item:                productSlugClaimItem,
-				ConditionExpression: stringPointer(createItemCondition),
-			}},
-			{Put: &types.Put{
-				TableName:           &repository.tableName,
-				Item:                routeItem,
-				ConditionExpression: stringPointer(createItemCondition),
-			}},
-		},
+		TransactItems: writes,
 	})
 	if isTransactionFailure(err) {
 		return persistence.ErrAlreadyExists
@@ -343,41 +349,40 @@ func (repository *CatalogRepository) UpdateRoute(
 		return err
 	}
 
-	if storedRoute.ProductSlug != "" {
-		return repository.putWithExpectedVersion(ctx, routeItem, expectedVersion)
-	}
-
-	productSlugClaim, err := newStoredRecord(
-		sellerPartitionKey(route.SellerID.String()),
-		productSlugClaimSortKey(route.ProductSlug),
-		"productSlugClaim",
-		route.RouteID.String(),
-	)
-	if err != nil {
-		return err
-	}
-	productSlugClaimItem, err := marshalStoredRecord(productSlugClaim)
-	if err != nil {
-		return err
-	}
 	versionCondition := "#version = :expectedVersion"
+	writes := make([]types.TransactWriteItem, 0, 20)
+	if storedRoute.ProductSlug == "" {
+		productSlugClaim, claimErr := newStoredRecord(sellerPartitionKey(route.SellerID.String()), productSlugClaimSortKey(route.ProductSlug), "productSlugClaim", route.RouteID.String())
+		if claimErr != nil {
+			return claimErr
+		}
+		productSlugClaimItem, claimErr := marshalStoredRecord(productSlugClaim)
+		if claimErr != nil {
+			return claimErr
+		}
+		writes = append(writes, types.TransactWriteItem{Put: &types.Put{TableName: &repository.tableName, Item: productSlugClaimItem, ConditionExpression: stringPointer(createItemCondition)}})
+	}
+	writes = append(writes,
+		types.TransactWriteItem{Put: &types.Put{
+			TableName:                &repository.tableName,
+			Item:                     routeItem,
+			ConditionExpression:      &versionCondition,
+			ExpressionAttributeNames: map[string]string{"#version": "version"},
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":expectedVersion": numberAttributeValue(expectedVersion),
+			},
+		}},
+	)
+	writes = append(writes, repository.obsoleteDirectoryProjectionDeletes(storedRoute, route)...)
+	if _, published := catalog.NewPublicDirectoryProjection(route); published {
+		directoryWrites, projectionErr := repository.directoryProjectionPuts(route)
+		if projectionErr != nil {
+			return projectionErr
+		}
+		writes = append(writes, directoryWrites...)
+	}
 	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
-		TransactItems: []types.TransactWriteItem{
-			{Put: &types.Put{
-				TableName:           &repository.tableName,
-				Item:                productSlugClaimItem,
-				ConditionExpression: stringPointer(createItemCondition),
-			}},
-			{Put: &types.Put{
-				TableName:                &repository.tableName,
-				Item:                     routeItem,
-				ConditionExpression:      &versionCondition,
-				ExpressionAttributeNames: map[string]string{"#version": "version"},
-				ExpressionAttributeValues: map[string]types.AttributeValue{
-					":expectedVersion": numberAttributeValue(expectedVersion),
-				},
-			}},
-		},
+		TransactItems: writes,
 	})
 	if isTransactionFailure(err) {
 		return persistence.ErrConditionFailed

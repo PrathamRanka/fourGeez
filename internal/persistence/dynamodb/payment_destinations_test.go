@@ -49,6 +49,9 @@ func TestPaymentDestinationRepositoryUsesSellerScopedKeys(t *testing.T) {
 		!strings.Contains(*client.queryInput.KeyConditionExpression, "begins_with") {
 		t.Fatalf("query input = %#v", client.queryInput)
 	}
+	if client.queryInput.ConsistentRead == nil || !*client.queryInput.ConsistentRead {
+		t.Fatalf("destination eligibility query must be strongly consistent: %#v", client.queryInput)
+	}
 }
 
 // TestPaymentDestinationRepositoryPersistsChallengeHash verifies the private snapshot field.

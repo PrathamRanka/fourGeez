@@ -28,11 +28,12 @@ import (
 	"github.com/fourgeez/agentpay/internal/notifications"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/settlement"
+	"github.com/fourgeez/agentpay/internal/storefront"
 	"github.com/fourgeez/agentpay/internal/transactions"
 )
 
-// TestOpenAPILaunchTargetOperationAndResponseCoverage locks the complete M7.1
-// target contract independently from the routes implemented by the M7 runtime.
+// TestOpenAPILaunchTargetOperationAndResponseCoverage locks the complete
+// development-preview target contract.
 func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 	t.Parallel()
 
@@ -56,6 +57,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"downloadPurchaseReceipt":                 {"200", "401", "403", "404", "409", "429", "503"},
 		"emergencyDisablePaidRoute":               {"200", "400", "401", "403", "404", "409", "429", "503"},
 		"exchangeProjectKey":                      {"200", "400", "401", "403", "429", "503"},
+		"getAgentPayManifest":                     {"200", "429", "503"},
 		"getCapabilityJwks":                       {"200", "429", "503"},
 		"getCurrentSeller":                        {"200", "401", "404", "429", "503"},
 		"getCurrentSellerBillingSummary":          {"200", "401", "404", "429", "503"},
@@ -81,6 +83,7 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 		"getStorefrontManifest":                   {"200", "404", "410", "429", "503"},
 		"getTransaction":                          {"200", "401", "403", "404", "429", "503"},
 		"listIntegrationCredentials":              {"200", "400", "401", "403", "404", "429", "503"},
+		"listPublicProducts":                      {"200", "400", "429", "503"},
 		"listPaidRoutes":                          {"200", "400", "401", "403", "404", "429", "503"},
 		"listPaymentDestinations":                 {"200", "400", "401", "403", "404", "429", "503"},
 		"listSellerAuditEvents":                   {"200", "400", "401", "403", "404", "429", "503"},
@@ -106,10 +109,9 @@ func TestOpenAPILaunchTargetOperationAndResponseCoverage(t *testing.T) {
 	}
 }
 
-// TestImplementedM7OpenAPIRoutesAreRegistered verifies that routes in the
-// development compatibility baseline remain registered while M7.1 target
-// operations are implemented by their dependent LCH tasks.
-func TestImplementedM7OpenAPIRoutesAreRegistered(t *testing.T) {
+// TestImplementedOpenAPIRoutesAreRegistered verifies that active contract
+// routes are present in the composed development-preview HTTP handler.
+func TestImplementedOpenAPIRoutesAreRegistered(t *testing.T) {
 	t.Parallel()
 
 	handler := newConformanceHandler(t)
@@ -156,6 +158,8 @@ func TestImplementedM7OpenAPIRoutesAreRegistered(t *testing.T) {
 		{operationID: "createDispute", method: http.MethodPost, path: "/v1/disputes", wantStatus: http.StatusUnauthorized},
 		{operationID: "getDispute", method: http.MethodGet, path: "/v1/disputes/dsp_01K5D09YJ0C0M7RJM4FWQ0K9H7", wantStatus: http.StatusUnauthorized},
 		{operationID: "createManualRefundRecord", method: http.MethodPost, path: "/v1/sellers/sel_01K5D09YJ0C0M7RJM4FWQ0K9H7/disputes/dsp_01K5D09YJ0C0M7RJM4FWQ0K9H7/refund-records", wantStatus: http.StatusUnauthorized},
+		{operationID: "getAgentPayManifest", method: http.MethodGet, path: "/.well-known/agentpay", wantStatus: http.StatusOK},
+		{operationID: "listPublicProducts", method: http.MethodGet, path: "/v1/discovery/products", wantStatus: http.StatusOK},
 		{operationID: "getStorefrontManifest", method: http.MethodGet, path: "/store/missing/manifest.json", wantStatus: http.StatusNotFound},
 		{operationID: "getStorefrontLlmsText", method: http.MethodGet, path: "/store/missing/llms.txt", wantStatus: http.StatusNotFound},
 	}
@@ -275,7 +279,7 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		clock,
 		auditAppender,
 	)
-	catalog.NewHTTPController(catalogService, idempotencyStore).RegisterRoutes(mux)
+	catalog.NewHTTPController(catalogService, idempotencyStore).RegisterControlRoutes(mux)
 	localIdentity := identity.NewLocalAdapter(clock)
 	if err := localIdentity.Register("seller-secret", identity.Claims{
 		Subject: "local-seller", TokenID: "conformance-token", SessionID: "conformance-session",
@@ -366,6 +370,10 @@ func newConformanceHandler(t *testing.T) http.Handler {
 		),
 		idempotencyStore,
 	).RegisterRoutes(mux)
+	storefront.NewHTTPController(storefront.NewService(storefront.Dependencies{
+		Catalog: catalogRepository, Directory: catalogRepository,
+		CanonicalOrigin: "https://agentpay.example", APIOrigin: "https://api.agentpay.example",
+	})).RegisterRoutes(mux)
 	intentService := intents.NewService(
 		intentRepository,
 		catalogRepository,

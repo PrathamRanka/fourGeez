@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     Seller commerce gateway, transaction, and dispute API. AgentPay is a working name.
-    Version 0.5.0 is the locked production target contract for M7.1. The current
-    M7 Go runtime remains on the documented development compatibility baseline
-    until the dependent LCH implementation tasks land. Production deployment
-    must not advertise or partially enable this target contract before every
-    authorization and persistence precondition is implemented.
+    Version 0.6.0 extends the locked M7.1 production target with EXT-001 public
+    capability and deterministic product-directory contracts. The Go runtime
+    implements these public discovery endpoints in the development preview.
+    Production deployment must not advertise them before every authorization,
+    persistence, infrastructure, and release precondition is verified.
     Seller project keys are proprietary bootstrap credentials accepted only by
     POST /v1/integration-access-tokens; this is not an OAuth token endpoint.
     Lean V1 project-key installations use the required AgentPay connector.
@@ -23,7 +23,7 @@ info:
     issued through the authenticated seller browser/BFF boundary; caller-
     asserted confirmation fields are development compatibility only.
   x-agentpay-contract-stage: target-state
-  x-agentpay-runtime-baseline: m7-development-preview
+  x-agentpay-runtime-baseline: m7.1-plus-ext-001-api-development-preview
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -58,6 +58,23 @@ tags:
   - name: Proxy
     description: x402-protected forwarding to configured seller APIs.
 paths:
+  /.well-known/agentpay:
+    get:
+      summary: Get the AgentPay public capability manifest
+      description: Stable machine-readable entry point for public discovery. This document advertises supported discovery and commerce capabilities but never authorizes a transaction.
+      tags: [Storefront]
+      operationId: getAgentPayManifest
+      security: []
+      responses:
+        '200':
+          description: Current public AgentPay capabilities and discovery endpoints
+          headers:
+            Cache-Control: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentPayPlatformManifest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /.well-known/jwks.json:
     get:
       summary: Get AgentPay capability verification keys
@@ -1362,6 +1379,46 @@ paths:
               schema: { $ref: '#/components/schemas/SignedStorefrontTombstone' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/discovery/products:
+    get:
+      summary: List or exactly filter active public products
+      description: Returns deterministic candidate discovery only. Listing and search use maintained DynamoDB query partitions, never a production table scan. The service freshly revalidates seller entitlement, seller and route state, publication readiness, and payment destination before returning each product. Search terms use lowercase Unicode letter-or-digit normalization, exact term matching, AND semantics, and no scoring or ranking.
+      tags: [Storefront]
+      operationId: listPublicProducts
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: One to four whitespace-separated exact terms after normalization; each term must contain 2-32 Unicode letters or digits.
+          schema: { type: string, minLength: 2, maxLength: 131 }
+        - name: asset
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 160 }
+        - name: network
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 24, default: 12 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 2048 }
+      responses:
+        '200':
+          description: Stable lexical page of freshly eligible product candidates
+          headers:
+            Cache-Control: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicProductDirectoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /store/{slug}/llms.txt:
     get:
       summary: Get the storefront agent-discovery document
@@ -2567,6 +2624,105 @@ components:
         reference: { type: string, minLength: 1, maxLength: 512 }
         recordedBy: { type: string, minLength: 1, maxLength: 256 }
         recordedAt: { type: string, format: date-time }
+    AgentPayPlatformManifest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, name, status, canonicalOrigin, apiOrigin, directoryEndpoint, jwksUri, capabilities]
+      properties:
+        schemaVersion: { type: string, const: agentpay.platform.v1 }
+        name: { type: string, const: AgentPay }
+        status: { type: string, const: development_preview }
+        canonicalOrigin: { type: string, format: uri }
+        apiOrigin: { type: string, format: uri }
+        directoryEndpoint: { type: string, format: uri }
+        jwksUri: { type: string, format: uri }
+        capabilities:
+          type: object
+          additionalProperties: false
+          required: [buyerChannels, discovery, payments, ranking]
+          properties:
+            buyerChannels:
+              type: array
+              items: { type: string, enum: [agent, browser] }
+              minItems: 2
+              maxItems: 2
+            discovery:
+              type: object
+              additionalProperties: false
+              required: [publicDirectory, signedStorefrontManifests, signedProductDocuments, llmsText]
+              properties:
+                publicDirectory: { type: boolean, const: true }
+                signedStorefrontManifests: { type: boolean, const: true }
+                signedProductDocuments: { type: boolean, const: true }
+                llmsText: { type: boolean, const: true }
+            payments:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                additionalProperties: false
+                required: [protocol, environment, exactPrice, network]
+                properties:
+                  protocol: { type: string, const: x402 }
+                  environment: { type: string, const: testnet }
+                  exactPrice: { type: boolean, const: true }
+                  network: { type: string, const: 'eip155:84532' }
+            ranking: { type: boolean, const: false }
+    PublicProductCapabilities:
+      type: object
+      additionalProperties: false
+      required: [buyerChannels, payment, fulfillment]
+      properties:
+        buyerChannels:
+          type: array
+          items: { type: string, enum: [agent, browser] }
+          minItems: 2
+          maxItems: 2
+        payment:
+          type: object
+          additionalProperties: false
+          required: [protocol, environment, exactPrice, asset, network]
+          properties:
+            protocol: { type: string, const: x402 }
+            environment: { type: string, const: testnet }
+            exactPrice: { type: boolean, const: true }
+            asset: { type: string, minLength: 1, maxLength: 160 }
+            network: { type: string, minLength: 1, maxLength: 80 }
+        fulfillment:
+          type: object
+          additionalProperties: false
+          required: [mode, outputMimeType]
+          properties:
+            mode: { type: string, const: synchronous_https }
+            outputMimeType: { type: string, minLength: 1, maxLength: 160 }
+    PublicProductDirectoryItem:
+      type: object
+      additionalProperties: false
+      required: [seller, product, capabilities]
+      properties:
+        seller:
+          type: object
+          additionalProperties: false
+          required: [name, slug]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 120 }
+            slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', minLength: 3, maxLength: 48 }
+        product: { $ref: '#/components/schemas/PublicProduct' }
+        capabilities: { $ref: '#/components/schemas/PublicProductCapabilities' }
+    PublicProductDirectoryPage:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, ordering, authoritativeForPurchase, items]
+      properties:
+        schemaVersion: { type: string, const: agentpay.directory.v1 }
+        query: { type: string, maxLength: 131 }
+        ordering: { type: string, const: lexical }
+        authoritativeForPurchase: { type: boolean, const: false }
+        items:
+          type: array
+          maxItems: 24
+          items: { $ref: '#/components/schemas/PublicProductDirectoryItem' }
+        nextCursor: { type: string, minLength: 1, maxLength: 2048 }
     StorefrontManifest:
       type: object
       additionalProperties: false
