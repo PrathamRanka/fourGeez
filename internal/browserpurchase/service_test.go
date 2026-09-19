@@ -475,9 +475,9 @@ func (repository *testRepository) CreateChallenge(_ context.Context, challenge B
 	return nil
 }
 
-func (repository *testRepository) GetChallenge(_ context.Context, challengeID RecoveryChallengeID) (BrowserPurchaseRecoveryChallengeRecord, error) {
+func (repository *testRepository) GetChallenge(_ context.Context, purchaseSessionID PurchaseSessionID, challengeID RecoveryChallengeID) (BrowserPurchaseRecoveryChallengeRecord, error) {
 	challenge, exists := repository.challenges[challengeID]
-	if !exists {
+	if !exists || challenge.PurchaseSessionID != purchaseSessionID {
 		return BrowserPurchaseRecoveryChallengeRecord{}, persistence.ErrNotFound
 	}
 	return challenge, nil

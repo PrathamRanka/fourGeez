@@ -17,6 +17,7 @@
     "build": "npm run build:web && npm run build:api && npm run build:verification && npm run build:mcp-connector",
     "build:web": "npm run build --workspace @agentpay/web",
     "build:api": "node scripts/go-tool.mjs build ./cmd/... ./internal/... ./examples/... ./verification/go",
+    "build:lambda": "node scripts/build-lambda.mjs",
     "build:verification": "npm run build --workspace @agentpay/verify-node && npm run test:verification:extended",
     "build:mcp-connector": "npm run build --workspace @agentpay/local-mcp-connector",
     "lint": "npm run lint:web && npm run lint:contracts && npm run lint:go",

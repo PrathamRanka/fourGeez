@@ -136,18 +136,6 @@ variable "api_lambda_artifact_path" {
   default     = "dist/agentpay-api.zip"
 }
 
-variable "api_lambda_artifact_sha256" {
-  description = "Base64-encoded SHA-256 of the reviewed Lambda ZIP. Required before deployment is enabled."
-  type        = string
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = !var.api_deployment_enabled || var.api_lambda_artifact_sha256 != null
-    error_message = "api_lambda_artifact_sha256 is required when api_deployment_enabled is true."
-  }
-}
-
 variable "api_memory_size_mb" {
   description = "Memory allocated to the API Lambda."
   type        = number
@@ -156,6 +144,39 @@ variable "api_memory_size_mb" {
   validation {
     condition     = var.api_memory_size_mb >= 128 && var.api_memory_size_mb <= 10240
     error_message = "api_memory_size_mb must be between 128 and 10240."
+  }
+}
+
+variable "x402_facilitator_url" {
+  description = "Locked x402 testnet facilitator origin."
+  type        = string
+  default     = "https://x402.org/facilitator"
+
+  validation {
+    condition     = var.x402_facilitator_url == "https://x402.org/facilitator"
+    error_message = "x402_facilitator_url must remain the reviewed testnet facilitator for this release."
+  }
+}
+
+variable "x402_network" {
+  description = "Locked CAIP-2 network identifier for Base Sepolia."
+  type        = string
+  default     = "eip155:84532"
+
+  validation {
+    condition     = var.x402_network == "eip155:84532"
+    error_message = "x402_network must remain Base Sepolia for this release."
+  }
+}
+
+variable "x402_asset" {
+  description = "Locked Base Sepolia USDC contract address."
+  type        = string
+  default     = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+
+  validation {
+    condition     = lower(var.x402_asset) == lower("0x036CbD53842c5426634e7929541eC2318f3dCF7e")
+    error_message = "x402_asset must remain the reviewed Base Sepolia USDC contract for this release."
   }
 }
 
@@ -171,13 +192,16 @@ variable "api_timeout_seconds" {
 }
 
 variable "api_reserved_concurrency" {
-  description = "Cost and load guard for simultaneous API Lambda executions."
+  description = "Optional Lambda reserved concurrency. Use -1 when the account must retain its unreserved minimum; API Gateway throttling remains the development cost guard."
   type        = number
-  default     = 5
+  default     = -1
 
   validation {
-    condition     = var.api_reserved_concurrency >= 1 && var.api_reserved_concurrency <= 50
-    error_message = "api_reserved_concurrency must be between 1 and 50."
+    condition = (
+      var.api_reserved_concurrency == -1 ||
+      (var.api_reserved_concurrency >= 1 && var.api_reserved_concurrency <= 50)
+    )
+    error_message = "api_reserved_concurrency must be -1 or between 1 and 50."
   }
 }
 

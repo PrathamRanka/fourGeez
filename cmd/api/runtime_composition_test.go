@@ -10,7 +10,17 @@ func TestValidateRuntimeCompositionAllowsOnlyLocalMemoryRuntime(t *testing.T) {
 	}
 }
 
-func TestValidateRuntimeCompositionRejectsUnwiredAWSRuntime(t *testing.T) {
+func TestValidateRuntimeCompositionAllowsDurableAWSRuntime(t *testing.T) {
+	t.Parallel()
+
+	for _, environment := range []string{"dev", "demo"} {
+		if err := validateRuntimeComposition(environment, "dynamodb"); err != nil {
+			t.Fatalf("validateRuntimeComposition(%q, dynamodb) error = %v", environment, err)
+		}
+	}
+}
+
+func TestValidateRuntimeCompositionRejectsUnsafeRuntimePairs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -19,9 +29,7 @@ func TestValidateRuntimeCompositionRejectsUnwiredAWSRuntime(t *testing.T) {
 		repositoryMode string
 	}{
 		{name: "development environment with memory persistence", environment: "dev", repositoryMode: "memory"},
-		{name: "development environment with unwired dynamodb persistence", environment: "dev", repositoryMode: "dynamodb"},
-		{name: "demo environment", environment: "demo", repositoryMode: "dynamodb"},
-		{name: "production environment", environment: "prod", repositoryMode: "dynamodb"},
+		{name: "production environment remains gated", environment: "prod", repositoryMode: "dynamodb"},
 		{name: "local environment with unsupported persistence", environment: "local", repositoryMode: "dynamodb"},
 	}
 

@@ -14,6 +14,6 @@ type Repository interface {
 	ClaimTransaction(context.Context, PurchaseSessionID, domain.ID, domain.Timestamp) (BrowserPurchaseSession, error)
 	Complete(context.Context, BrowserPurchaseSession) error
 	CreateChallenge(context.Context, BrowserPurchaseRecoveryChallengeRecord) error
-	GetChallenge(context.Context, RecoveryChallengeID) (BrowserPurchaseRecoveryChallengeRecord, error)
+	GetChallenge(context.Context, PurchaseSessionID, RecoveryChallengeID) (BrowserPurchaseRecoveryChallengeRecord, error)
 	Recover(context.Context, BrowserPurchaseSession, string, BrowserPurchaseRecoveryChallengeRecord) error
 }

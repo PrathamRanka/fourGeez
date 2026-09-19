@@ -29,7 +29,7 @@ module "application" {
   project_name                         = var.project_name
   web_origin                           = var.web_origin
   lambda_artifact_path                 = var.api_lambda_artifact_path
-  lambda_artifact_sha256               = var.api_lambda_artifact_sha256
+  lambda_artifact_sha256               = var.api_deployment_enabled ? filebase64sha256(var.api_lambda_artifact_path) : null
   lambda_memory_size_mb                = var.api_memory_size_mb
   lambda_timeout_seconds               = var.api_timeout_seconds
   lambda_reserved_concurrency          = var.api_reserved_concurrency
@@ -49,4 +49,7 @@ module "application" {
   seller_identity_issuer               = module.identity.issuer
   seller_user_pool_id                  = module.identity.user_pool_id
   seller_user_pool_client_id           = module.identity.user_pool_client_id
+  facilitator_url                      = var.x402_facilitator_url
+  x402_network                         = var.x402_network
+  x402_asset                           = var.x402_asset
 }

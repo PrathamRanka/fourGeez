@@ -121,6 +121,22 @@ func intentPartitionKey(intentID string) string {
 	return "INTENT#" + intentID
 }
 
+func purchaseSessionPartitionKey(purchaseSessionID string) string {
+	return "PURCHASE_SESSION#" + purchaseSessionID
+}
+
+func browserGrantPartitionKey(grantHash string) string {
+	return "BROWSER_GRANT#" + grantHash
+}
+
+func browserGrantPurchaseSortKey(purchaseSessionID string) string {
+	return "PURCHASE#" + purchaseSessionID
+}
+
+func browserRecoverySortKey(challengeID string) string {
+	return "RECOVERY#" + challengeID
+}
+
 // approvalPartitionKey returns the documented approval-session partition key.
 func approvalPartitionKey(sessionID string) string {
 	return "APPROVAL#" + sessionID

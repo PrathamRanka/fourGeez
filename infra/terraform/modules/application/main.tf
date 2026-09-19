@@ -53,11 +53,14 @@ resource "aws_apigatewayv2_api" "http" {
       "content-type",
       "idempotency-key",
       "x-agentpay-csrf",
+      "x-agentpay-agent-key",
+      "x-agentpay-project-key",
+      "payment-signature",
       "x-payment",
     ]
     allow_methods  = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_origins  = [var.web_origin]
-    expose_headers = ["payment-required", "x-payment-response"]
+    expose_headers = ["payment-required", "payment-response", "x-agentpay-request-id"]
     max_age        = 300
   }
 }
@@ -109,7 +112,16 @@ resource "aws_lambda_function" "api" {
       AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN = var.confirmation_grant_pepper_secret_arn
       AGENTPAY_SELLER_USER_POOL_ID                  = var.seller_user_pool_id
       AGENTPAY_SELLER_USER_POOL_CLIENT_ID           = var.seller_user_pool_client_id
+      AGENTPAY_FACILITATOR_URL                      = var.facilitator_url
+      AGENTPAY_X402_NETWORK                         = var.x402_network
+      AGENTPAY_X402_ASSET                           = var.x402_asset
     }
+  }
+
+  logging_config {
+    application_log_level = "INFO"
+    log_format            = "JSON"
+    system_log_level      = "WARN"
   }
 
   depends_on = [
@@ -163,13 +175,12 @@ resource "aws_apigatewayv2_stage" "default" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api[0].arn
     format = jsonencode({
-      requestId        = "$context.requestId"
-      requestTime      = "$context.requestTime"
-      httpMethod       = "$context.httpMethod"
-      routeKey         = "$context.routeKey"
-      status           = "$context.status"
-      responseLength   = "$context.responseLength"
-      integrationError = "$context.integrationErrorMessage"
+      requestId      = "$context.requestId"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      routeKey       = "$context.routeKey"
+      status         = "$context.status"
+      responseLength = "$context.responseLength"
     })
   }
 }

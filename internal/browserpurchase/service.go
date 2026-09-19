@@ -328,7 +328,7 @@ func (service *Service) Recover(ctx context.Context, purchaseSessionID PurchaseS
 	if err != nil {
 		return Recovery{}, err
 	}
-	challenge, err := service.dependencies.Repository.GetChallenge(ctx, challengeID)
+	challenge, err := service.dependencies.Repository.GetChallenge(ctx, purchaseSessionID, challengeID)
 	if err != nil {
 		return Recovery{}, err
 	}

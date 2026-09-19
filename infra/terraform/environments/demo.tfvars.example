@@ -10,3 +10,6 @@ api_deployment_enabled                 = false
 seller_self_registration_enabled       = false
 budget_alert_email                      = null
 monthly_budget_limit_usd                = 25
+x402_facilitator_url                   = "https://x402.org/facilitator"
+x402_network                           = "eip155:84532"
+x402_asset                             = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
