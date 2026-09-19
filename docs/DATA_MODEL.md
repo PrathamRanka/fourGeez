@@ -559,6 +559,12 @@ network outcome is unknown. Records written before this migration that contain
 a payment identifier but no finality are interpreted conservatively as
 `confirmed`, never `finalized`.
 
+The x402 payment authorization lifetime is five minutes. It is independent of
+the seller route's one-to-thirty-second upstream fulfillment timeout: the former
+allows a human wallet holder to review and sign payment terms, while the latter
+bounds only AgentPay's eventual HTTPS call to the seller. Challenges and proofs
+must carry the same frozen authorization lifetime.
+
 Recovery does not create a second transaction or mutate the quote. Before
 verification, a rejected proof may be replaced under the same unexpired intent.
 After verification, an unavailable settlement must retry the identical proof

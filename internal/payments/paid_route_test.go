@@ -42,6 +42,14 @@ func TestPaidRouteServiceResolvesFrozenIntent(t *testing.T) {
 		resolved.Requirements.PayTo != fixture.route.PayTo {
 		t.Fatalf("requirements = %#v", resolved.Requirements)
 	}
+	if resolved.Requirements.MaxTimeoutSeconds != paymentAuthorizationTimeoutSeconds {
+		t.Fatalf(
+			"payment authorization timeout = %d, want %d independent of upstream timeout %d",
+			resolved.Requirements.MaxTimeoutSeconds,
+			paymentAuthorizationTimeoutSeconds,
+			fixture.route.UpstreamTimeoutSeconds,
+		)
+	}
 }
 
 // TestPaidRouteServiceRejectsRouteAndIntentMismatches verifies immutable binding.

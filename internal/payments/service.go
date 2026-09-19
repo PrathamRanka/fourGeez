@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	mockPaymentIdentifierPrefix = "mock_"
-	x402PaymentIdentifierPrefix = "x402_"
-	defaultFacilitatorTimeout   = 8 * time.Second
+	mockPaymentIdentifierPrefix        = "mock_"
+	x402PaymentIdentifierPrefix        = "x402_"
+	defaultFacilitatorTimeout          = 8 * time.Second
+	paymentAuthorizationTimeoutSeconds = 5 * 60
 )
 
 // MockAdapter provides deterministic payment behavior for tests and local use.
@@ -274,7 +275,7 @@ func (service *PaidRouteService) Resolve(
 				"/pay/" + seller.Slug + route.PathPattern,
 			Description:       route.Description,
 			MIMEType:          route.MIMEType,
-			MaxTimeoutSeconds: route.UpstreamTimeoutSeconds,
+			MaxTimeoutSeconds: paymentAuthorizationTimeoutSeconds,
 		},
 	}, nil
 }
