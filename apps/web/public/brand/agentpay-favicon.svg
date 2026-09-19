@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="agentpay-favicon-title">
+  <title id="agentpay-favicon-title">AgentPay</title>
+  <rect width="64" height="64" rx="14" fill="#050506"/>
+  <g transform="translate(4 4) scale(1.4)">
+    <path d="M20 3.5 34.3 11.8v16.4L20 36.5 5.7 28.2V11.8L20 3.5Z" fill="#050506" stroke="#f7f7f4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m13.1 22.2 5.1-8.4h4.2l4.5 7.3M15.6 18.3h8.8" fill="none" stroke="#f7f7f4" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
