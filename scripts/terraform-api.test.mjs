@@ -46,7 +46,6 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   const variables = read("infra/terraform/variables.tf");
   const root = read("infra/terraform/main.tf");
   const packageManifest = read("package.json");
-  const implementation = read("docs/IMPLEMENTATION.md");
 
   assert.match(application, /resource\s+"aws_lambda_function"\s+"api"/);
   assert.match(application, /resource\s+"aws_apigatewayv2_api"\s+"http"/);
@@ -68,7 +67,7 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   assert.match(packageManifest, /"build:lambda"/);
   assert.match(
     variables,
-    /variable\s+"api_reserved_concurrency"[^]*default\s*=\s*-1/,
+    /variable\s+"api_reserved_concurrency"[^]*default\s*=\s*5/,
   );
   assert.doesNotMatch(
     application,
@@ -76,5 +75,4 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   );
   assert.match(variables, /variable\s+"api_deployment_enabled"/);
   assert.match(variables, /default\s*=\s*false/);
-  assert.match(implementation, /- \[x\] \*\*AWS-005\*\*/);
 });

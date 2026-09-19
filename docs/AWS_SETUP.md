@@ -100,10 +100,7 @@ for Lean V1. AWS deployment must not expose their REST or WebSocket surfaces.
 ### Application module
 
 - Go Lambda using ARM64 when all dependencies support it.
-- API Gateway throttling is mandatory. Demo/production also use a reviewed
-  positive Lambda reservation; development may use unreserved concurrency when
-  the account quota is only 10 and AWS requires all 10 executions to remain
-  unreserved.
+- Reserved concurrency set to a small non-zero demo value and adjusted through load testing.
 - API Gateway HTTP API with JWT-protected seller routes and Lambda authorization/validation for agent credentials.
 - No API Gateway WebSocket API is deployed for Lean V1. The historical buyer-approval channel remains disabled under ADR-043.
 - A remote HTTPS MCP endpoint using seller-scoped credentials and the same application-domain services as the seller control API.
@@ -111,12 +108,13 @@ for Lean V1. AWS deployment must not expose their REST or WebSocket surfaces.
 - Lambda environment variables contain references and identifiers, not secret values.
 - CloudWatch structured JSON logs with request IDs and redaction.
 
-AWS-005 is deployed in development. The production-shaped composition uses
-DynamoDB repositories, Secrets Manager/KMS-backed cryptography and seller
-secrets, protected S3 evidence storage, KMS signing, the Lambda HTTP adapter,
-API Gateway JWT protection for seller routes, and protocol-specific
-authentication inside the Go boundary for public, browser-purchase, and MCP
-routes.
+AWS-005 application resources are reproducible but remain disabled by
+`api_deployment_enabled = false` until the durable composition and account
+concurrency gate both pass. The production composition uses DynamoDB
+repositories, Secrets Manager/KMS-backed cryptography and webhook secrets,
+protected S3 evidence storage, KMS signing, and the Lambda HTTP adapter. Do not
+enable or apply the application module merely to deploy an empty shell or to
+bypass the required non-zero reserved-concurrency guard.
 
 New AWS accounts can have an applied regional Lambda concurrency quota of 10,
 even though the documented default quota is higher. Lambda requires at least 10
@@ -128,12 +126,11 @@ aws lambda get-account-settings --profile agentpay-india --region ap-south-1
 aws service-quotas list-service-quotas --service-code lambda --profile agentpay-india --region ap-south-1
 ```
 
-Development sets `api_reserved_concurrency = -1` while the quota remains 10 and
-uses the HTTP API's rate-10/burst-20 throttle as its load and cost guard. The
-open quota request should still be monitored. Before demo or production, set a
-positive reservation only after the applied concurrency is greater than
-`10 + api_reserved_concurrency`, regenerate the plan, and never reuse a plan
-created before the quota change.
+Do not remove `reserved_concurrent_executions` to work around this gate. Submit
+the quota request required by AWS, keep `api_deployment_enabled = false`, and
+leave no partial Lambda or HTTP API deployed until the applied concurrency is
+greater than `10 + api_reserved_concurrency`. After approval, regenerate and
+review the plan; never reuse a plan created before the quota change.
 
 ### Bedrock application permissions
 
@@ -238,8 +235,9 @@ terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars -out=dev
 terraform -chdir=infra/terraform apply dev.tfplan
 ```
 
-For AWS-005, set `api_deployment_enabled = true` in the ignored environment
-tfvars. Build the reviewed artifact immediately before planning:
+For AWS-005, set `api_deployment_enabled = true` only in the ignored
+environment tfvars after the concurrency check passes. Build the reviewed
+artifact immediately before planning:
 
 ```powershell
 npm run build:lambda
@@ -247,9 +245,9 @@ terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars -out=aws
 terraform -chdir=infra/terraform apply aws-005.tfplan
 ```
 
-The reviewed plan must contain no unrelated destruction and must retain ARM64,
-the environment's reviewed concurrency setting, API throttles, seven-day logs,
-the canonical web-origin CORS allowlist, and no WebSocket API.
+The reviewed plan must contain no destruction and must retain ARM64, the
+configured non-zero reserved concurrency, API throttles, seven-day logs, the
+canonical web-origin CORS allowlist, and no WebSocket API.
 
 After initialization, verify that the state object and its `.tflock` companion
 can be created only through authenticated TLS requests and that a second
@@ -350,8 +348,7 @@ Create alarms for any evidence-write failure, repeated payment replay, 5xx spike
   recipient is supplied only through the ignored environment tfvars; committed
   examples keep it null. Alerts fire at 50%, 80%, and 100% actual spend and at
   100% forecasted spend.
-- Use DynamoDB on-demand capacity, API Gateway throttling, and Lambda reserved
-  concurrency when the environment's account quota permits it.
+- Use DynamoDB on-demand capacity and Lambda reserved concurrency.
 - Limit CloudWatch log retention in development.
 - Set Bedrock maximum output tokens and per-request tool-call limits.
 - Disable unused NAT gateways; the planned serverless deployment does not require a VPC for the hackathon.
