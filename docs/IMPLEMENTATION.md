@@ -212,7 +212,7 @@ Each task remains independently tested and committed.
 
 - [x] **DX-000** Reconcile the seller MCP security and transport documents with the implemented local LCH-010 runtime: project-key bootstrap, short-lived bearer access at `/mcp`, cloud-issued one-time mutation confirmation, and the remaining AWS/package-distribution release blockers.
 - [x] **DX-001** Expose deterministic maintained-stack detection through the authenticated MCP and allow repository route analysis for every language family represented by the exact 21-stack matrix. The coding agent must use bounded committed evidence and cannot select an unevidenced stack.
-- [ ] **DX-002** Add a Windows/PowerShell-first connector preflight and actionable secret-safe diagnostics, then publish exact Claude Code, Codex, and generic-host setup steps that do not place a project key in committed configuration.
+- [x] **DX-002** Add a Windows/PowerShell-first connector preflight and actionable secret-safe diagnostics, then publish exact Claude Code, Codex, and generic-host setup steps that do not place a project key in committed configuration.
 
 M7.2 acceptance: a first-time seller can identify an evidenced maintained
 stack, select the matching setup workflow, diagnose local connector

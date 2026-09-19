@@ -92,6 +92,7 @@ func (service *Service) BundleV2(host Host) (BundleV2, error) {
 		MCPEndpointEnvironmentVariable: MCPEndpointEnvironmentVariable,
 		CredentialEnvironmentVariable:  CredentialEnvironmentVariable,
 		Configuration:                  configuration,
+		WindowsPowerShellSetup:         windowsPowerShellSetup(host),
 		Stacks:                         stackSetups(),
 		Workflow:                       workflowStepsV2(),
 		GenerationRequirements:         generationRequirements(),
@@ -178,9 +179,8 @@ func configurationForHost(host Host) (Configuration, error) {
 			Template: `[mcp_servers.agentpay]
 command = "npx"
 args = ["--yes", "@agentpay/local-mcp-connector@0.1.0"]
-env_vars = ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY", "AGENTPAY_MCP_SCOPES"]
-required = true
-default_tools_approval_mode = "writes"`,
+env_vars = ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY"]
+required = true`,
 		}, nil
 	case HostGenericMCP:
 		return Configuration{
@@ -191,11 +191,31 @@ default_tools_approval_mode = "writes"`,
   "transport": "stdio",
   "command": "npx",
   "args": ["--yes", "@agentpay/local-mcp-connector@0.1.0"],
-  "environmentVariables": ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY", "AGENTPAY_MCP_SCOPES"]
+  "requiredEnvironmentVariables": ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY"],
+  "optionalEnvironmentVariables": ["AGENTPAY_MCP_SCOPES", "AGENTPAY_REQUEST_TIMEOUT_MS", "AGENTPAY_MAX_MESSAGE_BYTES"]
 }`,
 		}, nil
 	default:
 		return Configuration{}, ErrUnsupportedHost
+	}
+}
+
+// windowsPowerShellSetup returns secret-safe first-run instructions for one host.
+func windowsPowerShellSetup(host Host) []string {
+	steps := []string{
+		`$env:AGENTPAY_API_BASE_URL = "<API base URL shown in AgentPay>"`,
+		`$env:AGENTPAY_PROJECT_KEY = "<project key shown once in AgentPay>"`,
+		`npx --yes @agentpay/local-mcp-connector@0.1.0 --check`,
+	}
+	switch host {
+	case HostClaudeCode:
+		return append(steps, `Start Claude Code from this PowerShell session after saving .mcp.json: claude`)
+	case HostCodex:
+		return append(steps, `Start Codex from this PowerShell session after saving .codex/config.toml: codex`)
+	case HostGenericMCP:
+		return append(steps, `Start the generic MCP host from this PowerShell session after importing agentpay.mcp.json.`)
+	default:
+		return steps
 	}
 }
 

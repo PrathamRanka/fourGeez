@@ -80,6 +80,7 @@ type BundleV2 struct {
 	MCPEndpointEnvironmentVariable string        `json:"mcpEndpointEnvironmentVariable"`
 	CredentialEnvironmentVariable  string        `json:"credentialEnvironmentVariable"`
 	Configuration                  Configuration `json:"configuration"`
+	WindowsPowerShellSetup         []string      `json:"windowsPowerShellSetup"`
 	Stacks                         []StackSetup  `json:"stacks"`
 	Workflow                       []string      `json:"workflow"`
 	GenerationRequirements         []string      `json:"generationRequirements"`

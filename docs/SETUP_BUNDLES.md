@@ -36,6 +36,13 @@ Each JSON resource contains:
 - the ordered integration workflow; and
 - the prompt used to prepare a reviewable seller-repository change.
 
+Version 2 also includes a Windows PowerShell setup sequence and a connector
+preflight command. The sequence sets the API base URL and project key only in
+the current process environment, verifies the requested scopes by exchanging
+the project key for a short-lived capability, and then starts the selected MCP
+host. It never writes the raw project key into `.mcp.json`,
+`.codex/config.toml`, `agentpay.mcp.json`, or committed files.
+
 Version 2 additionally contains the complete explicit stack matrix, each
 stack's support tier, pinned language verification setup when available,
 stack-native integration notes, and the required SEO/AEO validation checklist.
@@ -54,16 +61,26 @@ or deployment credential.
   connector with `npx` and passes the API base URL and project key as process
   environment variables.
 - Codex uses project-scoped `.codex/config.toml` with the same stdio command and
-  allowlisted environment-variable names.
+  only the two required allowlisted environment-variable names. The optional
+  `AGENTPAY_MCP_SCOPES` variable is omitted so Codex does not treat it as a
+  required startup input; the connector's fixed default scopes apply.
 - Generic hosts receive an AgentPay-neutral JSON descriptor naming the stdio
-  command, pinned connector package, and required environment variables. The
-  host must map those values into its supported local-process configuration.
+  command, pinned connector package, required environment variables, and
+  separately labeled optional environment variables. The host must map those
+  values into its supported local-process configuration.
 
 The connector exchanges the project key only at
 `POST /v1/integration-access-tokens`, keeps the returned 2-5 minute capability
 in process memory, and relays bounded JSON-RPC to `/mcp`. The project key is
 never sent to `/mcp`, and direct remote OAuth configuration is not published in
 Lean V1.
+
+Running the pinned connector with `--check` performs configuration validation,
+the proprietary project-key exchange, and one read-only authenticated MCP
+initialization. It does not invoke a seller tool or mutation. Success reports no
+token, seller identifier, credential identifier, or secret. Failure output is
+limited to an actionable static configuration message or sanitized HTTP status,
+stable error code, request ID, and retry delay.
 
 ## Setup prompt
 

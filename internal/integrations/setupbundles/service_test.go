@@ -196,6 +196,19 @@ func TestServicePublishesStackAwareVersionTwoBundles(t *testing.T) {
 		if bundle.SchemaVersion != SchemaVersionV2 || len(bundle.Stacks) != 21 {
 			t.Fatalf("bundle = %#v", bundle)
 		}
+		powerShellSetup := strings.Join(bundle.WindowsPowerShellSetup, "\n")
+		for _, fragment := range []string{
+			"$env:AGENTPAY_API_BASE_URL",
+			"$env:AGENTPAY_PROJECT_KEY",
+			"--check",
+		} {
+			if !strings.Contains(powerShellSetup, fragment) {
+				t.Fatalf("PowerShell setup omitted %q: %s", fragment, powerShellSetup)
+			}
+		}
+		if strings.Contains(powerShellSetup, "apc2.") {
+			t.Fatal("PowerShell setup embedded a project credential")
+		}
 		if bundle.Stacks[0].Stack != "nextjs" ||
 			!strings.Contains(strings.Join(bundle.Stacks[0].IntegrationNotes, "\n"), "metadata API") {
 			t.Fatalf("Next.js stack setup = %#v", bundle.Stacks[0])
@@ -212,6 +225,36 @@ func TestServicePublishesStackAwareVersionTwoBundles(t *testing.T) {
 			if !strings.Contains(strings.Join(bundle.GenerationRequirements, "\n"), requirement) {
 				t.Fatalf("bundle omitted %q", requirement)
 			}
+		}
+	}
+}
+
+// TestServicePublishesHostConfigurationWithoutMakingOptionalScopesRequired
+// verifies first-run host setup remains valid when AGENTPAY_MCP_SCOPES is unset.
+func TestServicePublishesHostConfigurationWithoutMakingOptionalScopesRequired(t *testing.T) {
+	t.Parallel()
+
+	service := NewService()
+	codex, err := service.BundleV2(HostCodex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(codex.Configuration.Template, "AGENTPAY_MCP_SCOPES") ||
+		strings.Contains(codex.Configuration.Template, "default_tools_approval_mode") {
+		t.Fatalf("Codex configuration contains unsupported or optional required fields: %s", codex.Configuration.Template)
+	}
+
+	generic, err := service.BundleV2(HostGenericMCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		`"requiredEnvironmentVariables"`,
+		`"optionalEnvironmentVariables"`,
+		`"AGENTPAY_MCP_SCOPES"`,
+	} {
+		if !strings.Contains(generic.Configuration.Template, fragment) {
+			t.Fatalf("generic configuration omitted %q: %s", fragment, generic.Configuration.Template)
 		}
 	}
 }

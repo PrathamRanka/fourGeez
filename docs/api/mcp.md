@@ -27,6 +27,13 @@ narrows requested scopes to `read`, `configure`, `publish`, or `validate`, and r
 proxies local MCP traffic; a project key is never configured directly as the
 remote `/mcp` bearer token.
 
+The connector's `--check` preflight validates its environment, performs one
+project-key exchange, and sends one read-only MCP `initialize` request without
+starting stdio proxying or invoking a seller tool. It never prints the project
+key or issued access token. Configuration failures may name the missing or
+invalid environment variable; cloud failures expose only sanitized HTTP status,
+stable error code, request ID, and retry delay.
+
 Lean V1 supports the AgentPay local connector as the only production MCP client
 path. Direct remote OAuth clients and protected-resource metadata are deferred.
 This does not weaken the boundary: the project key is accepted only by the
