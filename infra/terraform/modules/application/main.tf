@@ -1,6 +1,11 @@
 locals {
   resource_prefix       = "${var.project_name}-${var.environment}"
   lambda_log_group_name = "/aws/lambda/${local.resource_prefix}-api"
+  seller_authenticated_routes = toset([
+    "ANY /v1/me/{proxy+}",
+    "ANY /v1/sellers/{sellerId}/{proxy+}",
+    "POST /v1/sellers",
+  ])
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -57,6 +62,20 @@ resource "aws_apigatewayv2_api" "http" {
   }
 }
 
+resource "aws_apigatewayv2_authorizer" "seller" {
+  count = var.deployment_enabled ? 1 : 0
+
+  api_id           = aws_apigatewayv2_api.http[0].id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name             = "${local.resource_prefix}-seller"
+
+  jwt_configuration {
+    audience = [var.seller_user_pool_client_id]
+    issuer   = var.seller_identity_issuer
+  }
+}
+
 resource "aws_lambda_function" "api" {
   count = var.deployment_enabled ? 1 : 0
 
@@ -88,6 +107,8 @@ resource "aws_lambda_function" "api" {
       AGENTPAY_APPLICATION_SECRETS_KMS_KEY_ID       = var.application_secrets_kms_key_id
       AGENTPAY_CREDENTIAL_PEPPER_SECRET_ARN         = var.credential_pepper_secret_arn
       AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN = var.confirmation_grant_pepper_secret_arn
+      AGENTPAY_SELLER_USER_POOL_ID                  = var.seller_user_pool_id
+      AGENTPAY_SELLER_USER_POOL_CLIENT_ID           = var.seller_user_pool_client_id
     }
   }
 
@@ -114,6 +135,16 @@ resource "aws_apigatewayv2_route" "default" {
   api_id    = aws_apigatewayv2_api.http[0].id
   route_key = "$default"
   target    = "integrations/${aws_apigatewayv2_integration.api[0].id}"
+}
+
+resource "aws_apigatewayv2_route" "seller_authenticated" {
+  for_each = var.deployment_enabled ? local.seller_authenticated_routes : toset([])
+
+  api_id             = aws_apigatewayv2_api.http[0].id
+  route_key          = each.value
+  target             = "integrations/${aws_apigatewayv2_integration.api[0].id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.seller[0].id
 }
 
 resource "aws_apigatewayv2_stage" "default" {

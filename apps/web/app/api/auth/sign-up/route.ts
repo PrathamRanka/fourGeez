@@ -25,7 +25,11 @@ export async function POST(request: Request) {
   if (!result.ok)
     return authError(
       result.error,
-      result.code === "account_exists" ? 409 : 400,
+      result.code === "dependency_unavailable"
+        ? 503
+        : result.code === "account_exists"
+          ? 409
+          : 400,
     );
   await setPendingChallenge(
     pendingVerificationCookie,

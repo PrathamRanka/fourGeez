@@ -21,7 +21,11 @@ export async function POST(request: Request) {
     code: String(body.code ?? ""),
     password: String(body.password ?? ""),
   });
-  if (!result.ok) return authError(result.error, 400);
+  if (!result.ok)
+    return authError(
+      result.error,
+      result.code === "dependency_unavailable" ? 503 : 400,
+    );
   await clearPendingChallenge(pendingRecoveryCookie);
   return authJson({ redirectTo: "/sign-in?recovered=1" });
 }

@@ -249,6 +249,38 @@ export function VerifyForm({ returnTo }: { returnTo: string }) {
   );
 }
 
+export function ResendVerificationForm() {
+  const form = useSecureAuthForm();
+  return (
+    <form
+      className={styles.form}
+      aria-label="Resend seller verification code"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const fields = new FormData(event.currentTarget);
+        void form.submit("/api/auth/verification/resend", {
+          email: String(fields.get("email") ?? ""),
+        });
+      }}
+    >
+      <label>
+        <span>Work email</span>
+        <input name="email" type="email" autoComplete="email" required />
+      </label>
+      <FormMessage error={form.error} />
+      <DevelopmentCode code={form.developmentCode} nextPath={null} />
+      <Button
+        className={styles.secondaryAction}
+        type="submit"
+        variant="outline"
+        disabled={!form.csrfReady || form.pending}
+      >
+        {form.pending ? "Sending…" : "Send a new code"}
+      </Button>
+    </form>
+  );
+}
+
 export function SignInForm({ returnTo }: { returnTo: string }) {
   const form = useSecureAuthForm();
   return (

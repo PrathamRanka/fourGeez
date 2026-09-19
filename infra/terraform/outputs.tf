@@ -63,6 +63,21 @@ output "evidence_verifier_role_arn" {
   value       = module.foundation.evidence_verifier_role_arn
 }
 
+output "seller_user_pool_id" {
+  description = "Cognito user pool for AGENTPAY_SELLER_USER_POOL_ID."
+  value       = module.identity.user_pool_id
+}
+
+output "seller_user_pool_client_id" {
+  description = "Cognito app client for AGENTPAY_SELLER_USER_POOL_CLIENT_ID."
+  value       = module.identity.user_pool_client_id
+}
+
+output "seller_identity_issuer" {
+  description = "Exact Cognito issuer pinned by the Go and API Gateway verifiers."
+  value       = module.identity.issuer
+}
+
 output "http_api_url" {
   description = "HTTP API origin for AGENTPAY_HTTP_API_URL; null while AWS-005 deployment is disabled."
   value       = module.application.http_api_url

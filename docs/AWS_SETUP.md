@@ -36,8 +36,10 @@ Local and CI configuration names:
 
 ```text
 AGENTPAY_ENV=dev
+AGENTPAY_IDENTITY_MODE=cognito
 AWS_REGION=ap-south-1
 AGENTPAY_WEB_ORIGIN=https://agentpay.prathamranka.in
+AGENTPAY_API_ORIGIN=<Terraform http_api_url output>
 AGENTPAY_TABLE_NAME=<Terraform output>
 AGENTPAY_EVIDENCE_BUCKET=<Terraform output>
 AGENTPAY_EVIDENCE_KMS_KEY_ID=<Terraform output>
@@ -48,6 +50,7 @@ AGENTPAY_CREDENTIAL_PEPPER_SECRET_ARN=<Terraform output>
 AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_ID=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<Terraform output>
+AGENTPAY_SESSION_ENCRYPTION_KEY=<Vercel-only base64url 32-byte secret>
 AGENTPAY_HTTP_API_URL=<Terraform output>
 AGENTPAY_MCP_URL=<Terraform output>
 AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
@@ -79,9 +82,17 @@ enable it.
 
 - Cognito user pool for seller accounts.
 - Email sign-in for the hackathon.
-- Self-registration disabled in the demo environment; seed approved seller users through a runbook.
+- Self-registration enabled in development and disabled in the demo environment;
+  seed approved demo sellers through an operator runbook.
 - App client without a client secret for browser use.
 - API Gateway JWT authorizer accepting only the configured pool, client, issuer, and audience.
+- The BFF uses Cognito service APIs rather than Hosted UI redirects, so there
+  is no Cognito callback URL to configure. Exact-Origin and CSRF checks remain
+  pinned to `https://agentpay.prathamranka.in`.
+- Vercel stores only an AES-256-GCM-sealed, Secure, HttpOnly,
+  SameSite=Strict session cookie. Cognito tokens are never available to browser
+  JavaScript. Access tokens refresh only inside the trusted BFF, and the seller
+  session has an eight-hour absolute lifetime.
 
 Historical buyer-approval participants and invitation-token flows are disabled
 for Lean V1. AWS deployment must not expose their REST or WebSocket surfaces.
@@ -219,6 +230,27 @@ storage because it remains the recovery record for the protected backend.
 
 Deploy the web application only after recording the HTTP API and Cognito outputs.
 
+For the Vercel production project, configure these server-only environment
+variables after AWS-005 has produced a real API origin:
+
+```text
+AGENTPAY_ENV=dev
+AGENTPAY_IDENTITY_MODE=cognito
+AGENTPAY_WEB_ORIGIN=https://agentpay.prathamranka.in
+AGENTPAY_API_ORIGIN=<http_api_url>
+AWS_REGION=ap-south-1
+AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<seller_user_pool_client_id>
+AGENTPAY_SESSION_ENCRYPTION_KEY=<independently generated 32-byte base64url value>
+```
+
+Generate the session key locally and paste it directly into the encrypted
+Vercel environment-variable prompt. Do not write it to a file, commit it, pass
+it through Terraform, or paste it into issue or chat history:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
 No step may require an undocumented console change except initial account/Bedrock provider access. If a console action is unavoidable, add it here with the exact verification command.
 
 ## Seed and smoke test
@@ -257,7 +289,10 @@ Create alarms for any evidence-write failure, repeated payment replay, 5xx spike
 
 ## Cost controls
 
-- Add account budget alerts before deployment.
+- The development account uses a Terraform-managed monthly cost budget. The
+  recipient is supplied only through the ignored environment tfvars; committed
+  examples keep it null. Alerts fire at 50%, 80%, and 100% actual spend and at
+  100% forecasted spend.
 - Use DynamoDB on-demand capacity and Lambda reserved concurrency.
 - Limit CloudWatch log retention in development.
 - Set Bedrock maximum output tokens and per-request tool-call limits.

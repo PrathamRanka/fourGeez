@@ -232,10 +232,18 @@ authorization, revocation, transaction, and failure semantics proven locally.
 - [x] **AWS-003** Create versioned Object Lock evidence bucket and KMS signing key. The Mumbai development bucket uses KMS encryption, versioning, public-access blocking, TLS-only access, and 30-day governance retention; its protected asymmetric P-256 key successfully signs with ECDSA-SHA256.
 - [x] **AWS-004** Create Secrets Manager entries, KMS/HSM-backed capability-signing keys, API-key digest pepper storage, JWKS publication/rotation support, and least-privilege IAM roles without exposing signing material to application configuration or sellers. The development account now has empty KMS-encrypted pepper containers, additive versioned ES256 capability keys, a rotating envelope-encryption key, and independently verified API and evidence-verifier permissions.
 - [ ] **AWS-005** Deploy the Go Lambda behind one HTTP API serving REST and the `/mcp` endpoint, with stages, throttles, and access logs. The historical approval WebSocket remains disabled and is not deployed for Lean V1.
-- [ ] **AWS-006** Configure Cognito seller authentication.
+- [x] **AWS-006** Configure Cognito seller authentication. The Mumbai
+  development environment now has an email-verified seller user pool and a
+  no-secret, revocable web/BFF client. The production web adapter implements
+  registration, verification, password recovery, sign-in, Cognito
+  revalidation, bounded access-token refresh, global sign-out, exact-Origin
+  CSRF protection, claim-derived seller hydration, and AES-256-GCM-sealed
+  Secure HttpOnly sessions without exposing Cognito tokens to browser
+  JavaScript. API Gateway JWT protection is
+  prewired for seller-only route families and remains disabled with AWS-005.
 - [ ] **AWS-007** Configure Bedrock model access and runtime permissions.
 - [ ] **AWS-008** Deploy Next.js and configure environment-specific API origins.
-- [ ] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, and seller failures.
+- [ ] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, and seller failures. The development account budget and email thresholds are deployed early as a cost-control prerequisite; runtime dashboards and alarms remain pending.
 - [ ] **AWS-010** Verify teardown behavior while retaining protected evidence resources.
 - [ ] **AWS-011** Provision a private TLS-protected managed Redis-compatible cache for entitlement epochs, bounded entitlement caching, revocation, replay, idempotency, rate limits, and discovery invalidation; configure authentication, subnet/security boundaries, metrics, alarms, and failure testing while retaining DynamoDB as source of truth.
 - [ ] **AWS-012** Deploy the durable subscription/credential outbox processor and cache/CDN invalidation consumers with retry, dead-letter handling, revision recovery, and observability.

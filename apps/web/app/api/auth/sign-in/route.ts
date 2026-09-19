@@ -6,6 +6,7 @@ import {
   requireCsrf,
 } from "@/features/auth/server/bff";
 import { getIdentityAdapter } from "@/features/auth/server/identity";
+import { hydrateSellerPrincipal } from "@/features/auth/server/seller-principal";
 import { establishSellerSession } from "@/features/auth/server/session";
 
 export async function POST(request: Request) {
@@ -22,10 +23,20 @@ export async function POST(request: Request) {
       result.error,
       result.code === "dependency_unavailable" ? 503 : 401,
     );
-  await establishSellerSession(result.value);
+  const authentication =
+    process.env.AGENTPAY_IDENTITY_MODE === "cognito"
+      ? await hydrateSellerPrincipal(result.value)
+      : result;
+  if (!authentication.ok) {
+    return authError(
+      authentication.error,
+      authentication.code === "session_revoked" ? 401 : 503,
+    );
+  }
+  await establishSellerSession(authentication.value);
   return authJson({
     redirectTo: postAuthenticationPath(
-      result.value.principal,
+      authentication.value.principal,
       String(body.returnTo ?? "/dashboard"),
     ),
   });

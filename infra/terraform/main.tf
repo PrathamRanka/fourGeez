@@ -11,6 +11,16 @@ module "foundation" {
   tags                                  = local.common_tags
 }
 
+module "identity" {
+  source = "./modules/identity"
+
+  aws_region                = var.aws_region
+  environment               = var.environment
+  project_name              = var.project_name
+  self_registration_enabled = var.seller_self_registration_enabled
+  tags                      = local.common_tags
+}
+
 module "application" {
   source = "./modules/application"
 
@@ -36,4 +46,7 @@ module "application" {
   application_secrets_kms_key_id       = module.foundation.application_secrets_kms_key_id
   credential_pepper_secret_arn         = module.foundation.credential_pepper_secret_arn
   confirmation_grant_pepper_secret_arn = module.foundation.confirmation_grant_pepper_secret_arn
+  seller_identity_issuer               = module.identity.issuer
+  seller_user_pool_id                  = module.identity.user_pool_id
+  seller_user_pool_client_id           = module.identity.user_pool_client_id
 }
