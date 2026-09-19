@@ -108,7 +108,7 @@ describe("AgentPay public routes", () => {
     ).toHaveAttribute("href", "tel:+917023206003");
     expect(
       screen.getByRole("link", { name: "Email Ayush Garg" }),
-    ).toHaveAttribute("href", "mailto:gargayush@gmail.com");
+    ).toHaveAttribute("href", "mailto:gargayush1911@gmail.com");
     expect(
       screen.getByRole("link", { name: "Call Ayush Garg" }),
     ).toHaveAttribute("href", "tel:+919588791911");

@@ -17,7 +17,7 @@ const contacts = [
   {
     name: "Ayush Garg",
     role: "Co-Founder",
-    email: "gargayush@gmail.com",
+    email: "gargayush1911@gmail.com",
     phone: "+91 95887 91911",
     phoneHref: "tel:+919588791911",
   },
