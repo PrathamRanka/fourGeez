@@ -1,14 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="agentpay-icon-title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="agentpay-icon-title">
   <title id="agentpay-icon-title">AgentPay</title>
   <defs>
-    <linearGradient id="agentpay-ring" x1="13" y1="12" x2="51" y2="53" gradientUnits="userSpaceOnUse">
+    <linearGradient id="agentpay-rail" x1="3" y1="7" x2="46" y2="40" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2979ff"/>
       <stop offset="1" stop-color="#ff5aa5"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#050506"/>
-  <g transform="translate(4 4) scale(1.4)">
-    <path d="M20 3.5 34.3 11.8v16.4L20 36.5 5.7 28.2V11.8L20 3.5Z" fill="#050506" stroke="url(#agentpay-ring)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="m13.1 22.2 5.1-8.4h4.2l4.5 7.3M15.6 18.3h8.8" fill="none" stroke="#f7f7f4" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
+  <rect width="48" height="48" rx="9" fill="#050506"/>
+  <path d="M3 40 18 6h9L12 40H3ZM24 6h9l13 17-15 17H20l15-17L24 6Z" fill="url(#agentpay-rail)" fill-rule="evenodd" clip-rule="evenodd"/>
 </svg>

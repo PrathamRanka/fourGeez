@@ -4,10 +4,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { metadata } from "@/app/layout";
 import manifest from "@/app/manifest";
-import {
-  AGENTPAY_SYMBOL_FRAME_PATH,
-  AGENTPAY_SYMBOL_LETTER_PATH,
-} from "@/components/site/brand-symbol";
+import { AGENTPAY_SYMBOL_PATH } from "@/components/site/brand-symbol";
 import { BrandMark } from "@/components/site/brand-mark";
 
 const BRAND_ASSET_DIRECTORY = path.resolve(process.cwd(), "public/brand");
@@ -29,14 +26,12 @@ describe("AgentPay brand assets", () => {
 
     expect(container.querySelector("svg")).toHaveAttribute(
       "viewBox",
-      "0 0 40 40",
+      "0 0 48 48",
     );
     expect(
-      container.querySelector(`path[d="${AGENTPAY_SYMBOL_FRAME_PATH}"]`),
+      container.querySelector(`path[d="${AGENTPAY_SYMBOL_PATH}"]`),
     ).toBeInTheDocument();
-    expect(
-      container.querySelector(`path[d="${AGENTPAY_SYMBOL_LETTER_PATH}"]`),
-    ).toBeInTheDocument();
+    expect(container.querySelectorAll("path")).toHaveLength(1);
   });
 
   it("ships a text-free vector master and correctly sized app icons", () => {
@@ -53,18 +48,21 @@ describe("AgentPay brand assets", () => {
       "utf8",
     );
 
-    expect(symbolSource).toContain(AGENTPAY_SYMBOL_FRAME_PATH);
-    expect(symbolSource).toContain(AGENTPAY_SYMBOL_LETTER_PATH);
-    expect(symbolSource).toContain('stroke="currentColor"');
+    expect(symbolSource).toContain(AGENTPAY_SYMBOL_PATH);
+    expect(symbolSource).toContain('fill="currentColor"');
+    expect(symbolSource).toContain('fill-rule="evenodd"');
+    expect(symbolSource).not.toContain(
+      "M20 3.5 34.3 11.8v16.4L20 36.5 5.7 28.2V11.8L20 3.5Z",
+    );
     expect(symbolSource).not.toContain("linearGradient");
     expect(symbolSource).not.toMatch(/<text\b/i);
-    expect(iconSource).toContain(AGENTPAY_SYMBOL_FRAME_PATH);
-    expect(iconSource).toContain(AGENTPAY_SYMBOL_LETTER_PATH);
+    expect(iconSource).toContain(AGENTPAY_SYMBOL_PATH);
     expect(iconSource).toContain("#2979ff");
     expect(iconSource).toContain("#ff5aa5");
     expect(iconSource).not.toContain("#ff6d00");
     expect(iconSource).not.toMatch(/<text\b/i);
     expect(faviconSource).toContain("#f7f7f4");
+    expect(faviconSource).toContain(AGENTPAY_SYMBOL_PATH);
     expect(faviconSource).not.toContain("linearGradient");
     expect(faviconSource).not.toContain("#2979ff");
     expect(faviconSource).not.toContain("#ff5aa5");
