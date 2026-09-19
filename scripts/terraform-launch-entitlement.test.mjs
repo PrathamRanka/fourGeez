@@ -15,6 +15,7 @@ test("manual launch entitlement role is optional and seller-partition scoped", (
 
   assert.match(variables, /variable\s+"launch_entitlement_operator_principal_arns"/);
   assert.match(operations, /resource\s+"aws_iam_role"\s+"launch_entitlement_operator"/);
+  assert.match(operations, /dynamodb:PutItem/);
   assert.match(operations, /dynamodb:GetItem/);
   assert.match(operations, /dynamodb:TransactWriteItems/);
   assert.match(operations, /dynamodb:LeadingKeys/);

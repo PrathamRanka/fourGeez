@@ -27,6 +27,7 @@ data "aws_iam_policy_document" "launch_entitlement_operator" {
     sid = "ReadAndAtomicallyChangeSellerEntitlement"
     actions = [
       "dynamodb:GetItem",
+      "dynamodb:PutItem",
       "dynamodb:TransactWriteItems",
     ]
     resources = [module.foundation.table_arn]
