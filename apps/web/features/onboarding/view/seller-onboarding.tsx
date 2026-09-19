@@ -13,9 +13,8 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { DashboardIntegrationMap } from "@/components/dashboard/dashboard-integration-map";
 import { OperationState } from "@/components/dashboard/operation-state";
+import { Button } from "@/components/ui/button";
 import type {
   CredentialCreated,
   OnboardingActions,
@@ -250,213 +249,267 @@ export function SellerOnboarding({
           </div>
         ) : null}
 
-        <OnboardingStep
-          number="01"
-          icon={Store}
-          title="Create your storefront"
-          description="Name the seller experience and point AgentPay at the HTTPS service that fulfills purchases."
-          complete={Boolean(seller)}
+        <SetupSection
+          description="Create the public seller identity, then verify where buyer funds settle."
+          index="01"
+          label="Storefront foundation"
+          layout="foundation"
+          title="Storefront foundation"
         >
-          {seller ? (
-            <div className="onboarding-complete-row">
-              <div>
-                <strong>Storefront created</strong>
-                <span>/store/{seller.slug}</span>
+          <OnboardingStep
+            number="01"
+            icon={Store}
+            title="Create your storefront"
+            description="Name the seller experience and point AgentPay at the HTTPS service that fulfills purchases."
+            complete={Boolean(seller)}
+          >
+            {seller ? (
+              <div className="onboarding-complete-row">
+                <div>
+                  <strong>Storefront created</strong>
+                  <span>/store/{seller.slug}</span>
+                </div>
+                <CheckCircle2 aria-hidden="true" />
               </div>
-              <CheckCircle2 aria-hidden="true" />
-            </div>
-          ) : (
-            <form
-              aria-label="Create storefront"
-              className="onboarding-form"
-              onSubmit={submitStorefront}
-            >
-              <label>
-                <span>Storefront name</span>
-                <input
-                  name="name"
-                  required
-                  maxLength={120}
-                  placeholder="Northstar Research"
-                />
-              </label>
-              <label>
-                <span>Storefront URL name</span>
-                <input
-                  name="slug"
-                  required
-                  minLength={3}
-                  maxLength={48}
-                  pattern="[a-z0-9-]+"
-                  placeholder="northstar-research"
-                />
-              </label>
-              <label className="onboarding-field-wide">
-                <span>Service API URL</span>
-                <input
-                  name="upstreamBaseUrl"
-                  required
-                  type="url"
-                  placeholder="https://api.example.com"
-                />
-              </label>
-              <Button type="submit" disabled={pendingStep === "storefront"}>
-                {pendingStep === "storefront" ? (
-                  <LoaderCircle className="animate-spin" aria-hidden="true" />
-                ) : null}
-                Create storefront
-              </Button>
-            </form>
-          )}
-        </OnboardingStep>
+            ) : (
+              <form
+                aria-label="Create storefront"
+                className="onboarding-form"
+                onSubmit={submitStorefront}
+              >
+                <label>
+                  <span>Storefront name</span>
+                  <input
+                    name="name"
+                    required
+                    maxLength={120}
+                    placeholder="Northstar Research"
+                  />
+                </label>
+                <label>
+                  <span>Storefront URL name</span>
+                  <input
+                    name="slug"
+                    required
+                    minLength={3}
+                    maxLength={48}
+                    pattern="[a-z0-9-]+"
+                    placeholder="northstar-research"
+                  />
+                </label>
+                <label className="onboarding-field-wide">
+                  <span>Service API URL</span>
+                  <input
+                    name="upstreamBaseUrl"
+                    required
+                    type="url"
+                    placeholder="https://api.example.com"
+                  />
+                </label>
+                <Button type="submit" disabled={pendingStep === "storefront"}>
+                  {pendingStep === "storefront" ? (
+                    <LoaderCircle className="animate-spin" aria-hidden="true" />
+                  ) : null}
+                  Create storefront
+                </Button>
+              </form>
+            )}
+          </OnboardingStep>
 
-        <OnboardingStep
-          number="02"
-          icon={WalletCards}
-          title="Verify your payment destination"
-          description="AgentPay asks your wallet to sign a one-time challenge. Private keys never leave the wallet."
-          complete={Boolean(activeDestination)}
+          <OnboardingStep
+            number="02"
+            icon={WalletCards}
+            title="Verify your payment destination"
+            description="AgentPay asks your wallet to sign a one-time challenge. Private keys never leave the wallet."
+            complete={Boolean(activeDestination)}
+          >
+            {activeDestination ? (
+              <div className="onboarding-complete-row">
+                <div>
+                  <strong>Payment destination verified</strong>
+                  <span>{activeDestination.address}</span>
+                </div>
+                <CheckCircle2 aria-hidden="true" />
+              </div>
+            ) : (
+              <div className="onboarding-action-row">
+                <div>
+                  <strong>USDC on Base Sepolia</strong>
+                  <span>V1 testnet destination</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!seller || pendingStep === "wallet"}
+                  onClick={connectWallet}
+                >
+                  {pendingStep === "wallet" ? (
+                    <LoaderCircle className="animate-spin" aria-hidden="true" />
+                  ) : null}
+                  Connect browser wallet
+                </Button>
+              </div>
+            )}
+          </OnboardingStep>
+        </SetupSection>
+
+        <SetupSection
+          description="Issue the scoped project key and connect the coding agent without exposing seller secrets."
+          index="02"
+          label="Payment and agent connection"
+          layout="connection"
+          title="Payment and agent connection"
         >
-          {activeDestination ? (
-            <div className="onboarding-complete-row">
-              <div>
-                <strong>Payment destination verified</strong>
-                <span>{activeDestination.address}</span>
+          <OnboardingStep
+            number="03"
+            icon={KeyRound}
+            title="Create a project connection key"
+            description="This one-time key connects your coding agent to this storefront with only the setup permissions it needs."
+            complete={credentialReady}
+          >
+            {createdCredential ? (
+              <div className="credential-secret">
+                <strong>
+                  Save this project connection key now. It is shown only once.
+                </strong>
+                <code>{createdCredential.token}</code>
               </div>
-              <CheckCircle2 aria-hidden="true" />
-            </div>
-          ) : (
-            <div className="onboarding-action-row">
-              <div>
-                <strong>USDC on Base Sepolia</strong>
-                <span>V1 testnet destination</span>
+            ) : activeCredential ? (
+              <div className="onboarding-complete-row">
+                <div>
+                  <strong>Coding agent connected</strong>
+                  <span>{activeCredential.label}</span>
+                </div>
+                <CheckCircle2 aria-hidden="true" />
               </div>
+            ) : (
               <Button
                 type="button"
-                variant="outline"
-                disabled={!seller || pendingStep === "wallet"}
-                onClick={connectWallet}
+                disabled={!activeDestination || pendingStep === "credential"}
+                onClick={issueCredential}
               >
-                {pendingStep === "wallet" ? (
+                {pendingStep === "credential" ? (
                   <LoaderCircle className="animate-spin" aria-hidden="true" />
                 ) : null}
-                Connect browser wallet
+                Create project connection key
               </Button>
-            </div>
-          )}
-        </OnboardingStep>
+            )}
+          </OnboardingStep>
 
-        <OnboardingStep
-          number="03"
-          icon={KeyRound}
-          title="Create a project connection key"
-          description="This one-time key connects your coding agent to this storefront with only the setup permissions it needs."
-          complete={credentialReady}
-        >
-          {createdCredential ? (
-            <div className="credential-secret">
-              <strong>
-                Save this project connection key now. It is shown only once.
-              </strong>
-              <code>{createdCredential.token}</code>
-            </div>
-          ) : activeCredential ? (
-            <div className="onboarding-complete-row">
-              <div>
-                <strong>Coding agent connected</strong>
-                <span>{activeCredential.label}</span>
-              </div>
-              <CheckCircle2 aria-hidden="true" />
-            </div>
-          ) : (
-            <Button
-              type="button"
-              disabled={!activeDestination || pendingStep === "credential"}
-              onClick={issueCredential}
-            >
-              {pendingStep === "credential" ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : null}
-              Create project connection key
-            </Button>
-          )}
-        </OnboardingStep>
-
-        <OnboardingStep
-          number="04"
-          icon={Code2}
-          title="Connect your coding agent"
-          description="Copy the MCP configuration and the setup prompt into Claude Code, Codex, or another MCP host."
-          complete={credentialReady}
-        >
-          <div className="onboarding-integration-visual">
-            <DashboardIntegrationMap connected={credentialReady} />
-          </div>
-          {createdCredential ? (
-            <div className="onboarding-copy-grid">
-              <div className="onboarding-code-block">
-                <div>
-                  <span>MCP configuration</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Copy MCP configuration"
-                    onClick={() => copyText(mcpConfiguration)}
-                  >
-                    <Clipboard aria-hidden="true" />
-                    Copy
-                  </Button>
+          <OnboardingStep
+            number="04"
+            icon={Code2}
+            title="Connect your coding agent"
+            description="Copy the MCP configuration and the setup prompt into Claude Code, Codex, or another MCP host."
+            complete={credentialReady}
+          >
+            {createdCredential ? (
+              <div className="onboarding-copy-grid">
+                <div className="onboarding-code-block">
+                  <div>
+                    <span>MCP configuration</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Copy MCP configuration"
+                      onClick={() => copyText(mcpConfiguration)}
+                    >
+                      <Clipboard aria-hidden="true" />
+                      Copy
+                    </Button>
+                  </div>
+                  <pre>{mcpConfiguration}</pre>
                 </div>
-                <pre>{mcpConfiguration}</pre>
-              </div>
-              <div className="onboarding-code-block">
-                <div>
-                  <span>Setup prompt</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Copy setup prompt"
-                    onClick={() => copyText(setupPrompt)}
-                  >
-                    <Clipboard aria-hidden="true" />
-                    Copy
-                  </Button>
+                <div className="onboarding-code-block">
+                  <div>
+                    <span>Setup prompt</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Copy setup prompt"
+                      onClick={() => copyText(setupPrompt)}
+                    >
+                      <Clipboard aria-hidden="true" />
+                      Copy
+                    </Button>
+                  </div>
+                  <p>{setupPrompt}</p>
                 </div>
-                <p>{setupPrompt}</p>
               </div>
-            </div>
-          ) : (
-            <p className="onboarding-muted-state">
-              Create a project connection key to reveal setup instructions.
-            </p>
-          )}
-        </OnboardingStep>
+            ) : (
+              <p className="onboarding-muted-state">
+                Create a project connection key to reveal setup instructions.
+              </p>
+            )}
+          </OnboardingStep>
+        </SetupSection>
 
-        <OnboardingStep
-          number="05"
-          icon={ShieldCheck}
-          title="Run the sandbox purchase"
-          description="The coding agent validates discovery, payment gating, signed forwarding, and exactly-once fulfillment before publication."
-          complete={false}
+        <SetupSection
+          description="Validate the first paid route end to end before anything is published."
+          index="03"
+          label="Launch validation"
+          layout="validation"
+          title="Launch validation"
         >
-          <div className="sandbox-readiness">
-            <span
-              className={credentialReady ? "status-ready" : "status-waiting"}
-            >
-              {credentialReady
-                ? "Ready for product validation"
-                : "Waiting for setup"}
-            </span>
-            <p>
-              Product validation becomes available after your coding agent
-              proposes the first paid route.
-            </p>
-          </div>
-        </OnboardingStep>
+          <OnboardingStep
+            number="05"
+            icon={ShieldCheck}
+            title="Run the sandbox purchase"
+            description="The coding agent validates discovery, payment gating, signed forwarding, and exactly-once fulfillment before publication."
+            complete={false}
+          >
+            <div className="sandbox-readiness">
+              <span
+                className={credentialReady ? "status-ready" : "status-waiting"}
+              >
+                {credentialReady
+                  ? "Ready for product validation"
+                  : "Waiting for setup"}
+              </span>
+              <p>
+                Product validation becomes available after your coding agent
+                proposes the first paid route.
+              </p>
+            </div>
+          </OnboardingStep>
+        </SetupSection>
       </div>
     </div>
+  );
+}
+
+type SetupSectionProps = {
+  children: React.ReactNode;
+  description: string;
+  index: string;
+  label: string;
+  layout: "foundation" | "connection" | "validation";
+  title: string;
+};
+
+function SetupSection({
+  children,
+  description,
+  index,
+  label,
+  layout,
+  title,
+}: SetupSectionProps) {
+  return (
+    <section aria-label={label} className="onboarding-section" role="group">
+      <header className="onboarding-section-heading">
+        <span>{index}</span>
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+      </header>
+      <div className={`onboarding-section-grid onboarding-${layout}-grid`}>
+        {children}
+      </div>
+    </section>
   );
 }
 

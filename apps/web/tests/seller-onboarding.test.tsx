@@ -76,6 +76,45 @@ function createActions(): OnboardingActions {
 }
 
 describe("seller onboarding", () => {
+  it("groups the five launch requirements into compact setup sections", () => {
+    render(
+      <SellerOnboarding
+        initialSnapshot={{
+          seller,
+          paymentDestinations: [activeDestination],
+          credentials: [createdCredential],
+        }}
+        actions={createActions()}
+      />,
+    );
+
+    const foundation = screen.getByRole("group", {
+      name: "Storefront foundation",
+    });
+    const connection = screen.getByRole("group", {
+      name: "Payment and agent connection",
+    });
+    const validation = screen.getByRole("group", {
+      name: "Launch validation",
+    });
+
+    expect(
+      within(foundation).getByRole("region", {
+        name: "01 Create your storefront",
+      }),
+    ).toBeVisible();
+    expect(
+      within(connection).getByRole("region", {
+        name: "04 Connect your coding agent",
+      }),
+    ).toBeVisible();
+    expect(
+      within(validation).getByRole("region", {
+        name: "05 Run the sandbox purchase",
+      }),
+    ).toBeVisible();
+  });
+
   it("blocks setup controls for a suspended seller", () => {
     render(
       <SellerOnboarding
@@ -162,10 +201,8 @@ describe("seller onboarding", () => {
       screen.getByRole("button", { name: "Copy setup prompt" }),
     ).toBeEnabled();
     expect(
-      screen.getByRole("region", { name: "AgentPay MCP connection" }),
-    ).toBeVisible();
-    expect(screen.getByText("Seller repository")).toBeVisible();
-    expect(screen.getByText("AgentPay cloud")).toBeVisible();
+      screen.queryByRole("region", { name: "AgentPay integration network" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/ready for product validation/i)).toBeVisible();
 
     const checklist = screen.getByRole("list", {
