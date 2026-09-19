@@ -13,6 +13,10 @@ const (
 	FrameworkGo     Framework = "go"
 	FrameworkNode   Framework = "node"
 	FrameworkPython Framework = "python"
+	FrameworkDotNet Framework = "dotnet"
+	FrameworkJava   Framework = "java"
+	FrameworkRuby   Framework = "ruby"
+	FrameworkPHP    Framework = "php"
 )
 
 // RepositoryManifest contains only allowlisted repository metadata.

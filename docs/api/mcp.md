@@ -93,12 +93,15 @@ unrestricted HTTP requests.
 
 ## Setup prompt
 
-The read-scoped `prepare_agentpay_integration` prompt now requires `host` and
-`stack`. It selects setup bundle v2, includes the stack's support tier,
+The read-scoped `prepare_agentpay_integration` prompt requires `host` and
+`stack`. Before selecting it, the coding agent calls the validate-scoped
+`detect_repository_stacks` tool with bounded committed manifest and source
+evidence. The selected stack must appear in that deterministic result. The
+prompt then selects setup bundle v2, includes the stack's support tier,
 stack-native routing and metadata conventions, and pins the maintained language
-verification package. Unknown and unsupported stacks fail closed. Version-one
-resources remain readable for existing clients, but new prompt invocations use
-version two.
+verification package. Unknown, unsupported, and unevidenced stacks fail closed.
+Version-one resources remain readable for existing clients, but new prompt
+invocations use version two.
 
 The prompt requires technical SEO, AEO, semantic visible content, truthful
 JSON-LD, canonical URLs, robots and sitemap output, `llms.txt`, AgentPay
@@ -142,6 +145,7 @@ fields as a fallback.
 | `validate_route` | `validate` | Returns deterministic publication checks without persisting state; no confirmation grant is required. |
 | `sandbox_validate_route` | `validate` | Probes the dedicated seller sandbox endpoint for discovery, signature, payment-gating, and replay behavior without persisting success. |
 | `publish_route` | `publish` | Consumes a matching confirmation grant, re-runs deterministic and sandbox validation, then conditionally enables one draft route using the bound route version. |
+| `detect_repository_stacks` | `validate` | Reads only bounded committed dependency manifests and allowlisted source markers, then returns every evidenced maintained stack in the fixed 21-stack matrix order. It does not read files itself or accept environment values, credentials, customer data, or deployment configuration. |
 | `analyze_repository` | `validate` | Parses an allowlisted repository manifest and OpenAPI contract into deterministic, unpublished route proposals. |
 | `validate_storefront_artifacts` | `validate` | Validates bounded generated metadata, canonical URLs, robots, sitemap, JSON-LD, semantic content, `llms.txt`, manifest consistency, accessibility facts, and performance budgets without producing a ranking score. |
 
@@ -154,6 +158,14 @@ expired, revoked, or mismatched grant returns `permission_denied` before any
 domain mutation. Tools never accept seller IDs, signing secrets, deployment
 credentials, arbitrary URLs, shell commands, or raw repository contents.
 
+`detect_repository_stacks` accepts a `files` map containing at most 100
+repository-relative allowlisted paths and at most 1 MiB total content. The
+allowlist is `package.json`, `go.mod`, `.go`, `requirements.txt`,
+`pyproject.toml`, `.csproj`, `pom.xml`, `.gradle`, `.gradle.kts`, `Gemfile`, and
+`composer.json`; nested manifests are supported. Environment files, lockfiles,
+absolute paths, traversal, arbitrary source files, and unknown top-level fields
+are rejected.
+
 Publishing checks the seller's current enabled-route count before changing a
 draft. Static route or webhook-subscription exhaustion returns
 `permission_denied`; it is not represented as a transient monthly rate limit.
@@ -162,7 +174,8 @@ draft. Static route or webhook-subscription exhaustion returns
 
 `analyze_repository` accepts at most 512 KiB of OpenAPI JSON or YAML and this
 allowlisted manifest only: `schemaVersion`, `serviceName`, `framework`, and
-`openapiPath`. Framework is one of `go`, `node`, or `python`, and
+`openapiPath`. Framework is one of `go`, `node`, `python`, `dotnet`, `java`,
+`ruby`, or `php`, and
 `schemaVersion` is `agentpay.repository.v1`. Source files, environment values,
 credentials, customer records, prompts, and deployment configuration are not
 accepted.

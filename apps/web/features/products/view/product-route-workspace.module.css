@@ -107,7 +107,7 @@
   padding: 1rem;
   border: 1px solid color-mix(in oklab, var(--destructive) 45%, var(--line));
   border-radius: 0.75rem;
-  background: color-mix(in oklab, var(--destructive) 5%, var(--surface-raised));
+  background: var(--surface-raised);
 }
 
 .workspace :global(.product-error-state > div) {

@@ -119,3 +119,39 @@ func TestServiceRejectsUnsafeOrOversizedAnalysisInput(t *testing.T) {
 		})
 	}
 }
+
+// TestServiceAcceptsEveryMaintainedLanguageFamily keeps route analysis aligned
+// with the exact 21-stack setup matrix.
+func TestServiceAcceptsEveryMaintainedLanguageFamily(t *testing.T) {
+	t.Parallel()
+
+	for _, framework := range []Framework{
+		FrameworkGo,
+		FrameworkNode,
+		FrameworkPython,
+		FrameworkDotNet,
+		FrameworkJava,
+		FrameworkRuby,
+		FrameworkPHP,
+	} {
+		t.Run(string(framework), func(t *testing.T) {
+			t.Parallel()
+
+			result, err := NewService().Analyze(Request{
+				Manifest: RepositoryManifest{
+					SchemaVersion: RepositoryManifestVersion,
+					ServiceName:   "Seller API",
+					Framework:     framework,
+					OpenAPIPath:   "openapi.yaml",
+				},
+				OpenAPI: "openapi: 3.1.0\npaths: {}\n",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Framework != framework {
+				t.Fatalf("framework = %q, want %q", result.Framework, framework)
+			}
+		})
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/integrations/discovery"
+	"github.com/fourgeez/agentpay/internal/integrations/stacks"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -427,6 +428,65 @@ func TestHTTPControllerAnalyzesRepositoryWithoutPublishing(t *testing.T) {
 	proposals, ok := structured["proposals"].([]any)
 	if !ok || len(proposals) != 1 {
 		t.Fatalf("proposals = %#v", structured["proposals"])
+	}
+}
+
+// TestHTTPControllerDetectsMaintainedStacks verifies the coding agent can
+// select a setup prompt from bounded repository evidence rather than guessing.
+func TestHTTPControllerDetectsMaintainedStacks(t *testing.T) {
+	t.Parallel()
+
+	controller := NewHTTPController(
+		&testCredentialAuthenticator{},
+		newTestResourceService(t),
+		nil,
+		analyzer.NewService(),
+	)
+	server := httptest.NewServer(controller)
+	t.Cleanup(server.Close)
+	client := protocol.NewClient(
+		&protocol.Implementation{Name: "agentpay-stack-test", Version: "1.0.0"},
+		nil,
+	)
+	session, err := client.Connect(
+		t.Context(),
+		&protocol.StreamableClientTransport{
+			Endpoint:             server.URL,
+			HTTPClient:           authenticatedHTTPClient("validate-token"),
+			DisableStandaloneSSE: true,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+
+	result, err := session.CallTool(
+		t.Context(),
+		&protocol.CallToolParams{
+			Name: "detect_repository_stacks",
+			Arguments: map[string]any{
+				"files": map[string]any{
+					"package.json": `{"dependencies":{"next":"16.0.0","express":"5.0.0"}}`,
+				},
+			},
+		},
+	)
+	if err != nil || result.IsError {
+		t.Fatalf("CallTool() = (%#v, %v)", result, err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok || structured["schemaVersion"] != stacks.DetectionSchemaVersion {
+		t.Fatalf("structured result = %#v", result.StructuredContent)
+	}
+	detections, ok := structured["detections"].([]any)
+	if !ok || len(detections) != 2 {
+		t.Fatalf("detections = %#v", structured["detections"])
+	}
+	first, ok := detections[0].(map[string]any)
+	if !ok || first["stack"] != string(stacks.StackNextJS) {
+		t.Fatalf("first detection = %#v", detections[0])
 	}
 }
 

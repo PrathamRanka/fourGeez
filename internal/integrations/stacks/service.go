@@ -90,39 +90,61 @@ func normalizeEvidence(files map[string]string) (map[string]string, error) {
 		if cleanPath == "." || filepath.IsAbs(path) || strings.HasPrefix(cleanPath, "../") || strings.ContainsRune(cleanPath, '\x00') {
 			return nil, errors.New("evidence paths must remain inside the repository")
 		}
+		cleanPath = strings.ToLower(cleanPath)
+		if !isAllowedEvidencePath(cleanPath) {
+			return nil, errors.New("repository evidence path is not allowlisted")
+		}
 		totalBytes += len(cleanPath) + len(content)
 		if totalBytes > MaximumEvidenceBytes {
 			return nil, errors.New("repository evidence exceeds the 1 MiB limit")
 		}
-		normalized[strings.ToLower(cleanPath)] = content
+		normalized[cleanPath] = content
 	}
 	return normalized, nil
 }
 
-// readNodeDependencies parses exact dependency names from package.json.
-func readNodeDependencies(files map[string]string) (map[string]struct{}, error) {
-	content, exists := files["package.json"]
-	if !exists {
-		return map[string]struct{}{}, nil
-	}
-	var manifest struct {
-		Dependencies         map[string]string `json:"dependencies"`
-		DevDependencies      map[string]string `json:"devDependencies"`
-		PeerDependencies     map[string]string `json:"peerDependencies"`
-		OptionalDependencies map[string]string `json:"optionalDependencies"`
-	}
-	if err := json.Unmarshal([]byte(content), &manifest); err != nil {
-		return nil, errors.New("package.json must contain valid JSON")
-	}
-	dependencies := make(map[string]struct{})
-	for _, dependencySet := range []map[string]string{
-		manifest.Dependencies,
-		manifest.DevDependencies,
-		manifest.PeerDependencies,
-		manifest.OptionalDependencies,
-	} {
-		for packageName := range dependencySet {
-			dependencies[strings.ToLower(packageName)] = struct{}{}
+// isAllowedEvidencePath keeps environment files and unrelated source out of MCP input.
+func isAllowedEvidencePath(path string) bool {
+	baseName := filepath.Base(path)
+	return baseName == "package.json" ||
+		baseName == "go.mod" ||
+		strings.HasSuffix(baseName, ".go") ||
+		baseName == "requirements.txt" ||
+		baseName == "pyproject.toml" ||
+		strings.HasSuffix(baseName, ".csproj") ||
+		baseName == "pom.xml" ||
+		strings.HasSuffix(baseName, ".gradle") ||
+		strings.HasSuffix(baseName, ".gradle.kts") ||
+		baseName == "gemfile" ||
+		baseName == "composer.json"
+}
+
+// readNodeDependencies parses exact dependency names from every package.json.
+func readNodeDependencies(files map[string]string) (map[string][]string, error) {
+	dependencies := make(map[string][]string)
+	for path, content := range files {
+		if filepath.Base(path) != "package.json" {
+			continue
+		}
+		var manifest struct {
+			Dependencies         map[string]string `json:"dependencies"`
+			DevDependencies      map[string]string `json:"devDependencies"`
+			PeerDependencies     map[string]string `json:"peerDependencies"`
+			OptionalDependencies map[string]string `json:"optionalDependencies"`
+		}
+		if err := json.Unmarshal([]byte(content), &manifest); err != nil {
+			return nil, errors.New("package.json must contain valid JSON")
+		}
+		for _, dependencySet := range []map[string]string{
+			manifest.Dependencies,
+			manifest.DevDependencies,
+			manifest.PeerDependencies,
+			manifest.OptionalDependencies,
+		} {
+			for packageName := range dependencySet {
+				normalizedName := strings.ToLower(packageName)
+				dependencies[normalizedName] = append(dependencies[normalizedName], path)
+			}
 		}
 	}
 	return dependencies, nil
@@ -131,7 +153,7 @@ func readNodeDependencies(files map[string]string) (map[string]struct{}, error) 
 // detectEvidence applies exact package and source rules without guessing.
 func detectEvidence(
 	files map[string]string,
-	nodeDependencies map[string]struct{},
+	nodeDependencies map[string][]string,
 ) (map[Stack][]string, error) {
 	detected := make(map[Stack][]string)
 	addNodeDetection(detected, nodeDependencies, StackNextJS, "next")
@@ -145,7 +167,10 @@ func detectEvidence(
 	if hasNodeDependency(nodeDependencies, "react") &&
 		hasNodeDependency(nodeDependencies, "vite") &&
 		!hasNodeMetaframework(detected) {
-		detected[StackReactVite] = []string{"package.json"}
+		detected[StackReactVite] = combinedEvidence(
+			nodeDependencies["react"],
+			nodeDependencies["vite"],
+		)
 	}
 
 	detectGoStacks(files, detected)
@@ -159,19 +184,34 @@ func detectEvidence(
 // addNodeDetection records one exact Node package match.
 func addNodeDetection(
 	detected map[Stack][]string,
-	dependencies map[string]struct{},
+	dependencies map[string][]string,
 	stack Stack,
 	packageName string,
 ) {
-	if hasNodeDependency(dependencies, packageName) {
-		detected[stack] = []string{"package.json"}
+	if evidence := dependencies[packageName]; len(evidence) > 0 {
+		detected[stack] = combinedEvidence(evidence)
 	}
 }
 
 // hasNodeDependency reports whether an exact package name is declared.
-func hasNodeDependency(dependencies map[string]struct{}, packageName string) bool {
-	_, exists := dependencies[packageName]
-	return exists
+func hasNodeDependency(dependencies map[string][]string, packageName string) bool {
+	return len(dependencies[packageName]) > 0
+}
+
+// combinedEvidence merges exact manifest paths without duplicates.
+func combinedEvidence(groups ...[]string) []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	for _, group := range groups {
+		for _, path := range group {
+			if _, exists := seen[path]; exists {
+				continue
+			}
+			seen[path] = struct{}{}
+			result = append(result, path)
+		}
+	}
+	return result
 }
 
 // hasNodeMetaframework reports whether a stronger rendering framework matched.
@@ -186,20 +226,27 @@ func hasNodeMetaframework(detected map[Stack][]string) bool {
 
 // detectGoStacks applies module-first Go framework precedence.
 func detectGoStacks(files map[string]string, detected map[Stack][]string) {
-	goModule, exists := files["go.mod"]
-	if !exists {
+	goModules := make(map[string]string)
+	for path, content := range files {
+		if filepath.Base(path) == "go.mod" {
+			goModules[path] = content
+		}
+	}
+	if len(goModules) == 0 {
 		return
 	}
-	lowerModule := strings.ToLower(goModule)
 	goFrameworkDetected := false
-	for moduleName, stack := range map[string]Stack{
-		"github.com/gin-gonic/gin": StackGin,
-		"github.com/labstack/echo": StackEcho,
-		"github.com/gofiber/fiber": StackFiber,
-	} {
-		if strings.Contains(lowerModule, moduleName) {
-			detected[stack] = []string{"go.mod"}
-			goFrameworkDetected = true
+	for path, goModule := range goModules {
+		lowerModule := strings.ToLower(goModule)
+		for moduleName, stack := range map[string]Stack{
+			"github.com/gin-gonic/gin": StackGin,
+			"github.com/labstack/echo": StackEcho,
+			"github.com/gofiber/fiber": StackFiber,
+		} {
+			if strings.Contains(lowerModule, moduleName) {
+				detected[stack] = append(detected[stack], path)
+				goFrameworkDetected = true
+			}
 		}
 	}
 	if goFrameworkDetected {
@@ -207,7 +254,11 @@ func detectGoStacks(files map[string]string, detected map[Stack][]string) {
 	}
 	for path, content := range files {
 		if strings.HasSuffix(path, ".go") && strings.Contains(content, `"net/http"`) {
-			detected[StackGoNetHTTP] = []string{"go.mod", path}
+			modulePaths := make([]string, 0, len(goModules)+1)
+			for modulePath := range goModules {
+				modulePaths = append(modulePaths, modulePath)
+			}
+			detected[StackGoNetHTTP] = append(modulePaths, path)
 			return
 		}
 	}
@@ -275,7 +326,7 @@ func detectExtendedStacks(files map[string]string, detected map[Stack][]string) 
 		case strings.HasSuffix(path, ".csproj") &&
 			(strings.Contains(lowerContent, "microsoft.net.sdk.web") || strings.Contains(lowerContent, "microsoft.aspnetcore")):
 			detected[StackASPNetCore] = []string{path}
-		case (filepath.Base(path) == "pom.xml" || strings.HasSuffix(path, ".gradle")) && strings.Contains(lowerContent, "spring-boot"):
+		case (filepath.Base(path) == "pom.xml" || strings.HasSuffix(path, ".gradle") || strings.HasSuffix(path, ".gradle.kts")) && strings.Contains(lowerContent, "spring-boot"):
 			detected[StackSpringBoot] = []string{path}
 		case filepath.Base(path) == "gemfile" && manifestContainsPackage(lowerContent, "rails"):
 			detected[StackRails] = []string{path}

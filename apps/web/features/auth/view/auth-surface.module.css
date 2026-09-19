@@ -15,7 +15,7 @@
   grid-template-columns: minmax(0, 0.9fr) minmax(25rem, 1fr);
   border: 1px solid color-mix(in oklab, currentColor 14%, transparent);
   border-radius: 1.25rem;
-  background: #08090b;
+  background: #0a0a0b;
   box-shadow: 0 1.5rem 5rem -3.5rem rgb(0 0 0 / 35%);
 }
 
@@ -26,7 +26,7 @@
   justify-content: space-between;
   border-right: 1px solid color-mix(in oklab, currentColor 14%, transparent);
   padding: clamp(1.5rem, 4vw, 3rem);
-  background: #090a0d;
+  background: #0d0d0f;
   color: #f4f3ee;
 }
 
@@ -245,7 +245,7 @@
 .message {
   border: 1px solid color-mix(in oklab, var(--destructive) 45%, var(--border));
   border-radius: 0.65rem;
-  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  background: var(--surface-subtle);
   padding: 0.75rem 0.9rem;
   color: var(--destructive);
   font-size: 0.78rem;

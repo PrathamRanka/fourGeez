@@ -1,8 +1,9 @@
 package stacks
 
 const (
-	MaximumEvidenceFiles = 100
-	MaximumEvidenceBytes = 1024 * 1024
+	MaximumEvidenceFiles   = 100
+	MaximumEvidenceBytes   = 1024 * 1024
+	DetectionSchemaVersion = "agentpay.stack-detection.v1"
 )
 
 // Stack identifies one application framework or server integration target.
@@ -53,4 +54,15 @@ type Detection struct {
 	Stack    Stack       `json:"stack"`
 	Tier     SupportTier `json:"tier"`
 	Evidence []string    `json:"evidence"`
+}
+
+// DetectionRequest contains only caller-supplied committed repository evidence.
+type DetectionRequest struct {
+	Files map[string]string `json:"files"`
+}
+
+// DetectionResult is the versioned deterministic maintained-stack result.
+type DetectionResult struct {
+	SchemaVersion string      `json:"schemaVersion"`
+	Detections    []Detection `json:"detections"`
 }

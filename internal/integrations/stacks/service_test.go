@@ -15,6 +15,7 @@ func TestServiceDetectsDocumentedStacks(t *testing.T) {
 		wantTier  SupportTier
 	}{
 		{name: "Next.js", files: nodeManifest("next", "react"), wantStack: StackNextJS, wantTier: SupportTierMaintained},
+		{name: "Next.js monorepo", files: map[string]string{"apps/web/package.json": `{"dependencies":{"next":"16.0.0"}}`}, wantStack: StackNextJS, wantTier: SupportTierMaintained},
 		{name: "React Vite", files: nodeManifest("react", "vite"), wantStack: StackReactVite, wantTier: SupportTierMaintained},
 		{name: "Remix", files: nodeManifest("@remix-run/react"), wantStack: StackRemix, wantTier: SupportTierMaintained},
 		{name: "Nuxt", files: nodeManifest("nuxt"), wantStack: StackNuxt, wantTier: SupportTierMaintained},
@@ -33,6 +34,7 @@ func TestServiceDetectsDocumentedStacks(t *testing.T) {
 		{name: "Django", files: map[string]string{"requirements.txt": "Django==5.2.6\n"}, wantStack: StackDjango, wantTier: SupportTierMaintained},
 		{name: "ASP.NET Core", files: map[string]string{"Seller.csproj": `<Project Sdk="Microsoft.NET.Sdk.Web"></Project>`}, wantStack: StackASPNetCore, wantTier: SupportTierMaintained},
 		{name: "Spring Boot", files: map[string]string{"pom.xml": `<artifactId>spring-boot-starter-web</artifactId>`}, wantStack: StackSpringBoot, wantTier: SupportTierMaintained},
+		{name: "Spring Boot Gradle Kotlin", files: map[string]string{"server/build.gradle.kts": `implementation("org.springframework.boot:spring-boot-starter-web")`}, wantStack: StackSpringBoot, wantTier: SupportTierMaintained},
 		{name: "Rails", files: map[string]string{"Gemfile": `gem "rails", "8.0.2"`}, wantStack: StackRails, wantTier: SupportTierMaintained},
 		{name: "Laravel", files: map[string]string{"composer.json": `{"require":{"laravel/framework":"12.0.0"}}`}, wantStack: StackLaravel, wantTier: SupportTierMaintained},
 	}
@@ -75,12 +77,30 @@ func TestServiceRejectsUnboundedOrMalformedEvidence(t *testing.T) {
 	if _, err := service.Detect(map[string]string{"package.json": `{`}); err == nil {
 		t.Fatal("Detect() accepted malformed package.json")
 	}
+	if _, err := service.Detect(map[string]string{".env": "AGENTPAY_PROJECT_KEY=secret"}); err == nil {
+		t.Fatal("Detect() accepted non-allowlisted secret-bearing evidence")
+	}
 	files := make(map[string]string)
 	for index := 0; index <= MaximumEvidenceFiles; index++ {
 		files[string(rune('a'+index%26))+string(rune('0'+index%10))] = "content"
 	}
 	if _, err := service.Detect(files); err == nil {
 		t.Fatal("Detect() accepted too many evidence files")
+	}
+}
+
+// TestServiceReportsExactMonorepoEvidence keeps detections reviewable.
+func TestServiceReportsExactMonorepoEvidence(t *testing.T) {
+	t.Parallel()
+
+	detections, err := NewService().Detect(map[string]string{
+		"apps/web/package.json": `{"dependencies":{"next":"16.0.0"}}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detections) != 1 || len(detections[0].Evidence) != 1 || detections[0].Evidence[0] != "apps/web/package.json" {
+		t.Fatalf("detections = %#v", detections)
 	}
 }
 
