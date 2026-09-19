@@ -50,6 +50,26 @@ describe("AgentPay web foundation", () => {
     expect(stylesheet).toContain(":focus-visible");
   });
 
+  it("uses the landing palette across public decorative surfaces", () => {
+    const stylesheet = readFileSync(
+      path.resolve(process.cwd(), "app/globals.css"),
+      "utf8",
+    );
+    const marketingStylesheet = readFileSync(
+      path.resolve(
+        process.cwd(),
+        "features/marketing/view/marketing-page.module.css",
+      ),
+      "utf8",
+    );
+    expect(stylesheet).toContain("--brand-blue: #2979ff");
+    expect(stylesheet).toContain("--brand-pink: #ff5aa5");
+    expect(stylesheet).toContain("--brand-orange: #ff6d00");
+    expect(marketingStylesheet).toContain("--marketing-blue: #2979ff");
+    expect(marketingStylesheet).toContain("--marketing-pink: #ff5aa5");
+    expect(marketingStylesheet).toContain("--marketing-orange: #ff6d00");
+  });
+
   it("uses the dismissible registry banner without demo behavior", () => {
     render(<StickyBanner>Network access is available.</StickyBanner>);
 

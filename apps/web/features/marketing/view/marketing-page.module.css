@@ -6,9 +6,9 @@
   --marketing-line-strong: #b8bfce;
   --marketing-text: #11131a;
   --marketing-muted: #606777;
-  --marketing-blue: #2f6feb;
-  --marketing-violet: #8576ea;
-  --marketing-rose: #e5a9c8;
+  --marketing-blue: #2979ff;
+  --marketing-pink: #ff5aa5;
+  --marketing-orange: #ff6d00;
   overflow: clip;
   background: var(--marketing-bg);
   color: var(--marketing-text);
@@ -23,9 +23,9 @@
   --marketing-line-strong: #41434b;
   --marketing-text: #f5f5f7;
   --marketing-muted: #9598a3;
-  --marketing-blue: #5c95f2;
-  --marketing-violet: #9d91ec;
-  --marketing-rose: #efb4d2;
+  --marketing-blue: #2979ff;
+  --marketing-pink: #ff5aa5;
+  --marketing-orange: #ff6d00;
 }
 
 .frame {
@@ -449,7 +449,7 @@
   inset: 0;
   background: radial-gradient(
     circle at 82% 18%,
-    color-mix(in srgb, var(--marketing-violet) 34%, transparent),
+    color-mix(in srgb, var(--marketing-pink) 28%, transparent),
     transparent 42%
   );
 }
@@ -577,7 +577,7 @@
 }
 
 .setupTerminal li:last-child svg {
-  color: var(--marketing-violet);
+  color: var(--marketing-pink);
 }
 
 .commerceDemo {
@@ -792,7 +792,7 @@
 .controlLayers svg {
   width: 1rem;
   height: 1rem;
-  color: var(--marketing-violet);
+  color: var(--marketing-pink);
 }
 
 .controlLayers span {
@@ -901,7 +901,7 @@
   background:
     radial-gradient(
       circle at center,
-      color-mix(in srgb, var(--marketing-violet) 15%, transparent),
+      color-mix(in srgb, var(--marketing-pink) 13%, transparent),
       transparent 34%
     ),
     var(--marketing-panel);
@@ -975,7 +975,7 @@
 .orbitNode svg {
   width: 0.9rem;
   height: 0.9rem;
-  color: var(--marketing-violet);
+  color: var(--marketing-pink);
 }
 
 .orbitAgent {
@@ -1056,10 +1056,10 @@
   top: 1.25rem;
   right: 1.25rem;
   border: 1px solid
-    color-mix(in srgb, var(--marketing-violet) 55%, var(--marketing-line));
+    color-mix(in srgb, var(--marketing-pink) 48%, var(--marketing-line));
   background: color-mix(
     in srgb,
-    var(--marketing-violet) 13%,
+    var(--marketing-pink) 11%,
     var(--marketing-panel)
   );
   padding: 0.35rem 0.5rem;
@@ -1231,7 +1231,7 @@
 .closingGlow::after {
   right: 8%;
   bottom: -7rem;
-  background: var(--marketing-rose);
+  background: var(--marketing-orange);
 }
 
 .closingSection h2 {

@@ -45,16 +45,18 @@
   --surface-elevated: oklch(1 0 0 / 0.88);
   --surface-subtle: oklch(0.955 0.018 238);
   --surface-inset: oklch(0.935 0.025 238);
-  --brand-blue: oklch(0.58 0.2 250);
-  --brand-cyan: oklch(0.74 0.13 211);
-  --brand-violet: oklch(0.64 0.17 282);
+  --brand-blue: #2979ff;
+  --brand-pink: #ff5aa5;
+  --brand-orange: #ff6d00;
+  --brand-cyan: var(--brand-blue);
+  --brand-violet: var(--brand-pink);
   --page-gutter: clamp(1rem, 3.25vw, 2.75rem);
   --content-width: 82rem;
   --section-space: clamp(4.5rem, 8vw, 7.5rem);
   --bento-card-compact: clamp(19rem, 27vw, 23rem);
   --bento-card-feature: clamp(25rem, 36vw, 31rem);
   --blue-glow: var(--brand-blue);
-  --blue-soft: oklch(0.92 0.06 230);
+  --blue-soft: color-mix(in oklab, var(--brand-blue) 13%, white);
   --shadow-panel: 0 1.25rem 4rem -2.5rem oklch(0.28 0.08 250 / 0.35);
   --dashboard-canvas: #07101f;
   --dashboard-panel: #0b1628;
@@ -91,7 +93,7 @@
   --border: oklch(0.28 0.04 247);
   --input: oklch(0.28 0.04 247);
   --ring: oklch(0.72 0.14 232);
-  --blue-soft: oklch(0.23 0.065 238);
+  --blue-soft: color-mix(in oklab, var(--brand-blue) 18%, #050506);
   --sidebar: oklch(0.145 0.028 251);
   --sidebar-foreground: oklch(0.96 0.012 235);
   --sidebar-primary: oklch(0.73 0.15 235);
@@ -168,13 +170,18 @@
     background-image:
       radial-gradient(
         circle at 12% -8%,
-        color-mix(in oklab, var(--brand-cyan) 12%, transparent),
+        color-mix(in oklab, var(--brand-blue) 10%, transparent),
         transparent 28rem
       ),
       radial-gradient(
         circle at 88% 4%,
-        color-mix(in oklab, var(--brand-violet) 9%, transparent),
+        color-mix(in oklab, var(--brand-pink) 8%, transparent),
         transparent 32rem
+      ),
+      radial-gradient(
+        circle at 58% 108%,
+        color-mix(in oklab, var(--brand-orange) 5%, transparent),
+        transparent 30rem
       );
     background-attachment: fixed;
     text-rendering: optimizeLegibility;
@@ -380,9 +387,9 @@
     padding-inline: 3.5rem;
     background: linear-gradient(
       96deg,
-      oklch(0.24 0.11 265),
-      oklch(0.42 0.17 250) 52%,
-      oklch(0.35 0.12 218)
+      color-mix(in oklab, var(--brand-blue) 68%, #050506),
+      color-mix(in oklab, var(--brand-pink) 62%, #050506) 58%,
+      color-mix(in oklab, var(--brand-orange) 66%, #050506)
     );
     color: oklch(0.985 0.008 235);
     font-size: 0.72rem;
@@ -1250,7 +1257,21 @@
           transparent 0.1rem
         )
         center / 0.72rem 0.72rem,
-      radial-gradient(circle, var(--blue-soft), transparent 66%);
+      radial-gradient(
+        circle at 38% 48%,
+        color-mix(in oklab, var(--brand-blue) 24%, transparent),
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 62% 48%,
+        color-mix(in oklab, var(--brand-pink) 18%, transparent),
+        transparent 44%
+      ),
+      radial-gradient(
+        circle at 50% 70%,
+        color-mix(in oklab, var(--brand-orange) 12%, transparent),
+        transparent 48%
+      );
     mask-image: radial-gradient(circle, black 24%, transparent 67%);
   }
 
@@ -1446,7 +1467,7 @@
     background:
       radial-gradient(
         circle at center,
-        color-mix(in oklab, var(--brand-cyan) 18%, transparent),
+        color-mix(in oklab, var(--brand-blue) 18%, transparent),
         transparent 48%
       ),
       var(--surface-subtle);

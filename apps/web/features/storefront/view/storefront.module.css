@@ -24,7 +24,7 @@
     ),
     radial-gradient(
       circle at 70% 100%,
-      color-mix(in oklab, var(--chart-5) 28%, transparent),
+      color-mix(in oklab, var(--brand-orange) 22%, transparent),
       transparent 34%
     );
   content: "";
