@@ -1,6 +1,12 @@
 .page {
+  --legal-ink: #050506;
+  --legal-raised: #0a0a0b;
+  --legal-text: #f5f5f7;
+  --legal-muted: rgb(245 245 247 / 0.68);
+  --legal-line: rgb(255 255 255 / 0.12);
   min-height: 100svh;
-  background: var(--background);
+  background: var(--legal-ink);
+  color: var(--legal-text);
 }
 
 .header {
@@ -12,7 +18,8 @@
   min-height: 4.5rem;
   margin-inline: auto;
   padding: 0.8rem clamp(1rem, 4vw, 3rem);
-  border-inline: 1px solid var(--border);
+  border-inline: 1px solid var(--legal-line);
+  background: var(--legal-ink);
 }
 
 .brand {
@@ -24,7 +31,7 @@
   display: flex;
   align-items: center;
   gap: clamp(0.8rem, 2vw, 1.5rem);
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
@@ -42,23 +49,24 @@
 
 .legalNav a:hover,
 .legalNav a[aria-current="page"] {
-  border-color: var(--foreground);
-  color: var(--foreground);
+  border-color: var(--legal-text);
+  color: var(--legal-text);
 }
 
 .accentRule {
   width: min(100%, 96rem);
   height: 1px;
   margin-inline: auto;
-  background: var(--border);
+  background: var(--legal-line);
 }
 
 .hero {
   display: grid;
   width: min(100%, 96rem);
   margin-inline: auto;
-  border-inline: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-inline: 1px solid var(--legal-line);
+  border-bottom: 1px solid var(--legal-line);
+  background: var(--legal-ink);
 }
 
 .heroCopy {
@@ -68,7 +76,7 @@
 .eyebrow,
 .indexLabel,
 .documentFacts dt {
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.12em;
@@ -89,7 +97,7 @@
 .summary {
   max-width: 46rem;
   margin-top: 1.7rem;
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-size: clamp(1rem, 1.8vw, 1.22rem);
   line-height: 1.65;
   text-wrap: pretty;
@@ -98,13 +106,14 @@
 .documentFacts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--legal-line);
+  background: var(--legal-ink);
 }
 
 .documentFacts div {
   min-width: 0;
   padding: 1.25rem clamp(1rem, 2.5vw, 2rem);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--legal-line);
 }
 
 .documentFacts div:last-child {
@@ -124,9 +133,9 @@
   width: min(100%, 96rem);
   margin-inline: auto;
   padding: clamp(1.25rem, 3vw, 2rem) clamp(1.4rem, 4vw, 3rem);
-  border-inline: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in oklab, var(--foreground) 2%, var(--background));
+  border-inline: 1px solid var(--legal-line);
+  border-bottom: 1px solid var(--legal-line);
+  background: var(--legal-raised);
 }
 
 .noticeMarker {
@@ -134,9 +143,9 @@
   height: 0.58rem;
   margin-top: 0.42rem;
   border-radius: 50%;
-  background: var(--foreground);
+  background: var(--legal-text);
   box-shadow: 0 0 0 0.2rem
-    color-mix(in oklab, var(--foreground) 10%, transparent);
+    rgb(245 245 247 / 0.1);
 }
 
 .notice h2 {
@@ -150,7 +159,7 @@
 .notice p {
   max-width: 66rem;
   margin-top: 0.55rem;
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-size: 0.88rem;
   line-height: 1.7;
 }
@@ -159,7 +168,8 @@
   display: grid;
   width: min(100%, 96rem);
   margin-inline: auto;
-  border-inline: 1px solid var(--border);
+  border-inline: 1px solid var(--legal-line);
+  background: var(--legal-ink);
 }
 
 .index {
@@ -168,7 +178,8 @@
   justify-content: space-between;
   gap: 2rem;
   padding: clamp(1.5rem, 4vw, 3rem);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--legal-line);
+  background: var(--legal-ink);
 }
 
 .index ol {
@@ -177,11 +188,11 @@
 }
 
 .index li {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--legal-line);
 }
 
 .index li:last-child {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--legal-line);
 }
 
 .index li a {
@@ -189,7 +200,7 @@
   grid-template-columns: 2rem minmax(0, 1fr);
   gap: 0.6rem;
   padding-block: 0.9rem;
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-size: 0.78rem;
   line-height: 1.45;
   text-decoration: none;
@@ -197,7 +208,7 @@
 }
 
 .index li a:hover {
-  color: var(--foreground);
+  color: var(--legal-text);
 }
 
 .index li span {
@@ -210,7 +221,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-family: var(--font-mono);
   font-size: 0.7rem;
   line-height: 1.5;
@@ -218,11 +229,12 @@
 }
 
 .docsLink:hover {
-  color: var(--foreground);
+  color: var(--legal-text);
 }
 
 .content {
   min-width: 0;
+  background: var(--legal-ink);
 }
 
 .sections {
@@ -235,11 +247,12 @@
   gap: clamp(1rem, 3vw, 2.5rem);
   scroll-margin-top: 2rem;
   padding: clamp(2rem, 5vw, 4.5rem) clamp(1.4rem, 5vw, 5rem);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--legal-line);
+  background: var(--legal-ink);
 }
 
 .sectionNumber {
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.08em;
@@ -261,7 +274,7 @@
 .section p,
 .section li,
 .sectionNote {
-  color: var(--muted-foreground);
+  color: var(--legal-muted);
   font-size: clamp(0.9rem, 1.3vw, 0.98rem);
   line-height: 1.78;
 }
@@ -288,21 +301,21 @@
   width: 0.32rem;
   height: 0.32rem;
   border-radius: 50%;
-  background: var(--muted-foreground);
+  background: var(--legal-muted);
   content: "";
 }
 
 .sectionNote {
   margin-top: 1.4rem;
   padding: 1rem 1.1rem;
-  border-left: 2px solid var(--foreground);
-  background: color-mix(in oklab, var(--foreground) 3%, var(--background));
+  border-left: 2px solid var(--legal-text);
+  background: var(--legal-raised);
 }
 
 .section a,
 .documentFooter a {
-  color: var(--foreground);
-  text-decoration-color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  color: var(--legal-text);
+  text-decoration-color: rgb(245 245 247 / 0.55);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22rem;
 }
@@ -314,7 +327,8 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1.5rem clamp(1.4rem, 5vw, 5rem);
-  color: var(--muted-foreground);
+  background: var(--legal-ink);
+  color: var(--legal-muted);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   line-height: 1.6;
@@ -328,7 +342,7 @@
   .documentFacts {
     grid-template-columns: 1fr;
     border-top: 0;
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--legal-line);
   }
 
   .documentFacts div {
@@ -336,7 +350,7 @@
     flex-direction: column;
     justify-content: center;
     border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--legal-line);
   }
 
   .documentFacts div:last-child {
@@ -351,7 +365,7 @@
     position: sticky;
     top: 0;
     height: 100svh;
-    border-right: 1px solid var(--border);
+    border-right: 1px solid var(--legal-line);
     border-bottom: 0;
   }
 }
@@ -378,7 +392,7 @@
 
   .documentFacts div {
     border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--legal-line);
   }
 
   .documentFacts div:last-child {

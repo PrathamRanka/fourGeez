@@ -20,6 +20,9 @@ describe("public legal and security pages", () => {
       "utf8",
     );
 
+    expect(stylesheet).toContain("--legal-ink: #050506;");
+    expect(stylesheet).toMatch(/\.page\s*\{[^}]*background:\s*var\(--legal-ink\)/s);
+    expect(stylesheet).not.toContain("var(--background)");
     expect(stylesheet).not.toMatch(/--brand-(?:blue|pink|orange|violet)/);
     expect(stylesheet).not.toMatch(/(?:linear|radial)-gradient\(/);
   });
