@@ -44,6 +44,28 @@ const createdCredential: CredentialCreated = {
   token: "apc2.key_01ARZ3NDEKTSV4RRFFQ69G5FAX.once-only-secret",
 };
 
+const testableRoute = {
+  routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+  sellerId: seller.sellerId,
+  displayName: "Research report",
+  productSlug: "research-report",
+  method: "POST" as const,
+  pathPattern: "/research/basic",
+  description: "Generate a source-backed research report.",
+  mimeType: "application/json",
+  amount: "100000",
+  asset: "USDC",
+  network: "eip155:84532",
+  payTo: activeDestination.address,
+  approvalThresholdAmount: null,
+  upstreamTimeoutSeconds: 20,
+  lifecycleStatus: "published" as const,
+  enabled: true,
+  createdAt: "2026-09-19T10:00:00Z",
+  updatedAt: "2026-09-19T10:00:00Z",
+  version: 1,
+};
+
 function onboardingState(
   overrides: Partial<
     Record<string, "complete" | "incomplete" | "blocked">
@@ -93,6 +115,7 @@ function snapshot(input: Partial<OnboardingSnapshot> = {}): OnboardingSnapshot {
     seller,
     paymentDestinations: [activeDestination],
     credentials: [],
+    testableRoutes: [],
     onboarding: onboardingState(),
     ...input,
   };
@@ -119,10 +142,54 @@ function createActions(): OnboardingActions {
       ok: true,
       value: createdCredential,
     }),
+    verifySellerTestPurchase: vi.fn().mockResolvedValue({
+      ok: false,
+      error: "Not configured for this component test.",
+    }),
   };
 }
 
 describe("seller onboarding MCP gate", () => {
+  it("reveals the seller test purchase only after connector and product prerequisites", () => {
+    const ready = onboardingState({
+      project_key_created: "complete",
+      connector_verified: "complete",
+      product_configured: "complete",
+    });
+    const { unmount } = render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
+          credentials: [createdCredential],
+          onboarding: ready,
+          testableRoutes: [testableRoute],
+        })}
+        actions={createActions()}
+      />,
+    );
+    expect(
+      screen.getByRole("region", { name: "Run test purchase" }),
+    ).toBeVisible();
+
+    unmount();
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
+          credentials: [createdCredential],
+          onboarding: onboardingState({
+            project_key_created: "complete",
+            connector_verified: "incomplete",
+            product_configured: "complete",
+          }),
+          testableRoutes: [testableRoute],
+        })}
+        actions={createActions()}
+      />,
+    );
+    expect(
+      screen.queryByRole("region", { name: "Run test purchase" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows authoritative prerequisite blockers and no MCP invitation while ineligible", () => {
     const onboarding = onboardingState({
       service_connection_verified: "blocked",

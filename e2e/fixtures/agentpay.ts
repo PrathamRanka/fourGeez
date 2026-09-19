@@ -85,6 +85,18 @@ export async function registerAndSignInSeller(page: Page, testInfo: TestInfo) {
   return account;
 }
 
+export async function signInLaunchReadySeller(page: Page) {
+  await page.goto("/sign-in");
+  await page
+    .getByLabel("Work email")
+    .fill(process.env.AGENTPAY_LOCAL_DEMO_EMAIL ?? "pratham@agentpay.local");
+  await page
+    .getByLabel("Password")
+    .fill(process.env.AGENTPAY_LOCAL_DEMO_PASSWORD ?? "AgentPayLocalDemo2026");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+}
+
 export async function installDeterministicWallet(page: Page) {
   const wallet = Wallet.createRandom();
   await page.exposeFunction("agentPayWalletAddress", () => wallet.address);

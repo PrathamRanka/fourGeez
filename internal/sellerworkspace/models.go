@@ -220,17 +220,18 @@ type DashboardOverview struct {
 }
 
 type Dependencies struct {
-	Workspaces           Repository
-	Sellers              SellerReader
-	Products             ProductReader
-	PaymentDestinations  PaymentDestinationReader
-	Credentials          CredentialReader
-	Transactions         TransactionReader
-	Evidence             EvidenceReader
-	WebhookSubscriptions WebhookSubscriptionReader
-	WebhookDeliveries    WebhookDeliveryReader
-	Billing              BillingReader
-	BillingPortal        BillingPortal
-	AccountVerification  AccountVerificationReader
-	Clock                domain.Clock
+	Workspaces                   Repository
+	Sellers                      SellerReader
+	Products                     ProductReader
+	PaymentDestinations          PaymentDestinationReader
+	Credentials                  CredentialReader
+	Transactions                 TransactionReader
+	Evidence                     EvidenceReader
+	WebhookSubscriptions         WebhookSubscriptionReader
+	WebhookDeliveries            WebhookDeliveryReader
+	Billing                      BillingReader
+	BillingPortal                BillingPortal
+	AccountVerification          AccountVerificationReader
+	Clock                        domain.Clock
+	AllowLocalDevelopmentService bool
 }

@@ -249,6 +249,32 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/me/onboarding/sandbox-purchases:
+    post:
+      summary: Record an authoritative fulfilled transaction as the seller onboarding test purchase
+      description: The authenticated seller may record only one of its own fulfilled transactions. Exact replays are idempotent. This operation does not create an intent, verify payment, settle funds, invoke fulfillment, or bypass the normal commerce APIs.
+      tags: [Sellers]
+      operationId: recordCurrentSellerSandboxPurchase
+      security: [{ sellerBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecordSandboxPurchaseRequest' }
+      responses:
+        '200':
+          description: Updated server-authoritative onboarding state
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SellerOnboarding' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/me/dashboard:
     get:
       summary: Get the current seller operating overview
@@ -1891,6 +1917,12 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         slug: { type: string, pattern: '^[a-z0-9-]{3,48}$' }
         upstreamBaseUrl: { type: string, format: uri }
+    RecordSandboxPurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [transactionId]
+      properties:
+        transactionId: { type: string, pattern: '^txn_[A-Za-z0-9]+$' }
     OnboardingStep:
       type: object
       additionalProperties: false

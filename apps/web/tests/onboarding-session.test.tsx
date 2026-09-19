@@ -13,6 +13,7 @@ vi.mock("@/features/onboarding/controller", () => ({
   listOnboardingResources: vi.fn(),
   preparePaymentDestination: vi.fn(),
   verifyPaymentDestination: vi.fn(),
+  verifySellerTestPurchase: vi.fn(),
 }));
 vi.mock("@/features/onboarding/view/seller-onboarding", () => ({
   SellerOnboarding: ({
@@ -53,6 +54,7 @@ describe("resumable seller onboarding", () => {
     vi.mocked(listOnboardingResources).mockResolvedValue({
       paymentDestinations: [],
       credentials: [],
+      testableRoutes: [],
       onboarding: {
         sellerId: "sel_session_owner",
         complete: false,

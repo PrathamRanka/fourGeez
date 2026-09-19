@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"net"
 	"net/mail"
 	"net/url"
 	"strings"
@@ -62,7 +63,7 @@ func (service *Service) Onboarding(ctx context.Context, principal Principal) (On
 		return OnboardingView{}, err
 	}
 	entitlement, entitlementErr := service.dependencies.Billing.ResolveSellerPlan(ctx, resolved.SellerID)
-	return buildOnboardingView(principal, resolved, state, routes, destinations, credentials, entitlement, entitlementErr, domain.NewTimestamp(service.dependencies.Clock.Now())), nil
+	return buildOnboardingView(principal, resolved, state, routes, destinations, credentials, entitlement, entitlementErr, domain.NewTimestamp(service.dependencies.Clock.Now()), service.dependencies.AllowLocalDevelopmentService), nil
 }
 
 func (service *Service) Dashboard(ctx context.Context, principal Principal) (DashboardOverview, error) {
@@ -288,7 +289,7 @@ func (service *Service) AuthorizeCredentialIssuance(ctx context.Context, ownerSu
 		return err
 	}
 	now := domain.NewTimestamp(service.dependencies.Clock.Now())
-	if !verified || !sellerProfileReady(seller) || !serviceConnectionReady(seller) ||
+	if !verified || !sellerProfileReady(seller) || !serviceConnectionReady(seller, service.dependencies.AllowLocalDevelopmentService) ||
 		!hasSupportedActiveDestination(destinations) ||
 		entitlement.Assignment.Status != billing.EntitlementStatusActive ||
 		entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled ||
@@ -356,7 +357,21 @@ func (service *Service) RecordSandboxPurchase(ctx context.Context, principal Pri
 	if !valid {
 		return ErrSandboxPurchaseInvalid
 	}
-	return service.recordProgress(ctx, principal, func(state *WorkspaceState, _ domain.Timestamp) { state.SandboxPurchaseTransactionID = &transactionID })
+	state, err := service.loadOrCreateState(ctx, principal, seller.SellerID)
+	if err != nil {
+		return err
+	}
+	if state.SandboxPurchaseTransactionID != nil && *state.SandboxPurchaseTransactionID == transactionID {
+		return nil
+	}
+	expectedVersion := state.Version
+	now := domain.NewTimestamp(service.dependencies.Clock.Now())
+	state.SandboxPurchaseTransactionID = &transactionID
+	state.UpdatedAt = now
+	state.Version++
+	state.Settings.Version = state.Version
+	state.Settings.UpdatedAt = now
+	return service.dependencies.Workspaces.Put(ctx, state, expectedVersion)
 }
 
 func (service *Service) RecordStorefrontPreview(ctx context.Context, principal Principal) error {
@@ -400,7 +415,7 @@ func (service *Service) onboardingForSeller(ctx context.Context, principal Princ
 		return OnboardingView{}, err
 	}
 	entitlement, entitlementErr := service.dependencies.Billing.ResolveSellerPlan(ctx, sellerID)
-	return buildOnboardingView(principal, seller, state, routes, destinations, credentials, entitlement, entitlementErr, domain.NewTimestamp(service.dependencies.Clock.Now())), nil
+	return buildOnboardingView(principal, seller, state, routes, destinations, credentials, entitlement, entitlementErr, domain.NewTimestamp(service.dependencies.Clock.Now()), service.dependencies.AllowLocalDevelopmentService), nil
 }
 
 func (service *Service) resolveSeller(ctx context.Context, principal Principal) (catalog.Seller, error) {
@@ -471,7 +486,7 @@ func (service *Service) evidenceSummary(ctx context.Context, rows []transactions
 	return summary, nil
 }
 
-func buildOnboardingView(principal Principal, seller catalog.Seller, state WorkspaceState, routes []catalog.PaidRoute, destinations []settlement.PaymentDestination, credentials []integrations.CredentialView, entitlement billing.SellerPlanResponse, entitlementErr error, now domain.Timestamp) OnboardingView {
+func buildOnboardingView(principal Principal, seller catalog.Seller, state WorkspaceState, routes []catalog.PaidRoute, destinations []settlement.PaymentDestination, credentials []integrations.CredentialView, entitlement billing.SellerPlanResponse, entitlementErr error, now domain.Timestamp, allowLocalDevelopmentService bool) OnboardingView {
 	checks := []struct {
 		name     StepName
 		complete bool
@@ -480,7 +495,7 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 	}{
 		{StepAccountVerified, principal.EmailVerified, !principal.EmailVerified, "Verify the seller account email."},
 		{StepStorefrontCreated, state.SellerID != "", state.SellerID == "", "Create the seller storefront."},
-		{StepServiceConnectionVerified, serviceConnectionReady(seller), !serviceConnectionReady(seller), "Configure an active HTTPS service endpoint and AgentPay request signing."},
+		{StepServiceConnectionVerified, serviceConnectionReady(seller, allowLocalDevelopmentService), !serviceConnectionReady(seller, allowLocalDevelopmentService), "Configure an active HTTPS service endpoint and AgentPay request signing."},
 		{StepSubscriptionActive, entitlementErr == nil && entitlement.Assignment.NetworkAccess == billing.NetworkAccessEnabled && now.Before(entitlement.Assignment.AccessEndsAt), entitlementErr != nil || entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled, "Request an active testnet launch entitlement."},
 		{StepPaymentDestinationVerified, hasSupportedActiveDestination(destinations), false, "Verify USDC on Base Sepolia to a seller-controlled address."},
 		{StepProjectKeyCreated, hasActiveCredential(credentials, now), false, "Create an active project connection key."},
@@ -511,7 +526,7 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 
 func onboardingWithoutSeller(emailVerified bool) OnboardingView {
 	state := WorkspaceState{}
-	return buildOnboardingView(Principal{EmailVerified: emailVerified}, catalog.Seller{}, state, nil, nil, nil, billing.SellerPlanResponse{}, billing.ErrSellerEntitlementNotFound, domain.Timestamp{})
+	return buildOnboardingView(Principal{EmailVerified: emailVerified}, catalog.Seller{}, state, nil, nil, nil, billing.SellerPlanResponse{}, billing.ErrSellerEntitlementNotFound, domain.Timestamp{}, false)
 }
 
 func summarizeProducts(routes []catalog.PaidRoute) ProductSummary {
@@ -600,9 +615,20 @@ func sellerProfileReady(seller catalog.Seller) bool {
 	return strings.TrimSpace(seller.Name) != "" && strings.TrimSpace(seller.Slug) != ""
 }
 
-func serviceConnectionReady(seller catalog.Seller) bool {
+func serviceConnectionReady(seller catalog.Seller, allowLocalDevelopmentService bool) bool {
 	serviceURL, err := url.Parse(strings.TrimSpace(seller.UpstreamBaseURL))
-	return err == nil && serviceURL.Scheme == "https" && serviceURL.Host != "" && seller.Status == catalog.SellerStatusActive && strings.TrimSpace(seller.SigningSecretRef) != ""
+	if err != nil || serviceURL.Host == "" || seller.Status != catalog.SellerStatusActive || strings.TrimSpace(seller.SigningSecretRef) == "" {
+		return false
+	}
+	if serviceURL.Scheme == "https" {
+		return true
+	}
+	if !allowLocalDevelopmentService || serviceURL.Scheme != "http" {
+		return false
+	}
+	hostname := serviceURL.Hostname()
+	address := net.ParseIP(hostname)
+	return strings.EqualFold(hostname, "localhost") || address != nil && address.IsLoopback()
 }
 func hasActiveCredential(credentials []integrations.CredentialView, now domain.Timestamp) bool {
 	return summarizeCredentials(credentials, now).Active > 0
