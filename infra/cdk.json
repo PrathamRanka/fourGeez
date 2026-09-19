@@ -1,4 +1,0 @@
-{
-  "app": "npx tsx bin/agentpay.ts"
-}
-

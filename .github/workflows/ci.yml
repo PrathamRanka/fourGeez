@@ -56,7 +56,7 @@ jobs:
       - run: npm ci
       - run: npm run test:verification:extended
 
-  web-and-infra:
+  web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,4 +68,18 @@ jobs:
       - run: npm run lint:web
       - run: npm run typecheck
       - run: npm run build:web
-      - run: npm run cdk:synth
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.16.3
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+        working-directory: infra/terraform
+      - run: terraform init -backend=false
+        working-directory: infra/terraform
+      - run: terraform validate
+        working-directory: infra/terraform

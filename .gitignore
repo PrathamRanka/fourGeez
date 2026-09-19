@@ -23,7 +23,23 @@ __pycache__/
 .ruff_cache/
 rl/data/generated/
 
-# AWS CDK
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+infra/terraform/environments/*.backend.hcl
+infra/terraform/environments/*.tfvars
+!infra/terraform/environments/*.backend.hcl.example
+!infra/terraform/environments/*.tfvars.example
+
+# Legacy CDK build output retained only as a local generated artifact
 cdk.out/
 
 # Environment and secrets

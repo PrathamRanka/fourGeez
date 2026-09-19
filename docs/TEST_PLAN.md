@@ -200,8 +200,8 @@ Every pull request and implementation commit must pass relevant checks:
 Go formatting, vet, unit tests, race tests
 Web lint, typecheck, unit tests, production build
 OpenAPI and AsyncAPI validation
-CDK synth until AWS-000 removes the placeholder
-Terraform formatting, validation, and reviewed plan after AWS-000
+Terraform layout tests, formatting, and validation
+Reviewed Terraform plan for environment deployment tasks
 Secret scanning
 Dependency audit
 ```

@@ -25,7 +25,7 @@ M0 acceptance: all documents exist, cross-reference each other, and contain no u
 - [x] **REP-001** Create `apps/web`, `cmd/api`, `internal`, `infra`, and `examples` workspaces. Depends on DOC-005–DOC-010.
 - [x] **REP-002** Add root commands for build, test, lint, local development, and contract validation.
 - [x] **REP-003** Add `.env.example` files containing names but no secrets.
-- [x] **REP-004** Add CI jobs for Go tests, web lint/typecheck/build, OpenAPI validation, and CDK synthesis.
+- [x] **REP-004** Add CI jobs for Go tests, web lint/typecheck/build, OpenAPI validation, and the infrastructure validation used at that milestone (CDK synthesis, superseded by AWS-000 Terraform validation).
 - [x] **REP-005** Add local development configuration with a mock payment mode and demo seller.
 
 M1 acceptance: a clean checkout can install dependencies and run all empty-project checks using documented commands.
@@ -208,7 +208,7 @@ checks pass.
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same
 authorization, revocation, transaction, and failure semantics proven locally.
 
-- [ ] **AWS-000** Replace the existing CDK placeholder with Terraform modules, remote state, environment configuration, and CI validation.
+- [x] **AWS-000** Replace the existing CDK placeholder with Terraform modules, remote state, environment configuration, and CI validation.
 - [ ] **AWS-001** Bootstrap the development AWS account and Terraform state backend.
 - [ ] **AWS-002** Create DynamoDB tables and required secondary indexes.
 - [ ] **AWS-003** Create versioned Object Lock evidence bucket and KMS signing key.

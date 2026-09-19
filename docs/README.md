@@ -8,8 +8,9 @@ Milestones M0 through M7 and the fourteen-task M7.1 Lean V1 launch core are
 implemented and verified locally. M7.1 provides seller authentication,
 subscription enforcement, cloud-authoritative MCP access, the shared browser
 and agent x402 commerce path, exactly-once fulfillment, the essential seller
-dashboard, and full-system browser verification. M8 infrastructure and M9
-deployed release verification have not started. Until those milestones pass,
+dashboard, and full-system browser verification. M8 infrastructure work has
+started with the Terraform foundation; deployable AWS resources and M9
+deployed release verification remain pending. Until those milestones pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 

@@ -17,7 +17,7 @@ The default development region is `us-east-1`. Before deployment, confirm that t
 - Node.js 24 or the repository-pinned version once added.
 - Go 1.26 or the repository-pinned version once added.
 - AWS CLI v2 authenticated through IAM Identity Center or another short-lived credential flow.
-- Terraform, installed at the version pinned by the future `infra/terraform` configuration.
+- Terraform 1.16.3, matching the version pinned by `infra/terraform/versions.tf`.
 - Docker only if Lambda bundling requires it.
 - A dedicated testnet wallet containing no production assets.
 
@@ -137,7 +137,15 @@ Required controls:
 
 ## Deployment order
 
-After **AWS-000** creates `infra/terraform`:
+After **AWS-001** creates the remote-state bucket, copy the committed
+environment templates and replace their placeholders locally:
+
+```powershell
+Copy-Item infra/terraform/environments/dev.backend.hcl.example infra/terraform/environments/dev.backend.hcl
+Copy-Item infra/terraform/environments/dev.tfvars.example infra/terraform/environments/dev.tfvars
+```
+
+Then initialize and review the environment:
 
 ```powershell
 terraform -chdir=infra/terraform init -backend-config=environments/dev.backend.hcl
