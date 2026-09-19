@@ -260,6 +260,8 @@ authorization fields.
 | `pathPattern` | string | Literal path in v1; no arbitrary regex |
 | `description` | string | Published in manifest |
 | `mimeType` | string | Expected successful response type |
+| `inputSchema` | object | Canonical closed JSON Schema for request input; every object node rejects unknown fields |
+| `outputSchema` | object | Canonical closed JSON Schema for structured successful output; every object node rejects unknown fields |
 | `amount` | string | Atomic units |
 | `asset` | string | Testnet asset identifier |
 | `network` | string | Testnet network identifier |
@@ -321,6 +323,28 @@ uses a conditional version write and synchronizes `enabled` to the lifecycle.
 Deterministic and sandbox validation results are computed responses and are not
 persisted; publication performs fresh validation so a stale result cannot
 authorize a changed route.
+
+`RouteValidationResult` contains the current route `version` and a lowercase
+SHA-256 `contractHash` over the route and seller identity, public
+name/slug/description, method/path, canonical schemas, output MIME type, exact
+price and payout terms, timeout, and version. MCP publication must
+submit both values. The cloud confirmation grant binds the complete publish
+request, publication recomputes the hash, and any intervening draft change
+fails closed. A successful route write atomically replaces its public-directory
+projection. The next signed discovery read includes the new route snapshot and
+advances `publicationRevision`; existing purchase intents retain frozen terms.
+
+### Published product contract
+
+The signed product document is a read model with schema version
+`agentpay.product-contract.v1`. Its product payload includes stable seller and
+route identity, route version, canonical closed input/output schemas, exact
+atomic-unit amount, asset, network, x402 exact-payment scheme, availability,
+synchronous fulfillment mode and timeout, update time, and an explicit
+`authoritativeForPurchase=false` marker. The document expires after five
+minutes and is signed with the dedicated `agentpay.product-contract.v1` domain
+separator. It contains no upstream URL, payout address, credential, wallet
+material, or private policy.
 
 Historical M2 records may contain `approvalThresholdAmount`. The old
 `approval-threshold-v1` evaluator treated the boundary as inclusive. Lean V1

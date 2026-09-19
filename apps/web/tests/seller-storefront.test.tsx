@@ -25,16 +25,26 @@ const manifest: StorefrontManifest = {
 };
 
 const product: PublicProduct = {
+  schemaVersion: "agentpay.product-contract.v1",
   sellerId: manifest.sellerId,
   routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  routeVersion: 2,
   displayName: "Research Report",
   productSlug: "research-report",
   description: "Generate a source-backed market brief for a defined topic.",
   mimeType: "application/json",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  outputSchema: { type: "object", properties: {}, additionalProperties: false },
   amount: "35000000",
   asset: "USDC",
   network: "eip155:84532",
+  paymentProtocol: "x402",
+  paymentScheme: "exact",
   availability: "active",
+  fulfillmentMode: "synchronous_https",
+  fulfillmentTimeoutSeconds: 20,
+  updatedAt: "2026-09-18T11:55:00Z",
+  authoritativeForPurchase: false,
   canonicalUrl:
     "https://shop.agentpay.example/store/northstar/products/research-report",
   purchaseSessionEndpoint:

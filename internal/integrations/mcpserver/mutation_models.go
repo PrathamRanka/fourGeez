@@ -10,6 +10,8 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 )
 
+const MCPToolResultSchemaVersion = "agentpay.mcp-tool-result.v1"
+
 // ConfigureStorefrontInput updates the existing credential-bound storefront.
 type ConfigureStorefrontInput struct {
 	IdempotencyKey    string                             `json:"idempotencyKey"`
@@ -33,6 +35,8 @@ type RouteConfiguration struct {
 	PathPattern             string              `json:"pathPattern"`
 	Description             string              `json:"description"`
 	MIMEType                string              `json:"mimeType"`
+	InputSchema             map[string]any      `json:"inputSchema"`
+	OutputSchema            map[string]any      `json:"outputSchema"`
 	Amount                  string              `json:"amount"`
 	Asset                   string              `json:"asset"`
 	Network                 string              `json:"network"`
@@ -71,15 +75,17 @@ type PublishRouteInput struct {
 	ConfirmationGrant string `json:"confirmationGrant"`
 	RouteID           string `json:"routeId"`
 	ExpectedVersion   uint64 `json:"expectedVersion"`
+	ContractHash      string `json:"contractHash"`
 }
 
 // MutationResult is the stable replayable output shared by MCP mutations.
 type MutationResult struct {
-	Operation  string                         `json:"operation"`
-	Seller     *catalog.SellerResponse        `json:"seller,omitempty"`
-	Route      *catalog.PaidRoute             `json:"route,omitempty"`
-	Validation *catalog.RouteValidationResult `json:"validation,omitempty"`
-	Sandbox    *sandbox.Result                `json:"sandbox,omitempty"`
+	SchemaVersion string                         `json:"schemaVersion"`
+	Operation     string                         `json:"operation"`
+	Seller        *catalog.SellerResponse        `json:"seller,omitempty"`
+	Route         *catalog.PaidRoute             `json:"route,omitempty"`
+	Validation    *catalog.RouteValidationResult `json:"validation,omitempty"`
+	Sandbox       *sandbox.Result                `json:"sandbox,omitempty"`
 }
 
 // SandboxValidator runs the complete non-persistent seller validation flow.
@@ -116,6 +122,7 @@ type CatalogMutator interface {
 		domain.ID,
 		domain.ID,
 		uint64,
+		string,
 	) (catalog.PaidRoute, error)
 }
 

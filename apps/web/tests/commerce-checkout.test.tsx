@@ -4,16 +4,26 @@ import type { PublicProduct } from "@/features/storefront/model";
 import { CommerceCheckout } from "@/features/commerce/view/commerce-checkout";
 
 const product: PublicProduct = {
+  schemaVersion: "agentpay.product-contract.v1",
   sellerId: "sel_01ARZ3NDEKTSV4RRFFQ69G5FAV",
   routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  routeVersion: 2,
   displayName: "Research Report",
   productSlug: "research-report",
   description: "Generate a source-backed market brief.",
   mimeType: "application/json",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  outputSchema: { type: "object", properties: {}, additionalProperties: false },
   amount: "35000000",
   asset: "USDC",
   network: "eip155:84532",
+  paymentProtocol: "x402",
+  paymentScheme: "exact",
   availability: "active",
+  fulfillmentMode: "synchronous_https",
+  fulfillmentTimeoutSeconds: 20,
+  updatedAt: "2026-09-18T11:55:00Z",
+  authoritativeForPurchase: false,
   canonicalUrl:
     "https://shop.agentpay.example/store/northstar/products/research-report",
   purchaseSessionEndpoint:
@@ -104,7 +114,9 @@ describe("commerce checkout", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("Maximum spend")).toHaveValue("35");
     expect(
-      screen.getByText(/your wallet authorizes the seller's exact 35 USDC quote/i),
+      screen.getByText(
+        /your wallet authorizes the seller's exact 35 USDC quote/i,
+      ),
     ).toBeVisible();
     expect(screen.queryByText(/AgentPay charges/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/manager approval/i)).not.toBeInTheDocument();

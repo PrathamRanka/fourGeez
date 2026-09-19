@@ -17,6 +17,7 @@ import {
 } from "@/lib/agentpay-api";
 
 const discoverySchemaVersion = "agentpay.discovery.v1";
+const productContractSchemaVersion = "agentpay.product-contract.v1";
 
 export async function loadStorefrontDiscovery(
   sellerSlug: string,
@@ -143,13 +144,16 @@ function isPositiveAtomicAmount(value: unknown): value is string {
   );
 }
 
-function isDiscoverySignature(value: unknown): value is DiscoverySignature {
+function isDiscoverySignature(
+  value: unknown,
+  domainSeparator: DiscoverySignature["domainSeparator"] = discoverySchemaVersion,
+): value is DiscoverySignature {
   return (
     isRecord(value) &&
     value.alg === "ES256" &&
     isNonEmptyString(value.kid) &&
     value.canonicalization === "RFC8785" &&
-    value.domainSeparator === discoverySchemaVersion &&
+    value.domainSeparator === domainSeparator &&
     isNonEmptyString(value.value)
   );
 }
@@ -157,16 +161,26 @@ function isDiscoverySignature(value: unknown): value is DiscoverySignature {
 function isPublicProduct(value: unknown): value is PublicProduct {
   return (
     isRecord(value) &&
+    value.schemaVersion === productContractSchemaVersion &&
     isNonEmptyString(value.sellerId) &&
     isNonEmptyString(value.routeId) &&
+    Number.isInteger(value.routeVersion) &&
     isNonEmptyString(value.displayName) &&
     isNonEmptyString(value.productSlug) &&
     isNonEmptyString(value.description) &&
     isNonEmptyString(value.mimeType) &&
+    isRecord(value.inputSchema) &&
+    isRecord(value.outputSchema) &&
     isPositiveAtomicAmount(value.amount) &&
     isNonEmptyString(value.asset) &&
     isNonEmptyString(value.network) &&
+    value.paymentProtocol === "x402" &&
+    value.paymentScheme === "exact" &&
     value.availability === "active" &&
+    value.fulfillmentMode === "synchronous_https" &&
+    Number.isInteger(value.fulfillmentTimeoutSeconds) &&
+    isNonEmptyString(value.updatedAt) &&
+    value.authoritativeForPurchase === false &&
     isNonEmptyString(value.canonicalUrl) &&
     isNonEmptyString(value.purchaseSessionEndpoint)
   );
@@ -259,7 +273,7 @@ function isPublicProductDocument(
 ): value is PublicProductDocument {
   return (
     isRecord(value) &&
-    value.schemaVersion === discoverySchemaVersion &&
+    value.schemaVersion === productContractSchemaVersion &&
     isNonEmptyString(value.sellerId) &&
     isNonEmptyString(value.sellerSlug) &&
     Number.isInteger(value.publicationRevision) &&
@@ -296,6 +310,6 @@ function isSignedPublicProductDocument(
   return (
     isRecord(value) &&
     isPublicProductDocument(value.document) &&
-    isDiscoverySignature(value.signature)
+    isDiscoverySignature(value.signature, productContractSchemaVersion)
   );
 }

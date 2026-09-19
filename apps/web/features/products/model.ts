@@ -1,11 +1,7 @@
 import type { ActionResult } from "@/lib/agentpay-api";
 
 export type RouteLifecycleStatus =
-  | "draft"
-  | "published"
-  | "paused"
-  | "archived"
-  | "emergency_disabled";
+  "draft" | "published" | "paused" | "archived" | "emergency_disabled";
 
 export type PaidRoute = {
   routeId: string;
@@ -16,6 +12,8 @@ export type PaidRoute = {
   pathPattern: string;
   description: string;
   mimeType: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
   amount: string;
   asset: string;
   network: string;
@@ -41,6 +39,7 @@ export type RouteValidationResult = {
   valid: boolean;
   checks: RouteValidationCheck[];
   version: number;
+  contractHash: string;
 };
 
 export type RouteAuditEvent = {
@@ -88,6 +87,10 @@ export type RouteVersionInput = RouteIdentityInput & {
   expectedVersion: number;
 };
 
+export type PublishRouteInput = RouteVersionInput & {
+  contractHash: string;
+};
+
 export type UpdateRoutePriceInput = RouteVersionInput & {
   amount: string;
 };
@@ -102,15 +105,9 @@ export type ProductRouteActions = {
   validateRoute: (
     input: RouteIdentityInput,
   ) => Promise<ActionResult<RouteValidationResult>>;
-  publishRoute: (
-    input: RouteVersionInput,
-  ) => Promise<ActionResult<PaidRoute>>;
-  pauseRoute: (
-    input: RouteVersionInput,
-  ) => Promise<ActionResult<PaidRoute>>;
-  archiveRoute: (
-    input: RouteVersionInput,
-  ) => Promise<ActionResult<PaidRoute>>;
+  publishRoute: (input: PublishRouteInput) => Promise<ActionResult<PaidRoute>>;
+  pauseRoute: (input: RouteVersionInput) => Promise<ActionResult<PaidRoute>>;
+  archiveRoute: (input: RouteVersionInput) => Promise<ActionResult<PaidRoute>>;
   emergencyDisableRoute: (
     input: RouteVersionInput,
   ) => Promise<ActionResult<PaidRoute>>;

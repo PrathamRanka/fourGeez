@@ -151,6 +151,14 @@ by setup bundle v2. Recipes pin verification packages, preserve raw request
 bytes, define middleware order, require the no-op sandbox endpoint, and name
 the framework-native storefront and discovery files verified by fixtures.
 
+V1 product contracts are owned by `catalog` and projected by `storefront`.
+Catalog canonicalizes closed input/output schemas and computes a deterministic
+contract hash over the route version and execution-relevant terms. The MCP
+validation and publication tools bind seller confirmation to that hash.
+Storefront discovery signs the resulting public product contract and includes
+it in the publication fingerprint, so an approved seller change advances the
+discovery revision. Discovery never replaces fresh commerce authorization.
+
 ### Feature package layout
 
 Backend feature packages separate responsibilities by file without adding wrapper layers:
@@ -402,5 +410,6 @@ remains a separate transaction outcome after finalization.
 The first implementation does not provide card checkout, physical goods,
 shipping, inventory, tax calculation, production custody, automated refund
 execution,
-cross-seller reputation, autonomous negotiation, arbitrary remote code
+cross-seller reputation, an AgentPay-operated buyer agent, A2A execution,
+autonomous negotiation, arbitrary remote code
 execution, guaranteed search ranking, or automatic quality judgments.

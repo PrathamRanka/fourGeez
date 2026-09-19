@@ -372,6 +372,12 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 	if len(tools.Tools) != 6 {
 		t.Fatalf("tool count = %d, want 6", len(tools.Tools))
 	}
+	for _, tool := range tools.Tools {
+		outputSchema, ok := tool.OutputSchema.(map[string]any)
+		if !ok || outputSchema["type"] != "object" || outputSchema["additionalProperties"] != false {
+			t.Fatalf("tool %q output schema = %#v, want closed object", tool.Name, tool.OutputSchema)
+		}
+	}
 	result, err := session.CallTool(
 		t.Context(),
 		&protocol.CallToolParams{
@@ -381,12 +387,18 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 				"confirmationGrant":     "mcg1.test.secret",
 				"expectedSellerVersion": 1,
 				"route": map[string]any{
-					"displayName":             "Research Report",
-					"productSlug":             "research-report",
-					"method":                  "POST",
-					"pathPattern":             "/research",
-					"description":             "Research",
-					"mimeType":                "application/json",
+					"displayName": "Research Report",
+					"productSlug": "research-report",
+					"method":      "POST",
+					"pathPattern": "/research",
+					"description": "Research",
+					"mimeType":    "application/json",
+					"inputSchema": map[string]any{
+						"type": "object", "properties": map[string]any{}, "additionalProperties": false,
+					},
+					"outputSchema": map[string]any{
+						"type": "object", "properties": map[string]any{}, "additionalProperties": false,
+					},
 					"amount":                  "100",
 					"asset":                   "USDC",
 					"network":                 "eip155:84532",
@@ -405,6 +417,10 @@ func TestHTTPControllerEnforcesPerOperationScopes(t *testing.T) {
 			}
 		}
 		t.Fatalf("CallTool() error = %v, message = %s", err, message)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok || structured["schemaVersion"] != MCPToolResultSchemaVersion || structured["operation"] != "configure_route" {
+		t.Fatalf("structured mutation result = %#v", result.StructuredContent)
 	}
 	unknownFieldResult, err := session.CallTool(
 		t.Context(),

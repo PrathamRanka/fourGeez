@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/integrations/analyzer"
 	"github.com/fourgeez/agentpay/internal/integrations/discovery"
+	"github.com/fourgeez/agentpay/internal/integrations/sandbox"
 	"github.com/fourgeez/agentpay/internal/integrations/stacks"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -309,24 +309,16 @@ func (controller *HTTPController) registerSandboxTool(
 			ctx context.Context,
 			_ *protocol.CallToolRequest,
 			input SandboxValidateRouteInput,
-		) (*protocol.CallToolResult, map[string]any, error) {
+		) (*protocol.CallToolResult, sandbox.Result, error) {
 			result, err := controller.mutationService.SandboxValidateRoute(
 				ctx,
 				principal,
 				input,
 			)
 			if err != nil {
-				return nil, nil, safeMutationError(err)
+				return nil, sandbox.Result{}, safeMutationError(err)
 			}
-			encoded, err := json.Marshal(result)
-			if err != nil {
-				return nil, nil, err
-			}
-			var structuredResult map[string]any
-			if err := json.Unmarshal(encoded, &structuredResult); err != nil {
-				return nil, nil, err
-			}
-			return nil, structuredResult, nil
+			return nil, result, nil
 		},
 	)
 }
@@ -422,15 +414,16 @@ func (controller *HTTPController) registerTools(
 	protocol.AddTool(
 		server,
 		&protocol.Tool{
-			Name:        "configure_storefront",
-			Description: "Update the existing seller storefront after explicit confirmation",
-			Annotations: annotations,
+			Name:         "configure_storefront",
+			Description:  "Update the existing seller storefront after explicit confirmation",
+			Annotations:  annotations,
+			OutputSchema: mutationOutputSchema("seller", sellerOutputSchema()),
 		},
 		func(
 			ctx context.Context,
 			_ *protocol.CallToolRequest,
 			input ConfigureStorefrontInput,
-		) (*protocol.CallToolResult, map[string]any, error) {
+		) (*protocol.CallToolResult, MutationResult, error) {
 			result, err := controller.mutationService.ConfigureStorefront(
 				ctx,
 				principal,
@@ -442,15 +435,16 @@ func (controller *HTTPController) registerTools(
 	protocol.AddTool(
 		server,
 		&protocol.Tool{
-			Name:        "configure_route",
-			Description: "Create an unpublished paid-route draft after explicit confirmation",
-			Annotations: annotations,
+			Name:         "configure_route",
+			Description:  "Create an unpublished paid-route draft after explicit confirmation",
+			Annotations:  annotations,
+			OutputSchema: mutationOutputSchema("route", routeOutputSchema()),
 		},
 		func(
 			ctx context.Context,
 			_ *protocol.CallToolRequest,
 			input ConfigureRouteInput,
-		) (*protocol.CallToolResult, map[string]any, error) {
+		) (*protocol.CallToolResult, MutationResult, error) {
 			result, err := controller.mutationService.ConfigureRoute(ctx, principal, input)
 			return mutationToolResult(result, err)
 		},
@@ -458,15 +452,16 @@ func (controller *HTTPController) registerTools(
 	protocol.AddTool(
 		server,
 		&protocol.Tool{
-			Name:        "change_route_price",
-			Description: "Change future-intent pricing after explicit confirmation",
-			Annotations: annotations,
+			Name:         "change_route_price",
+			Description:  "Change future-intent pricing after explicit confirmation",
+			Annotations:  annotations,
+			OutputSchema: mutationOutputSchema("route", routeOutputSchema()),
 		},
 		func(
 			ctx context.Context,
 			_ *protocol.CallToolRequest,
 			input ChangeRoutePriceInput,
-		) (*protocol.CallToolResult, map[string]any, error) {
+		) (*protocol.CallToolResult, MutationResult, error) {
 			result, err := controller.mutationService.ChangeRoutePrice(ctx, principal, input)
 			return mutationToolResult(result, err)
 		},
@@ -474,8 +469,9 @@ func (controller *HTTPController) registerTools(
 	protocol.AddTool(
 		server,
 		&protocol.Tool{
-			Name:        "validate_route",
-			Description: "Run deterministic publication checks without publishing",
+			Name:         "validate_route",
+			Description:  "Run deterministic publication checks without publishing",
+			OutputSchema: mutationOutputSchema("validation", validationOutputSchema()),
 			Annotations: &protocol.ToolAnnotations{
 				IdempotentHint: true,
 				ReadOnlyHint:   true,
@@ -485,7 +481,7 @@ func (controller *HTTPController) registerTools(
 			ctx context.Context,
 			_ *protocol.CallToolRequest,
 			input ValidateRouteInput,
-		) (*protocol.CallToolResult, map[string]any, error) {
+		) (*protocol.CallToolResult, MutationResult, error) {
 			result, err := controller.mutationService.ValidateRoute(ctx, principal, input)
 			return mutationToolResult(result, err)
 		},
@@ -493,15 +489,16 @@ func (controller *HTTPController) registerTools(
 	protocol.AddTool(
 		server,
 		&protocol.Tool{
-			Name:        "publish_route",
-			Description: "Validate and publish one draft route after explicit confirmation",
-			Annotations: annotations,
+			Name:         "publish_route",
+			Description:  "Validate and publish one draft route after explicit confirmation",
+			Annotations:  annotations,
+			OutputSchema: mutationOutputSchema("route", routeOutputSchema()),
 		},
 		func(
 			ctx context.Context,
 			_ *protocol.CallToolRequest,
 			input PublishRouteInput,
-		) (*protocol.CallToolResult, map[string]any, error) {
+		) (*protocol.CallToolResult, MutationResult, error) {
 			result, err := controller.mutationService.PublishRoute(ctx, principal, input)
 			return mutationToolResult(result, err)
 		},
@@ -512,19 +509,11 @@ func (controller *HTTPController) registerTools(
 func mutationToolResult(
 	result MutationResult,
 	err error,
-) (*protocol.CallToolResult, map[string]any, error) {
+) (*protocol.CallToolResult, MutationResult, error) {
 	if err != nil {
-		return nil, nil, safeMutationError(err)
+		return nil, MutationResult{}, safeMutationError(err)
 	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return nil, nil, err
-	}
-	var structuredResult map[string]any
-	if err := json.Unmarshal(encoded, &structuredResult); err != nil {
-		return nil, nil, err
-	}
-	return nil, structuredResult, nil
+	return nil, result, nil
 }
 
 // safeMutationError preserves actionable domain errors and redacts internals.
@@ -540,6 +529,7 @@ func safeMutationError(err error) error {
 		errors.Is(err, domain.ErrRateLimitExceeded) ||
 		errors.Is(err, api.ErrIdempotencyConflict) ||
 		errors.Is(err, catalog.ErrRouteValidation) ||
+		errors.Is(err, catalog.ErrRouteContractStale) ||
 		errors.Is(err, catalog.ErrRoutePublished) ||
 		errors.Is(err, ErrSandboxValidationFailed) ||
 		errors.Is(err, ErrSandboxValidationStale) ||

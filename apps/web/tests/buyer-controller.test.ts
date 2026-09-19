@@ -7,16 +7,26 @@ vi.mock("@/features/storefront/controller", () => ({
 }));
 
 const product = {
+  schemaVersion: "agentpay.product-contract.v1" as const,
   sellerId: "sel_01ARZ3NDEKTSV4RRFFQ69G5FAV",
   routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  routeVersion: 2,
   displayName: "Market Snapshot",
   productSlug: "market-snapshot",
   description: "Generate a market snapshot.",
   mimeType: "application/json",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  outputSchema: { type: "object", properties: {}, additionalProperties: false },
   amount: "2500000",
   asset: "USDC",
   network: "eip155:84532",
+  paymentProtocol: "x402" as const,
+  paymentScheme: "exact" as const,
   availability: "active" as const,
+  fulfillmentMode: "synchronous_https" as const,
+  fulfillmentTimeoutSeconds: 20,
+  updatedAt: "2026-09-18T11:55:00Z",
+  authoritativeForPurchase: false as const,
   canonicalUrl:
     "https://shop.agentpay.example/store/northstar/products/market-snapshot",
   purchaseSessionEndpoint:

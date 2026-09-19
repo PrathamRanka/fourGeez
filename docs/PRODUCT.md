@@ -170,6 +170,14 @@ claims the transaction exactly once, and forwards a signed request to
 that endpoint. Seller code verifies the AgentPay signature and returns the
 digital result.
 
+Each route draft includes closed, versioned JSON input and output schemas. The
+validation response binds those schemas and all execution-relevant route terms
+to a deterministic contract hash. Publication re-runs validation and sandbox
+checks, requires the seller-approved expected route version and contract hash,
+then increments the route version. Public storefront and product discovery
+include the approved schemas and version in the signed document; discovery
+remains non-authoritative for purchase.
+
 Seller-hosted integration code is not part of AgentPay's trust boundary. It may
 be modified or forked, but it receives no private signing material, payment
 verification authority, publication authority, subscription authority, or
@@ -178,6 +186,11 @@ decision remain in AgentPay's cloud. A project key only bootstraps a short-lived
 MCP capability; it is not a transaction credential.
 
 ## Buyer channels
+
+V1 is seller-first. AgentPay publishes contracts that external buyer agents can
+understand and use, but AgentPay does not expose its own autonomous buyer-agent
+runtime, A2A execution endpoint, or seller/buyer negotiation flow as a V1
+capability. Those features are deferred to V2.
 
 ### Agent channel
 
