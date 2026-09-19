@@ -68,7 +68,7 @@ const prerequisiteDetails: Record<
 > = {
   account_verified: {
     label: "Verified seller account and required profile",
-    href: "/dashboard/settings#account",
+    href: "/verify",
     action: "Complete account profile",
   },
   storefront_created: {
@@ -373,7 +373,7 @@ export function SellerOnboarding({
                   <span>{seller.upstreamBaseUrl}</span>
                 </div>
                 <Button
-                  render={<Link href="/dashboard/settings#service-endpoint" />}
+                  render={<Link href="/dashboard/settings" />}
                   variant="outline"
                 >
                   Review service settings
