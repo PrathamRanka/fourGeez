@@ -1,46 +1,50 @@
 .workspace {
-  --analytics-bg: #fff;
-  --analytics-panel: #f7f8fa;
-  --analytics-line: #dce0e7;
-  --analytics-text: #12141a;
-  --analytics-muted: #697181;
+  --analytics-bg: var(--dash-canvas, #ffffff);
+  --analytics-panel: var(--dash-surface, #ffffff);
+  --analytics-soft: var(--dash-surface-soft, #f5f5f5);
+  --analytics-line: var(--dash-line, #e2e2e2);
+  --analytics-line-strong: var(--dash-line-strong, #c8c8c8);
+  --analytics-text: var(--dash-copy, #111111);
+  --analytics-muted: var(--dash-muted, #6f6f73);
   display: grid;
-  min-height: calc(100vh - 8rem);
+  width: 100%;
+  max-width: 90rem;
+  min-height: calc(100vh - 4.3rem);
+  margin-inline: auto;
+  gap: 0.75rem;
   overflow: hidden;
-  border: 1px solid var(--analytics-line);
+  padding: clamp(0.75rem, 2vw, 1.5rem);
   background: var(--analytics-bg);
   color: var(--analytics-text);
 }
 
-:global(.dark) .workspace {
-  color-scheme: dark;
-  --analytics-bg: #090a0d;
-  --analytics-panel: #0e1015;
-  --analytics-line: #272a34;
-  --analytics-text: #f4f5f7;
-  --analytics-muted: #9299a8;
+.hero,
+.pairs,
+.chartPanel,
+.routePanel,
+.errorState,
+.emptyState {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--analytics-line);
+  border-radius: 0.8rem;
+  background: var(--analytics-panel);
 }
 
 .hero {
   display: flex;
-  min-height: 14rem;
+  min-height: 10.5rem;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 3rem;
-  padding: clamp(1.5rem, 4vw, 3.5rem);
-  border-bottom: 1px solid var(--analytics-line);
+  gap: 2rem;
+  padding: clamp(1.35rem, 3vw, 2.25rem);
   background:
-    radial-gradient(
-      circle at 78% 32%,
-      rgb(122 154 255 / 17%),
-      transparent 24rem
+    linear-gradient(
+      135deg,
+      transparent 48%,
+      color-mix(in srgb, var(--analytics-text) 3%, transparent)
     ),
-    radial-gradient(
-      circle at 62% 76%,
-      rgb(202 159 255 / 10%),
-      transparent 20rem
-    ),
-    var(--analytics-bg);
+    var(--analytics-panel);
 }
 
 .eyebrow,
@@ -51,31 +55,31 @@
 .metric p,
 .routePanel th {
   font-family: var(--font-mono);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 .eyebrow,
 .sectionIndex {
   color: var(--analytics-muted);
-  font-size: 0.62rem;
+  font-size: 0.57rem;
 }
 
 .hero h1 {
-  margin-top: 0.9rem;
+  margin-top: 0.7rem;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 7vw, 6.5rem);
-  font-weight: 470;
-  line-height: 0.9;
-  letter-spacing: -0.075em;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-weight: 520;
+  line-height: 0.94;
+  letter-spacing: -0.065em;
 }
 
 .hero > div:first-child > p:last-child {
   max-width: 35rem;
-  margin-top: 1.4rem;
+  margin-top: 1rem;
   color: var(--analytics-muted);
-  font-size: 0.84rem;
-  line-height: 1.6;
+  font-size: 0.78rem;
+  line-height: 1.55;
 }
 
 .windowCount {
@@ -86,80 +90,72 @@
 
 .windowCount strong {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 7vw, 6rem);
-  font-weight: 420;
+  font-size: clamp(2.8rem, 6vw, 5.2rem);
+  font-weight: 440;
   line-height: 0.8;
   letter-spacing: -0.075em;
 }
 
 .windowCount span {
-  margin-top: 0.9rem;
+  margin-top: 0.75rem;
   color: var(--analytics-muted);
-  font-size: 0.58rem;
+  font-size: 0.52rem;
 }
 
 .sectionHeading {
   display: flex;
-  min-height: 7.5rem;
+  min-height: 6.3rem;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 2rem;
+  gap: 1.5rem;
   border-bottom: 1px solid var(--analytics-line);
-  padding: 1.5rem clamp(1.25rem, 4vw, 2.5rem);
+  padding: 1.15rem clamp(1rem, 3vw, 1.5rem);
 }
 
 .sectionHeading h2,
 .errorState h2,
 .emptyState h2 {
-  margin-top: 0.55rem;
+  margin-top: 0.45rem;
   font-family: var(--font-display);
-  font-size: clamp(1.55rem, 3vw, 2.7rem);
-  font-weight: 470;
-  line-height: 1.03;
-  letter-spacing: -0.05em;
+  font-size: clamp(1.35rem, 2.4vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
 }
 
 .sectionHeading > span {
   color: var(--analytics-muted);
-  font-size: 0.56rem;
+  font-size: 0.51rem;
+  white-space: nowrap;
 }
 
 .pairGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 31rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
 }
 
 .pair {
   min-width: 0;
   overflow: hidden;
-  border-right: 1px solid var(--analytics-line);
-  border-bottom: 1px solid var(--analytics-line);
+  border: 1px solid var(--analytics-line);
+  border-radius: 0.65rem;
   background: var(--analytics-panel);
 }
 
 .pair[data-accent="true"] {
-  background:
-    radial-gradient(
-      circle at 80% 4%,
-      rgb(214 173 255 / 38%),
-      transparent 13rem
-    ),
-    radial-gradient(
-      circle at 52% 53%,
-      rgb(88 146 255 / 28%),
-      transparent 15rem
-    ),
-    var(--analytics-panel);
+  background: var(--analytics-soft);
 }
 
 .pair > header {
   display: flex;
-  min-height: 5rem;
+  min-height: 4.3rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   border-bottom: 1px solid var(--analytics-line);
-  padding: 1rem 1.25rem;
+  padding: 0.85rem 1rem;
 }
 
 .pair > header strong,
@@ -169,14 +165,18 @@
 
 .pair > header strong {
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 520;
+  font-size: 1rem;
+  font-weight: 560;
 }
 
 .pair > header span {
-  margin-top: 0.22rem;
-  color: #aaaab2;
-  font-size: 0.54rem;
+  max-width: 18rem;
+  margin-top: 0.18rem;
+  overflow: hidden;
+  color: var(--analytics-muted);
+  font-size: 0.5rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metricGrid {
@@ -186,9 +186,9 @@
 
 .metric {
   min-width: 0;
-  min-height: 10.5rem;
+  min-height: 8.6rem;
   border-right: 1px solid var(--analytics-line);
-  padding: 1.25rem;
+  padding: 1rem;
 }
 
 .metric:last-child {
@@ -196,41 +196,39 @@
 }
 
 .metric svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  color: #b9b9c0;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--analytics-muted);
 }
 
 .metric p {
-  margin-top: 2.2rem;
+  margin-top: 1.7rem;
   color: var(--analytics-muted);
-  font-size: 0.52rem;
+  font-size: 0.48rem;
 }
 
 .metric strong {
   display: block;
-  margin-top: 0.5rem;
+  margin-top: 0.45rem;
   overflow: hidden;
   font-family: var(--font-display);
-  font-size: clamp(1rem, 2vw, 1.65rem);
-  font-weight: 460;
-  letter-spacing: -0.04em;
+  font-size: clamp(0.95rem, 1.7vw, 1.4rem);
+  font-weight: 520;
+  letter-spacing: -0.035em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chartPanel,
-.routePanel {
-  border-bottom: 1px solid var(--analytics-line);
-}
-
 .tableWrap {
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
 }
 
 .routePanel table {
   width: 100%;
-  min-width: 48rem;
+  min-width: 46rem;
   border-collapse: collapse;
   text-align: left;
 }
@@ -239,7 +237,7 @@
 .routePanel td {
   border-right: 1px solid var(--analytics-line);
   border-bottom: 1px solid var(--analytics-line);
-  padding: 1rem 1.25rem;
+  padding: 0.85rem 1rem;
 }
 
 .routePanel th:last-child,
@@ -251,16 +249,20 @@
   border-bottom: 0;
 }
 
+.routePanel tbody tr {
+  transition: background-color 150ms ease;
+}
+
 .routePanel th {
   color: var(--analytics-muted);
-  font-size: 0.54rem;
+  font-size: 0.49rem;
   font-weight: 500;
 }
 
 .routePanel td {
-  color: #d7d7dc;
+  color: var(--analytics-muted);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
 }
 
 .routePanel td strong,
@@ -270,15 +272,15 @@
 
 .routePanel td strong {
   color: var(--analytics-text);
-  font-weight: 500;
+  font-weight: 520;
 }
 
 .routePanel td small {
   max-width: 16rem;
-  margin-top: 0.3rem;
+  margin-top: 0.25rem;
   overflow: hidden;
   color: var(--analytics-muted);
-  font-size: 0.56rem;
+  font-size: 0.53rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -286,17 +288,10 @@
 .errorState,
 .emptyState {
   display: grid;
-  min-height: 24rem;
+  min-height: 20rem;
   align-items: center;
-  gap: 2rem;
-  padding: clamp(2rem, 6vw, 5rem);
-  background:
-    radial-gradient(
-      circle at 75% 35%,
-      rgb(108 150 255 / 17%),
-      transparent 25rem
-    ),
-    var(--analytics-panel);
+  gap: 1.5rem;
+  padding: clamp(1.5rem, 5vw, 4rem);
 }
 
 .errorState {
@@ -305,38 +300,45 @@
 
 .errorIcon {
   display: grid;
-  width: 3rem;
-  height: 3rem;
+  width: 2.75rem;
+  height: 2.75rem;
   place-items: center;
-  border: 1px solid #593638;
-  color: #ffb5b9;
+  border: 1px solid color-mix(in srgb, #b2474f 58%, var(--analytics-line));
+  border-radius: 0.55rem;
+  color: #b2474f;
+}
+
+:global(.dark) .errorIcon {
+  color: #df969c;
 }
 
 .errorIcon svg {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 .errorState p:not(.sectionIndex),
 .emptyState p:not(.sectionIndex) {
   max-width: 38rem;
-  margin-top: 0.75rem;
+  margin-top: 0.65rem;
   color: var(--analytics-muted);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   line-height: 1.55;
 }
 
 .errorState a,
 .emptyState a {
   display: inline-flex;
-  min-height: 2.85rem;
+  min-height: 2.65rem;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border: 1px solid #4a4a50;
-  padding: 0.7rem 1rem;
+  border: 1px solid var(--analytics-line-strong);
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.9rem;
+  color: var(--analytics-text);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   text-decoration: none;
   transition:
     border-color 150ms ease,
@@ -349,27 +351,35 @@
 }
 
 .emptyState svg {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .mutedState {
-  padding: 3rem clamp(1.25rem, 4vw, 2.5rem);
+  padding: 2.5rem clamp(1rem, 3vw, 1.5rem);
   color: var(--analytics-muted);
   font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: 0.61rem;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .errorState a:hover,
   .emptyState a:hover {
-    border-color: #f1f1ed;
-    background: #f1f1ed;
-    color: #090909;
+    border-color: var(--analytics-text);
+    background: var(--analytics-text);
+    color: var(--analytics-bg);
+  }
+
+  .routePanel tbody tr:hover {
+    background: var(--analytics-soft);
   }
 }
 
-@media (max-width: 63.999rem) {
+@media (max-width: 64rem) {
+  .workspace {
+    min-height: calc(100vh - 6.95rem);
+  }
+
   .metricGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -383,24 +393,23 @@
   }
 }
 
-@media (max-width: 47.999rem) {
+@media (max-width: 48rem) {
   .workspace {
-    margin-inline: -1rem;
-    border-right: 0;
-    border-left: 0;
+    gap: 0.6rem;
+    padding: 0.6rem;
   }
 
   .hero {
-    min-height: 15rem;
+    min-height: 13rem;
     align-items: flex-start;
     flex-direction: column;
     justify-content: flex-end;
-    gap: 2rem;
-    padding: 2rem 1.25rem;
+    gap: 1.5rem;
+    padding: 1.4rem;
   }
 
   .hero h1 {
-    font-size: clamp(3rem, 17vw, 4.6rem);
+    font-size: clamp(2.75rem, 15vw, 4.2rem);
   }
 
   .windowCount {
@@ -408,41 +417,35 @@
   }
 
   .sectionHeading {
+    min-height: auto;
     align-items: flex-start;
     flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .sectionHeading > span {
+    white-space: normal;
   }
 
   .pairGrid {
     grid-template-columns: 1fr;
+    padding: 0.6rem;
   }
 
-  .pair {
-    border-right: 0;
-  }
-
-  .metricGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .metric,
-  .metric:nth-child(2) {
-    min-height: 8.5rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--analytics-line);
-  }
-
-  .metric:last-child {
-    border-bottom: 0;
+  .metric {
+    min-height: 7.5rem;
+    padding: 0.85rem;
   }
 
   .metric p {
-    margin-top: 1.4rem;
+    margin-top: 1.25rem;
   }
 
   .errorState,
   .emptyState {
     grid-template-columns: 1fr;
-    padding: 2rem 1.25rem;
+    padding: 1.5rem;
   }
 
   .errorState a,
@@ -451,9 +454,26 @@
   }
 }
 
+@media (max-width: 25rem) {
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric,
+  .metric:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--analytics-line);
+  }
+
+  .metric:last-child {
+    border-bottom: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .errorState a,
-  .emptyState a {
+  .emptyState a,
+  .routePanel tbody tr {
     transition: none;
   }
 }

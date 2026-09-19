@@ -115,13 +115,20 @@ describe("seller analytics dashboard", () => {
     const legend = screen.getByRole("list", {
       name: "Reconciliation stages",
     });
+    expect(within(legend).getByText("All activity")).toBeVisible();
     expect(within(legend).getByText("Fulfilled")).toBeVisible();
-    expect(within(legend).getByText("Processing")).toBeVisible();
-    expect(within(legend).getByText("Failed")).toBeVisible();
-    expect(within(legend).getByText("Disputed")).toBeVisible();
+    expect(within(legend).queryByText("Failed")).not.toBeInTheDocument();
+    expect(within(legend).queryByText("Disputed")).not.toBeInTheDocument();
+    const chartSummary = screen.getByRole("group", {
+      name: "Seven-day activity summary",
+    });
+    expect(within(chartSummary).getByText("5")).toBeVisible();
+    expect(within(chartSummary).getByText("40%")).toBeVisible();
     const accessibleSeries = screen.getByRole("table", {
       name: "Daily reconciliation totals",
     });
+    expect(within(accessibleSeries).getByText("Failed")).toBeInTheDocument();
+    expect(within(accessibleSeries).getByText("Disputed")).toBeInTheDocument();
     expect(
       within(accessibleSeries).getByText("2026-09-17"),
     ).toBeInTheDocument();
