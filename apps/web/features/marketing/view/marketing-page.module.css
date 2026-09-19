@@ -40,7 +40,20 @@
   min-height: min(42rem, calc(100svh - 6rem));
   overflow: hidden;
   border-bottom: 1px solid var(--marketing-line);
+  background: #050506;
+  color: #f8f8fb;
   padding: clamp(5.5rem, 10vw, 8rem) clamp(1.25rem, 5vw, 5rem) 2rem;
+}
+
+.hero::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent, rgb(5 5 6 / 0.08) 62%, rgb(5 5 6 / 0.76) 100%),
+    radial-gradient(circle at 50% 13%, transparent 0 18%, rgb(5 5 6 / 0.08) 70%);
+  content: "";
+  pointer-events: none;
 }
 
 .themeControl {
@@ -50,7 +63,6 @@
   right: 1rem;
 }
 
-.heroShader,
 .closingGlow {
   position: absolute;
   z-index: -1;
@@ -72,47 +84,11 @@
   mask-image: linear-gradient(to bottom, black 10%, black 78%, transparent);
 }
 
-.heroShader span:not(.shaderGrain) {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(4.5rem);
-  opacity: 0.58;
-  will-change: transform;
-}
-
-.shaderBlue {
-  width: 46rem;
-  height: 30rem;
-  top: 14rem;
-  left: 4%;
-  background: color-mix(in srgb, var(--marketing-blue) 80%, transparent);
-  animation: shader-drift-left 12s ease-in-out infinite alternate;
-}
-
-.shaderViolet {
-  width: 42rem;
-  height: 28rem;
-  top: 18rem;
-  right: 7%;
-  background: color-mix(in srgb, var(--marketing-violet) 76%, transparent);
-  animation: shader-drift-right 14s ease-in-out infinite alternate;
-}
-
-.shaderRose {
-  width: 34rem;
-  height: 17rem;
-  right: 27%;
-  bottom: -3rem;
-  background: color-mix(in srgb, var(--marketing-rose) 78%, transparent);
-  animation: shader-drift-center 16s ease-in-out infinite alternate;
-}
-
-.shaderGrain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.14;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E");
-  mix-blend-mode: soft-light;
+.heroGradient {
+  z-index: 0;
+  filter: saturate(1.35) contrast(1.06);
+  transform: scale(1.02);
+  transform-origin: 50% 20%;
 }
 
 .heroCopy {
@@ -149,14 +125,35 @@
   margin: 1rem auto 0;
   font-size: clamp(3rem, 7vw, 6.3rem);
   line-height: 0.94;
+  text-shadow: 0 0.18rem 1.8rem rgb(0 0 0 / 0.38);
 }
 
 .heroDescription {
   max-width: 41rem;
   margin: 1.45rem auto 0;
-  color: var(--marketing-muted);
+  color: rgb(248 248 251 / 0.76);
   font-size: clamp(1rem, 1.7vw, 1.2rem);
   line-height: 1.55;
+}
+
+.hero .kicker,
+.hero .railPrompt span,
+.hero .railResult,
+.hero .railSteps span {
+  color: rgb(248 248 251 / 0.68);
+}
+
+.hero .primaryAction {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #09090b;
+}
+
+.hero .secondaryAction {
+  border-color: rgb(255 255 255 / 0.34);
+  background: rgb(5 5 6 / 0.46);
+  color: #ffffff;
+  backdrop-filter: blur(1rem);
 }
 
 .heroActions {
@@ -216,11 +213,9 @@
   width: min(100%, 54rem);
   margin: clamp(3.5rem, 7vw, 5.5rem) auto 0;
   grid-template-columns: 1.15fr 1.8fr auto;
-  border: 1px solid
-    color-mix(in srgb, var(--marketing-line-strong) 82%, transparent);
-  background: color-mix(in srgb, var(--marketing-panel) 85%, transparent);
-  box-shadow: 0 2rem 6rem -3rem
-    color-mix(in srgb, var(--marketing-blue) 50%, transparent);
+  border: 1px solid rgb(255 255 255 / 0.24);
+  background: rgb(5 5 6 / 0.58);
+  box-shadow: 0 2rem 6rem -3rem rgb(41 121 255 / 0.72);
   backdrop-filter: blur(1rem);
   animation: rail-enter 850ms 100ms cubic-bezier(0.19, 1, 0.22, 1) both;
 }
@@ -1293,33 +1288,6 @@
   }
 }
 
-@keyframes shader-drift-left {
-  from {
-    transform: translate3d(-4%, 2%, 0) scale(0.94);
-  }
-  to {
-    transform: translate3d(7%, -3%, 0) scale(1.06);
-  }
-}
-
-@keyframes shader-drift-right {
-  from {
-    transform: translate3d(5%, -2%, 0) scale(1.04);
-  }
-  to {
-    transform: translate3d(-7%, 4%, 0) scale(0.96);
-  }
-}
-
-@keyframes shader-drift-center {
-  from {
-    transform: translate3d(-5%, 0, 0);
-  }
-  to {
-    transform: translate3d(8%, -5%, 0);
-  }
-}
-
 @keyframes ticker {
   to {
     transform: translateX(-50%);
@@ -1513,9 +1481,6 @@
 @media (prefers-reduced-motion: reduce) {
   .heroCopy,
   .heroRail,
-  .shaderBlue,
-  .shaderViolet,
-  .shaderRose,
   .stackTrack {
     animation: none;
   }

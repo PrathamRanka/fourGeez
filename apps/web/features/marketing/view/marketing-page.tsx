@@ -13,6 +13,7 @@ import {
   Webhook,
 } from "lucide-react";
 import Link from "next/link";
+import AnimatedGradientBackground from "@/components/ui/animated-gradient-background";
 import { IntegrationCard } from "@/components/ui/integration-card";
 import { ThemeCycleButton } from "@/components/ui/theme-cycle-button";
 import {
@@ -45,12 +46,15 @@ function HeroSection() {
       <div className={styles.themeControl}>
         <ThemeCycleButton />
       </div>
-      <div className={styles.heroShader} aria-hidden="true">
-        <span className={styles.shaderBlue} />
-        <span className={styles.shaderViolet} />
-        <span className={styles.shaderRose} />
-        <span className={styles.shaderGrain} />
-      </div>
+      <AnimatedGradientBackground
+        breathing
+        animationSpeed={0.025}
+        breathingRange={6}
+        containerClassName={styles.heroGradient}
+        gradientStops={[18, 34, 49, 64, 77, 90, 100]}
+        startingGap={94}
+        topOffset={10}
+      />
       <div className={styles.heroCopy}>
         <p className={styles.kicker}>Commerce infrastructure for software</p>
         <h1 id="hero-title">Sell to agents. Settle on-chain.</h1>

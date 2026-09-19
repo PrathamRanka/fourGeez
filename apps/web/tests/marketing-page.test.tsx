@@ -19,6 +19,10 @@ describe("AgentPay public site", () => {
     expect(
       screen.getByRole("link", { name: "Watch agent checkout" }),
     ).toHaveAttribute("href", "/demo/agent-checkout");
+    expect(screen.getByTestId("animated-gradient-background")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
   });
 
   it("shows the bounded product, integration, and network story", () => {
