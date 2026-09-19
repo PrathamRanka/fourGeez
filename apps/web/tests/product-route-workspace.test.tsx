@@ -168,6 +168,12 @@ describe("product route workspace", () => {
     ).toBeVisible();
     expect(screen.getByText("Version 2")).toBeVisible();
     expect(screen.getAllByText("Published")[0]).toBeVisible();
+    const readiness = screen.getByRole("list", {
+      name: "Product readiness",
+    });
+    expect(within(readiness).getByText("Registered")).toBeVisible();
+    expect(within(readiness).getByText("Not checked")).toBeVisible();
+    expect(within(readiness).getByText("Live")).toBeVisible();
     expect(screen.queryByText("Route ID")).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -189,7 +195,63 @@ describe("product route workspace", () => {
       name: "Publication checks",
     });
     expect(within(validationList).getAllByText("Passed")).toHaveLength(2);
+    expect(within(readiness).getByText("Verified")).toBeVisible();
     expect(screen.getByText("Published product")).toBeVisible();
+  });
+
+  it("keeps product creation secondary until the seller asks for it", () => {
+    const actions = createActions();
+    render(
+      <ProductRouteWorkspace
+        actions={actions}
+        initialSnapshot={initialSnapshot}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("form", { name: "Create product draft" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "New product" }));
+
+    expect(
+      screen.getByRole("form", { name: "Create product draft" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Close new product" })).toBeVisible();
+  });
+
+  it("turns an empty catalog into a direct creation path", () => {
+    const actions = createActions();
+    render(
+      <ProductRouteWorkspace
+        actions={actions}
+        initialSnapshot={{ ...initialSnapshot, routes: [] }}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Create your first product" })).toBeVisible();
+    expect(
+      screen.getByRole("form", { name: "Create product draft" }),
+    ).toBeVisible();
+    expect(screen.getByText("Nothing is published yet")).toBeVisible();
+  });
+
+  it("shows a clear retry action when the catalog snapshot fails", () => {
+    const actions = createActions();
+    render(
+      <ProductRouteWorkspace
+        actions={actions}
+        initialSnapshot={{
+          ...initialSnapshot,
+          routes: [],
+          error: "The catalog service is temporarily unavailable.",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Catalog unavailable" })).toBeVisible();
+    expect(screen.getByText("The catalog service is temporarily unavailable.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Retry catalog" })).toBeVisible();
   });
 
   it("creates a draft and pauses a published route through real actions", async () => {
@@ -200,6 +262,8 @@ describe("product route workspace", () => {
         initialSnapshot={initialSnapshot}
       />,
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "New product" }));
 
     fireEvent.change(screen.getByLabelText("Product name"), {
       target: { value: "Executive Summaries" },
