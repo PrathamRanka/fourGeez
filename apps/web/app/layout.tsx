@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/next";
 import { ApplicationShell } from "@/components/site/application-shell";
 import { SmoothScroll } from "@/components/site/smooth-scroll";
 import {
@@ -58,6 +59,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <ApplicationShell>{children}</ApplicationShell>
+        <Analytics />
       </body>
     </html>
   );
