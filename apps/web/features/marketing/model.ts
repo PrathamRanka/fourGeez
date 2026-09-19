@@ -120,6 +120,6 @@ export const frequentlyAskedQuestions = [
   {
     question: "How is AgentPay priced?",
     answer:
-      "AgentPay is seller-funded through a monthly software plan, with optional metered fees for successful transactions and higher tiers for approvals, evidence retention, analytics, limits, and support. Buyer settlement remains separate and goes directly to the seller.",
+      "AgentPay is seller-funded through a monthly software plan, with optional metered fees for successful transactions and higher tiers for evidence retention, analytics, limits, and support. Buyer settlement remains separate and goes directly to the seller.",
   },
 ] as const;

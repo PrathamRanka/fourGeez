@@ -10,7 +10,7 @@ describe("AgentPay public site", () => {
       screen.getByRole("heading", { name: "Sell to agents. Settle on-chain." }),
     ).toBeVisible();
     expect(
-      screen.getByText(/the next visitor to your site will be an ai agent/i),
+      screen.getByText(/give people and software agents one storefront/i),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Start selling" })).toHaveAttribute(
       "href",

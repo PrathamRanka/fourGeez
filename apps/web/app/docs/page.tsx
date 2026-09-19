@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
+import { sellerDocsMetadata } from "@/features/marketing/seo";
 import styles from "./docs.module.css";
 
-export const metadata: Metadata = {
-  title: "Documentation",
-  description:
-    "The AgentPay seller integration path for coding agents and existing APIs.",
-};
+export const metadata: Metadata = sellerDocsMetadata;
 
 const integrationSteps = [
   [

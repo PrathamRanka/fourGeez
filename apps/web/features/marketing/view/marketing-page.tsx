@@ -53,11 +53,14 @@ function HeroSection() {
       />
       <div className={styles.heroCopy}>
         <HeroMascot className={styles.heroMascot} />
-        <p className={styles.kicker}>Commerce infrastructure for software</p>
+        <p className={styles.kicker}>
+          Seller-first x402 commerce · Development preview
+        </p>
         <h1 id="hero-title">Sell to agents. Settle on-chain.</h1>
         <p className={styles.heroDescription}>
-          The next visitor to your site will be an AI agent. Make them your next
-          customer.
+          Give people and software agents one storefront for your existing API.
+          Prepare x402 testnet checkout, signed fulfillment, and
+          machine-readable discovery for seller review.
         </p>
         <div className={styles.heroActions}>
           <Link className={styles.primaryAction} href="/sign-up">

@@ -40,7 +40,7 @@ export function CommerceDemo() {
     >
       <div className={styles.commerceHeader}>
         <span>
-          <i aria-hidden="true" /> Live transaction
+          <i aria-hidden="true" /> Testnet transaction example
         </span>
         <div
           className={styles.commerceSwitch}

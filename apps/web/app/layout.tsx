@@ -2,16 +2,48 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ApplicationShell } from "@/components/site/application-shell";
 import { SmoothScroll } from "@/components/site/smooth-scroll";
+import {
+  agentPaySiteOrigin,
+  marketingDescription,
+} from "@/features/marketing/seo";
 import "./globals.css";
 import "lenis/dist/lenis.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(`${agentPaySiteOrigin}/`),
+  applicationName: "AgentPay",
   title: {
-    default: "AgentPay — Sell to people and AI agents",
-    template: "%s · AgentPay",
+    default: "AgentPay | Seller-first commerce for APIs",
+    template: "%s | AgentPay",
   },
-  description:
-    "Turn an existing API or digital service into a verified storefront for people and AI agents.",
+  description: marketingDescription,
+  manifest: "/manifest.webmanifest",
+  referrer: "origin-when-cross-origin",
+  icons: {
+    icon: [
+      {
+        url: "/brand/agentpay-favicon.svg",
+        type: "image/svg+xml",
+      },
+      {
+        url: "/favicon.ico",
+        sizes: "16x16 32x32",
+        type: "image/x-icon",
+      },
+      {
+        url: "/brand/agentpay-icon-32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/brand/agentpay-icon-180.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 // RootLayout applies the shared public product shell and design system.
