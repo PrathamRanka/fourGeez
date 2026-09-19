@@ -50,7 +50,7 @@ describe("AgentPay marketing discovery", () => {
         name: "Pratham Ranka",
         url: "https://www.linkedin.com/in/prathamranka06/",
       },
-      { name: "Ayush Garg" },
+      { name: "Ayush Garg", url: "https://github.com/gargayush1911" },
     ]);
     expect(rootMetadata.icons).toMatchObject({ shortcut: "/favicon.ico" });
     expect(socialImageSize).toEqual({ width: 1200, height: 630 });
@@ -108,6 +108,7 @@ describe("AgentPay marketing discovery", () => {
     expect(sitemap().map(({ url }) => url)).toEqual([
       `${canonicalOrigin}/`,
       `${canonicalOrigin}/docs`,
+      `${canonicalOrigin}/developers`,
       `${canonicalOrigin}/demo/agent-checkout`,
       `${canonicalOrigin}/security`,
       `${canonicalOrigin}/privacy`,

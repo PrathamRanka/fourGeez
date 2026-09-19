@@ -24,7 +24,7 @@ export const metadata: Metadata = {
       name: "Pratham Ranka",
       url: "https://www.linkedin.com/in/prathamranka06/",
     },
-    { name: "Ayush Garg" },
+    { name: "Ayush Garg", url: "https://github.com/gargayush1911" },
   ],
   creator: "Pratham Ranka and Ayush Garg",
   publisher: "AgentPay",

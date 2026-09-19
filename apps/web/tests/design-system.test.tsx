@@ -29,6 +29,9 @@ describe("AgentPay web foundation", () => {
       screen.getByRole("link", { name: "GitHub repository" }),
     ).toHaveAttribute("href", "https://github.com/PrathamRanka/fourGeez");
     expect(
+      screen.getByRole("link", { name: "Meet the developers" }),
+    ).toHaveAttribute("href", "/developers");
+    expect(
       screen.getByRole("link", { name: "Pratham Ranka on LinkedIn" }),
     ).toHaveAttribute(
       "href",

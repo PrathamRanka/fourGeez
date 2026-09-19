@@ -59,3 +59,7 @@ Thumbs.db
 # Local runtime data
 .agentpay/
 .cache/
+.tmp/
+.tools/
+.worktrees/
+debug.log

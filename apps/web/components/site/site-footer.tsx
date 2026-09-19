@@ -36,6 +36,10 @@ const footerGroups = [
     title: "Developers",
     links: [
       {
+        href: "/developers",
+        label: "Meet the developers",
+      },
+      {
         href: "https://github.com/PrathamRanka/fourGeez",
         label: "GitHub repository",
         icon: Code2,

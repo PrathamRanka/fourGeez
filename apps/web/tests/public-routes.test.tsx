@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import DevelopersPage from "@/app/developers/page";
 import DocsPage from "@/app/docs/page";
 import PrivacyPage from "@/app/privacy/page";
 import SecurityPage from "@/app/security/page";
@@ -54,5 +55,25 @@ describe("AgentPay public routes", () => {
         name: "Clear terms for an early product.",
       }),
     ).toBeVisible();
+  });
+
+  it("credits the two AgentPay developers with verified public profiles", () => {
+    render(<DevelopersPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Built by people who ship." }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Pratham Ranka" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Ayush Garg" })).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Pratham Ranka on GitHub" }),
+    ).toHaveAttribute("href", "https://github.com/PrathamRanka");
+    expect(
+      screen.getByRole("link", { name: "Pratham Ranka on LinkedIn" }),
+    ).toHaveAttribute("href", "https://www.linkedin.com/in/prathamranka06/");
+    expect(
+      screen.getByRole("link", { name: "Ayush Garg on GitHub" }),
+    ).toHaveAttribute("href", "https://github.com/gargayush1911");
+    expect(screen.getByText("LinkedIn profile not published")).toBeVisible();
   });
 });

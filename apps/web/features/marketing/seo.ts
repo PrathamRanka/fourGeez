@@ -63,7 +63,11 @@ export const marketingStructuredData = {
           name: "Pratham Ranka",
           url: "https://www.linkedin.com/in/prathamranka06/",
         },
-        { "@type": "Person", name: "Ayush Garg" },
+        {
+          "@type": "Person",
+          name: "Ayush Garg",
+          url: "https://github.com/gargayush1911",
+        },
       ],
     },
     {
@@ -99,7 +103,11 @@ export const marketingStructuredData = {
       programmingLanguage: ["Go", "TypeScript"],
       copyrightHolder: [
         { "@type": "Person", name: "Pratham Ranka" },
-        { "@type": "Person", name: "Ayush Garg" },
+        {
+          "@type": "Person",
+          name: "Ayush Garg",
+          url: "https://github.com/gargayush1911",
+        },
       ],
     },
   ],
@@ -152,6 +160,13 @@ export const agentCheckoutDemoMetadata = buildSupportingPageMetadata({
   path: "/demo/agent-checkout",
 });
 
+export const developersMetadata = buildSupportingPageMetadata({
+  title: "Developers",
+  description:
+    "Meet Pratham Ranka and Ayush Garg, the developers building AgentPay's seller-first commerce infrastructure.",
+  path: "/developers",
+});
+
 export function buildMarketingRobots(): MetadataRoute.Robots {
   return {
     rules: {
@@ -176,6 +191,7 @@ export function buildMarketingRobots(): MetadataRoute.Robots {
 const publicMarketingPaths = [
   "/",
   "/docs",
+  "/developers",
   "/demo/agent-checkout",
   "/security",
   "/privacy",
@@ -232,6 +248,7 @@ AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, N
 
 - Home: ${agentPaySiteOrigin}/
 - Seller integration guide: ${agentPaySiteOrigin}/docs
+- Developers: ${agentPaySiteOrigin}/developers
 - Agent checkout demonstration: ${agentPaySiteOrigin}/demo/agent-checkout
 - Security: ${agentPaySiteOrigin}/security
 - Privacy: ${agentPaySiteOrigin}/privacy
