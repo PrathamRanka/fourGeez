@@ -20,7 +20,11 @@ export async function POST(request: Request) {
     challengeId,
     code: String(body.code ?? ""),
   });
-  if (!result.ok) return authError(result.error, 400);
+  if (!result.ok)
+    return authError(
+      result.error,
+      result.code === "dependency_unavailable" ? 503 : 400,
+    );
   await clearPendingChallenge(pendingVerificationCookie);
   const returnTo = safeRelativeReturnPath(
     String(body.returnTo ?? "/dashboard"),

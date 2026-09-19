@@ -16,7 +16,8 @@ export function sellerCsrfCookieName(): string {
 
 function secureCookiesEnabled(): boolean {
   return (
-    process.env.AGENTPAY_ENV !== "local" && process.env.NODE_ENV !== "test"
+    process.env.AGENTPAY_ENV !== "local" &&
+    (process.env.AGENTPAY_WEB_ORIGIN ?? "").startsWith("https://")
   );
 }
 

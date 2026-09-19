@@ -32,6 +32,7 @@ export type IdentityAuthentication = {
   expiresAt: string;
   principal: SellerPrincipal;
   refreshToken?: string;
+  sessionExpiresAt?: string;
 };
 
 export type IdentityChallenge = {
@@ -49,6 +50,9 @@ export type IdentityAdapter = {
     challengeId: string;
     code: string;
   }): Promise<AuthResult<void>>;
+  resendVerification?(input: {
+    email: string;
+  }): Promise<AuthResult<IdentityChallenge>>;
   signIn(input: {
     email: string;
     password: string;
@@ -61,6 +65,11 @@ export type IdentityAdapter = {
     code: string;
     password: string;
   }): Promise<AuthResult<void>>;
-  validate(accessToken: string): Promise<AuthResult<IdentityAuthentication>>;
-  revoke(accessToken: string): Promise<void>;
+  validate(
+    authentication: IdentityAuthentication | string,
+  ): Promise<AuthResult<IdentityAuthentication>>;
+  refresh?(
+    authentication: IdentityAuthentication,
+  ): Promise<AuthResult<IdentityAuthentication>>;
+  revoke(authentication: IdentityAuthentication | string): Promise<void>;
 };

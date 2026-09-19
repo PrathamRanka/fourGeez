@@ -92,6 +92,12 @@ variable "web_origin" {
   }
 }
 
+variable "seller_self_registration_enabled" {
+  description = "Whether Cognito permits seller self-registration in this environment."
+  type        = bool
+  default     = true
+}
+
 variable "api_deployment_enabled" {
   description = "Creates the AWS-005 Lambda and HTTP API only after durable runtime readiness passes."
   type        = bool

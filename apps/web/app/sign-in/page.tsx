@@ -10,6 +10,7 @@ export const metadata: Metadata = { title: "Sign in" };
 type SignInPageProps = {
   searchParams?: Promise<{
     recovered?: string;
+    expired?: string;
     returnTo?: string;
     verified?: string;
   }>;
@@ -35,6 +36,11 @@ export default async function SignInPage({
       {parameters.recovered === "1" ? (
         <p className={styles.developmentCode} role="status">
           Password updated. Sign in with the new password.
+        </p>
+      ) : null}
+      {parameters.expired === "1" ? (
+        <p className={styles.developmentCode} role="status">
+          Your seller session expired. Sign in again to continue.
         </p>
       ) : null}
       <SignInForm returnTo={returnTo} />

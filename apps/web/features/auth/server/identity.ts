@@ -1,10 +1,18 @@
 import type { AuthResult, IdentityAdapter } from "@/features/auth/model";
+import { createCognitoIdentityAdapter } from "@/features/auth/server/cognito-identity-adapter";
 import { createLocalIdentityAdapter } from "@/features/auth/server/local-identity-adapter";
 
 type LocalIdentity = ReturnType<typeof createLocalIdentityAdapter>;
 
 declare global {
   var agentPayLocalIdentity: LocalIdentity | undefined;
+  var agentPayCognitoIdentity:
+    | {
+        clientId: string;
+        identity: IdentityAdapter;
+        region: string;
+      }
+    | undefined;
 }
 
 function unavailableResult(): AuthResult<never> {
@@ -32,6 +40,24 @@ export function getIdentityAdapter(): IdentityAdapter {
     (process.env.AGENTPAY_ENV === "local" || process.env.NODE_ENV === "test"
       ? "local"
       : "cognito");
+  if (identityMode === "cognito") {
+    const region = process.env.AWS_REGION?.trim() ?? "";
+    const clientId =
+      process.env.AGENTPAY_SELLER_USER_POOL_CLIENT_ID?.trim() ?? "";
+    if (!region || !clientId) return unavailableIdentity;
+    if (
+      !globalThis.agentPayCognitoIdentity ||
+      globalThis.agentPayCognitoIdentity.clientId !== clientId ||
+      globalThis.agentPayCognitoIdentity.region !== region
+    ) {
+      globalThis.agentPayCognitoIdentity = {
+        clientId,
+        region,
+        identity: createCognitoIdentityAdapter({ clientId, region }),
+      };
+    }
+    return globalThis.agentPayCognitoIdentity.identity;
+  }
   if (identityMode !== "local") {
     return unavailableIdentity;
   }

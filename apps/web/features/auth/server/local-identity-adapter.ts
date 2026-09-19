@@ -269,6 +269,22 @@ export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
       return { ok: true as const, value: undefined };
     },
 
+    async resendVerification(input: { email: string }) {
+      const email = normalizeEmail(input.email);
+      const account = state.accounts.get(email);
+      if (!account || account.verified) {
+        return {
+          ok: false as const,
+          code: "invalid_request" as const,
+          error: "This account cannot receive a new verification code.",
+        };
+      }
+      return {
+        ok: true as const,
+        value: createChallenge(email, "verification"),
+      };
+    },
+
     async signIn(input: { email: string; password: string }) {
       const account = state.accounts.get(normalizeEmail(input.email));
       if (!account || !matchesPassword(account, input.password)) {
@@ -295,6 +311,7 @@ export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
           };
       const authentication: IdentityAuthentication = {
         ...token,
+        sessionExpiresAt: token.expiresAt,
         principal: principalFromAccount(account),
       };
       state.accessTokens.set(authentication.accessToken, authentication);
@@ -339,7 +356,9 @@ export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
       return { ok: true as const, value: undefined };
     },
 
-    async validate(accessToken: string) {
+    async validate(candidate: IdentityAuthentication | string) {
+      const accessToken =
+        typeof candidate === "string" ? candidate : candidate.accessToken;
       const authentication = state.accessTokens.get(accessToken);
       if (!authentication || Date.parse(authentication.expiresAt) <= now()) {
         state.accessTokens.delete(accessToken);
@@ -352,8 +371,14 @@ export function createLocalIdentityAdapter(options: LocalIdentityOptions) {
       return { ok: true as const, value: authentication };
     },
 
-    async revoke(accessToken: string) {
-      state.accessTokens.delete(accessToken);
+    async refresh(authentication: IdentityAuthentication) {
+      return this.validate(authentication);
+    },
+
+    async revoke(candidate: IdentityAuthentication | string) {
+      state.accessTokens.delete(
+        typeof candidate === "string" ? candidate : candidate.accessToken,
+      );
     },
 
     updatePrincipal(

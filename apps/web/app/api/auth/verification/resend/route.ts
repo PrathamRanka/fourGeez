@@ -1,7 +1,7 @@
 import {
   authError,
   authJson,
-  pendingRecoveryCookie,
+  pendingVerificationCookie,
   readAuthBody,
   requireCsrf,
   setPendingChallenge,
@@ -13,14 +13,22 @@ export async function POST(request: Request) {
   if (!csrf.ok) return authError(csrf.error, 403);
   const body = await readAuthBody(request, ["email"]);
   if (!body) return authError("Enter a valid email address.", 400);
-  const result = await getIdentityAdapter().beginRecovery({
+  const resendVerification = getIdentityAdapter().resendVerification;
+  if (!resendVerification) {
+    return authError("Seller authentication is temporarily unavailable.", 503);
+  }
+  const result = await resendVerification({
     email: String(body.email ?? ""),
   });
-  if (!result.ok)
+  if (!result.ok) {
     return authError(
       result.error,
       result.code === "dependency_unavailable" ? 503 : 400,
     );
-  await setPendingChallenge(pendingRecoveryCookie, result.value.challengeId);
+  }
+  await setPendingChallenge(
+    pendingVerificationCookie,
+    result.value.challengeId,
+  );
   return authJson({ developmentCode: result.value.developmentCode });
 }

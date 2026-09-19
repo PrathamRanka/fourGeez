@@ -7,3 +7,4 @@ capability_signing_key_versions       = ["v1"]
 active_capability_signing_key_version = "v1"
 web_origin                            = "https://agentpay.prathamranka.in"
 api_deployment_enabled                 = false
+seller_self_registration_enabled       = true

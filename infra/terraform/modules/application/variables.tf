@@ -108,3 +108,18 @@ variable "confirmation_grant_pepper_secret_arn" {
   description = "Confirmation-grant pepper container ARN."
   type        = string
 }
+
+variable "seller_identity_issuer" {
+  description = "Exact Cognito issuer for seller access tokens."
+  type        = string
+}
+
+variable "seller_user_pool_id" {
+  description = "Cognito seller user-pool ID."
+  type        = string
+}
+
+variable "seller_user_pool_client_id" {
+  description = "Cognito seller web app-client ID."
+  type        = string
+}
