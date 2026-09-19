@@ -61,6 +61,7 @@ transaction authority.
 | Tenant data access | Cognito subject-to-seller authorization on every seller route; no caller-supplied tenant trust |
 | Seller session replay | Validate exact Cognito issuer, client ID, access-token use, RS256 signature, timestamps, JTI, and token-family identifier; check a hashed server-side revocation record on every request |
 | Duplicate mutation | Required idempotency key bound to caller, operation, and request hash |
+| Cancellation/payment race | Conditionally transition one intent from `ready` to exactly one of `cancelled`, `expired`, or `executed`; checkout must win the `executed` claim before issuing a challenge |
 | Forged refund record | Seller bearer authentication, concealed cross-tenant lookup, finalized-payment and `refund_recommended` checks, exact amount/asset/network binding, append-only one-record-per-dispute persistence, and idempotency |
 | Denial of service | API throttles, body limits, route limits, Lambda concurrency, upstream timeout, Bedrock call budget |
 | Repository prompt injection | Treat repository text as untrusted, expose only allowlisted MCP tools, and require confirmation for commercial or deployment mutations |
@@ -241,6 +242,15 @@ Forbidden:
   match, stores only a bounded external reference, and appends at most one
   record per dispute. Exact idempotent replay returns the original response;
   changed replay fails closed.
+- Intent cancellation requires the owning buyer authority, an
+  `Idempotency-Key`, and a conditional `ready` transition. At or after
+  `expiresAt`, the server records/returns `expired` for a still-`ready` intent;
+  an intent claimed earlier remains `executed` and cannot be cancelled.
+  Cancellation responses use `Cache-Control: no-store`.
+- Lifecycle and recovery projections are derived from authoritative intent,
+  transaction, dispute, and refund-record facts. They do not authorize state
+  changes, fabricate payment finality, or convert `seller_reported` remediation
+  into network-verified proof.
 - Network authorization requires `status=active` and current UTC time strictly
   before `accessEndsAt`. `grace`, `suspended`, `cancelled`, and `closed` return
   `subscription_inactive`; grace never authorizes MCP, discovery, publication,

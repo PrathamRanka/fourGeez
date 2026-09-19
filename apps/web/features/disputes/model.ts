@@ -8,11 +8,7 @@ export type DisputeReason =
   | "quality_or_output";
 
 export type DisputeStatus =
-  | "open"
-  | "refund_recommended"
-  | "seller_review"
-  | "denied"
-  | "resolved";
+  "open" | "refund_recommended" | "seller_review" | "denied" | "resolved";
 
 export type Dispute = {
   disputeId: string;
@@ -24,6 +20,19 @@ export type Dispute = {
   classificationCode: string;
   explanation: string;
   createdAt: string;
+};
+
+export type ManualRefundRecord = {
+  disputeId: string;
+  transactionId: string;
+  sellerId: string;
+  amount: string;
+  asset: string;
+  network: string;
+  reference: string;
+  verificationState: "seller_reported";
+  recordedBy: string;
+  recordedAt: string;
 };
 
 export type CreateDisputeInput = {
@@ -57,4 +66,3 @@ export function disputeReasonLabel(reason: DisputeReason): string {
   };
   return labels[reason];
 }
-

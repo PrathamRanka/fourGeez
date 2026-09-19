@@ -175,6 +175,9 @@ func (controller *HTTPController) writeError(
 	case errors.Is(err, ErrIntentExpired):
 		status = http.StatusGone
 		code = api.ErrorCodeGone
+	case errors.Is(err, ErrIntentCancelled):
+		status = http.StatusConflict
+		code = api.ErrorCodeConflict
 	case errors.Is(err, domain.ErrCommerceUnavailable):
 		status = http.StatusGone
 		code = api.ErrorCodeSellerInactive

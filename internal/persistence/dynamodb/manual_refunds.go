@@ -5,6 +5,8 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/fourgeez/agentpay/internal/disputes"
+	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 const manualRefundRecordSortKey = "REFUND_RECORD"
@@ -13,6 +15,25 @@ type ManualRefundRecordRepository struct{ repositoryBase }
 
 func NewManualRefundRecordRepository(client Client, tableName string) *ManualRefundRecordRepository {
 	return &ManualRefundRecordRepository{repositoryBase: newRepositoryBase(client, tableName)}
+}
+
+func (repository *ManualRefundRecordRepository) Get(ctx context.Context, disputeID domain.ID) (disputes.ManualRefundRecord, error) {
+	output, err := repository.client.GetItem(ctx, &awssdk.GetItemInput{
+		TableName:      &repository.tableName,
+		Key:            primaryKey(disputePartitionKey(disputeID.String()), manualRefundRecordSortKey),
+		ConsistentRead: boolPointer(true),
+	})
+	if err != nil {
+		return disputes.ManualRefundRecord{}, err
+	}
+	var record disputes.ManualRefundRecord
+	if err := unmarshalPayload(output.Item, &record); err != nil {
+		return disputes.ManualRefundRecord{}, err
+	}
+	if record.DisputeID == "" {
+		return disputes.ManualRefundRecord{}, persistence.ErrNotFound
+	}
+	return record, nil
 }
 
 func (repository *ManualRefundRecordRepository) SaveIfAbsent(ctx context.Context, record disputes.ManualRefundRecord) (disputes.ManualRefundRecord, bool, error) {
@@ -38,9 +59,6 @@ func (repository *ManualRefundRecordRepository) SaveIfAbsent(ctx context.Context
 	var existing disputes.ManualRefundRecord
 	if getErr := unmarshalPayload(output.Item, &existing); getErr != nil {
 		return disputes.ManualRefundRecord{}, false, getErr
-	}
-	if existing != record {
-		return disputes.ManualRefundRecord{}, false, disputes.ErrRemediationConflict
 	}
 	return existing, false, nil
 }

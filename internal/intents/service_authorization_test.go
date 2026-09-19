@@ -2,6 +2,7 @@ package intents
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -70,6 +71,55 @@ func TestCreateBindsBrowserPurchaseSessionToIntent(t *testing.T) {
 	}
 }
 
+func TestCancelReturnsConcurrentExecutedWinnerAtExpiration(t *testing.T) {
+	t.Parallel()
+
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC))
+	purchaseIntent, err := NewPurchaseIntent(PurchaseIntentParams{
+		IntentID:             mustIntentID(t, "int_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.IntentIDPrefix),
+		SellerID:             mustIntentID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix),
+		RouteID:              mustIntentID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),
+		BuyerID:              "buyer-agent",
+		ProductDisplayName:   "Research Report",
+		ProductSlug:          "research-report",
+		PaymentDestinationID: mustIntentID(t, "dst_01K5D09YJ0C0M7RJM4FWQ0K9H8", domain.PaymentDestinationIDPrefix),
+		PayTo:                "0x1111111111111111111111111111111111111111",
+		RequestMethod:        RequestMethodPost,
+		RequestPath:          "/research",
+		RequestBodyHash:      SHA256Digest("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Amount:               domain.MustParseAmount("100"),
+		Asset:                "USDC",
+		Network:              "eip155:84532",
+		MaximumAmount:        domain.MustParseAmount("100"),
+		CreatedAt:            createdAt,
+		ExpiresAt:            createdAt.Add(10 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := &intentTestRepository{purchaseIntent: purchaseIntent}
+	repository.onUpdate = func(_ PurchaseIntent, _ uint64) error {
+		claimed := purchaseIntent
+		if err := claimed.Claim(purchaseIntent.ExpiresAt().Add(-time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		repository.purchaseIntent = claimed
+		repository.onUpdate = nil
+		return persistence.ErrConditionFailed
+	}
+	service := NewService(
+		repository,
+		&intentRouteRepository{},
+		domain.NewULIDGenerator(domain.FixedClock{Value: createdAt.Time()}, nil),
+		domain.FixedClock{Value: purchaseIntent.ExpiresAt().Time()},
+	)
+
+	_, err = service.Cancel(t.Context(), purchaseIntent.IntentID(), purchaseIntent.BuyerID())
+	if !errors.Is(err, ErrIntentStateConflict) {
+		t.Fatalf("Cancel() error = %v, want state conflict for executed winner", err)
+	}
+}
+
 type intentAuthorizer struct {
 	route       catalog.PaidRoute
 	destination settlement.PaymentDestination
@@ -87,7 +137,10 @@ func (repository *intentRouteRepository) GetRoute(context.Context, domain.ID) (c
 	return repository.route, nil
 }
 
-type intentTestRepository struct{ purchaseIntent PurchaseIntent }
+type intentTestRepository struct {
+	purchaseIntent PurchaseIntent
+	onUpdate       func(PurchaseIntent, uint64) error
+}
 
 func (repository *intentTestRepository) Create(_ context.Context, purchaseIntent PurchaseIntent) error {
 	repository.purchaseIntent = purchaseIntent
@@ -98,6 +151,16 @@ func (repository *intentTestRepository) Get(_ context.Context, intentID domain.I
 		return PurchaseIntent{}, persistence.ErrNotFound
 	}
 	return repository.purchaseIntent, nil
+}
+func (repository *intentTestRepository) Update(_ context.Context, purchaseIntent PurchaseIntent, expectedVersion uint64) error {
+	if repository.onUpdate != nil {
+		return repository.onUpdate(purchaseIntent, expectedVersion)
+	}
+	if repository.purchaseIntent.Version() != expectedVersion || purchaseIntent.Version() != expectedVersion+1 {
+		return persistence.ErrConditionFailed
+	}
+	repository.purchaseIntent = purchaseIntent
+	return nil
 }
 
 func authorizedIntentRoute(t *testing.T, now domain.Timestamp) catalog.PaidRoute {

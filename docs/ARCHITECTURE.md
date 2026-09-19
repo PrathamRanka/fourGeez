@@ -322,8 +322,13 @@ destination, and workspace publication prerequisites before signing.
    hash, destination, quote, channel, and expiration.
 3. The policy engine verifies that the fixed seller quote does not exceed the
    buyer-provided `maximumAmount`. No buyer-side approval session is created.
-4. The buyer requests the paid route with the intent identifier.
-5. The gateway returns an x402 challenge when payment is absent.
+4. Before checkout starts, the buyer may cancel the still-`ready` intent. At
+   `expiresAt`, expiration wins if the intent is still `ready`. The first
+   paid-route request conditionally claims `ready -> executed`; a claim won
+   before expiration may continue only through the same deterministic
+   transaction identity.
+5. The buyer requests the paid route with the intent identifier, and the
+   gateway returns an x402 challenge when payment is absent.
 6. The buyer wallet authorizes the exact asset, network, amount, destination,
    and resource, then retries with payment proof.
 7. The gateway rechecks current entitlement, verifies and settles payment, and
@@ -338,6 +343,8 @@ destination, and workspace publication prerequisites before signing.
 
 - Client mutations require `Idempotency-Key`.
 - Purchase intents are immutable after creation.
+- Intent commercial fields remain immutable while one optimistic lifecycle
+  transition selects `cancelled`, `expired`, or `executed` from `ready`.
 - The buyer maximum, request hash, quote, and payment destination are bound to
   the immutable intent.
 - Payment identifiers are globally unique in the transaction table.
@@ -356,6 +363,9 @@ destination, and workspace publication prerequisites before signing.
 | Duplicate manual refund request | Exact `Idempotency-Key` replay returns the original `201`; changed input or a conflicting second record returns `409` and never overwrites the first record. |
 | Duplicate paid retry | Return the prior transaction outcome; never forward twice. |
 | Reconciliation delayed | Keep payment and finalized amounts separate; never fabricate settlement completion. |
+| Intent cancellation races checkout | One conditional intent transition wins; a cancelled or expired intent never receives a challenge, while an executed intent cannot be cancelled. |
+| Payment outcome is unknown | Keep the transaction at confirmed finality, expose `await_reconciliation`, and never create a replacement charge or call the seller. |
+| Finalized payment has delivery failure | Preserve the same transaction identity and expose the dispute/remediation path; never blindly repeat an upstream side effect after an ambiguous timeout. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
 | Seller entitlement inactive or expired | Return `403 subscription_inactive` for authenticated seller/MCP operations, `410 seller_inactive` for public discovery, and reject new intent, challenge, verification, and settlement authorization. |
 | MCP confirmation missing, expired, replayed, or mismatched | Fail before domain mutation; never infer approval from caller fields. Exact idempotent replay returns the stored redacted result only after the original grant was validly consumed. |

@@ -20,6 +20,24 @@ const snapshot: TransactionDetailSnapshot = {
     amount: "35000000",
     asset: "USDC",
     network: "eip155:84532",
+    priceBreakdown: {
+      calculation: "fixed_single_product",
+      quantity: 1,
+      unitAmount: "35000000",
+      subtotal: "35000000",
+      adjustments: "0",
+      total: "35000000",
+      asset: "USDC",
+      network: "eip155:84532",
+    },
+    commerceLifecycle: {
+      externalReference: transactionId,
+      commerceState: "fulfilled",
+      paymentState: "finalized",
+      fulfillmentState: "succeeded",
+      refundState: "not_requested",
+      recoveryAction: "none",
+    },
     paymentFinality: "finalized",
     paymentReference: "0xabc123",
     reconciledAt: "2026-09-18T10:01:00Z",
@@ -80,6 +98,11 @@ describe("transaction detail", () => {
     ).toBeVisible();
     expect(screen.getByText(transactionId)).toBeVisible();
     expect(screen.getByText("35 USDC")).toBeVisible();
+    expect(screen.getByText("Exact fixed price")).toBeVisible();
+    expect(
+      screen.getByText("No tax, shipping, discounts, or platform fees"),
+    ).toBeVisible();
+    expect(screen.getByText("No recovery action required")).toBeVisible();
     expect(screen.getByText("Finalized")).toBeVisible();
     expect(screen.getAllByText("Fulfilled")).toHaveLength(2);
     expect(

@@ -108,6 +108,7 @@ type runtimeDependencies struct {
 type intentsRepository interface {
 	Create(context.Context, intents.PurchaseIntent) error
 	Get(context.Context, domain.ID) (intents.PurchaseIntent, error)
+	Update(context.Context, intents.PurchaseIntent, uint64) error
 }
 
 type runtimeConfig struct {

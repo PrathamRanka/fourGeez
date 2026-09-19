@@ -130,7 +130,18 @@ export function TransactionDetail({
           value={transactionStatusLabel(transaction.status)}
         />
         <Fact label="Network" value={transaction.network} />
+        <Fact label="Pricing" value="Exact fixed price" />
+        <Fact
+          label="Recovery"
+          value={recoveryActionLabel(
+            transaction.commerceLifecycle.recoveryAction,
+          )}
+        />
       </section>
+
+      <p className={styles.emptyCopy}>
+        No tax, shipping, discounts, or platform fees
+      </p>
 
       <div className={styles.detailGrid}>
         <section className={styles.panel} aria-labelledby="evidence-title">
@@ -374,4 +385,19 @@ function StatusBadge({
 
 function titleCase(value: string): string {
   return value[0].toUpperCase() + value.slice(1);
+}
+
+function recoveryActionLabel(
+  action: TransactionDetailSnapshot["transaction"]["commerceLifecycle"]["recoveryAction"],
+): string {
+  const labels = {
+    retry_same_request: "Retry the same request",
+    await_reconciliation: "Await payment reconciliation",
+    create_new_intent: "Create a new purchase intent",
+    open_dispute: "Open a dispute",
+    await_resolution: "Await dispute resolution",
+    record_external_refund: "Record the external refund",
+    none: "No recovery action required",
+  } as const;
+  return labels[action];
 }

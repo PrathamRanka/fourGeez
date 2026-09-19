@@ -6,6 +6,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/disputes"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 type ManualRefundRecordRepository struct {
@@ -21,11 +22,18 @@ func (repository *ManualRefundRecordRepository) SaveIfAbsent(_ context.Context, 
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 	if stored, exists := repository.records[record.DisputeID]; exists {
-		if stored != record {
-			return disputes.ManualRefundRecord{}, false, disputes.ErrRemediationConflict
-		}
 		return stored, false, nil
 	}
 	repository.records[record.DisputeID] = record
 	return record, true, nil
+}
+
+func (repository *ManualRefundRecordRepository) Get(_ context.Context, disputeID domain.ID) (disputes.ManualRefundRecord, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+	record, exists := repository.records[disputeID]
+	if !exists {
+		return disputes.ManualRefundRecord{}, persistence.ErrNotFound
+	}
+	return record, nil
 }

@@ -24,8 +24,11 @@ type Snapshot struct {
 	RequiresApproval     bool                 `json:"requiresApproval"`
 	IntentHash           SHA256Digest         `json:"intentHash"`
 	Status               PurchaseIntentStatus `json:"status"`
+	CancelledAt          *domain.Timestamp    `json:"cancelledAt,omitempty"`
+	CancellationReason   CancellationReason   `json:"cancellationReason,omitempty"`
 	CreatedAt            domain.Timestamp     `json:"createdAt"`
 	ExpiresAt            domain.Timestamp     `json:"expiresAt"`
+	Version              uint64               `json:"version"`
 }
 
 // Response is the active Lean V1 wire representation. Historical approval
@@ -50,8 +53,12 @@ type Response struct {
 	MaximumAmount        domain.Amount        `json:"maximumAmount"`
 	IntentHash           SHA256Digest         `json:"intentHash"`
 	Status               PurchaseIntentStatus `json:"status"`
+	CancelledAt          *domain.Timestamp    `json:"cancelledAt,omitempty"`
+	CancellationReason   CancellationReason   `json:"cancellationReason,omitempty"`
+	PriceBreakdown       ExactPriceBreakdown  `json:"priceBreakdown"`
 	CreatedAt            domain.Timestamp     `json:"createdAt"`
 	ExpiresAt            domain.Timestamp     `json:"expiresAt"`
+	Version              uint64               `json:"version"`
 }
 
 // Snapshot returns the immutable purchase-intent persistence representation.
@@ -77,8 +84,11 @@ func (purchaseIntent PurchaseIntent) Snapshot() Snapshot {
 		RequiresApproval:     purchaseIntent.requiresApproval,
 		IntentHash:           purchaseIntent.intentHash,
 		Status:               purchaseIntent.status,
+		CancelledAt:          purchaseIntent.CancelledAt(),
+		CancellationReason:   purchaseIntent.cancellationReason,
 		CreatedAt:            purchaseIntent.createdAt,
 		ExpiresAt:            purchaseIntent.expiresAt,
+		Version:              purchaseIntent.version,
 	}
 }
 
@@ -94,7 +104,10 @@ func (purchaseIntent PurchaseIntent) Response() Response {
 		RequestBodyHash: purchaseIntent.requestBodyHash, Amount: purchaseIntent.amount,
 		Asset: purchaseIntent.asset, Network: purchaseIntent.network, MaximumAmount: purchaseIntent.maximumAmount,
 		IntentHash: purchaseIntent.intentHash, Status: purchaseIntent.status,
-		CreatedAt: purchaseIntent.createdAt, ExpiresAt: purchaseIntent.expiresAt,
+		CancelledAt: purchaseIntent.CancelledAt(), CancellationReason: purchaseIntent.cancellationReason,
+		PriceBreakdown: purchaseIntent.PriceBreakdown(),
+		CreatedAt:      purchaseIntent.createdAt, ExpiresAt: purchaseIntent.expiresAt,
+		Version: purchaseIntent.version,
 	}
 }
 
@@ -125,9 +138,41 @@ func Restore(snapshot Snapshot) (PurchaseIntent, error) {
 	if err != nil {
 		return PurchaseIntent{}, err
 	}
-	if restored.intentHash != snapshot.IntentHash || restored.status != snapshot.Status {
+	if restored.intentHash != snapshot.IntentHash {
 		return PurchaseIntent{}, domain.NewValidationError("intentHash", "persistence", "stored intent snapshot is inconsistent")
+	}
+	version := snapshot.Version
+	if version == 0 {
+		version = 1
+	}
+	if err := restoreLifecycle(&restored, snapshot, version); err != nil {
+		return PurchaseIntent{}, err
 	}
 
 	return restored, nil
+}
+
+func restoreLifecycle(purchaseIntent *PurchaseIntent, snapshot Snapshot, version uint64) error {
+	switch snapshot.Status {
+	case PurchaseIntentStatusReady, PurchaseIntentStatusApprovalPending:
+		if purchaseIntent.status != snapshot.Status || snapshot.CancelledAt != nil || snapshot.CancellationReason != "" || version != 1 {
+			return domain.NewValidationError("status", "persistence", "stored intent lifecycle is inconsistent")
+		}
+	case PurchaseIntentStatusCancelled:
+		if snapshot.CancelledAt == nil || snapshot.CancellationReason != CancellationReasonBuyerRequested || version < 2 {
+			return domain.NewValidationError("status", "persistence", "stored cancellation metadata is inconsistent")
+		}
+		purchaseIntent.status = snapshot.Status
+		purchaseIntent.cancelledAt = snapshot.CancelledAt
+		purchaseIntent.cancellationReason = snapshot.CancellationReason
+	case PurchaseIntentStatusExpired, PurchaseIntentStatusExecuted:
+		if snapshot.CancelledAt != nil || snapshot.CancellationReason != "" || version < 2 {
+			return domain.NewValidationError("status", "persistence", "stored intent lifecycle is inconsistent")
+		}
+		purchaseIntent.status = snapshot.Status
+	default:
+		return domain.NewValidationError("status", "persistence", "stored intent status is invalid")
+	}
+	purchaseIntent.version = version
+	return nil
 }

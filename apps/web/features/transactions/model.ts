@@ -15,6 +15,42 @@ export type TransactionStatus =
 
 export type PaymentFinality = "confirmed" | "finalized" | "failed";
 
+export type ExactPriceBreakdown = {
+  calculation: "fixed_single_product";
+  quantity: 1;
+  unitAmount: string;
+  subtotal: string;
+  adjustments: string;
+  total: string;
+  asset: string;
+  network: string;
+};
+
+export type CommerceLifecycle = {
+  externalReference: string;
+  commerceState:
+    | "awaiting_payment"
+    | "payment_processing"
+    | "paid"
+    | "fulfilling"
+    | "fulfilled"
+    | "failed"
+    | "disputed"
+    | "refund_recommended"
+    | "resolved";
+  paymentState: "pending" | "confirmed" | "finalized" | "failed";
+  fulfillmentState: "not_started" | "in_progress" | "succeeded" | "failed";
+  refundState: "not_requested" | "disputed" | "recommended" | "seller_reported";
+  recoveryAction:
+    | "retry_same_request"
+    | "await_reconciliation"
+    | "create_new_intent"
+    | "open_dispute"
+    | "await_resolution"
+    | "record_external_refund"
+    | "none";
+};
+
 export type Transaction = {
   transactionId: string;
   intentId: string;
@@ -27,6 +63,8 @@ export type Transaction = {
   amount: string;
   asset: string;
   network: string;
+  priceBreakdown: ExactPriceBreakdown;
+  commerceLifecycle: CommerceLifecycle;
   paymentFinality?: PaymentFinality;
   paymentReference?: string;
   reconciledAt?: string;

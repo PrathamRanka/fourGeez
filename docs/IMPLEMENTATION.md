@@ -232,7 +232,7 @@ published products expose their canonical storefront URLs in the dashboard.
 Package-registry publication and deployed AWS reachability remain explicit
 release dependencies rather than being represented as complete.
 
-## Milestone M7.3 — Public discovery and merchant integration extensions
+## Milestone M7.3 — Public discovery and commerce extensions
 
 - [-] **EXT-001** Add `/.well-known/agentpay`, buyer/agent-readable capability metadata, and a deterministic public product directory/search API plus responsive public discovery UI. Maintain a query-only DynamoDB projection atomically with published-route lifecycle changes, use stable lexical ordering and exact normalized-term filtering without ranking claims, and freshly revalidate seller entitlement, publication readiness, route state, and payment destination before returning every result. Update Product, Decisions, Data Model, OpenAPI, web copy, and focused backend/frontend tests. Do not change checkout, payment adapters, SDK packages, or Terraform.
 
@@ -241,6 +241,24 @@ capability manifest, list or exactly filter currently eligible published
 products without a production table scan, follow canonical storefront/product
 links, and receive truthful supported-channel and x402 testnet capability
 metadata. Directory and manifest data remain non-authoritative for purchases.
+
+- [x] **EXT-002** Preserve `purchaseIntent` and `transaction` as the canonical
+  lifecycle while adding buyer-owned pre-checkout cancellation with an
+  expiration-first conditional claim, deterministic single-product exact-price
+  breakdowns, an order-compatible derived transaction lifecycle/recovery
+  projection, readable seller-reported refund remediation, stronger replay and
+  transition coverage, and matching seller dashboard copy. Do not add carts,
+  physical inventory, shipping, tax, custody, Stripe, automated refunds, a
+  generic `Order` entity, discovery changes, payment-adapter changes, SDK work,
+  or Terraform. Depends on LCH-013–LCH-014.
+
+EXT-002 acceptance: cancellation, expiration, and checkout claim are mutually
+exclusive under optimistic concurrency; cancelled or expired intents never
+produce a payment challenge; exact-price totals contain no invented charges;
+transaction lifecycle and recovery projections are deterministic; refund
+records remain append-only, seller-scoped, idempotent, readable, and labeled as
+seller-reported rather than network-verified; focused backend, persistence,
+OpenAPI, and dashboard tests pass.
 
 - [x] **EXT-003** Implement a pinned, server-only TypeScript merchant SDK that
   composes the Node execution verifier, legacy sandbox request verifier,

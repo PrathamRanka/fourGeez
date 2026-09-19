@@ -1212,6 +1212,33 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/intents/{intentId}/cancel:
+    post:
+      summary: Cancel an unclaimed purchase intent
+      description: At the exclusive expiration boundary, expiration wins. An intent already claimed by checkout cannot be cancelled.
+      tags: [Intents]
+      operationId: cancelPurchaseIntent
+      security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IntentId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/PurchaseCsrfToken' }
+      responses:
+        '200':
+          description: Cancelled intent, or the exact prior result replayed
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseIntent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/transactions/{transactionId}:
     get:
       summary: Get a transaction and its evidence chain
@@ -1352,6 +1379,29 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/sellers/{sellerId}/disputes/{disputeId}/refund-records/current:
+    get:
+      summary: Get the seller-reported external refund record
+      description: Returns the append-only seller assertion. It is not network proof and does not indicate that AgentPay moved funds.
+      tags: [Sellers, Disputes]
+      operationId: getManualRefundRecord
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { $ref: '#/components/parameters/DisputeId' }
+      responses:
+        '200':
+          description: Existing seller-reported refund record
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ManualRefundRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /store/{slug}/manifest.json:
@@ -2359,7 +2409,7 @@ components:
     PurchaseIntent:
       type: object
       additionalProperties: false
-      required: [intentId, routeId, sellerId, buyerId, purchaseChannel, productDisplayName, productSlug, paymentDestinationId, payTo, requestMethod, requestPath, amount, asset, network, requestBodyHash, intentHash, maximumAmount, status, expiresAt, createdAt]
+      required: [intentId, routeId, sellerId, buyerId, purchaseChannel, productDisplayName, productSlug, paymentDestinationId, payTo, requestMethod, requestPath, amount, asset, network, requestBodyHash, intentHash, maximumAmount, priceBreakdown, status, expiresAt, createdAt, version]
       properties:
         intentId: { type: string }
         routeId: { type: string }
@@ -2379,9 +2429,13 @@ components:
         requestBodyHash: { $ref: '#/components/schemas/Sha256' }
         intentHash: { $ref: '#/components/schemas/Sha256' }
         maximumAmount: { $ref: '#/components/schemas/AtomicAmount' }
-        status: { type: string, enum: [ready, expired, executed] }
+        priceBreakdown: { $ref: '#/components/schemas/ExactPriceBreakdown' }
+        status: { type: string, enum: [ready, cancelled, expired, executed] }
+        cancelledAt: { type: [string, 'null'], format: date-time }
+        cancellationReason: { type: [string, 'null'], enum: [buyer_requested, null] }
         expiresAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
       allOf:
         - if:
             properties: { purchaseChannel: { const: browser } }
@@ -2400,7 +2454,7 @@ components:
     Transaction:
       type: object
       additionalProperties: false
-      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, createdAt, updatedAt]
+      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, priceBreakdown, commerceLifecycle, createdAt, updatedAt]
       properties:
         transactionId: { type: string }
         intentId: { type: string }
@@ -2417,6 +2471,8 @@ components:
         amount: { $ref: '#/components/schemas/AtomicAmount' }
         asset: { type: string }
         network: { type: string }
+        priceBreakdown: { $ref: '#/components/schemas/ExactPriceBreakdown' }
+        commerceLifecycle: { $ref: '#/components/schemas/CommerceLifecycleProjection' }
         paymentFinality: { type: string, enum: [confirmed, finalized, failed] }
         paymentReference: { type: string, minLength: 1, maxLength: 512 }
         reconciledAt: { type: string, format: date-time }
@@ -2441,6 +2497,30 @@ components:
           then:
             properties:
               purchaseSessionId: { type: 'null' }
+    ExactPriceBreakdown:
+      type: object
+      additionalProperties: false
+      required: [calculation, quantity, unitAmount, subtotal, adjustments, total, asset, network]
+      properties:
+        calculation: { type: string, const: fixed_single_product }
+        quantity: { type: integer, const: 1 }
+        unitAmount: { $ref: '#/components/schemas/AtomicAmount' }
+        subtotal: { $ref: '#/components/schemas/AtomicAmount' }
+        adjustments: { $ref: '#/components/schemas/AtomicAmount' }
+        total: { $ref: '#/components/schemas/AtomicAmount' }
+        asset: { type: string }
+        network: { type: string }
+    CommerceLifecycleProjection:
+      type: object
+      additionalProperties: false
+      required: [externalReference, commerceState, paymentState, fulfillmentState, refundState, recoveryAction]
+      properties:
+        externalReference: { type: string, description: Stable transaction identifier suitable for mapping into an external order system. }
+        commerceState: { type: string, enum: [awaiting_payment, payment_processing, paid, fulfilling, fulfilled, failed, disputed, refund_recommended, resolved] }
+        paymentState: { type: string, enum: [pending, confirmed, finalized, failed] }
+        fulfillmentState: { type: string, enum: [not_started, in_progress, succeeded, failed] }
+        refundState: { type: string, enum: [not_requested, disputed, recommended, seller_reported] }
+        recoveryAction: { type: string, enum: [retry_same_request, await_reconciliation, create_new_intent, open_dispute, await_resolution, record_external_refund, none] }
     PurchaseReceipt:
       oneOf:
         - { $ref: '#/components/schemas/PurchaseReceiptV1' }
@@ -2613,7 +2693,7 @@ components:
     ManualRefundRecord:
       type: object
       additionalProperties: false
-      required: [disputeId, transactionId, sellerId, amount, asset, network, reference, recordedBy, recordedAt]
+      required: [disputeId, transactionId, sellerId, amount, asset, network, reference, verificationState, recordedBy, recordedAt]
       properties:
         disputeId: { type: string, pattern: '^dsp_[A-Za-z0-9]+$' }
         transactionId: { type: string, pattern: '^txn_[A-Za-z0-9]+$' }
@@ -2622,6 +2702,7 @@ components:
         asset: { type: string, minLength: 1, maxLength: 160 }
         network: { type: string, minLength: 1, maxLength: 80 }
         reference: { type: string, minLength: 1, maxLength: 512 }
+        verificationState: { type: string, const: seller_reported }
         recordedBy: { type: string, minLength: 1, maxLength: 256 }
         recordedAt: { type: string, format: date-time }
     AgentPayPlatformManifest:

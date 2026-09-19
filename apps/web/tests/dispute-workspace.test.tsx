@@ -61,6 +61,18 @@ describe("dispute workspace", () => {
       <DisputeDetail
         dispute={{ ...dispute, status: "resolved" }}
         evidenceValid
+        refundRecord={{
+          disputeId: dispute.disputeId,
+          transactionId: dispute.transactionId,
+          sellerId: "sel_01ARZ3NDEKTSV4RRFFQ69G5FAX",
+          amount: "100000",
+          asset: "USDC",
+          network: "eip155:84532",
+          reference: "0xrefund",
+          verificationState: "seller_reported",
+          recordedBy: "seller-owner",
+          recordedAt: "2026-09-18T11:00:00Z",
+        }}
       />,
     );
 
@@ -72,5 +84,8 @@ describe("dispute workspace", () => {
     expect(screen.getByText("Recorded facts")).toBeVisible();
     expect(screen.getByText(dispute.explanation)).toBeVisible();
     expect(screen.getByText("dispute-rules-v1")).toBeVisible();
+    expect(screen.getByText("Seller-reported external refund")).toBeVisible();
+    expect(screen.getByText("Not network-verified by AgentPay.")).toBeVisible();
+    expect(screen.getByText("0xrefund")).toBeVisible();
   });
 });

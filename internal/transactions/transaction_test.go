@@ -283,6 +283,56 @@ func TestTransactionRecordsRejectedSettlementAsFailed(t *testing.T) {
 	}
 }
 
+func TestTransactionCommerceLifecycleAndPriceProjection(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	createdAt := transaction.UpdatedAt()
+	assertLifecycle := func(commerce, payment, fulfillment, refund, recovery string) {
+		t.Helper()
+		projection := transaction.CommerceLifecycle(false)
+		if string(projection.CommerceState) != commerce || string(projection.PaymentState) != payment ||
+			string(projection.FulfillmentState) != fulfillment || string(projection.RefundState) != refund ||
+			string(projection.RecoveryAction) != recovery {
+			t.Fatalf("projection = %#v", projection)
+		}
+	}
+
+	if breakdown := transaction.PriceBreakdown(); breakdown.Total != transaction.Amount() ||
+		breakdown.Subtotal != transaction.Amount() || !breakdown.Adjustments.IsZero() || breakdown.Quantity != 1 {
+		t.Fatalf("price breakdown = %#v", breakdown)
+	}
+	assertLifecycle("awaiting_payment", "pending", "not_started", "not_requested", "retry_same_request")
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment("payment-123", mustTransactionDigest(t, strings.Repeat("a", 64)), createdAt.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	assertLifecycle("payment_processing", "confirmed", "not_started", "not_requested", "await_reconciliation")
+	if err := transaction.FinalizePayment("payment-123", "0xpayment", createdAt.Add(3*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkForwarded(createdAt.Add(4 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkFailed("seller_timeout", nil, nil, createdAt.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	assertLifecycle("failed", "finalized", "failed", "not_requested", "open_dispute")
+	if err := transaction.OpenDispute(createdAt.Add(6 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.RecommendRefund(createdAt.Add(7 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	assertLifecycle("refund_recommended", "finalized", "failed", "recommended", "record_external_refund")
+	projection := transaction.CommerceLifecycle(true)
+	if projection.RefundState != RefundStateSellerReported || projection.RecoveryAction != RecoveryActionNone {
+		t.Fatalf("seller-reported projection = %#v", projection)
+	}
+}
+
 func TestNewTransactionValidation(t *testing.T) {
 	t.Parallel()
 

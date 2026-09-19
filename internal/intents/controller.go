@@ -33,6 +33,7 @@ func NewHTTPController(service *Service, idempotencyStore domain.IdempotencyStor
 // RegisterRoutes registers purchase-intent endpoints.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	createHandler := http.Handler(api.RequireAgent(http.HandlerFunc(controller.create)))
+	cancelHandler := http.Handler(api.RequireAgent(http.HandlerFunc(controller.cancel)))
 	if controller.browserAuthorizer != nil {
 		createHandler = browserpurchase.RequireAgentOrBrowser(
 			controller.browserAuthorizer,
@@ -41,9 +42,17 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 			},
 			http.HandlerFunc(controller.create),
 		)
+		cancelHandler = browserpurchase.RequireAgentOrBrowser(
+			controller.browserAuthorizer,
+			func(*http.Request) (browserpurchase.AuthorizationRequirement, error) {
+				return browserpurchase.AuthorizationRequirement{Authority: browserpurchase.AuthorityCommerce, Mutation: true}, nil
+			},
+			http.HandlerFunc(controller.cancel),
+		)
 	}
 	mux.Handle("POST /v1/intents", createHandler)
 	mux.Handle("GET /v1/intents/{intentId}", api.RequireAgentOrSeller(http.HandlerFunc(controller.get)))
+	mux.Handle("POST /v1/intents/{intentId}/cancel", cancelHandler)
 }
 
 // create validates and persists an immutable purchase intent.
@@ -119,6 +128,47 @@ func (controller *HTTPController) get(response http.ResponseWriter, request *htt
 	_ = api.WriteJSON(response, http.StatusOK, purchaseIntent.Response())
 }
 
+func (controller *HTTPController) cancel(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Cache-Control", "no-store")
+	intentID, err := domain.ParseID(request.PathValue("intentId"), domain.IntentIDPrefix)
+	if err != nil {
+		writeIntentError(response, request, persistence.ErrNotFound)
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	requestBody := []byte("{}")
+	scope := principal.Subject + ":cancelPurchaseIntent:" + intentID.String()
+	decision, err := api.CheckIdempotency(request.Context(), controller.idempotencyStore, scope, request.Header.Get("Idempotency-Key"), requestBody)
+	if err != nil {
+		writeIntentError(response, request, err)
+		return
+	}
+	if decision.Replay {
+		response.Header().Set("Content-Type", "application/json")
+		response.WriteHeader(decision.Status)
+		_, _ = response.Write(decision.Body)
+		return
+	}
+	purchaseIntent, err := controller.service.Cancel(request.Context(), intentID, principal.Subject)
+	if err != nil {
+		writeIntentError(response, request, err)
+		return
+	}
+	encoded, err := json.Marshal(purchaseIntent.Response())
+	if err != nil {
+		api.WriteError(response, request, http.StatusInternalServerError, api.ErrorCodeInternal, "response encoding failed", nil)
+		return
+	}
+	encoded = append(encoded, '\n')
+	if err := api.SaveIdempotency(request.Context(), controller.idempotencyStore, scope, decision, http.StatusOK, encoded, time.Now().UTC()); err != nil {
+		api.WriteError(response, request, http.StatusInternalServerError, api.ErrorCodeInternal, "idempotency persistence failed", nil)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(http.StatusOK)
+	_, _ = response.Write(encoded)
+}
+
 // writeIntentError maps intent service errors to stable HTTP responses.
 func writeIntentError(response http.ResponseWriter, request *http.Request, err error) {
 	var validationErrors domain.ValidationErrors
@@ -133,9 +183,15 @@ func writeIntentError(response http.ResponseWriter, request *http.Request, err e
 	} else if errors.Is(err, persistence.ErrAlreadyExists) {
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
-	} else if errors.Is(err, domain.ErrCommerceUnavailable) {
+	} else if errors.Is(err, domain.ErrCommerceUnavailable) || errors.Is(err, ErrIntentExpired) {
 		status = http.StatusGone
 		code = api.ErrorCodeGone
+	} else if errors.Is(err, ErrIntentAccess) {
+		status = http.StatusNotFound
+		code = api.ErrorCodeNotFound
+	} else if errors.Is(err, ErrIntentStateConflict) || errors.Is(err, api.ErrIdempotencyConflict) || errors.Is(err, persistence.ErrConditionFailed) {
+		status = http.StatusConflict
+		code = api.ErrorCodeConflict
 	}
 	api.WriteError(response, request, status, code, err.Error(), nil)
 }

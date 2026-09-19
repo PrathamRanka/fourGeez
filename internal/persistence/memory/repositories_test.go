@@ -145,7 +145,7 @@ func TestCatalogRepositoryPreservesProductAndTechnicalIdentity(t *testing.T) {
 	}
 }
 
-func TestPurchaseIntentRepositoryIsCreateOnly(t *testing.T) {
+func TestPurchaseIntentRepositoryUsesOptimisticLifecycleUpdates(t *testing.T) {
 	t.Parallel()
 	repository := NewPurchaseIntentRepository()
 	ctx := context.Background()
@@ -159,6 +159,16 @@ func TestPurchaseIntentRepositoryIsCreateOnly(t *testing.T) {
 	loaded, err := repository.Get(ctx, intent.IntentID())
 	if err != nil || loaded.IntentHash() != intent.IntentHash() {
 		t.Fatalf("Get() = (%v, %v)", loaded, err)
+	}
+	expectedVersion := loaded.Version()
+	if err := loaded.Cancel(loaded.CreatedAt().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Update(ctx, loaded, expectedVersion); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if err := repository.Update(ctx, loaded, expectedVersion); !errors.Is(err, persistence.ErrConditionFailed) {
+		t.Fatalf("stale Update() error = %v", err)
 	}
 }
 

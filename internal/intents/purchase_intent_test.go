@@ -76,6 +76,79 @@ func TestNewPurchaseIntentWithoutApprovalIsReady(t *testing.T) {
 	}
 }
 
+func TestPurchaseIntentLifecycleIsExclusiveAndExpiryWins(t *testing.T) {
+	t.Parallel()
+
+	params := validPurchaseIntentParams(t)
+	params.RequiresApproval = false
+
+	cancelled, err := NewPurchaseIntent(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cancelled.Cancel(params.CreatedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
+	}
+	if cancelled.Status() != PurchaseIntentStatusCancelled ||
+		cancelled.CancellationReason() != CancellationReasonBuyerRequested ||
+		cancelled.CancelledAt() == nil || cancelled.Version() != 2 {
+		t.Fatalf("cancelled snapshot = %#v", cancelled.Snapshot())
+	}
+	if err := cancelled.Claim(params.CreatedAt.Add(2 * time.Minute)); err == nil {
+		t.Fatal("Claim() accepted a cancelled intent")
+	}
+
+	expired, err := NewPurchaseIntent(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := expired.Expire(params.ExpiresAt); err != nil {
+		t.Fatalf("Expire() error = %v", err)
+	}
+	if expired.Status() != PurchaseIntentStatusExpired || expired.Version() != 2 {
+		t.Fatalf("expired snapshot = %#v", expired.Snapshot())
+	}
+	if err := expired.Cancel(params.ExpiresAt); err == nil {
+		t.Fatal("Cancel() accepted an expired intent")
+	}
+
+	executed, err := NewPurchaseIntent(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := executed.Claim(params.CreatedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("Claim() error = %v", err)
+	}
+	if executed.Status() != PurchaseIntentStatusExecuted || executed.Version() != 2 {
+		t.Fatalf("executed snapshot = %#v", executed.Snapshot())
+	}
+	if err := executed.Cancel(params.CreatedAt.Add(2 * time.Minute)); err == nil {
+		t.Fatal("Cancel() accepted an executed intent")
+	}
+}
+
+func TestPurchaseIntentResponseHasExactSingleProductTotal(t *testing.T) {
+	t.Parallel()
+
+	params := validPurchaseIntentParams(t)
+	params.RequiresApproval = false
+	purchaseIntent, err := NewPurchaseIntent(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	breakdown := purchaseIntent.Response().PriceBreakdown
+	if breakdown.Calculation != PriceCalculationFixedSingleProduct ||
+		breakdown.Quantity != 1 ||
+		breakdown.UnitAmount != params.Amount ||
+		breakdown.Subtotal != params.Amount ||
+		!breakdown.Adjustments.IsZero() ||
+		breakdown.Total != params.Amount ||
+		breakdown.Asset != params.Asset || breakdown.Network != params.Network {
+		t.Fatalf("price breakdown = %#v", breakdown)
+	}
+}
+
 func TestNewPurchaseIntentValidation(t *testing.T) {
 	t.Parallel()
 

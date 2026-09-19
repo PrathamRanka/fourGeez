@@ -225,6 +225,23 @@ purchase-intent, transaction, fulfillment, evidence, and dispute
 rules. Channel and payment-rail metadata may differ, but neither channel may
 bypass domain validation.
 
+The buyer may explicitly cancel a purchase intent only while it remains
+`ready`. The first checkout attempt conditionally claims the intent as
+`executed` before an x402 challenge is issued, so cancellation can never race a
+payment attempt. At the exact `expiresAt` boundary, expiration wins if the
+intent is still `ready`. An intent claimed before that boundary remains
+`executed`, allowing its one deterministic transaction to complete or recover
+without authorizing another charge. Cancelled and expired intents cannot create
+a transaction or receive a payment challenge.
+
+Every intent and transaction exposes a deterministic exact-price breakdown for
+one digital product: quantity `1`, the frozen unit amount, identical subtotal
+and total, no adjustments, and the exact asset/network pair. AgentPay does not
+invent shipping, tax, discounts, or fees. Transaction reads also expose a
+derived commerce-lifecycle projection that external systems may map into their
+own order terminology without creating or persisting a separate AgentPay
+`Order` entity.
+
 Lean V1 has no buyer-side multi-person approval runtime. The seller-approved
 fixed quote is authoritative, `maximumAmount` is the buyer safety ceiling, and
 the buyer wallet authorization/signature is payment consent. The historical M2
@@ -256,8 +273,11 @@ When deterministic dispute rules recommend a refund, the authenticated owning
 seller may record one externally completed full refund through the idempotent
 refund-record endpoint. AgentPay validates the finalized transaction and exact
 amount, asset, and network, then stores the seller-supplied reference as an
-append-only audit fact. AgentPay does not execute, custody, or guarantee the
-refund in Lean V1.
+append-only audit fact. Sellers and authorized buyers can read the resulting
+remediation projection, which remains explicitly labeled `seller_reported`.
+The record does not by itself prove on-chain settlement and does not silently
+change the dispute into a network-verified refund. AgentPay does not execute,
+custody, or guarantee the refund in Lean V1.
 
 ## Revenue model
 
