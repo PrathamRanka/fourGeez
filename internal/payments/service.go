@@ -27,6 +27,8 @@ const (
 	x402PaymentIdentifierPrefix        = "x402_"
 	defaultFacilitatorTimeout          = 8 * time.Second
 	paymentAuthorizationTimeoutSeconds = 5 * 60
+	baseSepoliaUSDCEIP712Name          = "USDC"
+	baseSepoliaUSDCEIP712Version       = "2"
 )
 
 // MockAdapter provides deterministic payment behavior for tests and local use.
@@ -407,6 +409,7 @@ func (adapter *X402Adapter) CreateChallenge(
 				Amount:            requirements.Amount.String(),
 				PayTo:             requirements.PayTo,
 				MaxTimeoutSeconds: requirements.MaxTimeoutSeconds,
+				Extra:             baseSepoliaUSDCEIP712Extra(),
 			},
 		},
 		&x402types.ResourceInfo{
@@ -797,7 +800,15 @@ func marshalX402Requirements(requirements Requirements) ([]byte, error) {
 		Amount:            requirements.Amount.String(),
 		PayTo:             requirements.PayTo,
 		MaxTimeoutSeconds: requirements.MaxTimeoutSeconds,
+		Extra:             baseSepoliaUSDCEIP712Extra(),
 	})
+}
+
+func baseSepoliaUSDCEIP712Extra() map[string]interface{} {
+	return map[string]interface{}{
+		"name":    baseSepoliaUSDCEIP712Name,
+		"version": baseSepoliaUSDCEIP712Version,
+	}
 }
 
 // classifyFacilitatorError separates retryable transport failures from rejection.

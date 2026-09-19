@@ -261,6 +261,10 @@ func TestX402AdapterNormalizesSymbolicUSDCToBaseSepoliaContract(t *testing.T) {
 	if len(paymentRequired.Accepts) != 1 || paymentRequired.Accepts[0].Asset != BaseSepoliaUSDCAsset {
 		t.Fatalf("payment requirements = %#v", paymentRequired.Accepts)
 	}
+	if paymentRequired.Accepts[0].Extra["name"] != "USDC" ||
+		paymentRequired.Accepts[0].Extra["version"] != "2" {
+		t.Fatalf("payment EIP-712 domain = %#v", paymentRequired.Accepts[0].Extra)
+	}
 }
 
 // TestX402AdapterRejectsEveryModifiedFrozenPaymentTerm verifies that the

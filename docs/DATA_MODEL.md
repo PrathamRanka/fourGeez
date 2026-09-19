@@ -563,7 +563,10 @@ The x402 payment authorization lifetime is five minutes. It is independent of
 the seller route's one-to-thirty-second upstream fulfillment timeout: the former
 allows a human wallet holder to review and sign payment terms, while the latter
 bounds only AgentPay's eventual HTTPS call to the seller. Challenges and proofs
-must carry the same frozen authorization lifetime.
+must carry the same frozen authorization lifetime. Base Sepolia USDC payment
+requirements also carry the canonical EIP-712 domain name `USDC` and version
+`2`; AgentPay preserves those fields in the challenge, signed payload, and
+facilitator verification request.
 
 Recovery does not create a second transaction or mutate the quote. Before
 verification, a rejected proof may be replaced under the same unexpired intent.
