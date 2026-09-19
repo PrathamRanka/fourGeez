@@ -139,7 +139,14 @@ supported by visible page content.
 
 ## Seller integration surface
 
-V1 does not require a large seller SDK. AgentPay provides:
+Lean V1 does not require a large client library. AgentPay provides a compact,
+server-only TypeScript merchant SDK in addition to the existing maintained
+verification packages. The SDK composes request and webhook verification,
+typed merchant-side contracts, durable idempotent-fulfillment helpers, and a
+small adapter boundary; it does not move payment or transaction authority out
+of AgentPay cloud.
+
+AgentPay provides:
 
 - a seller control API and minimal dashboard;
 - a remote MCP server with scoped tools, resources, and setup prompts;
@@ -148,6 +155,8 @@ V1 does not require a large seller SDK. AgentPay provides:
 - coding-agent setup instructions for Claude Code, Codex, and generic MCP hosts;
 - maintained request-verification middleware or small packages for supported
   server frameworks;
+- a pinned TypeScript merchant SDK and tested reference adapters whose
+  credentials remain seller-owned and server-side;
 - framework templates and copyable examples;
 - a sandbox validation command; and
 - generated public storefront, manifest, `llms.txt`, sitemap, structured data,

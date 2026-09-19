@@ -232,6 +232,28 @@ published products expose their canonical storefront URLs in the dashboard.
 Package-registry publication and deployed AWS reachability remain explicit
 release dependencies rather than being represented as complete.
 
+## Milestone M7.3 — Merchant integration extensions
+
+- [-] **EXT-003** Implement a pinned, server-only TypeScript merchant SDK that
+  composes the Node execution verifier, legacy sandbox request verifier,
+  webhook signature verification, typed AgentPay merchant contracts, and a
+  durable idempotent-fulfillment helper. Formalize one small merchant-adapter
+  interface and add tested generic HTTPS, Shopify, and WooCommerce reference
+  adapters that accept seller-owned runtime credentials without embedding
+  secrets. Add fixtures, runnable examples, setup documentation, and only the
+  supported-integration claims proven by focused tests. The SDK and adapters
+  never receive payment custody, wallet keys, payment verification authority,
+  AgentPay signing authority, publication authority, or core transaction
+  persistence. Depends on AUT-006, EVT-002, and LCH-013.
+
+M7.3 acceptance: a TypeScript seller can verify an execution capability and a
+signed webhook over exact raw bytes, coordinate exactly-once local fulfillment
+through a seller-owned atomic store, and call each documented reference adapter
+under focused transport tests. Memory stores remain explicitly local-only,
+registry publication remains a release dependency, and Shopify/WooCommerce are
+described as tested reference adapters rather than managed or certified
+integrations.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same
@@ -292,7 +314,8 @@ M9 acceptance: all release gates in `TEST_PLAN.md` pass, generated changes are r
 
 ## Post-hackathon backlog
 
-- Full seller SDKs beyond the maintained verification packages.
+- SDKs for languages other than the compact TypeScript merchant SDK and the
+  existing maintained verification packages.
 - Card checkout remains deferred until H1; Stripe or another provider is not required for the agent-first x402 release.
 - Seller-controlled reimbursement adapter.
 - Enterprise authentication and configurable N-of-M approval.

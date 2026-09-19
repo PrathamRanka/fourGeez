@@ -66,6 +66,7 @@ The complete gap analysis and reference security design are recorded in
 | [api/webhooks.md](api/webhooks.md)                                                     | Seller webhook event envelope and signature contract                                             |
 | [api/receipts.md](api/receipts.md)                                                     | Versioned buyer and seller purchase receipt contract                                             |
 | [SELLER_VERIFICATION.md](SELLER_VERIFICATION.md)                                       | Versioned seller-request verification package contract                                           |
+| [MERCHANT_SDK.md](MERCHANT_SDK.md)                                                     | TypeScript merchant SDK, idempotent fulfillment, and reference adapter contract                   |
 | [SETUP_BUNDLES.md](SETUP_BUNDLES.md)                                                   | Versioned coding-agent setup resources and prompt contract                                       |
 | [SANDBOX_VALIDATION.md](SANDBOX_VALIDATION.md)                                         | Pre-publication seller integration validation contract                                           |
 | [STOREFRONT_VALIDATION.md](STOREFRONT_VALIDATION.md)                                   | Deterministic SEO, AEO, discovery, accessibility, and performance checks                         |

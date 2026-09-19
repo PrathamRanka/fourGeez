@@ -56,6 +56,14 @@ authorization remains local to the seller environment.
 
 Generated integration code must use maintained AgentPay request-verification packages when available. Coding agents must not generate independent cryptographic protocols or place project credentials in browser code.
 
+The TypeScript merchant SDK composes the Node verifier, webhook verification,
+typed merchant-side contracts, and an idempotent fulfillment coordinator. Its
+adapter interface is a seller-application boundary, not a new AgentPay cloud
+service. Shopify and WooCommerce integrations are tested reference adapters
+that use seller-owned server credentials; they do not receive payment,
+publication, signing, or transaction authority and do not imply inventory,
+shipping, tax, refund, or physical-fulfillment support.
+
 Setup bundle v2 also detects supported application stacks and proposes
 stack-native technical SEO, answer-engine optimization, and agent-discovery
 changes. Those changes include visible metadata, canonical URLs, structured

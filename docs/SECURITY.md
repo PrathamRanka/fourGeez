@@ -269,6 +269,13 @@ Forbidden:
 - Project credentials are accepted only by the proprietary bootstrap exchange;
   ordinary MCP requests require a short-lived access capability.
 - Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.
+- The TypeScript merchant SDK and adapters are server-only. They preserve exact
+  raw request bytes through verification, require seller-provided atomic replay
+  and fulfillment stores for multi-instance use, and never accept wallet keys,
+  x402 proofs, AgentPay private signing material, or project keys.
+- Shopify and WooCommerce credentials remain seller-owned deployment secrets.
+  They must not appear in source, fixtures, browser bundles, generated diffs,
+  logs, or AgentPay configuration.
 - Repository analysis must not upload unrelated source files, `.env` contents, credentials, wallet material, customer information, or proprietary data to AgentPay.
 - SEO/AEO generation may inspect public page structure and allowlisted product
   metadata only. It must not upload private source, generate hidden content, or
