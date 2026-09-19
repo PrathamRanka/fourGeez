@@ -9,14 +9,17 @@ implemented and verified locally. M7.1 provides seller authentication,
 subscription enforcement, cloud-authoritative MCP access, the shared browser
 and agent x402 commerce path, exactly-once fulfillment, the essential seller
 dashboard, and full-system browser verification. M8 infrastructure work has
-deployed the Terraform foundation, protected development state backend, and
-Mumbai Cognito seller identity. The application runtime,
-environment-specific web/API connection, observability, and M9 deployed
-release verification remain pending.
-AWS/Vercel wiring, seller-path alarms, manual launch-entitlement operations,
-and webhook canary tooling are now reproducible in code, but remain unverified
-against a deployed API runtime.
-Until those milestones pass,
+deployed the Terraform foundation, protected development state backend,
+Mumbai Cognito seller identity, the ARM64 Go Lambda and HTTP API, and the
+Vercel production web application. On September 19, 2026, Terraform applied
+37 additions with no changes or destroys and a post-apply plan reported no
+changes. The deployed API health, readiness, public capability, and payment
+capability checks pass; the canonical Vercel deployment is ready and serving
+the expected authentication and documentation routes. Thirteen CloudWatch
+alarms and the seller operations dashboard are deployed, but AWS-009 remains
+in progress because SNS alarm actions and notification delivery are not
+configured. Bedrock remains disabled and is not a seller-first V1 blocker.
+M9 deployed release verification remains pending. Until those release gates pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 
@@ -25,8 +28,8 @@ EXT-001 public capability manifest and deterministic product directory plus
 the EXT-004 runtime payment-capability and recovery contract and the EXT-005
 seller-first published product-schema contract. AgentPay buyer execution, A2A,
 and negotiation remain deferred to V2. Production
-activation still depends on M8 infrastructure,
-external security/legal review, and M9 deployed verification.
+activation still depends on the remaining M8 operational work, external
+security/legal review, and M9 deployed verification.
 
 Lean V1 intentionally excludes buyer-side multi-person approval. Historical
 M2/M3 approval code and contract history are retained for compatibility, but
