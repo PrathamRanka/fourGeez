@@ -145,15 +145,8 @@
   height: 0.85rem;
 }
 
-.settingRow :global(.theme-cycle-button) {
-  border: 1px solid var(--dash-line-strong);
-  background: var(--dash-surface-soft);
-  color: var(--dash-copy);
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .settingRow > a:hover,
-  .settingRow :global(.theme-cycle-button:hover) {
+  .settingRow > a:hover {
     background: var(--dash-surface-soft);
   }
 }

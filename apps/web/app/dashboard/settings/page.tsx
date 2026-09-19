@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, CircleUserRound, MonitorCog, Store } from "lucide-react";
+import { ArrowUpRight, CircleUserRound, Store } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ThemeCycleButton } from "@/components/ui/theme-cycle-button";
 import { getSellerSession } from "@/features/auth/server/session";
 import styles from "./settings.module.css";
 
@@ -18,7 +17,7 @@ export default async function SettingsPage() {
         <div>
           <p>Workspace preferences</p>
           <h1>Settings</h1>
-          <span>Account, appearance, and store configuration.</span>
+          <span>Account and store configuration.</span>
         </div>
       </header>
 
@@ -41,23 +40,6 @@ export default async function SettingsPage() {
               <dd>{session.principal.email}</dd>
             </div>
           </dl>
-        </section>
-
-        <section className={styles.panel} aria-labelledby="appearance-settings">
-          <header>
-            <MonitorCog aria-hidden="true" />
-            <div>
-              <p>Interface</p>
-              <h2 id="appearance-settings">Appearance</h2>
-            </div>
-          </header>
-          <div className={styles.settingRow}>
-            <div>
-              <strong>Color mode</strong>
-              <span>Switch between solid white and native black.</span>
-            </div>
-            <ThemeCycleButton />
-          </div>
         </section>
 
         <section

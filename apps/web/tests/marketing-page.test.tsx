@@ -48,6 +48,13 @@ describe("AgentPay public site", () => {
     ).toBeVisible();
     expect(
       screen.getByRole("heading", {
+        name: "Ship with machine-readable discovery",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("llms.txt")).toBeVisible();
+    expect(screen.getByText("Structured data")).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
         name: "Cloud authority. Local freedom.",
       }),
     ).toBeVisible();
@@ -56,6 +63,29 @@ describe("AgentPay public site", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("AgentPay integration network")).toBeVisible();
     expect(screen.queryByText("Seller API")).not.toBeInTheDocument();
+  });
+
+  it("shows the complete maintained stack matrix as visual package marks", () => {
+    render(<HomePage />);
+
+    const stackStrip = screen.getByRole("region", {
+      name: "21 maintained stacks",
+    });
+    expect(screen.getByText("21", { selector: "strong" })).toBeVisible();
+    expect(stackStrip.querySelectorAll("svg")).toHaveLength(42);
+    for (const stack of [
+      "Next.js",
+      "Fastify",
+      "Gin",
+      "Starlette",
+      "ASP.NET Core",
+      "Spring Boot",
+      "Rails",
+      "Laravel",
+    ]) {
+      expect(screen.getAllByText(stack).length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByText("Perl")).not.toBeInTheDocument();
   });
 
   it("switches the commerce demonstration between buyer and seller views", () => {
@@ -108,14 +138,11 @@ describe("AgentPay public site", () => {
     expect(within(pricing).queryByText(/\$\d/)).not.toBeInTheDocument();
   });
 
-  it("offers a light and dark appearance control", () => {
+  it("keeps the public experience dark without an appearance control", () => {
     render(<HomePage />);
 
-    const themeButton = screen.getByRole("button", {
-      name: /switch appearance/i,
-    });
-    expect(themeButton).toBeVisible();
-    fireEvent.click(themeButton);
-    expect(document.documentElement).toHaveClass("dark");
+    expect(
+      screen.queryByRole("button", { name: /switch appearance/i }),
+    ).not.toBeInTheDocument();
   });
 });

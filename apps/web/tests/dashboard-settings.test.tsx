@@ -25,10 +25,12 @@ describe("seller dashboard settings", () => {
     render(await SettingsPage());
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Appearance" })).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Switch appearance" }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: "Switch appearance" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Appearance" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Manage store setup" }),
     ).toHaveAttribute("href", "/dashboard/onboarding");

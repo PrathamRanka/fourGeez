@@ -2,10 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  Integration,
-  IntegrationCard,
-} from "@/components/ui/integration-card";
+import { Integration, IntegrationCard } from "@/components/ui/integration-card";
 import { SiteFooter } from "@/components/site/site-footer";
 import { StickyBanner } from "@/components/ui/sticky-banner";
 
@@ -85,13 +82,34 @@ describe("AgentPay web foundation", () => {
 
     expect(screen.getByLabelText("AgentPay integration network")).toBeVisible();
     expect(screen.queryByText("Connector active")).not.toBeInTheDocument();
-    expect(screen.queryByText("One MCP. Every surface.")).not.toBeInTheDocument();
-    expect(screen.getByText("Your product")).toBeInTheDocument();
+    expect(
+      screen.queryByText("One MCP. Every surface."),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Repo")).toBeInTheDocument();
+    expect(screen.getByText("MCP")).toBeInTheDocument();
+    expect(screen.getByText("AI-ready")).toBeInTheDocument();
+    expect(screen.getByText("Ship")).toBeInTheDocument();
 
     render(<Integration />);
     expect(
       screen.getAllByLabelText("AgentPay integration network"),
     ).toHaveLength(2);
+  });
+
+  it("serves one permanent dark appearance without theme persistence", () => {
+    const layout = readFileSync(
+      path.resolve(process.cwd(), "app/layout.tsx"),
+      "utf8",
+    );
+    const authStyles = readFileSync(
+      path.resolve(process.cwd(), "features/auth/view/auth-surface.module.css"),
+      "utf8",
+    );
+
+    expect(layout).toContain('<html lang="en" className="dark">');
+    expect(layout).not.toContain("agentpay-theme");
+    expect(layout).not.toContain("themeInitializationScript");
+    expect(authStyles).toContain("background: #050506");
   });
 
   it("keeps shared registry components local and deterministic", () => {

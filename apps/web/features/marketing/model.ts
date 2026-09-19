@@ -1,19 +1,45 @@
+import SiAstro from "@icons-pack/react-simple-icons/icons/SiAstro";
+import SiDjango from "@icons-pack/react-simple-icons/icons/SiDjango";
+import SiDotnet from "@icons-pack/react-simple-icons/icons/SiDotnet";
+import SiExpress from "@icons-pack/react-simple-icons/icons/SiExpress";
+import SiFastapi from "@icons-pack/react-simple-icons/icons/SiFastapi";
+import SiFastify from "@icons-pack/react-simple-icons/icons/SiFastify";
+import SiFlask from "@icons-pack/react-simple-icons/icons/SiFlask";
+import SiGin from "@icons-pack/react-simple-icons/icons/SiGin";
+import SiGo from "@icons-pack/react-simple-icons/icons/SiGo";
+import SiLaravel from "@icons-pack/react-simple-icons/icons/SiLaravel";
+import SiNestjs from "@icons-pack/react-simple-icons/icons/SiNestjs";
+import SiNextdotjs from "@icons-pack/react-simple-icons/icons/SiNextdotjs";
+import SiNuxt from "@icons-pack/react-simple-icons/icons/SiNuxt";
+import SiPython from "@icons-pack/react-simple-icons/icons/SiPython";
+import SiReact from "@icons-pack/react-simple-icons/icons/SiReact";
+import SiRemix from "@icons-pack/react-simple-icons/icons/SiRemix";
+import SiRubyonrails from "@icons-pack/react-simple-icons/icons/SiRubyonrails";
+import SiSpringboot from "@icons-pack/react-simple-icons/icons/SiSpringboot";
+import SiSvelte from "@icons-pack/react-simple-icons/icons/SiSvelte";
+
 export const supportedStacks = [
-  "Next.js",
-  "React",
-  "Remix",
-  "Nuxt",
-  "SvelteKit",
-  "Astro",
-  "Express",
-  "NestJS",
-  "Go",
-  "FastAPI",
-  "Django",
-  "ASP.NET",
-  "Spring Boot",
-  "Rails",
-  "Laravel",
+  { name: "Next.js", icon: SiNextdotjs },
+  { name: "React / Vite", icon: SiReact },
+  { name: "Remix", icon: SiRemix },
+  { name: "Nuxt", icon: SiNuxt },
+  { name: "SvelteKit", icon: SiSvelte },
+  { name: "Astro", icon: SiAstro },
+  { name: "Express", icon: SiExpress },
+  { name: "Fastify", icon: SiFastify },
+  { name: "NestJS", icon: SiNestjs },
+  { name: "Go net/http", icon: SiGo },
+  { name: "Gin", icon: SiGin },
+  { name: "Echo", icon: SiGo },
+  { name: "Fiber", icon: SiGo },
+  { name: "FastAPI", icon: SiFastapi },
+  { name: "Starlette", icon: SiPython },
+  { name: "Flask", icon: SiFlask },
+  { name: "Django", icon: SiDjango },
+  { name: "ASP.NET Core", icon: SiDotnet },
+  { name: "Spring Boot", icon: SiSpringboot },
+  { name: "Rails", icon: SiRubyonrails },
+  { name: "Laravel", icon: SiLaravel },
 ] as const;
 
 export const supportedAgents = [
@@ -24,7 +50,7 @@ export const supportedAgents = [
 
 export const launchSignals = [
   { value: "1 prompt", label: "Repository setup" },
-  { value: "15+", label: "Maintained stacks" },
+  { value: "21", label: "Maintained stacks" },
   { value: "0", label: "Wallet keys held" },
 ] as const;
 

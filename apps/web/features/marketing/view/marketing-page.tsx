@@ -9,13 +9,13 @@ import {
   LockKeyhole,
   Radar,
   ReceiptText,
+  SearchCheck,
   ShieldCheck,
   Webhook,
 } from "lucide-react";
 import Link from "next/link";
 import AnimatedGradientBackground from "@/components/ui/animated-gradient-background";
 import { IntegrationCard } from "@/components/ui/integration-card";
-import { ThemeCycleButton } from "@/components/ui/theme-cycle-button";
 import {
   agentPayPlans,
   launchSignals,
@@ -44,9 +44,6 @@ function ArrowLink({ href, children }: { href: string; children: string }) {
 function HeroSection() {
   return (
     <section className={styles.hero} aria-labelledby="hero-title">
-      <div className={styles.themeControl}>
-        <ThemeCycleButton />
-      </div>
       <AnimatedGradientBackground
         breathing
         animationSpeed={0.025}
@@ -59,8 +56,8 @@ function HeroSection() {
         <p className={styles.kicker}>Commerce infrastructure for software</p>
         <h1 id="hero-title">Sell to agents. Settle on-chain.</h1>
         <p className={styles.heroDescription}>
-          The next visitor to your site will be an AI agent.
-          Make them your next customer.
+          The next visitor to your site will be an AI agent. Make them your next
+          customer.
         </p>
         <div className={styles.heroActions}>
           <Link className={styles.primaryAction} href="/sign-up">
@@ -110,10 +107,13 @@ function HeroSection() {
 }
 
 function SignalStrip() {
+  const stackLoop = [...supportedStacks, ...supportedStacks];
+
   return (
     <section className={styles.signalStrip} aria-label="AgentPay product facts">
       <div className={styles.signalIntro}>
-        Built for the stack you already run
+        <span>Maintained integrations</span>
+        <strong>Built for the stack you already run</strong>
       </div>
       {launchSignals.map((signal) => (
         <div className={styles.signal} key={signal.label}>
@@ -121,11 +121,26 @@ function SignalStrip() {
           <span>{signal.label}</span>
         </div>
       ))}
-      <div className={styles.stackTicker} aria-label="Supported stacks">
+      <div
+        className={styles.stackTicker}
+        role="region"
+        aria-label="21 maintained stacks"
+      >
         <div className={styles.stackTrack}>
-          {[...supportedStacks, ...supportedStacks].map((stack, index) => (
-            <span key={`${stack}-${index}`}>{stack}</span>
-          ))}
+          {stackLoop.map((stack, index) => {
+            const StackIcon = stack.icon;
+            return (
+              <span
+                className={styles.stackBadge}
+                key={`${stack.name}-${index}`}
+              >
+                <b aria-hidden="true">
+                  <StackIcon title="" />
+                </b>
+                <span>{stack.name}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -209,6 +224,43 @@ function RevenuePreview() {
           Disputed <strong>0</strong>
         </span>
       </div>
+    </div>
+  );
+}
+
+function DiscoveryPreview() {
+  const artifacts = [
+    ["llms.txt", "Agent-readable catalog"],
+    ["Structured data", "Truthful product facts"],
+    ["sitemap.xml", "Canonical discovery paths"],
+    ["manifest.json", "Machine-readable offers"],
+  ] as const;
+
+  return (
+    <div
+      className={styles.discoveryPreview}
+      aria-label="Generated discovery files"
+    >
+      <div className={styles.discoveryAddress}>
+        <span>yourstore.com</span>
+        <code>/products/research-api</code>
+      </div>
+      <div className={styles.discoveryFiles}>
+        {artifacts.map(([name, description], index) => (
+          <div key={name}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <div>
+              <strong>{name}</strong>
+              <small>{description}</small>
+            </div>
+            <Check aria-hidden="true" />
+          </div>
+        ))}
+      </div>
+      <p>
+        Better crawlability and agent discovery. Rankings remain controlled by
+        external search systems.
+      </p>
     </div>
   );
 }
@@ -307,6 +359,21 @@ function ProductBento() {
               <small>Signed once</small>
             </div>
           </div>
+        </article>
+
+        <article className={`${styles.bentoCard} ${styles.discoveryCard}`}>
+          <div className={styles.cardCopy}>
+            <span className={styles.cardIcon}>
+              <SearchCheck aria-hidden="true" />
+            </span>
+            <p className={styles.cardLabel}>Discovery Mesh</p>
+            <h3>Ship with machine-readable discovery</h3>
+            <p>
+              AgentPay prepares technical SEO, canonical metadata, structured
+              data, sitemap entries, your storefront manifest, and `llms.txt`.
+            </p>
+          </div>
+          <DiscoveryPreview />
         </article>
       </div>
     </section>
