@@ -84,7 +84,7 @@ transaction authority.
 | SEO/AEO abuse | Require visible-content consistency, prohibit fabricated claims and keyword stuffing, validate structured data, and never promise ranking |
 | Tenant resource exhaustion | Apply seller-scoped quotas and rate limits to API, MCP, route, analytics, and webhook operations |
 | Unpaid seller retains network access | Require `status=active` and `now < accessEndsAt` at every privileged boundary; grace is recovery/read-only and never paid-network authority |
-| Unauthorized free launch access | Never auto-provision cloud entitlements; require an assumed least-privilege operator role, explicit expiry, optimistic version, exact confirmation phrase, and an atomic reconciliation plus audit write |
+| Unauthorized free launch access | Never auto-provision cloud entitlements or expose a seller self-grant API/UI; require an environment-bound assumed least-privilege operator role, explicit expiry/effective time, optimistic entitlement version, reviewed plan digest, exact confirmation phrase, and an atomic idempotency, reconciliation, projection, and audit write |
 | Forged or replayed Stripe webhook | Verify `Stripe-Signature` over exact raw bytes, bind the endpoint secret to environment/account, deduplicate provider event IDs, and reconcile current provider objects instead of trusting arrival order |
 | Stripe outage or missed webhook | Enforce the local `accessEndsAt` independently, fail closed for new commerce, and recover through the durable inbox plus scheduled reconciliation |
 | Fraudulent reactivation | Give fraud quarantine precedence over provider state and require operator clearance plus project-key rotation before access resumes |

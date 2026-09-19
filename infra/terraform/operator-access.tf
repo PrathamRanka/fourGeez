@@ -9,6 +9,12 @@ data "aws_iam_policy_document" "launch_entitlement_operator_assume" {
       type        = "AWS"
       identifiers = var.launch_entitlement_operator_principal_arns
     }
+
+    condition {
+      test     = "StringLike"
+      variable = "sts:RoleSessionName"
+      values   = ["agentpay-entitlement-*"]
+    }
   }
 }
 
@@ -27,7 +33,6 @@ data "aws_iam_policy_document" "launch_entitlement_operator" {
     sid = "ReadAndAtomicallyChangeSellerEntitlement"
     actions = [
       "dynamodb:GetItem",
-      "dynamodb:PutItem",
       "dynamodb:TransactWriteItems",
     ]
     resources = [module.foundation.table_arn]
@@ -35,7 +40,7 @@ data "aws_iam_policy_document" "launch_entitlement_operator" {
     condition {
       test     = "ForAllValues:StringLike"
       variable = "dynamodb:LeadingKeys"
-      values   = ["SELLER#*"]
+      values   = ["SELLER#sel_*"]
     }
   }
 }

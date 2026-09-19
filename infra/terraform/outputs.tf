@@ -93,6 +93,11 @@ output "environment" {
   value       = var.environment
 }
 
+output "project_name" {
+  description = "Stable project name used to bind operator tooling to this Terraform environment."
+  value       = var.project_name
+}
+
 output "aws_region" {
   description = "AWS region used by deployment automation."
   value       = var.aws_region

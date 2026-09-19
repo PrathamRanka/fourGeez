@@ -185,6 +185,15 @@ describe("seller onboarding MCP gate", () => {
     expect(
       screen.queryByText(/Connect this project to AgentPay/),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/contact the AgentPay launch operator/i),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /grant.*entitlement/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /grant.*entitlement/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("activates ES256 service readiness without revealing a shared secret", async () => {

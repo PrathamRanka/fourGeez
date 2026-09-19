@@ -41,6 +41,10 @@ func subscriptionReconciliationSortKey(sourceRevision string) string {
 	return "SUBSCRIPTION_RECONCILIATION#" + sourceRevision
 }
 
+func launchEntitlementOperationSortKey(operationID string) string {
+	return "LAUNCH_ENTITLEMENT_OPERATION#" + operationID
+}
+
 const providerEventInboxSortKey = "INBOX"
 
 func providerEventPartitionKey(eventID string) string {

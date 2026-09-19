@@ -51,9 +51,12 @@ Run without AWS or network access.
   rotation; fraud quarantine cannot be cleared by a Stripe payment event.
 - Atomic UTC-month API and MCP counters, retry-safe webhook-delivery claims,
   static route/subscription limits, suspended plans, and stable 403/429 codes.
-- Manual launch-entitlement planning, exact confirmation binding, non-root
-  assumed-role enforcement, optimistic version conflicts, atomic audit writes,
-  immediate suspension, bounded expiry, and reactivation credential rotation.
+- Manual launch-entitlement planning, deterministic plan digests, exact replay
+  idempotency, conflicting replay rejection, environment/account/region/table/
+  role binding, wrong-seller and optimistic-version rejection, non-root
+  assumed-role enforcement for dry run and apply, atomic operation/reconciliation/
+  projection/audit writes, immediate suspension, bounded expiry, and
+  reactivation credential rotation.
 - MCP confirmation grants bind seller, credential, tool, target, canonical
   arguments hash, expected resource version, and exclusive five-minute expiry;
   wrong bindings, expiry, revocation, prior consumption, and caller-asserted

@@ -320,6 +320,7 @@ paths:
   /v1/me/dashboard/billing:
     get:
       summary: Get current seller entitlement and Stripe plan state
+      description: Read-only seller projection. While Stripe checkout is disabled, no seller-authenticated API operation can grant or reactivate launch entitlement; provisioning is an audited environment-bound operator workflow outside this HTTP API.
       tags: [Billing]
       operationId: getCurrentSellerBillingSummary
       security: [{ sellerBearer: [] }]

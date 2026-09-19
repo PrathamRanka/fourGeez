@@ -41,6 +41,29 @@ func (repository *SellerEntitlementRepository) Get(ctx context.Context, sellerID
 	return billing.RestoreSellerEntitlement(snapshot)
 }
 
+func (repository *SellerEntitlementRepository) GetLaunchEntitlementOperation(
+	ctx context.Context,
+	sellerID domain.ID,
+	operationID string,
+) (billing.LaunchEntitlementOperation, error) {
+	output, err := repository.client.GetItem(ctx, &awssdk.GetItemInput{
+		TableName:      &repository.tableName,
+		Key:            primaryKey(sellerPartitionKey(sellerID.String()), launchEntitlementOperationSortKey(operationID)),
+		ConsistentRead: boolPointer(true),
+	})
+	if err != nil {
+		return billing.LaunchEntitlementOperation{}, err
+	}
+	var operation billing.LaunchEntitlementOperation
+	if err := unmarshalPayload(output.Item, &operation); err != nil {
+		return billing.LaunchEntitlementOperation{}, err
+	}
+	if operation.SellerID != sellerID || operation.OperationID != operationID {
+		return billing.LaunchEntitlementOperation{}, persistence.ErrNotFound
+	}
+	return operation, nil
+}
+
 func (repository *SellerEntitlementRepository) Apply(
 	ctx context.Context,
 	entitlement billing.SellerEntitlement,
@@ -65,14 +88,41 @@ func (repository *SellerEntitlementRepository) ApplyWithAudit(
 	reconciliation billing.EntitlementReconciliation,
 	expectedVersion uint64,
 	event audit.Event,
+	operation billing.LaunchEntitlementOperation,
 ) error {
 	if event.SellerID() != entitlement.SellerID() {
 		return domain.NewValidationError("auditEvent", "seller", "must belong to the entitlement seller")
+	}
+	if operation.SellerID != entitlement.SellerID() || operation.AppliedVersion != entitlement.Version() {
+		return domain.NewValidationError("launchEntitlementOperation", "binding", "must belong to the entitlement and applied version")
+	}
+	if operation.ExpectedVersion != expectedVersion || operation.SchemaVersion != billing.LaunchEntitlementOperationSchemaVersion ||
+		event.RequestID() != operation.OperationID || event.ActorID() != operation.ActorARN ||
+		len(operation.RequestSHA256) != 64 || len(operation.PlanSHA256) != 64 {
+		return domain.NewValidationError("launchEntitlementOperation", "binding", "must match the reviewed request and administrator audit")
 	}
 	items, err := repository.entitlementTransactionItems(entitlement, reconciliation, expectedVersion)
 	if err != nil {
 		return err
 	}
+	operationRecord, err := newStoredRecord(
+		sellerPartitionKey(operation.SellerID.String()),
+		launchEntitlementOperationSortKey(operation.OperationID),
+		"launchEntitlementOperation",
+		operation,
+	)
+	if err != nil {
+		return err
+	}
+	operationItem, err := marshalStoredRecord(operationRecord)
+	if err != nil {
+		return err
+	}
+	items = append(items, types.TransactWriteItem{Put: &types.Put{
+		TableName:           &repository.tableName,
+		Item:                operationItem,
+		ConditionExpression: stringPointer(createItemCondition),
+	}})
 	auditRecord, err := newStoredRecord(
 		sellerPartitionKey(event.SellerID().String()),
 		auditEventSortKey(event.OccurredAt().Time(), event.AuditEventID().String()),

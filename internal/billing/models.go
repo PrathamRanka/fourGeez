@@ -10,6 +10,8 @@ import (
 
 const EntitlementGraceDuration = 72 * time.Hour
 
+const LaunchEntitlementOperationSchemaVersion = "1"
+
 var (
 	ErrPlanNotFound              = errors.New("seller plan was not found")
 	ErrSellerEntitlementNotFound = errors.New("seller entitlement was not found")
@@ -222,6 +224,28 @@ type EntitlementReconciliation struct {
 	SnapshotHash       string            `json:"snapshotHash"`
 	ReconciledAt       domain.Timestamp  `json:"reconciledAt"`
 	AppliedVersion     uint64            `json:"appliedVersion"`
+}
+
+// LaunchEntitlementOperation is the immutable idempotency and audit claim for
+// one Stripe-disabled cloud entitlement change.
+type LaunchEntitlementOperation struct {
+	OperationID     string           `json:"operationId"`
+	SchemaVersion   string           `json:"schemaVersion"`
+	Environment     string           `json:"environment"`
+	AWSAccountID    string           `json:"awsAccountId"`
+	AWSRegion       string           `json:"awsRegion"`
+	SellerID        domain.ID        `json:"sellerId"`
+	Action          string           `json:"action"`
+	PlanID          PlanID           `json:"planId"`
+	PlanVersion     uint64           `json:"planVersion"`
+	EffectiveAt     domain.Timestamp `json:"effectiveAt"`
+	AccessEndsAt    domain.Timestamp `json:"accessEndsAt"`
+	ExpectedVersion uint64           `json:"expectedVersion"`
+	AppliedVersion  uint64           `json:"appliedVersion"`
+	RequestSHA256   string           `json:"requestSha256"`
+	PlanSHA256      string           `json:"planSha256"`
+	ActorARN        string           `json:"actorArn"`
+	AppliedAt       domain.Timestamp `json:"appliedAt"`
 }
 
 type Repository interface {

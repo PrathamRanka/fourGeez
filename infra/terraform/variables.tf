@@ -266,9 +266,9 @@ variable "launch_entitlement_operator_principal_arns" {
 
   validation {
     condition = alltrue([
-      for arn in var.launch_entitlement_operator_principal_arns : can(regex("^arn:aws:iam::[0-9]{12}:(user|role)/[A-Za-z0-9+=,.@_/-]+$", arn))
-    ])
-    error_message = "launch_entitlement_operator_principal_arns must contain IAM user or role ARNs; root is not accepted."
+      for arn in var.launch_entitlement_operator_principal_arns : can(regex("^arn:aws:iam::${var.aws_account_id}:(user|role)/[A-Za-z0-9+=,.@_/-]+$", arn))
+    ]) && length(distinct(var.launch_entitlement_operator_principal_arns)) == length(var.launch_entitlement_operator_principal_arns)
+    error_message = "launch_entitlement_operator_principal_arns must contain unique same-account IAM user or role ARNs; root and cross-account principals are not accepted."
   }
 }
 

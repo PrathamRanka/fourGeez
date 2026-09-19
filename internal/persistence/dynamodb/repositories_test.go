@@ -39,6 +39,7 @@ func TestDocumentedKeys(t *testing.T) {
 		{name: "webhook event claim", got: webhookEventClaimSortKey("whk_123", "evt_123"), want: "WEBHOOK_EVENT#whk_123#evt_123"},
 		{name: "seller plan", got: sellerPlanSortKey, want: "BILLING_PLAN"},
 		{name: "subscription reconciliation", got: subscriptionReconciliationSortKey("00000000000000000007"), want: "SUBSCRIPTION_RECONCILIATION#00000000000000000007"},
+		{name: "launch entitlement operation", got: launchEntitlementOperationSortKey("leo_0123456789abcdef0123456789abcdef"), want: "LAUNCH_ENTITLEMENT_OPERATION#leo_0123456789abcdef0123456789abcdef"},
 		{name: "quota counter", got: quotaCounterSortKey("2026-09", "api_request"), want: "QUOTA#2026-09#api_request"},
 		{name: "quota claim", got: quotaClaimSortKey("2026-09", "webhook_delivery", "source"), want: "QUOTA_CLAIM#2026-09#webhook_delivery#41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d"},
 		{name: "usage meter", got: usageMeterSortKey(time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC), "mtr_123"), want: "METER#2026-09-17T10:00:00Z#mtr_123"},
@@ -294,24 +295,74 @@ func TestSellerEntitlementRepositoryAppliesOperatorAuditAtomically(t *testing.T)
 	event, err := audit.NewEvent(audit.EventParams{
 		AuditEventID: mustDynamoID(t, "aud_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.AuditEventIDPrefix),
 		SellerID:     entitlement.SellerID(), ActorType: audit.ActorTypeAdministrator,
-		ActorID: "arn:aws:iam::123456789012:user/operator", Action: audit.ActionEntitlementChanged,
+		ActorID: "arn:aws:sts::123456789012:assumed-role/agentpay-dev-launch-entitlement-operator/agentpay-entitlement-session-1", Action: audit.ActionEntitlementChanged,
 		TargetType: audit.TargetTypeSeller, TargetID: entitlement.SellerID().String(),
-		Outcome: audit.OutcomeSucceeded, RequestID: "ops-request-1",
+		Outcome: audit.OutcomeSucceeded, RequestID: "leo_0123456789abcdef0123456789abcdef",
 		ChangedFields: []string{"status", "accessEndsAt", "entitlementEpoch", "sourceRevision", "credentialRotationRequired"},
 		OccurredAt:    testDynamoTime(),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.ApplyWithAudit(t.Context(), entitlement, reconciliation, 0, event); err != nil {
+	operation := billing.LaunchEntitlementOperation{
+		OperationID:   "leo_0123456789abcdef0123456789abcdef",
+		SchemaVersion: billing.LaunchEntitlementOperationSchemaVersion,
+		Environment:   "dev", AWSAccountID: "123456789012", AWSRegion: "ap-south-1",
+		SellerID: entitlement.SellerID(), Action: "grant", PlanID: entitlement.PlanID(),
+		PlanVersion: entitlement.PlanVersion(), EffectiveAt: testDynamoTime(), AccessEndsAt: entitlement.AccessEndsAt(),
+		ExpectedVersion: 0, AppliedVersion: entitlement.Version(), RequestSHA256: strings.Repeat("a", 64),
+		PlanSHA256: strings.Repeat("b", 64), ActorARN: "arn:aws:sts::123456789012:assumed-role/agentpay-dev-launch-entitlement-operator/agentpay-entitlement-session-1",
+		AppliedAt: testDynamoTime(),
+	}
+	if err := repository.ApplyWithAudit(t.Context(), entitlement, reconciliation, 0, event, operation); err != nil {
 		t.Fatal(err)
 	}
 	input := client.transactWriteInput
-	if input == nil || len(input.TransactItems) != 3 {
+	if input == nil || len(input.TransactItems) != 4 {
 		t.Fatalf("operator transaction = %#v", input)
 	}
-	if got := readStringAttribute(input.TransactItems[2].Put.Item["SK"]); !strings.HasPrefix(got, "AUDIT#") {
+	if got := readStringAttribute(input.TransactItems[2].Put.Item["SK"]); got != launchEntitlementOperationSortKey(operation.OperationID) {
+		t.Fatalf("operation sort key = %q", got)
+	}
+	if got := readStringAttribute(input.TransactItems[3].Put.Item["SK"]); !strings.HasPrefix(got, "AUDIT#") {
 		t.Fatalf("audit sort key = %q", got)
+	}
+}
+
+func TestSellerEntitlementRepositoryLoadsLaunchOperationBySellerBinding(t *testing.T) {
+	t.Parallel()
+
+	sellerID := mustDynamoID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix)
+	operation := billing.LaunchEntitlementOperation{
+		OperationID:   "leo_0123456789abcdef0123456789abcdef",
+		SchemaVersion: billing.LaunchEntitlementOperationSchemaVersion,
+		Environment:   "dev", SellerID: sellerID, AppliedVersion: 2,
+	}
+	record, err := newStoredRecord(
+		sellerPartitionKey(sellerID.String()),
+		launchEntitlementOperationSortKey(operation.OperationID),
+		"launchEntitlementOperation",
+		operation,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := marshalStoredRecord(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{getOutput: &awssdk.GetItemOutput{Item: item}}
+	repository := NewSellerEntitlementRepository(client, "agentpay-dev-main")
+	stored, err := repository.GetLaunchEntitlementOperation(t.Context(), sellerID, operation.OperationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.OperationID != operation.OperationID || stored.SellerID != sellerID || stored.AppliedVersion != 2 {
+		t.Fatalf("stored operation = %#v", stored)
+	}
+	if readStringAttribute(client.getInput.Key["PK"]) != sellerPartitionKey(sellerID.String()) ||
+		readStringAttribute(client.getInput.Key["SK"]) != launchEntitlementOperationSortKey(operation.OperationID) {
+		t.Fatalf("operation key = %#v", client.getInput.Key)
 	}
 }
 

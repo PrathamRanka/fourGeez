@@ -189,7 +189,13 @@ exclusive `accessEndsAt`, epoch invalidation, reconciliation history, and
 credential-rotation requirement. Automatic entitlement creation is restricted
 to the local runtime. While Stripe is disabled, cloud pilot access is granted
 only through the version-bound, assumed-role operator workflow in
-[`runbooks/LAUNCH_ENTITLEMENT.md`](runbooks/LAUNCH_ENTITLEMENT.md).
+[`runbooks/LAUNCH_ENTITLEMENT.md`](runbooks/LAUNCH_ENTITLEMENT.md). That workflow
+binds the reviewed plan to the exact environment, seller, operation ID, UTC
+effective/expiry times, and expected entitlement version. Its immutable
+seller-scoped operation claim commits atomically with reconciliation,
+projection, and audit records; exact replay returns the original applied
+version, while changed replay fails closed. No seller-authenticated API or
+normal seller UI can grant or reactivate entitlement.
 
 Production activation remains blocked on the AWS application runtime,
 asynchronous outbox/reconciliation workers, authenticated Stripe callbacks,

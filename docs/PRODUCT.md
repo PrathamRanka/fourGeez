@@ -348,10 +348,12 @@ authority. Card settlement, platform fees,
 refunds, tax responsibility, and merchant-of-record status must be explicitly
 decided before enabling production card payments.
 
-Launch configuration on September 19, 2026: Stripe subscription checkout and
+Launch configuration on September 20, 2026: Stripe subscription checkout and
 collection are disabled. Testnet sellers receive an explicitly provisioned
 launch entitlement; the dashboard must not present Stripe checkout or a billing
-portal as an available onboarding action.
+portal as an available onboarding action. The normal seller UI may display
+entitlement status and operator-contact guidance only; it must not expose a
+self-grant mutation or any operator credential path.
 
 Public launch pricing is **$6/month for Starter**, **$10/month for Growth**, and
 **$15/month for Scale**. These prices describe the implemented plan catalog and

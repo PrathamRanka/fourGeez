@@ -439,7 +439,9 @@ dashboard were deployed. AWS-009 remains in progress because
 `operational_alarm_action_arns` has no configured SNS notification action and
 alarm delivery has not been verified.
 
-Manual launch entitlement operations are documented in
+Manual launch entitlement operations are available only through the
+environment-bound Terraform role and deterministic dry-run/apply workflow; no
+seller-authenticated route grants entitlement. The procedure is documented in
 [`runbooks/LAUNCH_ENTITLEMENT.md`](runbooks/LAUNCH_ENTITLEMENT.md). Webhook live
 verification is documented in
 [`runbooks/WEBHOOK_CANARY.md`](runbooks/WEBHOOK_CANARY.md).

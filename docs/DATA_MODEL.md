@@ -741,6 +741,25 @@ cannot exchange tokens until replaced through the seller session.
 timestamps are audit facts, not ordering authority. Redis may cache this
 projection, but the database is authoritative.
 
+While Stripe collection is disabled, every cloud operator change also creates
+one immutable `LaunchEntitlementOperation` at `PK=SELLER#<sellerId>`,
+`SK=LAUNCH_ENTITLEMENT_OPERATION#<operationId>`. The record stores operation
+schema version `1`, environment, AWS account and region, seller ID, action,
+plan ID/version, exact UTC effective and access-end timestamps, expected and
+applied entitlement versions, the reviewed plan SHA-256 digest, assumed-role
+actor ARN, and application timestamp. It contains no credential, token,
+payment, wallet, or secret value. The operation record, entitlement projection,
+reconciliation history, and administrator audit event are committed in one
+DynamoDB transaction.
+
+`operationId` is seller-scoped and immutable. An exact replay with the same
+seller, operation ID, and plan digest returns the already-applied version
+without another write or audit event. Reusing an operation ID with a different
+environment, seller binding, action, plan, timestamp, expected version, or
+digest fails closed. A different operation ID with a stale expected entitlement
+version also fails closed. No seller-authenticated API or normal seller UI may
+create this record or grant entitlement.
+
 ### SubscriptionProviderEvent
 
 Stripe webhooks enter a durable inbox before processing. Each record contains
