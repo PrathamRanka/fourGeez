@@ -148,6 +148,8 @@ describe("product route workspace", () => {
       <ProductRouteWorkspace
         actions={actions}
         initialSnapshot={initialSnapshot}
+        canonicalOrigin="https://agentpay.example"
+        sellerSlug="northstar-research"
       />,
     );
 
@@ -168,6 +170,12 @@ describe("product route workspace", () => {
     ).toBeVisible();
     expect(screen.getByText("Version 2")).toBeVisible();
     expect(screen.getAllByText("Published")[0]).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Open canonical storefront product" }),
+    ).toHaveAttribute(
+      "href",
+      "https://agentpay.example/store/northstar-research/products/research-report",
+    );
     const readiness = screen.getByRole("list", {
       name: "Product readiness",
     });
@@ -217,7 +225,9 @@ describe("product route workspace", () => {
     expect(
       screen.getByRole("form", { name: "Create product draft" }),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Close new product" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Close new product" }),
+    ).toBeVisible();
   });
 
   it("turns an empty catalog into a direct creation path", () => {
@@ -229,7 +239,9 @@ describe("product route workspace", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Create your first product" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Create your first product" }),
+    ).toBeVisible();
     expect(
       screen.getByRole("form", { name: "Create product draft" }),
     ).toBeVisible();
@@ -249,8 +261,12 @@ describe("product route workspace", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Catalog unavailable" })).toBeVisible();
-    expect(screen.getByText("The catalog service is temporarily unavailable.")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Catalog unavailable" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText("The catalog service is temporarily unavailable."),
+    ).toBeVisible();
     expect(screen.getByRole("button", { name: "Retry catalog" })).toBeVisible();
   });
 

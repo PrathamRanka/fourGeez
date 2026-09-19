@@ -108,6 +108,40 @@ func TestOnboardingFailsClosedWhenEntitlementIsMissing(t *testing.T) {
 	}
 }
 
+func TestCredentialIssuanceRequiresAuthoritativeMCPPrerequisites(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.destinations = []settlement.PaymentDestination{fixture.destination}
+	fixture.entitlement = fixture.activeEntitlement
+
+	if err := fixture.service.AuthorizeCredentialIssuance(context.Background(), fixture.principal.Subject, fixture.seller.SellerID); err != nil {
+		t.Fatalf("AuthorizeCredentialIssuance() error = %v", err)
+	}
+
+	fixture.destination.Network = "unsupported:testnet"
+	fixture.destinations = []settlement.PaymentDestination{fixture.destination}
+	if err := fixture.service.AuthorizeCredentialIssuance(context.Background(), fixture.principal.Subject, fixture.seller.SellerID); !errors.Is(err, ErrCredentialIssuanceBlocked) {
+		t.Fatalf("AuthorizeCredentialIssuance() error = %v, want blocked", err)
+	}
+}
+
+func TestAuthenticatedConnectorVerificationIsIdempotent(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	if _, err := fixture.service.Onboarding(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RecordAuthenticatedConnectorVerification(context.Background(), fixture.seller.SellerID); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RecordAuthenticatedConnectorVerification(context.Background(), fixture.seller.SellerID); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.repository.putCalls != 2 {
+		t.Fatalf("workspace writes = %d, want initial state plus one connector verification", fixture.repository.putCalls)
+	}
+}
+
 func TestPublicationReadinessRequiresVerifiedServiceConnection(t *testing.T) {
 	t.Parallel()
 	fixture := newWorkspaceFixture(t)
@@ -313,7 +347,7 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	activeEntitlement := billing.SellerPlanResponse{Assignment: billing.SellerEntitlementView{SellerID: sellerID, PlanID: billing.PlanStarter, Status: billing.EntitlementStatusActive, AccessEndsAt: domain.NewTimestamp(now.Add(24 * time.Hour)), NetworkAccess: billing.NetworkAccessEnabled, DashboardAccess: billing.DashboardAccessFull, StatusReason: &statusReason}}
 	fixture := &workspaceFixture{
 		principal: Principal{Subject: "owner-123", SellerID: &sellerID, EmailVerified: true}, seller: seller, route: route,
-		destination: settlement.PaymentDestination{DestinationID: destinationID, SellerID: sellerID, Status: settlement.PaymentDestinationStatusActive, VerifiedAt: pointerTimestamp(createdAt)},
+		destination: settlement.PaymentDestination{DestinationID: destinationID, SellerID: sellerID, Asset: "USDC", Network: "eip155:84532", Status: settlement.PaymentDestinationStatusActive, VerifiedAt: pointerTimestamp(createdAt)},
 		credential:  integrations.CredentialView{CredentialID: credentialID, SellerID: sellerID, CreatedAt: createdAt, UpdatedAt: createdAt, Version: 1},
 		transaction: transaction, activeEntitlement: activeEntitlement, events: make(map[domain.ID][]evidence.Event),
 	}
@@ -322,7 +356,7 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 		Workspaces: fixture.repository, Sellers: fixture, Products: fixture, PaymentDestinations: fixture,
 		Credentials: fixture, Transactions: fixture, Evidence: fixture, WebhookSubscriptions: fixture,
 		WebhookDeliveries: fixture, Billing: fixture,
-		BillingPortal: fixture, Clock: domain.FixedClock{Value: now},
+		BillingPortal: fixture, AccountVerification: StaticAccountVerification(true), Clock: domain.FixedClock{Value: now},
 	})
 	return fixture
 }

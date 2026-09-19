@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type {
   CredentialCreated,
@@ -6,6 +12,7 @@ import type {
   OnboardingSnapshot,
   PaymentDestination,
   Seller,
+  SellerOnboardingState,
 } from "@/features/onboarding/model";
 import { SellerOnboarding } from "@/features/onboarding/view/seller-onboarding";
 
@@ -14,8 +21,8 @@ const seller: Seller = {
   name: "Northstar Research",
   slug: "northstar-research",
   upstreamBaseUrl: "https://api.northstar.example",
-  status: "draft",
-  version: 1,
+  status: "active",
+  version: 2,
 };
 
 const activeDestination: PaymentDestination = {
@@ -29,21 +36,68 @@ const activeDestination: PaymentDestination = {
 };
 
 const createdCredential: CredentialCreated = {
-  credentialId: "crd_01ARZ3NDEKTSV4RRFFQ69G5FAX",
+  credentialId: "key_01ARZ3NDEKTSV4RRFFQ69G5FAX",
   sellerId: seller.sellerId,
   label: "Primary coding agent",
   scopes: ["read", "configure", "validate", "publish"],
   version: 1,
-  token: "agp_live_once_only",
+  token: "apc2.key_01ARZ3NDEKTSV4RRFFQ69G5FAX.once-only-secret",
 };
 
-const emptySnapshot: OnboardingSnapshot = {
-  seller: null,
-  paymentDestinations: [],
-  credentials: [],
-};
+function onboardingState(
+  overrides: Partial<
+    Record<string, "complete" | "incomplete" | "blocked">
+  > = {},
+): SellerOnboardingState {
+  const names = [
+    "account_verified",
+    "storefront_created",
+    "service_connection_verified",
+    "subscription_active",
+    "payment_destination_verified",
+    "project_key_created",
+    "connector_verified",
+    "product_configured",
+    "sandbox_purchase",
+    "storefront_previewed",
+  ] as const;
+  const defaultComplete = new Set([
+    "account_verified",
+    "storefront_created",
+    "service_connection_verified",
+    "subscription_active",
+    "payment_destination_verified",
+  ]);
+  return {
+    sellerId: seller.sellerId,
+    complete: false,
+    currentStep: "project_key_created",
+    steps: names.map((name) => {
+      const status =
+        overrides[name] ??
+        (defaultComplete.has(name) ? "complete" : "incomplete");
+      return {
+        name,
+        status,
+        blocking: status !== "complete",
+        message: `Complete ${name}`,
+      };
+    }),
+    publication: { allowed: false, blockers: ["project_key_created"] },
+    version: 1,
+  };
+}
 
-// createActions returns deterministic onboarding actions for user-visible tests.
+function snapshot(input: Partial<OnboardingSnapshot> = {}): OnboardingSnapshot {
+  return {
+    seller,
+    paymentDestinations: [activeDestination],
+    credentials: [],
+    onboarding: onboardingState(),
+    ...input,
+  };
+}
+
 function createActions(): OnboardingActions {
   return {
     createStorefront: vi.fn().mockResolvedValue({ ok: true, value: seller }),
@@ -58,10 +112,9 @@ function createActions(): OnboardingActions {
         challenge: "AgentPay ownership challenge",
       },
     }),
-    verifyPaymentDestination: vi.fn().mockResolvedValue({
-      ok: true,
-      value: activeDestination,
-    }),
+    verifyPaymentDestination: vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: activeDestination }),
     createIntegrationCredential: vi.fn().mockResolvedValue({
       ok: true,
       value: createdCredential,
@@ -69,156 +122,157 @@ function createActions(): OnboardingActions {
   };
 }
 
-describe("seller onboarding", () => {
-  it("expands only the current launch task", () => {
+describe("seller onboarding MCP gate", () => {
+  it("shows authoritative prerequisite blockers and no MCP invitation while ineligible", () => {
+    const onboarding = onboardingState({
+      service_connection_verified: "blocked",
+      subscription_active: "blocked",
+      payment_destination_verified: "incomplete",
+    });
     render(
       <SellerOnboarding
-        initialSnapshot={emptySnapshot}
+        initialSnapshot={snapshot({ paymentDestinations: [], onboarding })}
         actions={createActions()}
       />,
     );
 
+    const checklist = screen.getByRole("list", { name: "MCP prerequisites" });
     expect(
-      screen.getByRole("region", { name: "01 Create your storefront" }),
-    ).toHaveAttribute("aria-current", "step");
-    expect(
-      screen.getByRole("form", { name: "Create storefront" }),
+      within(checklist).getByText(/active HTTPS service endpoint/i),
     ).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "Connect browser wallet" }),
-    ).not.toBeInTheDocument();
+      within(checklist).getByText(/testnet launch entitlement/i),
+    ).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "Create project connection key" }),
-    ).not.toBeInTheDocument();
+      within(checklist).getByRole("link", { name: /complete service/i }),
+    ).toHaveAttribute("href", "/dashboard/onboarding#service-readiness");
     expect(
-      screen.getByRole("region", {
-        name: "02 Verify your payment destination",
+      screen.queryByRole("button", {
+        name: "Create project connection key",
       }),
-    ).toHaveAttribute("data-locked", "true");
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Host configuration")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Connect this project to AgentPay/),
+    ).not.toBeInTheDocument();
   });
 
-  it("blocks setup controls for a suspended seller", () => {
+  it("requires the seller-entered payout address to match the connected wallet", async () => {
+    const actions = createActions();
+    const address = activeDestination.address;
+    window.ethereum = {
+      request: vi.fn().mockImplementation(({ method }) => {
+        if (method === "eth_requestAccounts") return Promise.resolve([address]);
+        if (method === "personal_sign") return Promise.resolve("0xsigned");
+        return Promise.reject(new Error("unexpected method"));
+      }),
+    };
+    const onboarding = onboardingState({
+      payment_destination_verified: "incomplete",
+    });
     render(
       <SellerOnboarding
-        initialSnapshot={{
-          seller: { ...seller, status: "suspended" },
-          paymentDestinations: [],
-          credentials: [],
-        }}
-        actions={createActions()}
-      />,
-    );
-
-    expect(screen.getByText("Seller account suspended")).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Connect browser wallet" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("creates a storefront before exposing wallet and agent setup", async () => {
-    const actions = createActions();
-    render(
-      <SellerOnboarding initialSnapshot={emptySnapshot} actions={actions} />,
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "Launch your storefront" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("region", { name: "Storefront launch sequence" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("region", { name: "01 Create your storefront" }),
-    ).toBeVisible();
-    expect(screen.getByText("1 of 5 complete")).toBeVisible();
-
-    fireEvent.change(screen.getByLabelText("Storefront name"), {
-      target: { value: seller.name },
-    });
-    fireEvent.change(screen.getByLabelText("Storefront URL name"), {
-      target: { value: seller.slug },
-    });
-    fireEvent.change(screen.getByLabelText("Service API URL"), {
-      target: { value: seller.upstreamBaseUrl },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Create storefront" }));
-
-    await waitFor(() =>
-      expect(actions.createStorefront).toHaveBeenCalledTimes(1),
-    );
-    expect((await screen.findAllByText("Storefront created"))[0]).toBeVisible();
-    expect(screen.getByText("/store/northstar-research")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Connect browser wallet" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("region", {
-        name: "02 Verify your payment destination",
-      }),
-    ).toHaveAttribute("aria-current", "step");
-  });
-
-  it("creates a scoped key and presents copyable MCP configuration and setup prompt", async () => {
-    const actions = createActions();
-    render(
-      <SellerOnboarding
-        initialSnapshot={{
-          seller,
-          paymentDestinations: [activeDestination],
-          credentials: [],
-        }}
+        initialSnapshot={snapshot({ paymentDestinations: [], onboarding })}
         actions={actions}
       />,
     );
 
+    fireEvent.change(screen.getByLabelText("Payout address"), {
+      target: { value: address },
+    });
     fireEvent.click(
-      screen.getByRole("button", { name: "Create project connection key" }),
+      screen.getByRole("button", { name: "Verify payout address" }),
     );
 
-    expect(
-      await screen.findByText(
-        "Save this project connection key now. It is shown only once.",
-      ),
-    ).toBeVisible();
-    expect(screen.getByText(createdCredential.token)).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Copy MCP configuration" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Copy setup prompt" }),
-    ).toBeEnabled();
-    expect(
-      screen.queryByRole("region", { name: "AgentPay integration network" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/ready for product validation/i),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.getByRole("region", { name: "04 Connect your coding agent" }),
-    ).toHaveAttribute("aria-current", "step");
-    expect(screen.getByText("Payment destination verified")).toBeVisible();
-    expect(screen.getByText("Coding agent connected")).toBeVisible();
+    await waitFor(() =>
+      expect(actions.preparePaymentDestination).toHaveBeenCalledWith({
+        sellerId: seller.sellerId,
+        asset: "USDC",
+        network: "eip155:84532",
+        address,
+      }),
+    );
+    expect(actions.verifyPaymentDestination).toHaveBeenCalledWith(
+      expect.objectContaining({ signature: "0xsigned" }),
+    );
   });
 
-  it("opens launch validation for an already connected seller", () => {
+  it("reveals a new key once and publishes connector-only host configuration", async () => {
+    const actions = createActions();
     render(
       <SellerOnboarding
-        initialSnapshot={{
-          seller,
-          paymentDestinations: [activeDestination],
+        initialSnapshot={snapshot()}
+        actions={actions}
+        apiOrigin="https://api.agentpay.example"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Create project connection key",
+      }),
+    );
+
+    expect(await screen.findByText(createdCredential.token)).toBeVisible();
+    expect(screen.getByText(/shown only once/i)).toBeVisible();
+    const configuration = screen.getByLabelText("Host configuration");
+    expect(configuration).toHaveTextContent(
+      "@agentpay/local-mcp-connector@0.1.0",
+    );
+    expect(configuration).toHaveTextContent("AGENTPAY_PROJECT_KEY");
+    expect(configuration).not.toHaveTextContent(createdCredential.token);
+    expect(configuration).not.toHaveTextContent("Authorization");
+    expect(screen.getByLabelText("Windows PowerShell setup")).toHaveTextContent(
+      "Read-Host",
+    );
+    expect(screen.getByLabelText("Windows PowerShell setup")).toHaveTextContent(
+      "--check",
+    );
+    expect(screen.getAllByText("Connector disconnected")[0]).toBeVisible();
+  });
+
+  it("reports real connector authorization separately from credential creation", () => {
+    const onboarding = onboardingState({
+      project_key_created: "complete",
+      connector_verified: "complete",
+    });
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
           credentials: [createdCredential],
-        }}
+          onboarding,
+        })}
         actions={createActions()}
       />,
     );
 
     expect(
-      screen.getByRole("region", { name: "05 Run the sandbox purchase" }),
-    ).toHaveAttribute("aria-current", "step");
-    expect(screen.getByText(/ready for product validation/i)).toBeVisible();
+      screen.getByText("Project key active — secret hidden"),
+    ).toBeVisible();
+    expect(screen.getAllByText("Connector connected")[0]).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "Connect browser wallet" }),
-    ).not.toBeInTheDocument();
+      screen.getAllByText(/authenticated MCP initialization passed/i)[0],
+    ).toBeVisible();
+  });
+
+  it("reports revoked credentials with safe retry guidance", () => {
+    const onboarding = onboardingState({
+      project_key_created: "incomplete",
+      connector_verified: "incomplete",
+    });
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
+          credentials: [
+            { ...createdCredential, revokedAt: "2026-09-19T10:00:00Z" },
+          ],
+          onboarding,
+        })}
+        actions={createActions()}
+      />,
+    );
+
+    expect(screen.getAllByText("Connector revoked")[0]).toBeVisible();
+    expect(screen.getAllByText(/create a new project key/i)[0]).toBeVisible();
   });
 });

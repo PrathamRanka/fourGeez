@@ -25,6 +25,7 @@ func TestServiceAuditsCredentialCreationAndRevocation(t *testing.T) {
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		clock,
 		recorder,
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 
 	created, err := service.Create(

@@ -82,6 +82,14 @@ token, seller identifier, credential identifier, or secret. Failure output is
 limited to an actionable static configuration message or sanitized HTTP status,
 stable error code, request ID, and retry delay.
 
+The seller dashboard exposes these setup artifacts only after the
+server-authoritative onboarding prerequisites pass. It reports project-key
+lifecycle separately from connector authorization: creating a key does not
+mean a connector is connected. The first authenticated MCP initialization
+records connector verification idempotently. Dashboard diagnostics distinguish
+`disconnected`, `connected`, `expired`, and `revoked`, retain no raw key after
+the reveal-once response, and pair failures with safe retry instructions.
+
 ## Setup prompt
 
 The MCP prompt `prepare_agentpay_integration` requires `host` and `stack`
@@ -116,8 +124,10 @@ The prompt instructs the coding agent to:
    commands for seller review.
 
 The prompt must state that the coding agent cannot invent prices, publish a
-route, rotate credentials, or deploy production changes without explicit
-seller confirmation. It must also state that generated SEO/AEO work cannot
+route, select or change a payout address, rotate credentials, or deploy
+production changes without explicit seller confirmation. Numeric prices and
+payout destinations are seller-provided inputs, not model proposals. It must
+also state that generated SEO/AEO work cannot
 guarantee ranking and cannot use hidden text, keyword stuffing, fabricated
 reviews, unsupported structured data, or claims absent from visible content.
 

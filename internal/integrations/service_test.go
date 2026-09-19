@@ -32,6 +32,7 @@ func TestServiceCreatesAndAuthenticatesScopedCredential(t *testing.T) {
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		clock,
 		audit.NoopRecorder{},
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	expiresAt := domain.NewTimestamp(clock.Now().Add(time.Hour))
 
@@ -81,6 +82,40 @@ func TestServiceCreatesAndAuthenticatesScopedCredential(t *testing.T) {
 		ScopePublish,
 	); !errors.Is(err, ErrScopeDenied) {
 		t.Fatalf("Authenticate() error = %v", err)
+	}
+}
+
+func TestServiceFailsClosedWhenCredentialIssuanceEligibilityIsUnavailableOrDenied(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		authorizer CredentialIssuanceAuthorizer
+		want       error
+	}{
+		{name: "missing authorizer", want: ErrCredentialIssuanceUnavailable},
+		{name: "ineligible seller", authorizer: &credentialIssuanceAuthorizer{err: ErrCredentialIssuanceDenied}, want: ErrCredentialIssuanceDenied},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			service := NewService(
+				newCredentialRepository(),
+				&sellerAuthorizer{},
+				&credentialIDGenerator{id: domain.ID(testCredentialID)},
+				&credentialTokenGenerator{token: strings.Repeat("s", 43)},
+				domain.FixedClock{Value: time.Date(2026, time.September, 19, 10, 0, 0, 0, time.UTC)},
+				audit.NoopRecorder{},
+			)
+			if testCase.authorizer != nil {
+				service.SetCredentialIssuanceAuthorizer(testCase.authorizer)
+			}
+			_, err := service.Create(t.Context(), "owner-123", domain.ID(testSellerID), CreateCredentialRequest{Label: "Laptop", Scopes: []Scope{ScopeRead}})
+			if !errors.Is(err, testCase.want) {
+				t.Fatalf("Create() error = %v, want %v", err, testCase.want)
+			}
+		})
 	}
 }
 
@@ -168,6 +203,7 @@ func TestServiceRejectsModifiedAndExpiredTokens(t *testing.T) {
 		&credentialTokenGenerator{token: strings.Repeat("s", 43)},
 		clock,
 		audit.NoopRecorder{},
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
 	expiresAt := domain.NewTimestamp(clock.now.Add(time.Minute))
 	created, err := service.Create(
@@ -326,7 +362,14 @@ func testCredentialService() *Service {
 			Value: time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC),
 		},
 		audit.NoopRecorder{},
+		WithCredentialIssuanceAuthorization(&credentialIssuanceAuthorizer{}),
 	)
+}
+
+type credentialIssuanceAuthorizer struct{ err error }
+
+func (authorizer *credentialIssuanceAuthorizer) AuthorizeCredentialIssuance(context.Context, string, domain.ID) error {
+	return authorizer.err
 }
 
 type sellerAuthorizer struct {

@@ -86,33 +86,50 @@ inventory, tax calculation, and physical returns are outside the initial scope.
 The intended onboarding flow is:
 
 1. The seller creates an AgentPay seller account and storefront.
-2. AgentPay issues a project-scoped integration credential.
-3. The seller connects the AgentPay MCP server to a supported coding agent such
+2. The seller completes the required profile, enters and verifies a payout
+   address for a platform-supported testnet asset/network, and configures an
+   HTTPS service origin. The dashboard explains and links every missing
+   prerequisite; it does not expose MCP setup before eligibility.
+3. AgentPay issues a project-scoped integration credential once and displays
+   the raw project key only in that creation response.
+4. The seller connects the AgentPay MCP server to a supported coding agent such
    as Claude Code or Codex.
-4. The coding agent inspects the seller repository and proposes sellable routes,
-   storefront pages, verification middleware, technical SEO/AEO improvements,
-   agent-discovery metadata, configuration, and tests.
-5. The seller reviews the proposed prices, routes, generated code, and deployment
+5. The coding agent inspects bounded committed manifests and OpenAPI, detects a
+   maintained stack, proposes sellable routes and SEO/AEO changes, installs
+   verification middleware, and generates tests. Price and payout fields remain
+   explicit seller inputs; the agent never invents or changes them.
+6. The seller reviews the prices, routes, generated code, and deployment
    changes.
-6. Only after the authenticated seller dashboard issues a short-lived,
+7. Only after the authenticated seller dashboard issues a short-lived,
    one-time confirmation grant for the exact reviewed change may the cloud MCP
    publish products or change AgentPay configuration. A coding agent cannot
    confirm its own proposal.
-7. Buyers use the hosted storefront or machine-readable AgentPay endpoints.
-8. Every successful sale appears in one seller dashboard regardless of channel.
+8. Buyers use the hosted storefront or machine-readable AgentPay endpoints.
+9. Every successful sale appears in one seller dashboard regardless of channel.
 
 A representative prompt is:
 
 ```text
-Connect this project to AgentPay. Identify sellable API routes, propose products
-and prices, install AgentPay request verification, generate the storefront and
-stack-native technical SEO/AEO metadata, run the integration tests, and prepare
-the changes for my approval.
+Connect this project to AgentPay. Identify sellable API routes, propose product
+names and truthful SEO/AEO changes, install AgentPay request verification,
+generate focused tests, and prepare the changes for my approval. Ask me for
+every exact price and payout destination; never invent either value.
 ```
 
 The coding agent may prepare code and configuration automatically. It must not
-invent prices, publish products, rotate credentials, or deploy production
-changes without explicit seller confirmation.
+invent prices or payout addresses, change either commercial value, publish
+products, rotate credentials, or deploy production changes without explicit
+seller confirmation.
+
+Before step 3, the dashboard renders the server-authoritative prerequisite
+checklist and links each incomplete item to its completion surface. It does not
+render key creation, connector commands, host configuration, or an MCP setup
+prompt while any required prerequisite is incomplete. After eligibility, the
+dashboard distinguishes the reveal-once project credential from actual
+connector authorization, reports credential/connector states (`disconnected`,
+`connected`, `expired`, or `revoked`), shows Windows PowerShell preflight and
+host-specific configuration, and provides actionable retry guidance. A
+published product displays its full canonical storefront URL.
 
 SEO/AEO generation improves crawlability and machine discovery but never
 guarantees placement, traffic, conversion, or ranking in a search engine or AI
@@ -224,7 +241,7 @@ refund in Lean V1.
 
 ## Revenue model
 
-The initial revenue model is seller-funded software and usage billing:
+The intended revenue model is seller-funded software and usage billing:
 
 - a monthly seller subscription;
 - optional metered fees based on successful transactions; and
@@ -239,6 +256,11 @@ and historical-read-only access, not MCP, discovery, publication, or commerce
 authority. Card settlement, platform fees,
 refunds, tax responsibility, and merchant-of-record status must be explicitly
 decided before enabling production card payments.
+
+Launch configuration on September 19, 2026: Stripe subscription checkout and
+collection are disabled. Testnet sellers receive an explicitly provisioned
+launch entitlement; the dashboard must not present Stripe checkout or a billing
+portal as an available onboarding action.
 
 ## Definition of a launch-ready seller
 

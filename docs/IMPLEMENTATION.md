@@ -213,10 +213,14 @@ Each task remains independently tested and committed.
 - [x] **DX-000** Reconcile the seller MCP security and transport documents with the implemented local LCH-010 runtime: project-key bootstrap, short-lived bearer access at `/mcp`, cloud-issued one-time mutation confirmation, and the remaining AWS/package-distribution release blockers.
 - [x] **DX-001** Expose deterministic maintained-stack detection through the authenticated MCP and allow repository route analysis for every language family represented by the exact 21-stack matrix. The coding agent must use bounded committed evidence and cannot select an unevidenced stack.
 - [x] **DX-002** Add a Windows/PowerShell-first connector preflight and actionable secret-safe diagnostics, then publish exact Claude Code, Codex, and generic-host setup steps that do not place a project key in committed configuration.
+- [x] **DX-003** Gate seller MCP setup and project-key issuance on authoritative seller ownership, verified account/profile state, active launch entitlement, a verified platform-supported testnet payment destination, and HTTPS service readiness. Ineligible sellers receive a prerequisite checklist with completion links and no project-key or MCP invitation. Eligible sellers receive reveal-once credential handling, exact Claude Code/Codex/generic local-connector configuration, Windows PowerShell preflight, credential and connector lifecycle diagnostics (`disconnected`, `connected`, `expired`, or `revoked`), validation results with retry guidance, and canonical storefront/product URLs after publication. Record the first authenticated connector authorization idempotently and fail closed when it cannot be recorded. Keep prices, payout destinations, publication, credential rotation, and deployment seller-confirmed. Stripe subscription checkout remains disabled for this launch.
 
-M7.2 acceptance: a first-time seller can identify an evidenced maintained
-stack, select the matching setup workflow, diagnose local connector
+M7.2 acceptance: an eligible first-time seller can identify an evidenced
+maintained stack, select the matching setup workflow, diagnose local connector
 configuration safely on Windows, and reach the cloud-authorized MCP boundary.
+Ineligible sellers see every missing prerequisite and no project-key or MCP
+setup invitation. Prices and payout destinations remain seller-controlled, and
+published products expose their canonical storefront URLs in the dashboard.
 Package-registry publication and deployed AWS reachability remain explicit
 release dependencies rather than being represented as complete.
 

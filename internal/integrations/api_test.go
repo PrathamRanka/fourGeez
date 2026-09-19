@@ -186,6 +186,7 @@ func newIntegrationHandler(t *testing.T) (*integrations.Service, http.Handler) {
 		&integrationTokenGenerator{},
 		clock,
 		audit.NoopRecorder{},
+		integrations.WithCredentialIssuanceAuthorization(integrationCredentialIssuanceAuthorizer{}),
 	)
 	controller := integrations.NewHTTPController(
 		service,
@@ -202,6 +203,12 @@ func newIntegrationHandler(t *testing.T) (*integrations.Service, http.Handler) {
 		},
 		mux,
 	)
+}
+
+type integrationCredentialIssuanceAuthorizer struct{}
+
+func (integrationCredentialIssuanceAuthorizer) AuthorizeCredentialIssuance(context.Context, string, domain.ID) error {
+	return nil
 }
 
 // performIntegrationRequest sends one seller-authenticated HTTP request.

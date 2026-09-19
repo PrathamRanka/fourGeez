@@ -805,7 +805,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
     post:
-      summary: Create a seller-scoped integration credential
+      summary: Create a seller-scoped integration credential after authoritative onboarding eligibility
       tags: [Integrations]
       operationId: createIntegrationCredential
       security: [{ sellerBearer: [] }]
@@ -819,7 +819,7 @@ paths:
             schema: { $ref: '#/components/schemas/CreateIntegrationCredentialRequest' }
       responses:
         '201':
-          description: Credential metadata and the raw token returned once
+          description: Credential metadata and the raw token returned once; unavailable until account/profile, launch entitlement, supported verified testnet destination, and HTTPS service readiness prerequisites pass
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
           content:

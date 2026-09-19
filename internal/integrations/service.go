@@ -38,6 +38,8 @@ var (
 	ErrScopeDenied                      = errors.New("integration credential scope denied")
 	ErrSubscriptionInactive             = errors.New("seller subscription is inactive")
 	ErrExchangeAuthorizationUnavailable = errors.New("project-key exchange authorization is unavailable")
+	ErrCredentialIssuanceUnavailable    = errors.New("credential issuance authorization is unavailable")
+	ErrCredentialIssuanceDenied         = errors.New("seller onboarding prerequisites are incomplete")
 	ErrRotationIdempotencyConflict      = errors.New("credential rotation idempotency key was reused with a different request")
 )
 
@@ -137,17 +139,18 @@ func (generator *SecureTokenGenerator) NewToken() (string, error) {
 
 // Service owns integration-credential issuance and authentication rules.
 type Service struct {
-	repository              Repository
-	sellerAuthorizer        SellerAuthorizer
-	idGenerator             domain.IDGenerator
-	tokenGenerator          TokenGenerator
-	clock                   domain.Clock
-	auditRecorder           audit.Recorder
-	credentialDigester      CredentialDigester
-	entitlementResolver     EntitlementResolver
-	exchangeRateLimiter     ExchangeRateLimiter
-	exchangeQuotaEnforcer   ExchangeQuotaEnforcer
-	rotationReplayProtector RotationReplayProtector
+	repository                   Repository
+	sellerAuthorizer             SellerAuthorizer
+	idGenerator                  domain.IDGenerator
+	tokenGenerator               TokenGenerator
+	clock                        domain.Clock
+	auditRecorder                audit.Recorder
+	credentialDigester           CredentialDigester
+	entitlementResolver          EntitlementResolver
+	exchangeRateLimiter          ExchangeRateLimiter
+	exchangeQuotaEnforcer        ExchangeQuotaEnforcer
+	rotationReplayProtector      RotationReplayProtector
+	credentialIssuanceAuthorizer CredentialIssuanceAuthorizer
 }
 
 type ServiceOption func(*Service)
@@ -166,6 +169,14 @@ func WithExchangeAuthorization(resolver EntitlementResolver, limiter ExchangeRat
 
 func WithRotationReplayProtector(protector RotationReplayProtector) ServiceOption {
 	return func(service *Service) { service.rotationReplayProtector = protector }
+}
+
+func WithCredentialIssuanceAuthorization(authorizer CredentialIssuanceAuthorizer) ServiceOption {
+	return func(service *Service) { service.credentialIssuanceAuthorizer = authorizer }
+}
+
+func (service *Service) SetCredentialIssuanceAuthorizer(authorizer CredentialIssuanceAuthorizer) {
+	service.credentialIssuanceAuthorizer = authorizer
 }
 
 // NewService creates the integration credential application service.
@@ -211,6 +222,12 @@ func (service *Service) Create(
 		ownerSubject,
 		sellerID,
 	); err != nil {
+		return CredentialCreated{}, err
+	}
+	if service.credentialIssuanceAuthorizer == nil {
+		return CredentialCreated{}, ErrCredentialIssuanceUnavailable
+	}
+	if err := service.credentialIssuanceAuthorizer.AuthorizeCredentialIssuance(ctx, ownerSubject, sellerID); err != nil {
 		return CredentialCreated{}, err
 	}
 

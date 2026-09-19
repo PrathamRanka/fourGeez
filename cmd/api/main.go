@@ -289,8 +289,10 @@ func main() {
 		Transactions:        sellerworkspace.NewTransactionRepositoryReader(transactionRepository), Evidence: evidenceRepository,
 		WebhookSubscriptions: sellerworkspace.NewWebhookSubscriptionRepositoryReader(webhookSubscriptionRepository),
 		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
-		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{}, Clock: clock,
+		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{},
+		AccountVerification: sellerworkspace.StaticAccountVerification(os.Getenv("AGENTPAY_ENV") == "local"), Clock: clock,
 	})
+	integrationService.SetCredentialIssuanceAuthorizer(workspaceService)
 	storefrontService := storefront.NewService(storefront.Dependencies{
 		Catalog: catalogRepository, Destinations: paymentDestinationRepository,
 		Entitlements: billingService, PublicationReadiness: workspaceService,
@@ -336,6 +338,7 @@ func main() {
 		analyzer.NewService(),
 	)
 	mcpController.SetQuotaEnforcer(quotaService)
+	mcpController.SetConnectorVerificationRecorder(workspaceService)
 	mcpController.SetDiscoveryValidator(discovery.NewService())
 	mcpController.RegisterRoutes(mux)
 	intentService := intents.NewServiceWithCommerceAuthorizer(

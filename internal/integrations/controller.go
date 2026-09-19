@@ -377,6 +377,12 @@ func (controller *HTTPController) writeError(
 			"successorCredentialId": recoveryError.SuccessorCredentialID.String(),
 			"recoveryAction":        "rotate_successor",
 		}
+	} else if errors.Is(err, ErrCredentialIssuanceDenied) {
+		status = http.StatusForbidden
+		code = api.ErrorCodePermissionDenied
+	} else if errors.Is(err, ErrCredentialIssuanceUnavailable) {
+		status = http.StatusServiceUnavailable
+		code = api.ErrorCodeDependencyUnavailable
 	}
 	api.WriteError(response, request, status, code, err.Error(), details)
 }

@@ -31,15 +31,20 @@ type OperationQuota interface {
 	ConsumeMCPOperation(context.Context, domain.ID) error
 }
 
+type ConnectorVerificationRecorder interface {
+	RecordAuthenticatedConnectorVerification(context.Context, domain.ID) error
+}
+
 // HTTPController authenticates and serves the remote MCP endpoint.
 type HTTPController struct {
-	authenticator    AccessTokenAuthorizer
-	resourceService  *Service
-	mutationService  *MutationService
-	analyzerService  *analyzer.Service
-	discoveryService *discovery.Service
-	streamHandler    http.Handler
-	quotaEnforcer    OperationQuota
+	authenticator                 AccessTokenAuthorizer
+	resourceService               *Service
+	mutationService               *MutationService
+	analyzerService               *analyzer.Service
+	discoveryService              *discovery.Service
+	streamHandler                 http.Handler
+	quotaEnforcer                 OperationQuota
+	connectorVerificationRecorder ConnectorVerificationRecorder
 }
 
 // SetDiscoveryValidator configures deterministic storefront artifact checks.
@@ -79,6 +84,10 @@ func (controller *HTTPController) SetQuotaEnforcer(quotaEnforcer OperationQuota)
 	controller.quotaEnforcer = quotaEnforcer
 }
 
+func (controller *HTTPController) SetConnectorVerificationRecorder(recorder ConnectorVerificationRecorder) {
+	controller.connectorVerificationRecorder = recorder
+}
+
 // RegisterRoutes registers the single remote MCP endpoint.
 func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("/mcp", controller)
@@ -101,6 +110,13 @@ func (controller *HTTPController) ServeHTTP(
 	if err != nil {
 		controller.writeAuthenticationError(response, request, err)
 		return
+	}
+	if controller.connectorVerificationRecorder != nil {
+		if err := controller.connectorVerificationRecorder.RecordAuthenticatedConnectorVerification(request.Context(), principal.SellerID); err != nil {
+			response.Header().Set("Cache-Control", "no-store")
+			api.WriteError(response, request, http.StatusServiceUnavailable, api.ErrorCodeDependencyUnavailable, "connector verification state is unavailable", nil)
+			return
+		}
 	}
 	if request.Method == http.MethodPost && controller.quotaEnforcer != nil {
 		if err := controller.quotaEnforcer.ConsumeMCPOperation(

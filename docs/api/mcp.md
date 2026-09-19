@@ -165,6 +165,27 @@ expired, revoked, or mismatched grant returns `permission_denied` before any
 domain mutation. Tools never accept seller IDs, signing secrets, deployment
 credentials, arbitrary URLs, shell commands, or raw repository contents.
 
+The dashboard and credential-creation API withhold project-key issuance until
+the authenticated owner has completed the required seller profile, holds active
+launch entitlement, has configured an HTTPS service origin, and has verified a
+payment destination for a platform-supported testnet asset/network. A project
+key is returned once. An authenticated MCP initialization records connector
+verification for onboarding status. Full signed sandbox validation still occurs
+after repository integration and is re-run atomically by `publish_route`; it is
+not a pre-connector prerequisite because the connector-generated verification
+endpoint must exist first.
+
+The dashboard uses the authoritative onboarding response for its prerequisite
+checklist and completion links. It must not infer eligibility from browser
+state or from the existence of a credential. Once eligible, it reports the
+credential and connector lifecycle separately as `disconnected`, `connected`,
+`expired`, or `revoked`; displays the raw project key only in the successful
+creation response; publishes exact local-connector configuration for Claude
+Code, Codex, and generic MCP hosts; includes a copyable Windows PowerShell
+preflight; and reports validation outcomes with retry guidance. The first
+authenticated `/mcp` request records connector verification idempotently and
+fails closed if that authoritative progress write fails.
+
 `detect_repository_stacks` accepts a `files` map containing at most 100
 repository-relative allowlisted paths and at most 1 MiB total content. The
 allowlist is `package.json`, `go.mod`, `.go`, `requirements.txt`,

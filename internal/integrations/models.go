@@ -155,6 +155,12 @@ type SellerAuthorizer interface {
 	AuthorizeSeller(context.Context, string, domain.ID) error
 }
 
+// CredentialIssuanceAuthorizer verifies all authoritative onboarding
+// prerequisites after the normal seller ownership check succeeds.
+type CredentialIssuanceAuthorizer interface {
+	AuthorizeCredentialIssuance(context.Context, string, domain.ID) error
+}
+
 // TokenGenerator creates unpredictable credential secret material.
 type TokenGenerator interface {
 	NewToken() (string, error)

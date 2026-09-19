@@ -9,6 +9,7 @@ import type {
   PreparePaymentDestinationInput,
   PreparedPaymentDestination,
   Seller,
+  SellerOnboardingState,
   VerifyPaymentDestinationInput,
 } from "@/features/onboarding/model";
 import {
@@ -125,26 +126,52 @@ export async function createIntegrationCredential(
 export async function listOnboardingResources(): Promise<{
   paymentDestinations: PaymentDestination[];
   credentials: IntegrationCredential[];
+  onboarding: SellerOnboardingState;
 }> {
   const sellerId = await authenticatedSellerId();
   if (!sellerId) {
-    return { paymentDestinations: [], credentials: [] };
+    return {
+      paymentDestinations: [],
+      credentials: [],
+      onboarding: emptyOnboardingState(),
+    };
   }
   const encodedSellerId = encodeURIComponent(sellerId);
-  const [paymentResult, credentialResult] = await Promise.all([
-    requestAgentPay<{ items: PaymentDestination[] }>(
-      `/v1/sellers/${encodedSellerId}/payment-destinations`,
-      { method: "GET" },
-    ),
-    requestAgentPay<{ items: IntegrationCredential[] }>(
-      `/v1/sellers/${encodedSellerId}/integration-credentials`,
-      { method: "GET" },
-    ),
-  ]);
+  const [paymentResult, credentialResult, onboardingResult] = await Promise.all(
+    [
+      requestAgentPay<{ items: PaymentDestination[] }>(
+        `/v1/sellers/${encodedSellerId}/payment-destinations`,
+        { method: "GET" },
+      ),
+      requestAgentPay<{ items: IntegrationCredential[] }>(
+        `/v1/sellers/${encodedSellerId}/integration-credentials`,
+        { method: "GET" },
+      ),
+      requestAgentPay<SellerOnboardingState>("/v1/me/onboarding", {
+        method: "GET",
+      }),
+    ],
+  );
 
   return {
     paymentDestinations: paymentResult.ok ? paymentResult.value.items : [],
     credentials: credentialResult.ok ? credentialResult.value.items : [],
+    onboarding: onboardingResult.ok
+      ? onboardingResult.value
+      : emptyOnboardingState(sellerId),
+  };
+}
+
+function emptyOnboardingState(
+  sellerId: string | null = null,
+): SellerOnboardingState {
+  return {
+    sellerId,
+    complete: false,
+    currentStep: "account_verified",
+    steps: [],
+    publication: { allowed: false, blockers: [] },
+    version: 0,
   };
 }
 

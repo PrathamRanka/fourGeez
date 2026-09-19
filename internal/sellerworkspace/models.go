@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	ErrAuthenticationRequired = errors.New("seller authentication is required")
-	ErrSellerIdentityMissing  = errors.New("authenticated seller identity is incomplete")
-	ErrPublicationBlocked     = errors.New("seller publication prerequisites are incomplete")
-	ErrSandboxPurchaseInvalid = errors.New("sandbox purchase is not a fulfilled seller transaction")
+	ErrAuthenticationRequired    = errors.New("seller authentication is required")
+	ErrSellerIdentityMissing     = errors.New("authenticated seller identity is incomplete")
+	ErrPublicationBlocked        = errors.New("seller publication prerequisites are incomplete")
+	ErrSandboxPurchaseInvalid    = errors.New("sandbox purchase is not a fulfilled seller transaction")
+	ErrCredentialIssuanceBlocked = integrations.ErrCredentialIssuanceDenied
 )
 
 type Principal struct {
@@ -230,5 +231,6 @@ type Dependencies struct {
 	WebhookDeliveries    WebhookDeliveryReader
 	Billing              BillingReader
 	BillingPortal        BillingPortal
+	AccountVerification  AccountVerificationReader
 	Clock                domain.Clock
 }
