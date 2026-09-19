@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -335,6 +336,61 @@ func (service *Service) RecordAuthenticatedConnectorVerification(ctx context.Con
 	return nil
 }
 
+// RecordIntegrationVerification persists one completed server-authored sandbox result.
+func (service *Service) RecordIntegrationVerification(ctx context.Context, result integrations.IntegrationVerificationResult) error {
+	if !validIntegrationVerificationResult(result) {
+		return ErrIntegrationVerificationInvalid
+	}
+	if service.dependencies.AuditRecorder == nil {
+		return errors.New("integration verification audit recorder is required")
+	}
+	routes, err := service.dependencies.Products.ListRoutesBySeller(ctx, result.SellerID)
+	if err != nil {
+		return err
+	}
+	matched := false
+	for _, route := range routes {
+		if route.RouteID == result.RouteID && route.SellerID == result.SellerID && route.Version == result.RouteVersion {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return ErrIntegrationVerificationInvalid
+	}
+	state, err := service.dependencies.Workspaces.Get(ctx, result.SellerID)
+	if err != nil {
+		return err
+	}
+	if state.IntegrationVerification != nil && integrationVerificationEqual(*state.IntegrationVerification, result) {
+		return nil
+	}
+	expectedVersion := state.Version
+	stored := result
+	stored.Checks = append([]integrations.IntegrationVerificationCheck(nil), result.Checks...)
+	state.IntegrationVerification = &stored
+	state.UpdatedAt = result.CompletedAt
+	state.Version++
+	state.Settings.Version = state.Version
+	state.Settings.UpdatedAt = result.CompletedAt
+	if err := service.dependencies.Workspaces.Put(ctx, state, expectedVersion); err != nil {
+		return err
+	}
+	outcome := audit.OutcomeFailed
+	if result.Valid {
+		outcome = audit.OutcomeSucceeded
+	}
+	return service.dependencies.AuditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:      result.SellerID,
+		ActorType:     audit.ActorTypeSystem,
+		ActorID:       "sandbox-validator",
+		Action:        audit.ActionIntegrationVerificationDone,
+		TargetType:    audit.TargetTypePaidRoute,
+		TargetID:      result.RouteID.String(),
+		Outcome:       outcome,
+		ChangedFields: []string{"valid", "routeVersion", "checks"},
+	})
+}
 func (service *Service) RecordStorefrontPreview(ctx context.Context, principal Principal) error {
 	return service.recordProgress(ctx, principal, func(state *WorkspaceState, now domain.Timestamp) { state.StorefrontPreviewedAt = &now })
 }
@@ -462,9 +518,10 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 		{StepProjectKeyCreated, hasActiveCredential(credentials, now), false, "Create an active project connection key."},
 		{StepConnectorVerified, state.ConnectorVerifiedAt != nil, false, "Connect and verify the local MCP connector."},
 		{StepProductConfigured, len(routes) > 0, false, "Configure at least one product."},
+		{StepIntegrationVerification, integrationVerificationCurrent(state.IntegrationVerification, routes), false, "Run the automated seller integration verification for the current product version."},
 		{StepStorefrontPreviewed, state.StorefrontPreviewedAt != nil, false, "Review the storefront preview."},
 	}
-	view := OnboardingView{SellerID: &state.SellerID, Complete: true, Publication: PublicationReadiness{Allowed: true, Blockers: []StepName{}}, Version: state.Version, UpdatedAt: &state.UpdatedAt}
+	view := OnboardingView{SellerID: &state.SellerID, Complete: true, Publication: PublicationReadiness{Allowed: true, Blockers: []StepName{}}, IntegrationVerification: state.IntegrationVerification, Version: state.Version, UpdatedAt: &state.UpdatedAt}
 	for _, check := range checks {
 		status := StepComplete
 		if !check.complete {
@@ -484,6 +541,58 @@ func buildOnboardingView(principal Principal, seller catalog.Seller, state Works
 		view.Steps = append(view.Steps, OnboardingStep{Name: check.name, Status: status, Blocking: !check.complete, Message: check.message})
 	}
 	return view
+}
+
+func validIntegrationVerificationResult(result integrations.IntegrationVerificationResult) bool {
+	if result.SchemaVersion != integrations.IntegrationVerificationSchemaVersion || result.SellerID == "" || result.RouteID == "" ||
+		result.RouteVersion == 0 || result.CompletedAt.Time().IsZero() || len(result.Checks) != 6 {
+		return false
+	}
+	expectedNames := []string{
+		integrations.IntegrationVerificationCheckEndpointReachability,
+		integrations.IntegrationVerificationCheckSignedExchange,
+		integrations.IntegrationVerificationCheckSchemaContract,
+		integrations.IntegrationVerificationCheckFulfillmentReadiness,
+		integrations.IntegrationVerificationCheckPaymentGating,
+		integrations.IntegrationVerificationCheckReplayIdempotency,
+	}
+	allPassed := true
+	for index, check := range result.Checks {
+		if check.Name != expectedNames[index] || strings.TrimSpace(check.Message) == "" || len(check.Message) > 240 {
+			return false
+		}
+		allPassed = allPassed && check.Passed
+	}
+	return result.Valid == allPassed
+}
+
+func integrationVerificationCurrent(result *integrations.IntegrationVerificationResult, routes []catalog.PaidRoute) bool {
+	if result == nil || !validIntegrationVerificationResult(*result) || !result.Valid {
+		return false
+	}
+	for _, route := range routes {
+		if route.SellerID != result.SellerID || route.RouteID != result.RouteID {
+			continue
+		}
+		return route.Version == result.RouteVersion ||
+			(route.LifecycleStatus == catalog.RouteLifecyclePublished && route.Version == result.RouteVersion+1)
+	}
+	return false
+}
+
+func integrationVerificationEqual(left, right integrations.IntegrationVerificationResult) bool {
+	if left.SchemaVersion != right.SchemaVersion || left.SellerID != right.SellerID ||
+		left.RouteID != right.RouteID || left.RouteVersion != right.RouteVersion ||
+		!left.CompletedAt.Time().Equal(right.CompletedAt.Time()) || left.Valid != right.Valid ||
+		len(left.Checks) != len(right.Checks) {
+		return false
+	}
+	for index := range left.Checks {
+		if left.Checks[index] != right.Checks[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func onboardingWithoutSeller(emailVerified bool) OnboardingView {

@@ -17,7 +17,9 @@ The required middleware order is:
 Every recipe generates `robots.txt`, `sitemap.xml`, `llms.txt`, and
 `manifest.json`, and places `POST /.well-known/agentpay/sandbox` behind the same
 verification boundary as fulfillment. Production replay storage must be shared
-and atomic when more than one process can receive requests.
+and atomic when more than one process can receive requests. The sandbox handler
+returns the closed `agentpay.sandbox.v2` response containing the supplied
+`routeId`, `routeVersion`, and `ready: true`.
 
 ## Maintained JavaScript and TypeScript recipes
 

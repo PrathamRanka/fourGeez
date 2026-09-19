@@ -6,12 +6,20 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/integrations"
 )
 
 const (
-	SchemaVersion         = "agentpay.sandbox.v1"
+	SchemaVersion         = integrations.IntegrationVerificationSchemaVersion
 	EndpointPath          = "/.well-known/agentpay/sandbox"
 	invalidSignatureValue = "aW52YWxpZA=="
+
+	CheckEndpointReachability = integrations.IntegrationVerificationCheckEndpointReachability
+	CheckSignedExchange       = integrations.IntegrationVerificationCheckSignedExchange
+	CheckSchemaContract       = integrations.IntegrationVerificationCheckSchemaContract
+	CheckFulfillmentReadiness = integrations.IntegrationVerificationCheckFulfillmentReadiness
+	CheckPaymentGating        = integrations.IntegrationVerificationCheckPaymentGating
+	CheckReplayIdempotency    = integrations.IntegrationVerificationCheckReplayIdempotency
 )
 
 var (
@@ -20,22 +28,8 @@ var (
 	ErrRouteOwnership          = errors.New("sandbox route does not belong to the seller")
 )
 
-// Check records one observable sandbox requirement.
-type Check struct {
-	Name    string `json:"name"`
-	Passed  bool   `json:"passed"`
-	Message string `json:"message"`
-}
-
-// Result contains the complete non-persistent validation outcome.
-type Result struct {
-	SchemaVersion string    `json:"schemaVersion"`
-	SellerID      domain.ID `json:"sellerId"`
-	RouteID       domain.ID `json:"routeId"`
-	RouteVersion  uint64    `json:"routeVersion"`
-	Valid         bool      `json:"valid"`
-	Checks        []Check   `json:"checks"`
-}
+type Check = integrations.IntegrationVerificationCheck
+type Result = integrations.IntegrationVerificationResult
 
 // CatalogReader loads the credential-bound seller and route.
 type CatalogReader interface {
@@ -46,4 +40,9 @@ type CatalogReader interface {
 // EndpointVerificationRecorder persists only a complete successful sandbox proof.
 type EndpointVerificationRecorder interface {
 	RecordServiceEndpointVerification(context.Context, domain.ID, string) error
+}
+
+// ResultRecorder persists the latest authoritative integration verification.
+type ResultRecorder interface {
+	RecordIntegrationVerification(context.Context, Result) error
 }

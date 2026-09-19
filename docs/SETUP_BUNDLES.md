@@ -107,7 +107,9 @@ The prompt instructs the coding agent to:
 4. analyze only the allowlisted repository manifest and OpenAPI contract;
 5. install the maintained AgentPay verification package;
 6. add raw-body signature verification before fulfillment and the dedicated
-   side-effect-free `POST /.well-known/agentpay/sandbox` endpoint;
+   side-effect-free `POST /.well-known/agentpay/sandbox` endpoint returning the
+   closed `agentpay.sandbox.v2` response with the supplied route ID/version and
+   `ready: true`;
 7. generate storefront discovery and integration code from published routes;
 8. generate stack-native title and description metadata, canonical URLs,
    Open Graph and social metadata, robots directives, sitemap entries,

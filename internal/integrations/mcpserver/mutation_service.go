@@ -54,7 +54,7 @@ func NewMutationService(
 	}
 }
 
-// SandboxValidateRoute runs live seller checks without persisting success.
+// SandboxValidateRoute runs and records the latest authoritative seller checks.
 func (service *MutationService) SandboxValidateRoute(
 	ctx context.Context,
 	principal integrations.Principal,

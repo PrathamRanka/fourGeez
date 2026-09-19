@@ -228,12 +228,16 @@ Shared primitives and storage adapters remain organized by their concrete respon
 7. The dashboard creates a cloud confirmation grant for the exact reviewed
    mutation; the MCP server atomically consumes it with the idempotent
    control-plane operation.
-8. The seller explicitly publishes the storefront and deploys the prepared application.
+8. AgentPay runs the dedicated non-payment sandbox verification and records a
+   route-version-bound result covering reachability, signed exchange
+   compatibility, closed input/output contracts, no-op fulfillment readiness,
+   payment gating, and replay-safe idempotency. The verifier never creates a
+   purchase intent or transaction and never invokes the paid business route.
+9. The seller explicitly publishes the storefront and deploys the prepared application.
 
-Seller onboarding never exposes buyer checkout or wallet authorization. A
-future automated integration-verification worker may report a system-attested,
-read-only result through the seller workspace, but sellers cannot initiate or
-complete buyer commerce from authenticated seller routes.
+Seller onboarding never exposes buyer checkout or wallet authorization, and
+sellers cannot initiate or complete buyer commerce from authenticated seller
+routes.
 
 The coding agent prepares and validates changes. It never receives production payout secrets and never publishes or deploys without seller confirmation.
 

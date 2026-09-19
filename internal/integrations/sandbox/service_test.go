@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +27,8 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 		responses: []proxy.ForwardResponse{
 			{StatusCode: 401, ContentType: "application/json"},
 			{StatusCode: 401, ContentType: "application/json"},
-			{StatusCode: 200, ContentType: "application/json"},
+			{StatusCode: 403, ContentType: "application/json"},
+			{StatusCode: 200, ContentType: "application/json", Body: validSandboxResponseBody()},
 			{StatusCode: 409, ContentType: "application/json"},
 		},
 	}
@@ -39,6 +41,10 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 		forwarder,
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 	)
+	endpointRecorder := &testEndpointRecorder{}
+	resultRecorder := &testResultRecorder{}
+	service.SetEndpointVerificationRecorder(endpointRecorder)
+	service.SetResultRecorder(resultRecorder)
 
 	result, err := service.Validate(
 		t.Context(),
@@ -48,11 +54,14 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Valid || len(result.Checks) != 4 {
+	if !result.Valid || len(result.Checks) != 6 {
 		t.Fatalf("validation result = %#v", result)
 	}
-	if len(forwarder.requests) != 4 {
-		t.Fatalf("forward request count = %d, want 4", len(forwarder.requests))
+	if result.CompletedAt.Time().IsZero() {
+		t.Fatal("validation result omitted completion time")
+	}
+	if len(forwarder.requests) != 5 {
+		t.Fatalf("forward request count = %d, want 5", len(forwarder.requests))
 	}
 	for _, request := range forwarder.requests {
 		if request.Path != EndpointPath || request.Route.PathPattern != EndpointPath {
@@ -68,8 +77,12 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 	if forwarder.requests[1].Signature.ExecutionCapability != invalidSignatureValue {
 		t.Fatal("invalid-capability probe did not use the fixed invalid capability")
 	}
-	if forwarder.requests[2].Signature != forwarder.requests[3].Signature {
-		t.Fatal("replay probe did not reuse the accepted capability")
+	if forwarder.requests[2].Signature != forwarder.requests[3].Signature ||
+		forwarder.requests[3].Signature != forwarder.requests[4].Signature {
+		t.Fatal("binding and replay probes did not reuse the accepted capability")
+	}
+	if string(forwarder.requests[2].Body) == string(forwarder.requests[3].Body) {
+		t.Fatal("binding probe did not modify the signed request body")
 	}
 	if signer.input.SellerID != domain.ID(testSellerID) ||
 		signer.input.RouteID != domain.ID(testRouteID) ||
@@ -78,6 +91,9 @@ func TestServiceValidatesSandboxLifecycle(t *testing.T) {
 	}
 	if catalogReader.route.Enabled {
 		t.Fatal("sandbox validation mutated the stored draft fixture")
+	}
+	if endpointRecorder.calls != 1 || len(resultRecorder.results) != 1 || !resultRecorder.results[0].Valid {
+		t.Fatalf("recorders = endpoint:%d results:%#v", endpointRecorder.calls, resultRecorder.results)
 	}
 }
 
@@ -95,7 +111,8 @@ func TestServiceReportsFailedChecks(t *testing.T) {
 			responses: []proxy.ForwardResponse{
 				{StatusCode: 200},
 				{StatusCode: 401},
-				{StatusCode: 200},
+				{StatusCode: 403},
+				{StatusCode: 200, ContentType: "application/json", Body: validSandboxResponseBody()},
 				{StatusCode: 409},
 			},
 			wantCheck: "payment_gating",
@@ -105,30 +122,55 @@ func TestServiceReportsFailedChecks(t *testing.T) {
 			responses: []proxy.ForwardResponse{
 				{StatusCode: 401},
 				{StatusCode: 200},
-				{StatusCode: 200},
+				{StatusCode: 403},
+				{StatusCode: 200, ContentType: "application/json", Body: validSandboxResponseBody()},
 				{StatusCode: 409},
 			},
-			wantCheck: "signature_handling",
+			wantCheck: "signed_exchange",
 		},
 		{
-			name: "valid signature rejected",
+			name: "body binding accepted",
 			responses: []proxy.ForwardResponse{
 				{StatusCode: 401},
 				{StatusCode: 401},
+				{StatusCode: 200},
+				{StatusCode: 200, ContentType: "application/json", Body: validSandboxResponseBody()},
+				{StatusCode: 409},
+			},
+			wantCheck: "signed_exchange",
+		},
+		{
+			name: "valid signed request rejected",
+			responses: []proxy.ForwardResponse{
+				{StatusCode: 401},
+				{StatusCode: 401},
+				{StatusCode: 403},
 				{StatusCode: 401},
 				{StatusCode: 409},
 			},
-			wantCheck: "signature_handling",
+			wantCheck: "fulfillment_readiness",
+		},
+		{
+			name: "invalid response contract",
+			responses: []proxy.ForwardResponse{
+				{StatusCode: 401},
+				{StatusCode: 401},
+				{StatusCode: 403},
+				{StatusCode: 200, ContentType: "application/json", Body: []byte(`{"ready":true,"secret":"must-not-pass"}`)},
+				{StatusCode: 409},
+			},
+			wantCheck: "schema_contract",
 		},
 		{
 			name: "replay accepted",
 			responses: []proxy.ForwardResponse{
 				{StatusCode: 401},
 				{StatusCode: 401},
-				{StatusCode: 200},
-				{StatusCode: 200},
+				{StatusCode: 403},
+				{StatusCode: 200, ContentType: "application/json", Body: validSandboxResponseBody()},
+				{StatusCode: 200, ContentType: "application/json"},
 			},
-			wantCheck: "exactly_once_fulfillment",
+			wantCheck: "replay_idempotency",
 		},
 	}
 
@@ -144,6 +186,8 @@ func TestServiceReportsFailedChecks(t *testing.T) {
 				&testForwarder{responses: testCase.responses},
 				domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 			)
+			service.SetEndpointVerificationRecorder(&testEndpointRecorder{})
+			service.SetResultRecorder(&testResultRecorder{})
 			result, err := service.Validate(
 				t.Context(),
 				domain.ID(testSellerID),
@@ -162,8 +206,8 @@ func TestServiceReportsFailedChecks(t *testing.T) {
 	}
 }
 
-// TestServiceReturnsProbeFailure verifies infrastructure errors fail closed.
-func TestServiceReturnsProbeFailure(t *testing.T) {
+// TestServiceReportsRedactedProbeFailure verifies transport errors become actionable failed results.
+func TestServiceReportsRedactedProbeFailure(t *testing.T) {
 	t.Parallel()
 
 	probeError := errors.New("private upstream failure")
@@ -175,13 +219,32 @@ func TestServiceReturnsProbeFailure(t *testing.T) {
 		&testForwarder{err: probeError},
 		domain.FixedClock{Value: time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)},
 	)
-	if _, err := service.Validate(
+	service.SetEndpointVerificationRecorder(&testEndpointRecorder{})
+	resultRecorder := &testResultRecorder{}
+	service.SetResultRecorder(resultRecorder)
+	result, err := service.Validate(
 		t.Context(),
 		domain.ID(testSellerID),
 		domain.ID(testRouteID),
-	); !errors.Is(err, probeError) {
-		t.Fatalf("Validate() error = %v, want probe error", err)
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if result.Valid || checkPassed(result, CheckEndpointReachability) || checkPassed(result, CheckSchemaContract) {
+		t.Fatalf("transport failure result = %#v", result)
+	}
+	for _, check := range result.Checks {
+		if strings.Contains(check.Message, probeError.Error()) {
+			t.Fatalf("check leaked private error: %#v", check)
+		}
+	}
+	if len(resultRecorder.results) != 1 || resultRecorder.results[0].Valid {
+		t.Fatalf("failed result was not recorded: %#v", resultRecorder.results)
+	}
+}
+
+func validSandboxResponseBody() []byte {
+	return []byte(`{"schemaVersion":"agentpay.sandbox.v2","routeId":"` + testRouteID + `","routeVersion":1,"ready":true}`)
 }
 
 // checkPassed returns one named check outcome from a validation result.
@@ -218,6 +281,8 @@ func validCatalogReader() *testCatalogReader {
 			PathPattern:            "/generate",
 			Description:            "Generate a report",
 			MIMEType:               "application/json",
+			InputSchema:            catalog.DefaultClosedObjectSchema,
+			OutputSchema:           catalog.DefaultClosedObjectSchema,
 			Amount:                 domain.MustParseAmount("100"),
 			Asset:                  "USDC",
 			Network:                "eip155:84532",
@@ -289,6 +354,24 @@ type testForwarder struct {
 	requests  []proxy.ForwardRequest
 	responses []proxy.ForwardResponse
 	err       error
+}
+
+type testEndpointRecorder struct {
+	calls int
+}
+
+func (recorder *testEndpointRecorder) RecordServiceEndpointVerification(context.Context, domain.ID, string) error {
+	recorder.calls++
+	return nil
+}
+
+type testResultRecorder struct {
+	results []Result
+}
+
+func (recorder *testResultRecorder) RecordIntegrationVerification(_ context.Context, result Result) error {
+	recorder.results = append(recorder.results, result)
+	return nil
 }
 
 // Forward records sandbox probes and returns the configured response sequence.

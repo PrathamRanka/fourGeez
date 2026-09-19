@@ -179,6 +179,12 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     purchase-session link, or seller-callable commerce action. Then load the
     public product page and prove buyer checkout remains available to a human
     buyer without exposing seller credentials or changing commerce semantics.
+18. From authenticated seller onboarding, run `sandbox_validate_route` only
+    after the connector and a draft product are ready. Assert the six bounded
+    server-authored checks, the persisted route-version-bound result, and its
+    seller-scoped audit event. Prove the run creates no purchase intent,
+     transaction, payment, or paid-route fulfillment. Correct one reported
+     failure and rerun to a passing result without manual database repair.
 
 Historical M2 approval tests remain regression coverage for dormant code only.
 They are not Lean V1 acceptance tests, no approval server is started, and no
@@ -271,5 +277,5 @@ proofs, authorization headers, or purchase cookies in the evidence bundle.
 - [ ] Coding-agent setup produces a reviewable diff and cannot publish without confirmation.
 - [ ] Human and agent purchases appear in one seller transaction history.
 - [ ] Three consecutive three-minute rehearsals succeed without data repair.
-- [x] The seller onboarding test-purchase control remains hidden until its
-      authoritative prerequisites are satisfied and reports no synthetic pass.
+- [x] Seller onboarding exposes no buyer checkout or seller-funded purchase
+      control and shows only the authoritative automated verification result.

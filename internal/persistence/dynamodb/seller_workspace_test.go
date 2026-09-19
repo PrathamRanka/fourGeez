@@ -9,6 +9,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/integrations"
 	"github.com/fourgeez/agentpay/internal/persistence"
 	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 )
@@ -29,6 +30,11 @@ func TestDynamoSellerWorkspaceRepositoryUsesDocumentedKeyAndStrongRead(t *testin
 	if err != nil || stored.SellerID != state.SellerID {
 		t.Fatalf("Get() = %#v, %v", stored, err)
 	}
+	if stored.IntegrationVerification == nil ||
+		stored.IntegrationVerification.RouteID != state.IntegrationVerification.RouteID ||
+		len(stored.IntegrationVerification.Checks) != 6 {
+		t.Fatalf("stored integration verification = %#v", stored.IntegrationVerification)
+	}
 	if client.getInput.ConsistentRead == nil || !*client.getInput.ConsistentRead {
 		t.Fatal("workspace reads must be strongly consistent")
 	}
@@ -41,7 +47,27 @@ func testSellerWorkspaceState(t *testing.T) sellerworkspace.WorkspaceState {
 		t.Fatal(err)
 	}
 	now := domain.NewTimestamp(time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC))
-	return sellerworkspace.WorkspaceState{SellerID: sellerID, OwnerSubjectHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", CreatedAt: now, UpdatedAt: now, Version: 1, Settings: sellerworkspace.SellerSettings{Version: 1, UpdatedAt: now}}
+	routeID, err := domain.ParseID("rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verification := integrations.IntegrationVerificationResult{
+		SchemaVersion: integrations.IntegrationVerificationSchemaVersion,
+		SellerID:      sellerID,
+		RouteID:       routeID,
+		RouteVersion:  1,
+		CompletedAt:   now,
+		Valid:         true,
+		Checks: []integrations.IntegrationVerificationCheck{
+			{Name: integrations.IntegrationVerificationCheckEndpointReachability, Passed: true, Message: "Endpoint reached."},
+			{Name: integrations.IntegrationVerificationCheckSignedExchange, Passed: true, Message: "Signed exchange passed."},
+			{Name: integrations.IntegrationVerificationCheckSchemaContract, Passed: true, Message: "Schema contract passed."},
+			{Name: integrations.IntegrationVerificationCheckFulfillmentReadiness, Passed: true, Message: "Fulfillment is ready."},
+			{Name: integrations.IntegrationVerificationCheckPaymentGating, Passed: true, Message: "Payment gating passed."},
+			{Name: integrations.IntegrationVerificationCheckReplayIdempotency, Passed: true, Message: "Replay protection passed."},
+		},
+	}
+	return sellerworkspace.WorkspaceState{SellerID: sellerID, OwnerSubjectHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", IntegrationVerification: &verification, CreatedAt: now, UpdatedAt: now, Version: 1, Settings: sellerworkspace.SellerSettings{Version: 1, UpdatedAt: now}}
 }
 
 func TestDynamoSellerWorkspaceRepositoryMapsConditionalFailure(t *testing.T) {

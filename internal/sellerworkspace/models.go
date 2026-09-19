@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -15,10 +16,11 @@ import (
 )
 
 var (
-	ErrAuthenticationRequired    = errors.New("seller authentication is required")
-	ErrSellerIdentityMissing     = errors.New("authenticated seller identity is incomplete")
-	ErrPublicationBlocked        = errors.New("seller publication prerequisites are incomplete")
-	ErrCredentialIssuanceBlocked = integrations.ErrCredentialIssuanceDenied
+	ErrAuthenticationRequired         = errors.New("seller authentication is required")
+	ErrSellerIdentityMissing          = errors.New("authenticated seller identity is incomplete")
+	ErrPublicationBlocked             = errors.New("seller publication prerequisites are incomplete")
+	ErrIntegrationVerificationInvalid = errors.New("integration verification does not match the current seller route")
+	ErrCredentialIssuanceBlocked      = integrations.ErrCredentialIssuanceDenied
 )
 
 type Principal struct {
@@ -42,6 +44,7 @@ const (
 	StepProjectKeyCreated          StepName = "project_key_created"
 	StepConnectorVerified          StepName = "connector_verified"
 	StepProductConfigured          StepName = "product_configured"
+	StepIntegrationVerification    StepName = "integration_verification"
 	StepStorefrontPreviewed        StepName = "storefront_previewed"
 )
 
@@ -66,13 +69,14 @@ type PublicationReadiness struct {
 }
 
 type OnboardingView struct {
-	SellerID    *domain.ID           `json:"sellerId"`
-	Complete    bool                 `json:"complete"`
-	CurrentStep StepName             `json:"currentStep,omitempty"`
-	Steps       []OnboardingStep     `json:"steps"`
-	Publication PublicationReadiness `json:"publication"`
-	Version     uint64               `json:"version"`
-	UpdatedAt   *domain.Timestamp    `json:"updatedAt,omitempty"`
+	SellerID                *domain.ID                                  `json:"sellerId"`
+	Complete                bool                                        `json:"complete"`
+	CurrentStep             StepName                                    `json:"currentStep,omitempty"`
+	Steps                   []OnboardingStep                            `json:"steps"`
+	Publication             PublicationReadiness                        `json:"publication"`
+	IntegrationVerification *integrations.IntegrationVerificationResult `json:"integrationVerification,omitempty"`
+	Version                 uint64                                      `json:"version"`
+	UpdatedAt               *domain.Timestamp                           `json:"updatedAt,omitempty"`
 }
 
 type SellerSettings struct {
@@ -91,15 +95,16 @@ type UpdateSettingsRequest struct {
 }
 
 type WorkspaceState struct {
-	SellerID                     domain.ID         `json:"sellerId"`
-	OwnerSubjectHash             string            `json:"ownerSubjectHash"`
-	ConnectorVerifiedAt          *domain.Timestamp `json:"connectorVerifiedAt,omitempty"`
-	SandboxPurchaseTransactionID *domain.ID        `json:"sandboxPurchaseTransactionId,omitempty"`
-	StorefrontPreviewedAt        *domain.Timestamp `json:"storefrontPreviewedAt,omitempty"`
-	Settings                     SellerSettings    `json:"settings"`
-	CreatedAt                    domain.Timestamp  `json:"createdAt"`
-	UpdatedAt                    domain.Timestamp  `json:"updatedAt"`
-	Version                      uint64            `json:"version"`
+	SellerID                     domain.ID                                   `json:"sellerId"`
+	OwnerSubjectHash             string                                      `json:"ownerSubjectHash"`
+	ConnectorVerifiedAt          *domain.Timestamp                           `json:"connectorVerifiedAt,omitempty"`
+	SandboxPurchaseTransactionID *domain.ID                                  `json:"sandboxPurchaseTransactionId,omitempty"`
+	IntegrationVerification      *integrations.IntegrationVerificationResult `json:"integrationVerification,omitempty"`
+	StorefrontPreviewedAt        *domain.Timestamp                           `json:"storefrontPreviewedAt,omitempty"`
+	Settings                     SellerSettings                              `json:"settings"`
+	CreatedAt                    domain.Timestamp                            `json:"createdAt"`
+	UpdatedAt                    domain.Timestamp                            `json:"updatedAt"`
+	Version                      uint64                                      `json:"version"`
 }
 
 type Repository interface {
@@ -230,6 +235,7 @@ type Dependencies struct {
 	Billing                      BillingReader
 	BillingPortal                BillingPortal
 	AccountVerification          AccountVerificationReader
+	AuditRecorder                audit.Recorder
 	Clock                        domain.Clock
 	AllowLocalDevelopmentService bool
 }

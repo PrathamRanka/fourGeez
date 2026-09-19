@@ -371,9 +371,19 @@ func (validator *testSandboxValidator) Validate(
 		routeVersion = 1
 	}
 	return sandbox.Result{
-		SellerID:     sellerID,
-		RouteID:      routeID,
-		RouteVersion: routeVersion,
-		Valid:        validator.valid,
+		SchemaVersion: sandbox.SchemaVersion,
+		SellerID:      sellerID,
+		RouteID:       routeID,
+		RouteVersion:  routeVersion,
+		CompletedAt:   domain.NewTimestamp(time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)),
+		Valid:         validator.valid,
+		Checks: []sandbox.Check{
+			{Name: sandbox.CheckEndpointReachability, Passed: validator.valid, Message: "Endpoint check."},
+			{Name: sandbox.CheckSignedExchange, Passed: validator.valid, Message: "Signed exchange check."},
+			{Name: sandbox.CheckSchemaContract, Passed: validator.valid, Message: "Schema check."},
+			{Name: sandbox.CheckFulfillmentReadiness, Passed: validator.valid, Message: "Fulfillment check."},
+			{Name: sandbox.CheckPaymentGating, Passed: validator.valid, Message: "Payment gating check."},
+			{Name: sandbox.CheckReplayIdempotency, Passed: validator.valid, Message: "Replay check."},
+		},
 	}, nil
 }

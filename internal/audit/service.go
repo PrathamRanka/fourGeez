@@ -87,6 +87,12 @@ var actionDefinitions = map[Action]actionDefinition{
 		"verifiedSigningSecretRefHash",
 		"serviceEndpointVerifiedAt",
 	),
+	ActionIntegrationVerificationDone: newActionDefinition(
+		TargetTypePaidRoute,
+		"valid",
+		"routeVersion",
+		"checks",
+	),
 	ActionManualRefundRecorded: newActionDefinition(TargetTypeDispute, "amount", "asset", "network", "reference"),
 }
 

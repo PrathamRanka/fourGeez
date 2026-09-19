@@ -116,9 +116,17 @@ Seller onboarding never embeds, links to, or asks the seller to operate buyer
 checkout. Sellers configure the service, payout destination, integration, and
 products; human buyers and external buyer agents alone create purchase
 sessions, authorize wallets, and submit payments through the public commerce
-surfaces. A future automated integration-verification result may be displayed
-read-only in onboarding only when it is system-attested and requires no seller
-wallet, seller-funded purchase, or seller-callable buyer-commerce action.
+surfaces.
+
+Before publication, the coding-agent workflow runs an automated, non-payment
+integration verification against the dedicated side-effect-free seller
+sandbox endpoint. AgentPay reports fixed pass/fail checks for endpoint
+reachability, signed request and response compatibility, the versioned input
+and output contract, fulfillment readiness, payment gating, and replay-safe
+idempotency. The result is produced and stored by AgentPay, is bound to the
+exact draft route version, and is shown in onboarding after refresh. The
+verification never creates a purchase intent or transaction, never settles
+funds, and never invokes the configured paid business route.
 
 A representative prompt is:
 
@@ -375,6 +383,6 @@ A seller is ready to publish only when:
 - browser and agent storefront representations agree;
 - generated metadata, sitemap, structured data, `llms.txt`, and manifest pass
   deterministic consistency checks; and
-- system-attested integration verification confirms payment gating, request
-  verification, replay prevention, and exactly-once fulfillment without asking
+- the automated non-payment sandbox verification passes all six checks for the
+  exact product version without invoking the paid fulfillment route or asking
   the seller to operate buyer checkout or authorize a buyer wallet.

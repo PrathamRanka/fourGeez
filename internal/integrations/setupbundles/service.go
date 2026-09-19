@@ -22,7 +22,7 @@ const setupPromptTemplate = `Connect this repository to AgentPay using the %s se
 2. Read agentpay://seller, agentpay://routes, and the selected versioned setup resource.
 3. Analyze only the allowlisted repository manifest and OpenAPI document with analyze_repository.
 4. Install the pinned verification package with: %s
-5. Add AgentPay raw-body signature verification before fulfillment. Add a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware. Preserve exact method, literal route path, body bytes, timestamp, and transaction identifier.
+5. Add AgentPay raw-body signature verification before fulfillment. Add a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware. Preserve exact method, literal route path, body bytes, timestamp, and transaction identifier. For the sandbox request, return the closed agentpay.sandbox.v2 response with the supplied routeId and routeVersion plus ready: true.
 6. Generate storefront discovery and integration code from confirmed published routes without exposing server credentials to browser code.
 7. Add focused tests for valid signatures, modified-body rejection, stale requests, replay rejection, and payment gating.
 8. Run the repository's existing checks and this focused command: %s
@@ -42,7 +42,7 @@ Verification recipe:
 2. Call detect_repository_stacks with bounded committed evidence. Continue only if this requested stack appears in the result; never guess or select an unevidenced stack.
 3. Read agentpay://seller, agentpay://routes, and agentpay://integration/setup/v2/%s.
 4. Install the pinned verification package with: %s
-5. Add raw-body AgentPay signature verification before fulfillment and a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware.
+5. Add raw-body AgentPay signature verification before fulfillment and a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware. Return the closed agentpay.sandbox.v2 response with the supplied routeId and routeVersion plus ready: true.
 6. Generate storefront and product pages using the selected stack's native routing, rendering, metadata, robots, and sitemap conventions.
 7. Generate truthful title and description metadata, canonical URLs, Open Graph metadata, semantic product content, visible-fact-backed JSON-LD, robots directives, sitemap output, llms.txt, and an AgentPay manifest that agree on every published route.
 8. Add focused signature, stale-request, replay, payment-gating, sandbox, metadata, accessibility, performance, llms.txt, and manifest-consistency tests.
@@ -291,7 +291,7 @@ func workflowSteps() []string {
 		"Read authenticated AgentPay seller, route, and setup resources.",
 		"Analyze only the allowlisted repository manifest and OpenAPI document.",
 		"Install the maintained verification package for the detected framework.",
-		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint behind the same middleware.",
+		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint behind the same middleware, returning the closed agentpay.sandbox.v2 response with ready: true.",
 		"Generate storefront discovery and integration code from confirmed routes.",
 		"Add signature, freshness, replay, and payment-gating tests.",
 		"Run focused tests and the repository's existing quality checks.",
@@ -306,7 +306,7 @@ func workflowStepsV2() []string {
 		"Call detect_repository_stacks with bounded committed evidence and select an evidenced stack that owns the paid route.",
 		"Read authenticated seller, route, and version-two setup resources.",
 		"Install the maintained language verification package.",
-		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint.",
+		"Add raw-body verification and a no-op POST /.well-known/agentpay/sandbox endpoint returning the closed agentpay.sandbox.v2 response with ready: true.",
 		"Generate stack-native storefront, technical SEO, AEO, and agent-discovery assets.",
 		"Add signature, sandbox, SEO, accessibility, performance, and consistency tests.",
 		"Call validate_storefront_artifacts and fix every failed deterministic check.",

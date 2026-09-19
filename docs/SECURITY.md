@@ -320,6 +320,12 @@ Forbidden:
 - Project credentials are accepted only by the proprietary bootstrap exchange;
   ordinary MCP requests require a short-lived access capability.
 - Generated integrations use maintained verification packages. Coding agents must not invent alternate signing or payment validation.
+- Automated seller integration verification accepts only the authenticated
+  seller and stored draft route identifiers. It uses the protected seller
+  forwarder, a fixed `/.well-known/agentpay/sandbox` path, fixed-size protocol
+  bodies, no redirects, public-address DNS checks, bounded time and response
+  sizes, and redacted fixed messages. It never accepts a URL or secret from the
+  caller, creates commerce records, settles funds, or invokes a paid route.
 - The TypeScript merchant SDK and adapters are server-only. They preserve exact
   raw request bytes through verification, require seller-provided atomic replay
   and fulfillment stores for multi-instance use, and never accept wallet keys,

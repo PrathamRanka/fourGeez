@@ -58,6 +58,7 @@ function onboardingState(
     "project_key_created",
     "connector_verified",
     "product_configured",
+    "integration_verification",
     "storefront_previewed",
   ] as const;
   const defaultComplete = new Set([
@@ -126,6 +127,46 @@ function createActions(): OnboardingActions {
 }
 
 describe("seller onboarding MCP gate", () => {
+  it("renders the server-authored automated integration result", () => {
+    const verified = onboardingState({
+      project_key_created: "complete",
+      connector_verified: "complete",
+      product_configured: "complete",
+      integration_verification: "complete",
+    });
+    verified.integrationVerification = {
+      schemaVersion: "agentpay.sandbox.v2",
+      sellerId: seller.sellerId,
+      routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+      routeVersion: 1,
+      completedAt: "2026-09-20T10:00:00Z",
+      valid: true,
+      checks: [
+        { name: "endpoint_reachability", passed: true, message: "Endpoint reached." },
+        { name: "signed_exchange", passed: true, message: "Signed exchange passed." },
+        { name: "schema_contract", passed: true, message: "Schema contract passed." },
+        { name: "fulfillment_readiness", passed: true, message: "Fulfillment is ready." },
+        { name: "payment_gating", passed: true, message: "Payment gating passed." },
+        { name: "replay_idempotency", passed: true, message: "Replay protection passed." },
+      ],
+    };
+
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
+          credentials: [createdCredential],
+          onboarding: verified,
+        })}
+        actions={createActions()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("list", { name: "Integration verification checks" }),
+    ).toHaveTextContent("Replay and idempotency. Replay protection passed.");
+    expect(screen.getByText("Integration verified")).toBeVisible();
+  });
+
   it("never exposes buyer checkout after connector and product prerequisites", () => {
     const ready = onboardingState({
       project_key_created: "complete",

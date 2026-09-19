@@ -88,7 +88,7 @@ type MutationResult struct {
 	Sandbox       *sandbox.Result                `json:"sandbox,omitempty"`
 }
 
-// SandboxValidator runs the complete non-persistent seller validation flow.
+// SandboxValidator runs the complete authoritative seller validation flow.
 type SandboxValidator interface {
 	Validate(context.Context, domain.ID, domain.ID) (sandbox.Result, error)
 }

@@ -17,7 +17,9 @@ This register records issues found during the real seller onboarding, MCP config
 ### P0
 
 1. **Resolved (2026-09-20):** Seller onboarding and dashboard routes no longer expose buyer checkout, wallet authorization, or the seller-owned test-purchase action. Public buyer storefront and external buyer-agent checkout remain unchanged.
-2. Seller verification should finish with an automated integration result, not a seller-funded purchase.
+2. **Resolved (2026-09-20):** `sandbox_validate_route` now records a bounded,
+   route-version-bound six-check result and onboarding consumes that
+   authoritative result without creating commerce or invoking a paid route.
 3. Manual launch entitlement provisioning is still required while Stripe billing is disabled.
 
 ### P1

@@ -50,6 +50,7 @@ const (
 	ActionSellerSuspended             Action = "seller.suspended"
 	ActionServiceIntegrationActivated Action = "service_integration.activated"
 	ActionServiceEndpointVerified     Action = "service_endpoint.verified"
+	ActionIntegrationVerificationDone Action = "integration_verification.completed"
 	ActionManualRefundRecorded        Action = "manual_refund.recorded"
 )
 

@@ -291,7 +291,7 @@ func (controller *HTTPController) registerDiscoveryTool(
 	)
 }
 
-// registerSandboxTool adds the read-only pre-publication validation flow.
+// registerSandboxTool adds the audited pre-publication validation flow.
 func (controller *HTTPController) registerSandboxTool(
 	server *protocol.Server,
 	principal integrations.Principal,
@@ -299,11 +299,12 @@ func (controller *HTTPController) registerSandboxTool(
 	protocol.AddTool(
 		server,
 		&protocol.Tool{
-			Name:        "sandbox_validate_route",
-			Description: "Probe discovery, signature gating, and replay before publication",
+			Name:         "sandbox_validate_route",
+			Description:  "Run the authoritative non-payment seller integration verification",
+			OutputSchema: sandboxOutputSchema(),
 			Annotations: &protocol.ToolAnnotations{
-				IdempotentHint: true,
-				ReadOnlyHint:   true,
+				IdempotentHint: false,
+				ReadOnlyHint:   false,
 			},
 		},
 		func(

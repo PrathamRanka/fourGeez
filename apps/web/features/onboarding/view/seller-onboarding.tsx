@@ -24,6 +24,7 @@ import type {
   OnboardingSnapshot,
   OnboardingStepName,
   Seller,
+  IntegrationVerificationCheckName,
   SellerOnboardingState,
 } from "@/features/onboarding/model";
 import {
@@ -61,6 +62,17 @@ const eligibilitySteps = [
   "subscription_active",
   "payment_destination_verified",
 ] as const satisfies readonly OnboardingStepName[];
+const integrationCheckLabels: Record<
+  IntegrationVerificationCheckName,
+  string
+> = {
+  endpoint_reachability: "Endpoint reachability",
+  signed_exchange: "Signed request and response",
+  schema_contract: "Input and output contract",
+  fulfillment_readiness: "Fulfillment readiness",
+  payment_gating: "Payment gating",
+  replay_idempotency: "Replay and idempotency",
+};
 const prerequisiteDetails: Record<
   (typeof eligibilitySteps)[number],
   { label: string; href: string; action: string }
@@ -643,30 +655,54 @@ export function SellerOnboarding({
                 id="validation"
                 number="06"
                 icon={ShieldCheck}
-                title="Connector validation"
-                description="Connector authorization is recorded on the first authenticated MCP request. Review publication readiness from the products workspace."
-                complete={connectorState === "connected"}
-                current={connectorState !== "connected"}
+                title="Automated integration verification"
+                description="AgentPay probes the dedicated no-op endpoint without creating a purchase, transaction, or payment."
+                complete={stepComplete("integration_verification")}
+                current={
+                  connectorState === "connected" &&
+                  !stepComplete("integration_verification")
+                }
                 locked={connectorState !== "connected"}
               >
                 <div className="sandbox-readiness">
                   <span
                     className={
-                      connectorState === "connected"
+                      stepComplete("integration_verification")
                         ? "status-ready"
                         : "status-waiting"
                     }
                   >
-                    {connectorState === "connected"
-                      ? "Connector validation passed"
-                      : "Validation not run"}
+                    {stepComplete("integration_verification")
+                      ? "Integration verified"
+                      : connectorState === "connected"
+                        ? "Verification required"
+                        : "Validation not run"}
                   </span>
                   <p>
                     {connectorState === "connected"
-                      ? "Authenticated MCP initialization passed. Generate the verification endpoint and tests, then run sandbox_validate_route. Retry the PowerShell preflight after correcting any reported error."
+                      ? "Run sandbox_validate_route from the connected coding agent, then refresh this page. AgentPay records the authoritative pass/fail result."
                       : "Run the copyable PowerShell preflight. If it fails, confirm the API URL, key state, launch entitlement, and network access before retrying."}
                   </p>
                 </div>
+                {onboarding.integrationVerification ? (
+                  <ul
+                    className="onboarding-checklist"
+                    aria-label="Integration verification checks"
+                  >
+                    {onboarding.integrationVerification.checks.map((check) => (
+                      <li key={check.name} data-complete={check.passed}>
+                        {check.passed ? (
+                          <Check aria-hidden="true" />
+                        ) : (
+                          <Circle aria-hidden="true" />
+                        )}
+                        <span>
+                          {integrationCheckLabels[check.name]}. {check.message}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </OnboardingStep>
             </>
           )}

@@ -52,6 +52,28 @@ export type OnboardingSnapshot = {
   onboarding: SellerOnboardingState;
 };
 
+export type IntegrationVerificationCheckName =
+  | "endpoint_reachability"
+  | "signed_exchange"
+  | "schema_contract"
+  | "fulfillment_readiness"
+  | "payment_gating"
+  | "replay_idempotency";
+
+export type IntegrationVerificationResult = {
+  schemaVersion: "agentpay.sandbox.v2";
+  sellerId: string;
+  routeId: string;
+  routeVersion: number;
+  completedAt: string;
+  valid: boolean;
+  checks: Array<{
+    name: IntegrationVerificationCheckName;
+    passed: boolean;
+    message: string;
+  }>;
+};
+
 export type OnboardingStepName =
   | "account_verified"
   | "storefront_created"
@@ -61,6 +83,7 @@ export type OnboardingStepName =
   | "project_key_created"
   | "connector_verified"
   | "product_configured"
+  | "integration_verification"
   | "storefront_previewed";
 
 export type SellerOnboardingStep = {
@@ -79,6 +102,7 @@ export type SellerOnboardingState = {
     allowed: boolean;
     blockers: OnboardingStepName[];
   };
+  integrationVerification?: IntegrationVerificationResult;
   version: number;
   updatedAt?: string | null;
 };

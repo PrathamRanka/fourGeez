@@ -7,6 +7,35 @@ import (
 	"github.com/fourgeez/agentpay/internal/domain"
 )
 
+const (
+	IntegrationVerificationSchemaVersion = "agentpay.sandbox.v2"
+
+	IntegrationVerificationCheckEndpointReachability = "endpoint_reachability"
+	IntegrationVerificationCheckSignedExchange       = "signed_exchange"
+	IntegrationVerificationCheckSchemaContract       = "schema_contract"
+	IntegrationVerificationCheckFulfillmentReadiness = "fulfillment_readiness"
+	IntegrationVerificationCheckPaymentGating        = "payment_gating"
+	IntegrationVerificationCheckReplayIdempotency    = "replay_idempotency"
+)
+
+// IntegrationVerificationCheck records one bounded seller integration requirement.
+type IntegrationVerificationCheck struct {
+	Name    string `json:"name"`
+	Passed  bool   `json:"passed"`
+	Message string `json:"message"`
+}
+
+// IntegrationVerificationResult is the latest route-version-bound sandbox outcome.
+type IntegrationVerificationResult struct {
+	SchemaVersion string                         `json:"schemaVersion"`
+	SellerID      domain.ID                      `json:"sellerId"`
+	RouteID       domain.ID                      `json:"routeId"`
+	RouteVersion  uint64                         `json:"routeVersion"`
+	CompletedAt   domain.Timestamp               `json:"completedAt"`
+	Valid         bool                           `json:"valid"`
+	Checks        []IntegrationVerificationCheck `json:"checks"`
+}
+
 // Scope identifies one capability granted to a seller integration.
 type Scope string
 

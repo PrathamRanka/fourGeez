@@ -278,6 +278,7 @@ func main() {
 		WebhookDeliveries:    sellerworkspace.NewWebhookDeliveryRepositoryReader(webhookDeliveryRepository),
 		Billing:              billingService, BillingPortal: sellerworkspace.UnavailableBillingPortal{},
 		AccountVerification: sellerworkspace.AuthenticatedAccountVerification{}, Clock: clock,
+		AuditRecorder:                auditAppender,
 		AllowLocalDevelopmentService: config.Environment == "local",
 	})
 	integrationService.SetCredentialIssuanceAuthorizer(workspaceService)
@@ -289,6 +290,7 @@ func main() {
 	})
 	catalogService.SetPublicationAuthorizer(storefrontService)
 	sandboxService.SetEndpointVerificationRecorder(storefrontService)
+	sandboxService.SetResultRecorder(workspaceService)
 	storefront.NewHTTPController(storefrontService).RegisterRoutes(mux)
 	browserPurchaseService := browserpurchase.NewService(browserpurchase.Dependencies{
 		Products:      browserPurchaseProductResolver{products: storefrontService},

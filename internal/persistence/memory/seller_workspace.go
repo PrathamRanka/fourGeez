@@ -52,6 +52,11 @@ func cloneSellerWorkspaceState(state sellerworkspace.WorkspaceState) sellerworks
 		value := *state.SandboxPurchaseTransactionID
 		state.SandboxPurchaseTransactionID = &value
 	}
+	if state.IntegrationVerification != nil {
+		value := *state.IntegrationVerification
+		value.Checks = append(value.Checks[:0:0], value.Checks...)
+		state.IntegrationVerification = &value
+	}
 	if state.StorefrontPreviewedAt != nil {
 		value := *state.StorefrontPreviewedAt
 		state.StorefrontPreviewedAt = &value

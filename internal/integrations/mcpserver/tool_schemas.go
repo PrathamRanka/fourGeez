@@ -1,5 +1,7 @@
 package mcpserver
 
+import "github.com/fourgeez/agentpay/internal/integrations/sandbox"
+
 func closedObject(properties map[string]any, required ...string) map[string]any {
 	schema := map[string]any{
 		"type":                 "object",
@@ -73,4 +75,31 @@ func validationOutputSchema() map[string]any {
 		"version":      map[string]any{"type": "integer"},
 		"contractHash": map[string]any{"type": "string", "pattern": "^[a-f0-9]{64}$"},
 	}, "sellerId", "routeId", "valid", "checks", "version", "contractHash")
+}
+
+func sandboxOutputSchema() map[string]any {
+	check := closedObject(map[string]any{
+		"name": map[string]any{
+			"type": "string",
+			"enum": []string{
+				sandbox.CheckEndpointReachability,
+				sandbox.CheckSignedExchange,
+				sandbox.CheckSchemaContract,
+				sandbox.CheckFulfillmentReadiness,
+				sandbox.CheckPaymentGating,
+				sandbox.CheckReplayIdempotency,
+			},
+		},
+		"passed":  map[string]any{"type": "boolean"},
+		"message": map[string]any{"type": "string"},
+	}, "name", "passed", "message")
+	return closedObject(map[string]any{
+		"schemaVersion": map[string]any{"type": "string", "const": sandbox.SchemaVersion},
+		"sellerId":      map[string]any{"type": "string"},
+		"routeId":       map[string]any{"type": "string"},
+		"routeVersion":  map[string]any{"type": "integer"},
+		"completedAt":   map[string]any{"type": "string"},
+		"valid":         map[string]any{"type": "boolean"},
+		"checks":        map[string]any{"type": "array", "minItems": 6, "maxItems": 6, "items": check},
+	}, "schemaVersion", "sellerId", "routeId", "routeVersion", "completedAt", "valid", "checks")
 }

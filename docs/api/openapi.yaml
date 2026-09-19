@@ -9,7 +9,9 @@ info:
     Version 0.7.0 extended the locked M7.1 production target with EXT-001 public
     capability and deterministic product-directory contracts plus the EXT-004
     payment-capability and recovery extension and the seller-first EXT-005
-    versioned product-schema contract. AgentPay-operated buyer execution, A2A,
+    versioned product-schema contract. Seller onboarding consumes an
+    authoritative route-version-bound non-payment integration verification
+    result; no seller-funded purchase is required. AgentPay-operated buyer execution, A2A,
     and negotiation remain disabled V2 work. The Go runtime implements these
     endpoints in the development preview. Production deployment must not
     advertise them before every authorization, persistence, infrastructure,
@@ -1931,12 +1933,38 @@ components:
       properties:
         expectedVersion: { type: integer, minimum: 1 }
 
+    IntegrationVerificationCheck:
+      type: object
+      additionalProperties: false
+      required: [name, passed, message]
+      properties:
+        name:
+          type: string
+          enum: [endpoint_reachability, signed_exchange, schema_contract, fulfillment_readiness, payment_gating, replay_idempotency]
+        passed: { type: boolean }
+        message: { type: string, minLength: 1, maxLength: 240 }
+    IntegrationVerificationResult:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, sellerId, routeId, routeVersion, completedAt, valid, checks]
+      properties:
+        schemaVersion: { type: string, const: agentpay.sandbox.v2 }
+        sellerId: { type: string, pattern: '^sel_[A-Za-z0-9]+$' }
+        routeId: { type: string, pattern: '^rte_[A-Za-z0-9]+$' }
+        routeVersion: { type: integer, minimum: 1 }
+        completedAt: { type: string, format: date-time }
+        valid: { type: boolean }
+        checks:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: '#/components/schemas/IntegrationVerificationCheck' }
     OnboardingStep:
       type: object
       additionalProperties: false
       required: [name, status, blocking, message]
       properties:
-        name: { type: string, enum: [account_verified, storefront_created, service_connection_verified, subscription_active, payment_destination_verified, project_key_created, connector_verified, product_configured, storefront_previewed] }
+        name: { type: string, enum: [account_verified, storefront_created, service_connection_verified, subscription_active, payment_destination_verified, project_key_created, connector_verified, product_configured, integration_verification, storefront_previewed] }
         status: { type: string, enum: [complete, incomplete, blocked] }
         blocking: { type: boolean }
         message: { type: string }
@@ -1948,7 +1976,7 @@ components:
         allowed: { type: boolean }
         blockers:
           type: array
-          items: { type: string, enum: [account_verified, storefront_created, service_connection_verified, subscription_active, payment_destination_verified, project_key_created, connector_verified, product_configured, storefront_previewed] }
+          items: { type: string, enum: [account_verified, storefront_created, service_connection_verified, subscription_active, payment_destination_verified, project_key_created, connector_verified, product_configured, integration_verification, storefront_previewed] }
     SellerOnboarding:
       type: object
       additionalProperties: false
@@ -1961,6 +1989,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/OnboardingStep' }
         publication: { $ref: '#/components/schemas/PublicationReadiness' }
+        integrationVerification: { $ref: '#/components/schemas/IntegrationVerificationResult' }
         version: { type: integer, minimum: 0 }
         updatedAt: { type: [string, 'null'], format: date-time }
     ProductSummary:
@@ -2188,7 +2217,7 @@ components:
         actorId: { type: string, minLength: 1, maxLength: 256 }
         action:
           type: string
-          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, service_endpoint.verified, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
+          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, service_endpoint.verified, integration_verification.completed, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
         targetType: { type: string, enum: [integration_credential, payment_destination, paid_route, webhook_subscription, seller] }
         targetId: { type: string, minLength: 1, maxLength: 64 }
         outcome: { type: string, enum: [succeeded, failed, denied] }

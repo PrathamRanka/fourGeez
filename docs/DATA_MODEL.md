@@ -65,6 +65,7 @@ evaluated.
 | `sellerId` | string | Owning seller; `PK=SELLER#<sellerId>`, `SK=WORKSPACE` |
 | `ownerSubjectHash` | string | SHA-256 of the authenticated owner subject; raw identity claims are not duplicated |
 | `connectorVerifiedAt` | timestamp/null | Written only after a cloud-observed connector verification |
+| `integrationVerification` | object/null | Latest server-authored sandbox result: schema version, seller/route IDs, exact route version, completion timestamp, overall validity, and the fixed bounded check list. A route-version mismatch is stale and cannot complete onboarding. No payment or transaction identifier is stored. |
 | `sandboxPurchaseTransactionId` | string/null | Historical REL-016 compatibility field only. New code does not write it, expose a seller mutation for it, or use it for onboarding/publication readiness. |
 | `storefrontPreviewedAt` | timestamp/null | Server-recorded completion of the preview step |
 | `settings.supportEmail` | string | Optional seller support address |
@@ -74,11 +75,11 @@ evaluated.
 | `version` | integer | Optimistic concurrency version shared by onboarding progress and settings |
 
 Browser state never marks account verification, subscription, payment
-destination, credential, product, or publication readiness as complete. Those
-checks are derived from the identity principal and the owning authoritative
-records. Seller surfaces expose no buyer-checkout mutation. A future automated
-integration result must be system-attested and read-only to the seller.
-Publication fails closed when any required record is missing or unavailable.
+ destination, credential, product, integration verification, or publication
+ readiness as complete. Those checks are derived from the identity principal and
+ the owning authoritative records. Seller surfaces expose no buyer-checkout
+ mutation. Integration results are system-attested and read-only to the seller.
+ Publication fails closed when any required record is missing or unavailable.
 
 ### StorefrontPublication
 
@@ -888,7 +889,7 @@ Action vocabulary is fixed to:
 - `credential.created`, `credential.revoked`, `credential.rotated`,
   `credential.exchange_succeeded`, and `credential.exchange_denied`;
 - `entitlement.changed`;
-- `service_endpoint.verified`;
+- `service_endpoint.verified` and `integration_verification.completed`;
 - `mcp_confirmation.issued`, `mcp_confirmation.consumed`, and
   `mcp_confirmation.denied`;
 - `payment_destination.created`, `payment_destination.verified`,

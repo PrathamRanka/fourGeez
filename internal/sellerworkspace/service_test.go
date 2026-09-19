@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -32,11 +33,15 @@ func TestOnboardingDerivesAuthoritativeStepsAndPersistsProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	if first.Publication.Allowed {
-		t.Fatal("publication must remain blocked before connector and preview checks")
+		t.Fatal("publication must remain blocked before connector, integration, and preview checks")
 	}
 	assertStep(t, first, StepConnectorVerified, StepIncomplete)
+	assertStep(t, first, StepIntegrationVerification, StepIncomplete)
 
 	if err := fixture.service.RecordConnectorVerification(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), validIntegrationVerification(fixture)); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.service.RecordStorefrontPreview(context.Background(), fixture.principal); err != nil {
@@ -50,8 +55,97 @@ func TestOnboardingDerivesAuthoritativeStepsAndPersistsProgress(t *testing.T) {
 	if !resumed.Complete || !resumed.Publication.Allowed {
 		t.Fatalf("resumed onboarding = %#v, want complete and publishable", resumed)
 	}
-	if fixture.repository.putCalls != 3 {
-		t.Fatalf("workspace writes = %d, want initial state plus two progress updates", fixture.repository.putCalls)
+	if fixture.repository.putCalls != 4 {
+		t.Fatalf("workspace writes = %d, want initial state plus three progress updates", fixture.repository.putCalls)
+	}
+}
+
+func TestIntegrationVerificationMustMatchCurrentSellerRouteVersion(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.routes = []catalog.PaidRoute{fixture.route}
+
+	wrongSeller := validIntegrationVerification(fixture)
+	wrongSeller.SellerID = domain.ID("sel_01K5D09YJ0C0M7RJM4FWQ0K9H8")
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), wrongSeller); !errors.Is(err, ErrIntegrationVerificationInvalid) {
+		t.Fatalf("wrong-seller verification error = %v", err)
+	}
+
+	stale := validIntegrationVerification(fixture)
+	stale.RouteVersion--
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), stale); !errors.Is(err, ErrIntegrationVerificationInvalid) {
+		t.Fatalf("stale verification error = %v", err)
+	}
+}
+
+func TestFailedIntegrationVerificationIsPersistedAndAudited(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.routes = []catalog.PaidRoute{fixture.route}
+	if _, err := fixture.service.Onboarding(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+	result := validIntegrationVerification(fixture)
+	result.Valid = false
+	result.Checks[0].Passed = false
+
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), result); err != nil {
+		t.Fatal(err)
+	}
+	view, err := fixture.service.Onboarding(context.Background(), fixture.principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStep(t, view, StepIntegrationVerification, StepIncomplete)
+	if view.IntegrationVerification == nil || view.IntegrationVerification.Valid {
+		t.Fatalf("onboarding verification = %#v", view.IntegrationVerification)
+	}
+	if len(fixture.audit.requests) != 1 || fixture.audit.requests[0].Outcome != audit.OutcomeFailed {
+		t.Fatalf("audit requests = %#v", fixture.audit.requests)
+	}
+}
+
+func TestOnboardingRejectsAStoredVerificationAfterTheRouteChanges(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.routes = []catalog.PaidRoute{fixture.route}
+	if _, err := fixture.service.Onboarding(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), validIntegrationVerification(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	fixture.route.Version += 2
+	fixture.routes = []catalog.PaidRoute{fixture.route}
+
+	view, err := fixture.service.Onboarding(context.Background(), fixture.principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStep(t, view, StepIntegrationVerification, StepIncomplete)
+	if view.Publication.Allowed {
+		t.Fatal("stale integration verification must block publication readiness")
+	}
+}
+
+func TestIntegrationVerificationReplayDoesNotRewriteWorkspaceState(t *testing.T) {
+	t.Parallel()
+	fixture := newWorkspaceFixture(t)
+	fixture.routes = []catalog.PaidRoute{fixture.route}
+	if _, err := fixture.service.Onboarding(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), validIntegrationVerification(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	firstVersion := fixture.repository.state.Version
+	firstPutCalls := fixture.repository.putCalls
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), validIntegrationVerification(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.repository.state.Version != firstVersion || fixture.repository.putCalls != firstPutCalls {
+		t.Fatalf("replay changed workspace state: version=%d calls=%d", fixture.repository.state.Version, fixture.repository.putCalls)
 	}
 }
 
@@ -67,6 +161,9 @@ func TestPublicationGateFailsClosedUntilOnboardingIsComplete(t *testing.T) {
 	fixture.transactions = []transactions.Transaction{fixture.transaction}
 	fixture.entitlement = fixture.activeEntitlement
 	if err := fixture.service.RecordConnectorVerification(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), validIntegrationVerification(fixture)); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.service.RecordStorefrontPreview(context.Background(), fixture.principal); err != nil {
@@ -138,6 +235,9 @@ func TestPublicationReadinessRequiresVerifiedServiceConnection(t *testing.T) {
 	fixture.transactions = []transactions.Transaction{fixture.transaction}
 	fixture.entitlement = fixture.activeEntitlement
 	if err := fixture.service.RecordConnectorVerification(context.Background(), fixture.principal); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RecordIntegrationVerification(context.Background(), validIntegrationVerification(fixture)); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.service.RecordStorefrontPreview(context.Background(), fixture.principal); err != nil {
@@ -277,6 +377,16 @@ type workspaceFixture struct {
 	subscriptions     []notifications.SubscriptionView
 	deliveries        []notifications.DeliveryView
 	portalSellerID    domain.ID
+	audit             *workspaceAuditRecorder
+}
+
+type workspaceAuditRecorder struct {
+	requests []audit.RecordRequest
+}
+
+func (recorder *workspaceAuditRecorder) Record(_ context.Context, request audit.RecordRequest) error {
+	recorder.requests = append(recorder.requests, request)
+	return nil
 }
 
 type workspaceRepository struct {
@@ -357,13 +467,34 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 		transaction: transaction, activeEntitlement: activeEntitlement, events: make(map[domain.ID][]evidence.Event),
 	}
 	fixture.repository = newWorkspaceRepository()
+	fixture.audit = &workspaceAuditRecorder{}
 	fixture.service = NewService(Dependencies{
 		Workspaces: fixture.repository, Sellers: fixture, Products: fixture, PaymentDestinations: fixture,
 		Credentials: fixture, Transactions: fixture, Evidence: fixture, WebhookSubscriptions: fixture,
 		WebhookDeliveries: fixture, Billing: fixture,
-		BillingPortal: fixture, AccountVerification: StaticAccountVerification(true), Clock: domain.FixedClock{Value: now},
+		BillingPortal: fixture, AccountVerification: StaticAccountVerification(true), AuditRecorder: fixture.audit, Clock: domain.FixedClock{Value: now},
 	})
 	return fixture
+}
+
+func validIntegrationVerification(fixture *workspaceFixture) integrations.IntegrationVerificationResult {
+	completedAt := domain.NewTimestamp(time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC))
+	return integrations.IntegrationVerificationResult{
+		SchemaVersion: integrations.IntegrationVerificationSchemaVersion,
+		SellerID:      fixture.seller.SellerID,
+		RouteID:       fixture.route.RouteID,
+		RouteVersion:  fixture.route.Version,
+		CompletedAt:   completedAt,
+		Valid:         true,
+		Checks: []integrations.IntegrationVerificationCheck{
+			{Name: integrations.IntegrationVerificationCheckEndpointReachability, Passed: true, Message: "Endpoint reached."},
+			{Name: integrations.IntegrationVerificationCheckSignedExchange, Passed: true, Message: "Signed exchange passed."},
+			{Name: integrations.IntegrationVerificationCheckSchemaContract, Passed: true, Message: "Schema contract passed."},
+			{Name: integrations.IntegrationVerificationCheckFulfillmentReadiness, Passed: true, Message: "Fulfillment readiness passed."},
+			{Name: integrations.IntegrationVerificationCheckPaymentGating, Passed: true, Message: "Payment gating passed."},
+			{Name: integrations.IntegrationVerificationCheckReplayIdempotency, Passed: true, Message: "Replay protection passed."},
+		},
+	}
 }
 
 func (fixture *workspaceFixture) GetSeller(context.Context, domain.ID) (catalog.Seller, error) {

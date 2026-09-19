@@ -36,7 +36,7 @@ func TestServiceIntegratesWithForwarderAndVerificationMiddleware(t *testing.T) {
 		http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 			fulfillmentCalls++
 			response.Header().Set("Content-Type", "application/json")
-			_, _ = response.Write([]byte(`{"sandbox":"accepted"}`))
+			_, _ = response.Write(validSandboxResponseBody())
 		}),
 	)
 	catalogReader := validCatalogReader()
@@ -52,6 +52,8 @@ func TestServiceIntegratesWithForwarderAndVerificationMiddleware(t *testing.T) {
 		forwarder,
 		clock,
 	)
+	service.SetEndpointVerificationRecorder(&testEndpointRecorder{})
+	service.SetResultRecorder(&testResultRecorder{})
 
 	result, err := service.Validate(
 		t.Context(),
