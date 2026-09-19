@@ -28,6 +28,8 @@ Read-only checks against the configured `agentpay-india` profile established:
 - `GET /health/live` and `GET /health/ready` return `200`; readiness reports
   `dynamodb`, `evidence_store`, `kms`, `secrets`, and `x402_facilitator` ready;
 - `GET /.well-known/agentpay` and `GET /v1/payment-capabilities` return `200`;
+- both Secrets Manager pepper containers have an `AWSCURRENT` version; no
+  secret values were read;
 - thirteen CloudWatch alarms and the seller operations dashboard are deployed;
   SNS alarm notification actions and delivery are not configured;
 - the Terraform-managed development budget is healthy at `$10/month` and
