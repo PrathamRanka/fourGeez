@@ -1,4 +1,4 @@
 aws_account_id  = "000000000000"
-aws_region      = "us-east-1"
+aws_region      = "ap-south-1"
 environment     = "dev"
 state_bucket_name = "replace-with-agentpay-dev-terraform-state"

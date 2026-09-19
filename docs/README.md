@@ -9,8 +9,9 @@ implemented and verified locally. M7.1 provides seller authentication,
 subscription enforcement, cloud-authoritative MCP access, the shared browser
 and agent x402 commerce path, exactly-once fulfillment, the essential seller
 dashboard, and full-system browser verification. M8 infrastructure work has
-started with the Terraform foundation; deployable AWS resources and M9
-deployed release verification remain pending. Until those milestones pass,
+started with the Terraform foundation and protected development state backend;
+application AWS resources and M9 deployed release verification remain pending.
+Until those milestones pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 

@@ -1,5 +1,5 @@
 bucket       = "replace-with-agentpay-dev-terraform-state"
 key          = "agentpay/dev/terraform.tfstate"
-region       = "us-east-1"
+region       = "ap-south-1"
 encrypt      = true
 use_lockfile = true

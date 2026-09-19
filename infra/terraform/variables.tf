@@ -11,7 +11,7 @@ variable "aws_account_id" {
 variable "aws_region" {
   description = "AWS region for the AgentPay environment."
   type        = string
-  default     = "us-east-1"
+  default     = "ap-south-1"
 
   validation {
     condition     = can(regex("^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$", var.aws_region))

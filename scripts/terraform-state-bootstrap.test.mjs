@@ -43,10 +43,12 @@ test("state bootstrap is pinned, account-scoped, and validated by CI", () => {
   assert.match(versions, /version\s*=\s*"= 6\.65\.0"/);
   assert.match(provider, /allowed_account_ids\s*=\s*\[var\.aws_account_id\]/);
   assert.match(workflow, /working-directory:\s*infra\/bootstrap/);
+  assert.match(read("infra/bootstrap/variables.tf"), /default\s*=\s*"ap-south-1"/);
 });
 
 test("runbook documents bootstrap and backend migration without committing account values", () => {
   const runbook = read("docs/AWS_SETUP.md");
+  const implementation = read("docs/IMPLEMENTATION.md");
   const bootstrapExample = read(
     "infra/bootstrap/environments/dev.tfvars.example",
   );
@@ -55,5 +57,10 @@ test("runbook documents bootstrap and backend migration without committing accou
   assert.match(runbook, /terraform -chdir=infra\/bootstrap apply/);
   assert.match(runbook, /terraform -chdir=infra\/terraform init -migrate-state/);
   assert.match(bootstrapExample, /aws_account_id\s*=\s*"000000000000"/);
+  assert.match(bootstrapExample, /aws_region\s*=\s*"ap-south-1"/);
   assert.match(bootstrapExample, /state_bucket_name\s*=\s*"replace-with-/);
+  assert.match(
+    implementation,
+    /- \[x\] \*\*AWS-001\*\* Bootstrap the development AWS account and Terraform state backend\./,
+  );
 });

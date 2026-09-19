@@ -10,7 +10,7 @@ Use separate AWS accounts when available:
 - `agentpay-demo`: stable hackathon demonstration.
 - `agentpay-prod`: deferred until security and legal gates pass.
 
-The default development region is `us-east-1`. Before deployment, confirm that the configured Bedrock model and all required services are available in the selected region. Never hardcode account IDs, region, model IDs, URLs, addresses, or secrets in source.
+The default development region is Mumbai, `ap-south-1`. Confirm that every required service is available in the selected region. Never hardcode account IDs, URLs, addresses, or secrets in source. Bedrock is disabled for the seller-first V1 deployment.
 
 ## Local prerequisites
 
@@ -36,7 +36,7 @@ Local and CI configuration names:
 
 ```text
 AGENTPAY_ENV=dev
-AWS_REGION=us-east-1
+AWS_REGION=ap-south-1
 AGENTPAY_TABLE_NAME=<Terraform output>
 AGENTPAY_EVIDENCE_BUCKET=<Terraform output>
 AGENTPAY_EVIDENCE_KMS_KEY_ID=<Terraform output>
@@ -185,6 +185,11 @@ After initialization, verify that the state object and its `.tflock` companion
 can be created only through authenticated TLS requests and that a second
 Terraform process cannot acquire the same lock. Do not delete the bootstrap
 state until the remote state bucket and version history have been verified.
+
+AWS-001 verification requires a versioned state object, no current `.tflock`
+object after Terraform exits, and a concurrent operation failing to acquire the
+same native S3 lock. Keep the ignored bootstrap state in encrypted operator
+storage because it remains the recovery record for the protected backend.
 
 Deploy the web application only after recording the HTTP API, WebSocket, and Cognito outputs.
 

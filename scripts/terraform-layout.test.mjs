@@ -60,6 +60,7 @@ test("environment templates keep account-specific values out of committed defaul
     assert.match(backend, /encrypt\s*=\s*true/);
     assert.match(backend, /use_lockfile\s*=\s*true/);
     assert.match(variables, new RegExp(`environment\\s*=\\s*"${environment}"`));
+    assert.match(variables, /aws_region\s*=\s*"ap-south-1"/);
     assert.match(variables, /aws_account_id\s*=\s*"000000000000"/);
   }
 
