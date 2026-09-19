@@ -36,8 +36,8 @@ must apply and verify them in GitHub.
 
 ### Access and repository features
 
-1. Decide whether source visibility is intentional. If not, select **Settings ?
-   General ? Danger Zone ? Change repository visibility ? Private**.
+1. Decide whether source visibility is intentional. If not, select **Settings →
+   General → Danger Zone → Change repository visibility → Private**.
 2. Prefer an organization with both owners instead of relying on one personal
    account. Give maintainers the least repository role they need and review
    collaborators and deploy keys quarterly.
@@ -77,7 +77,7 @@ explicitly require code-owner approval.
    account.
 2. Enable dependency graph, Dependabot alerts, Dependabot security updates,
    secret scanning, and push protection where the account plan supports them.
-3. In **Actions ? General**, allow only GitHub-authored and explicitly approved
+3. In **Actions → General**, allow only GitHub-authored and explicitly approved
    actions, set workflow permissions to read-only by default, prevent Actions
    from creating or approving pull requests, and require approval for workflows
    from first-time external contributors.

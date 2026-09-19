@@ -64,3 +64,4 @@ Thumbs.db
 .tools/
 .worktrees/
 debug.log
+.vercel
