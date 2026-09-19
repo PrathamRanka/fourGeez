@@ -18,15 +18,25 @@ Read-only checks against the configured `agentpay-india` profile established:
 
 - the caller is the non-root IAM user `agentpay-deployer` in the intended account;
 - the configured region is `ap-south-1`;
-- the applied Lambda regional concurrency quota is `400` with no functions;
-- no HTTP APIs or CloudWatch alarms are currently deployed;
+- Terraform applied **37 additions, 0 changes, and 0 destroys**, and the
+  post-apply plan reports no changes;
+- the applied Lambda regional concurrency quota is `400`, and
+  `agentpay-dev-api` is `Active` on `provided.al2023`, ARM64, with reserved
+  concurrency `5`;
+- HTTP API `sadmp7j94e` is live at
+  `https://sadmp7j94e.execute-api.ap-south-1.amazonaws.com`;
+- `GET /health/live` and `GET /health/ready` return `200`; readiness reports
+  `dynamodb`, `evidence_store`, `kms`, `secrets`, and `x402_facilitator` ready;
+- `GET /.well-known/agentpay` and `GET /v1/payment-capabilities` return `200`;
+- thirteen CloudWatch alarms and the seller operations dashboard are deployed;
+  SNS alarm notification actions and delivery are not configured;
 - the Terraform-managed development budget is healthy at `$10/month` and
   reported `$0` actual spend at the time of inspection;
-- Terraform state contains the foundation, protected evidence, signing,
-  secrets-container, DynamoDB, and Cognito outputs, but no `http_api_url`; and
-- Vercel CLI is authenticated, the `web` project serves the canonical domain,
-  and all required production environment-variable names exist. Their
-  encrypted values remain unverified until Terraform produces the API origin.
+- Vercel production variables use the Terraform HTTP API origin; deployment
+  `dpl_ExWeM7fxdqtUoLK2HUA1cki2X3Ti` is `READY` and aliased to
+  `https://agentpay.prathamranka.in`; and
+- `GET /api/auth/csrf`, `GET /sign-in`, and `GET /docs` return `200` on the
+  canonical Vercel domain.
 
 The current deployer user still has AWS-managed `AdministratorAccess`. That is
 an external production blocker: use it only to create narrow Terraform roles,
@@ -141,15 +151,16 @@ for Lean V1. AWS deployment must not expose their REST or WebSocket surfaces.
 - Lambda environment variables contain references and identifiers, not secret values.
 - CloudWatch structured JSON logs with request IDs and redaction.
 
-AWS-005 application resources are reproducible but remain disabled by
-`api_deployment_enabled = false` until the reviewed application plan is
-approved. On September 19, 2026, the Mumbai account reported an applied Lambda
-concurrency quota of 400, so the former quota-10 blocker is resolved. The
+AWS-005 is deployed. On September 19, 2026, Terraform created the reviewed
+application resources with 37 additions, 0 changes, and 0 destroys; the
+post-apply plan reported no changes. The Mumbai `agentpay-dev-api` Lambda is
+Active on the `provided.al2023` ARM64 runtime with reserved concurrency 5
+under the applied regional quota of 400. HTTP API `sadmp7j94e` serves REST and
+`/mcp` from `https://sadmp7j94e.execute-api.ap-south-1.amazonaws.com`. The
 production composition uses DynamoDB
 repositories, Secrets Manager/KMS-backed cryptography and webhook secrets,
 protected S3 evidence storage, KMS signing, and the Lambda HTTP adapter. Do not
-enable or apply the application module merely to deploy an empty shell or to
-bypass the required non-zero reserved-concurrency guard.
+apply an empty shell or bypass the required non-zero reserved-concurrency guard.
 
 New AWS accounts can have an applied regional Lambda concurrency quota of 10,
 even though the documented default quota is higher. Lambda requires at least 10
@@ -171,10 +182,14 @@ the account cannot preserve AWS's ten unreserved executions.
 
 A fresh plan generated on September 19, 2026 with the API runtime enabled and
 the launch-entitlement role configured contained **37 additions, 0 changes,
-and 0 destroys**. It was not applied. Regenerate it after every code, quota,
+and 0 destroys**. That plan was applied successfully, and the post-apply plan
+reported no changes. Regenerate the plan after every code, quota,
 configuration, or state change.
 
 ### Bedrock application permissions
+
+Bedrock remains disabled and is non-blocking for the seller-first V1
+deployment. The deterministic buyer path remains available without it.
 
 - Do not create a model resource.
 - Configure `AGENTPAY_BEDROCK_MODEL_ID` after checking regional availability and account access.
@@ -184,7 +199,7 @@ configuration, or state change.
 
 ### Web module
 
-- Amplify Hosting connected to the intended branch or deployed through a documented artifact flow.
+- Vercel production deployment connected to the intended project and canonical domain.
 - Server-side environment variables contain API origins and Cognito identifiers.
 - No AWS secret or wallet material is exposed through `NEXT_PUBLIC_*` variables.
 - Configure CSP, frame ancestors, referrer policy, and secure cookies.
@@ -291,6 +306,11 @@ The reviewed plan must contain no destruction and must retain ARM64, the
 configured non-zero reserved concurrency, API throttles, seven-day logs, the
 canonical web-origin CORS allowlist, and no WebSocket API.
 
+The September 19, 2026 AWS-005 apply met those requirements: 37 additions, no
+changes, no destroys, followed by a no-change plan. The deployed Lambda is
+`agentpay-dev-api` on `provided.al2023` ARM64 with reserved concurrency 5, and
+HTTP API `sadmp7j94e` is reachable at the recorded Terraform origin.
+
 After initialization, verify that the state object and its `.tflock` companion
 can be created only through authenticated TLS requests and that a second
 Terraform process cannot acquire the same lock. Do not delete the bootstrap
@@ -342,9 +362,10 @@ npm run ops:vercel:configure -- --apply --initialize-session-key --project web -
 
 Do not use `--initialize-session-key` during ordinary redeployments because
 rotating it invalidates current seller sessions. The linked Vercel project is
-`web`; on September 19, 2026 its production environment contained all required
-variable names, but their encrypted values could not be compared with an HTTP
-API output because AWS-005 was still disabled.
+`web`. On September 19, 2026 its production variables used the Terraform API
+origin, deployment `dpl_ExWeM7fxdqtUoLK2HUA1cki2X3Ti` was `READY` and aliased
+to `https://agentpay.prathamranka.in`, and `/api/auth/csrf`, `/sign-in`, and
+`/docs` each returned `200`.
 
 No step may require an undocumented console change except initial account/Bedrock provider access. If a console action is unavoidable, add it here with the exact verification command.
 
@@ -410,6 +431,11 @@ webhook retry, and webhook dead-letter failures. Missing data is healthy, and
 the dashboard/alarms exist only when the API runtime exists. Configure reviewed
 SNS topic ARNs through `operational_alarm_action_arns`; an empty list creates
 alarms without notifications and must not be used for a public launch.
+
+On September 19, 2026, all thirteen CloudWatch alarms and the seller operations
+dashboard were deployed. AWS-009 remains in progress because
+`operational_alarm_action_arns` has no configured SNS notification action and
+alarm delivery has not been verified.
 
 Manual launch entitlement operations are documented in
 [`runbooks/LAUNCH_ENTITLEMENT.md`](runbooks/LAUNCH_ENTITLEMENT.md). Webhook live
