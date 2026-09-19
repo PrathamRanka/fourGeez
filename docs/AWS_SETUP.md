@@ -65,7 +65,7 @@ Only names, local mock values, and non-sensitive URLs belong in `.env.example`. 
 
 - One DynamoDB table using `PK` and `SK` strings, on-demand billing, point-in-time recovery, AWS-owned encryption for the hackathon, and deletion protection in demo/prod.
 - GSIs exactly as defined in `DATA_MODEL.md`.
-- One S3 evidence bucket with Block Public Access, bucket-owner-enforced ownership, versioning, Object Lock enabled at creation, and KMS encryption.
+- One S3 evidence bucket with Block Public Access, bucket-owner-enforced ownership, versioning, Object Lock enabled at creation, and AWS-managed KMS encryption with bucket keys. This avoids a second idle customer-managed-key charge while retaining KMS-backed storage encryption.
 - One asymmetric KMS signing key for evidence signatures. The application requires `kms:Sign`; verification paths require `kms:GetPublicKey` and `kms:Verify` where supported.
 - One separate CloudWatch log bucket or log groups. Do not use the Object Lock evidence bucket as an S3 server-access-log destination.
 

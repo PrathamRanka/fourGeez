@@ -22,3 +22,8 @@ variable "tags" {
   description = "Common non-sensitive resource tags."
   type        = map(string)
 }
+
+variable "evidence_retention_days" {
+  description = "Default Object Lock retention for evidence objects."
+  type        = number
+}

@@ -45,3 +45,14 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "evidence_retention_days" {
+  description = "Default Object Lock retention for evidence objects."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.evidence_retention_days >= 1 && var.evidence_retention_days <= 3650
+    error_message = "evidence_retention_days must be between 1 and 3650."
+  }
+}
