@@ -289,7 +289,10 @@ Create alarms for any evidence-write failure, repeated payment replay, 5xx spike
 
 ## Cost controls
 
-- Add account budget alerts before deployment.
+- The development account uses a Terraform-managed monthly cost budget. The
+  recipient is supplied only through the ignored environment tfvars; committed
+  examples keep it null. Alerts fire at 50%, 80%, and 100% actual spend and at
+  100% forecasted spend.
 - Use DynamoDB on-demand capacity and Lambda reserved concurrency.
 - Limit CloudWatch log retention in development.
 - Set Bedrock maximum output tokens and per-request tool-call limits.

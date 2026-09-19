@@ -98,6 +98,32 @@ variable "seller_self_registration_enabled" {
   default     = true
 }
 
+variable "budget_alert_email" {
+  description = "Optional recipient for development account cost alerts."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = (
+      var.budget_alert_email == null ||
+      can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.budget_alert_email))
+    )
+    error_message = "budget_alert_email must be null or a valid email address."
+  }
+}
+
+variable "monthly_budget_limit_usd" {
+  description = "Monthly account cost budget in US dollars."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.monthly_budget_limit_usd >= 1 && var.monthly_budget_limit_usd <= 100
+    error_message = "monthly_budget_limit_usd must be between 1 and 100."
+  }
+}
+
 variable "api_deployment_enabled" {
   description = "Creates the AWS-005 Lambda and HTTP API only after durable runtime readiness passes."
   type        = bool

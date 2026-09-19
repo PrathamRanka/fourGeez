@@ -242,7 +242,7 @@ authorization, revocation, transaction, and failure semantics proven locally.
   prewired for seller-only route families and remains disabled with AWS-005.
 - [ ] **AWS-007** Configure Bedrock model access and runtime permissions.
 - [ ] **AWS-008** Deploy Next.js and configure environment-specific API origins.
-- [ ] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, and seller failures.
+- [ ] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, and seller failures. The development account budget and email thresholds are deployed early as a cost-control prerequisite; runtime dashboards and alarms remain pending.
 - [ ] **AWS-010** Verify teardown behavior while retaining protected evidence resources.
 - [ ] **AWS-011** Provision a private TLS-protected managed Redis-compatible cache for entitlement epochs, bounded entitlement caching, revocation, replay, idempotency, rate limits, and discovery invalidation; configure authentication, subnet/security boundaries, metrics, alarms, and failure testing while retaining DynamoDB as source of truth.
 - [ ] **AWS-012** Deploy the durable subscription/credential outbox processor and cache/CDN invalidation consumers with retry, dead-letter handling, revision recovery, and observability.
