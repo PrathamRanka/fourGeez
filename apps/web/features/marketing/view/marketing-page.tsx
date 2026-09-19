@@ -29,9 +29,24 @@ import { HeroMascot } from "@/features/marketing/view/hero-mascot";
 import styles from "./marketing-page.module.css";
 
 const setupSteps = [
-  ["01", "Connect", "Add one project key to your coding agent."],
-  ["02", "Review", "Approve routes, prices, and deployment changes."],
-  ["03", "Publish", "Open a verified storefront to people and agents."],
+  [
+    "01",
+    "Connect",
+    "Give your coding agent one scoped project key.",
+    "Your repository stays yours",
+  ],
+  [
+    "02",
+    "Review",
+    "Approve every route, price, and deployment change.",
+    "Nothing commercial ships silently",
+  ],
+  [
+    "03",
+    "Publish",
+    "Open one verified storefront to people and agents.",
+    "Start accepting testnet sales",
+  ],
 ] as const;
 
 function ArrowLink({ href, children }: { href: string; children: string }) {
@@ -129,7 +144,7 @@ function SignalStrip() {
       <div className={styles.stackRail}>
         <div className={styles.stackRailCopy}>
           <span>Supported today</span>
-          <strong>21 maintained recipes across 13 ecosystems</strong>
+          <strong>21 maintained stacks</strong>
         </div>
         <Marquee
           className={styles.stackTicker}
@@ -403,16 +418,18 @@ function IntegrationSection() {
         <p className={styles.kicker}>Integration</p>
         <h2 id="integration-title">One integration. Every sale.</h2>
         <p>
-          AgentPay sits between discovery and fulfillment without taking custody
-          of buyer funds.
+          Connect your existing product once. AgentPay prepares discovery,
+          verifies payment, and authorizes fulfillment while buyer funds go
+          directly to you, without taking custody of buyer funds.
         </p>
         <ol className={styles.setupSteps}>
-          {setupSteps.map(([number, title, description]) => (
+          {setupSteps.map(([number, title, description, outcome]) => (
             <li key={number}>
               <span>{number}</span>
               <div>
                 <strong>{title}</strong>
                 <p>{description}</p>
+                <small>{outcome}</small>
               </div>
             </li>
           ))}
@@ -436,10 +453,10 @@ function PricingSection() {
     >
       <header className={styles.centeredHeading}>
         <p className={styles.kicker}>Plans</p>
-        <h2>Scale when your catalog does.</h2>
+        <h2>Start small. Keep the upside.</h2>
         <p>
-          Implemented limits, clearly separated. Launch pricing is configured
-          through seller billing.
+          Straightforward monthly plans mapped to limits already enforced by
+          AgentPay. Buyer payments still settle directly to you.
         </p>
       </header>
       <div className={styles.pricingGrid}>
@@ -449,13 +466,13 @@ function PricingSection() {
             key={plan.name}
           >
             {plan.featured ? (
-              <span className={styles.popular}>Most capable for launch</span>
+              <span className={styles.popular}>Best for growing sellers</span>
             ) : null}
             <div className={styles.planTop}>
               <h3>{plan.name}</h3>
               <p>{plan.audience}</p>
-              <strong>{plan.volume}</strong>
-              <span>{plan.volumeLabel}</span>
+              <strong>{plan.price}</strong>
+              <span>{plan.priceLabel}</span>
             </div>
             <Link
               className={plan.featured ? styles.planPrimary : styles.planAction}
@@ -475,8 +492,8 @@ function PricingSection() {
         ))}
       </div>
       <p className={styles.pricingNote}>
-        Buyer funds settle directly to your verified wallet. AgentPay
-        subscription billing is separate.
+        Launch prices are published for planning. Stripe subscription checkout
+        is not yet enabled in this development preview.
       </p>
     </section>
   );

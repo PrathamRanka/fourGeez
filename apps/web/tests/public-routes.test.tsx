@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import DevelopersPage from "@/app/developers/page";
+import ContactPage from "@/app/contact/page";
 import DocsPage from "@/app/docs/page";
 import PrivacyPage from "@/app/privacy/page";
 import SecurityPage from "@/app/security/page";
@@ -87,5 +88,25 @@ describe("AgentPay public routes", () => {
     expect(
       screen.getByRole("link", { name: "Ayush Garg on LinkedIn" }),
     ).toHaveAttribute("href", "https://www.linkedin.com/in/gargayush1911/");
+  });
+
+  it("publishes direct founder contact channels", () => {
+    render(<ContactPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Talk directly to the founders." }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Email Pratham Ranka" }),
+    ).toHaveAttribute("href", "mailto:pranka0789@gmail.com");
+    expect(
+      screen.getByRole("link", { name: "Call Pratham Ranka" }),
+    ).toHaveAttribute("href", "tel:+917023206003");
+    expect(
+      screen.getByRole("link", { name: "Email Ayush Garg" }),
+    ).toHaveAttribute("href", "mailto:gargayush@gmail.com");
+    expect(
+      screen.getByRole("link", { name: "Call Ayush Garg" }),
+    ).toHaveAttribute("href", "tel:+919588791911");
   });
 });

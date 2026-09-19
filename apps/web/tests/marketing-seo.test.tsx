@@ -125,6 +125,7 @@ describe("AgentPay marketing discovery", () => {
       `${canonicalOrigin}/`,
       `${canonicalOrigin}/docs`,
       `${canonicalOrigin}/developers`,
+      `${canonicalOrigin}/contact`,
       `${canonicalOrigin}/demo/agent-checkout`,
       `${canonicalOrigin}/security`,
       `${canonicalOrigin}/privacy`,

@@ -18,6 +18,7 @@ const footerGroups = [
     links: [
       { href: "/docs", label: "Documentation" },
       { href: "/#faq", label: "FAQ" },
+      { href: "/contact", label: "Contact us" },
       { href: "/sign-up", label: "Get started" },
     ],
   },

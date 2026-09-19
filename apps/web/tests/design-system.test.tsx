@@ -28,6 +28,10 @@ describe("AgentPay web foundation", () => {
     expect(
       screen.getByRole("link", { name: "Meet the developers" }),
     ).toHaveAttribute("href", "/developers");
+    expect(screen.getByRole("link", { name: "Contact us" })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
     expect(
       screen.queryByRole("link", { name: "GitHub repository" }),
     ).not.toBeInTheDocument();

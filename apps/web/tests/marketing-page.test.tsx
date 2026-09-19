@@ -70,6 +70,10 @@ describe("AgentPay public site", () => {
   it("groups the maintained stack matrix into distinct ecosystem marks", () => {
     render(<HomePage />);
 
+    const productFacts = screen.getByRole("region", {
+      name: "AgentPay product facts",
+    });
+
     expect(
       screen.getByRole("heading", {
         name: "Keep your stack. Open a new sales channel.",
@@ -80,12 +84,13 @@ describe("AgentPay public site", () => {
         "AgentPay turns existing API routes into products people and software agents can buy.",
       ),
     ).toBeVisible();
-    expect(screen.getByText("Keep your product")).toBeVisible();
-    expect(screen.getByText("Control every offer")).toBeVisible();
-    expect(screen.getByText("Get paid directly")).toBeVisible();
-    expect(
-      screen.getByText("21 maintained recipes across 13 ecosystems"),
-    ).toBeVisible();
+    expect(within(productFacts).getByText("Keep your product")).toBeVisible();
+    expect(within(productFacts).getByText("Control every offer")).toBeVisible();
+    expect(within(productFacts).getByText("Get paid directly")).toBeVisible();
+    expect(within(productFacts).getByText("01")).toBeVisible();
+    expect(within(productFacts).getByText("02")).toBeVisible();
+    expect(within(productFacts).getByText("03")).toBeVisible();
+    expect(within(productFacts).getByText("21 maintained stacks")).toBeVisible();
     expect(
       screen.queryByText("Built for the stack you already run"),
     ).not.toBeInTheDocument();
@@ -144,7 +149,7 @@ describe("AgentPay public site", () => {
     render(<HomePage />);
 
     expect(
-      screen.getByText(/funds settle directly to your verified wallet/i),
+      screen.getByText(/buyer funds go directly to you/i),
     ).toBeVisible();
     expect(
       screen.getByText(/without taking custody of buyer funds/i),
@@ -157,7 +162,7 @@ describe("AgentPay public site", () => {
     ).toBeVisible();
   });
 
-  it("presents the implemented plans without inventing subscription prices", () => {
+  it("presents launch pricing against the implemented plan limits", () => {
     render(<HomePage />);
 
     const pricing = screen.getByRole("region", { name: "AgentPay plans" });
@@ -173,7 +178,12 @@ describe("AgentPay public site", () => {
     expect(within(pricing).getByText("5 published products")).toBeVisible();
     expect(within(pricing).getByText("50 published products")).toBeVisible();
     expect(within(pricing).getByText("500 published products")).toBeVisible();
-    expect(within(pricing).queryByText(/\$\d/)).not.toBeInTheDocument();
+    expect(within(pricing).getByText("$6")).toBeVisible();
+    expect(within(pricing).getByText("$10")).toBeVisible();
+    expect(within(pricing).getByText("$15")).toBeVisible();
+    expect(
+      within(pricing).getByText(/checkout is not yet enabled/i),
+    ).toBeVisible();
   });
 
   it("keeps the public experience dark without an appearance control", () => {

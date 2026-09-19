@@ -92,17 +92,17 @@ export const supportedAgents = [
 
 export const launchSignals = [
   {
-    eyebrow: "No rebuild",
+    eyebrow: "01",
     value: "Keep your product",
     label: "Connect the API and checkout flow you already operate.",
   },
   {
-    eyebrow: "You decide",
+    eyebrow: "02",
     value: "Control every offer",
     label: "Approve routes, prices, and launch changes before they go live.",
   },
   {
-    eyebrow: "Your revenue",
+    eyebrow: "03",
     value: "Get paid directly",
     label: "Buyer funds settle to your verified wallet.",
   },
@@ -112,11 +112,12 @@ export const agentPayPlans = [
   {
     name: "Starter",
     audience: "For a focused catalog",
-    volume: "10K",
-    volumeLabel: "API requests / month",
+    price: "$6",
+    priceLabel: "per month",
     featured: false,
     features: [
       "5 published products",
+      "10,000 API requests / month",
       "1,000 MCP operations",
       "30-day evidence retention",
       "Signed webhooks",
@@ -125,11 +126,12 @@ export const agentPayPlans = [
   {
     name: "Growth",
     audience: "For expanding agent revenue",
-    volume: "100K",
-    volumeLabel: "API requests / month",
+    price: "$10",
+    priceLabel: "per month",
     featured: true,
     features: [
       "50 published products",
+      "100,000 API requests / month",
       "10,000 MCP operations",
       "180-day evidence retention",
       "Advanced analytics",
@@ -138,11 +140,12 @@ export const agentPayPlans = [
   {
     name: "Scale",
     audience: "For high-volume platforms",
-    volume: "1M",
-    volumeLabel: "API requests / month",
+    price: "$15",
+    priceLabel: "per month",
     featured: false,
     features: [
       "500 published products",
+      "1,000,000 API requests / month",
       "100,000 MCP operations",
       "10-year evidence retention",
       "Priority support",
@@ -174,6 +177,6 @@ export const frequentlyAskedQuestions = [
   {
     question: "How is AgentPay priced?",
     answer:
-      "AgentPay is seller-funded through a monthly software plan, with optional metered fees for successful transactions and higher tiers for evidence retention, analytics, limits, and support. Buyer settlement remains separate and goes directly to the seller.",
+      "Launch pricing is $6/month for Starter, $10/month for Growth, and $15/month for Scale. Stripe checkout is not yet enabled in this development preview. Buyer settlement remains separate and goes directly to the seller.",
   },
 ] as const;

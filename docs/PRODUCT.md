@@ -262,6 +262,12 @@ collection are disabled. Testnet sellers receive an explicitly provisioned
 launch entitlement; the dashboard must not present Stripe checkout or a billing
 portal as an available onboarding action.
 
+Public launch pricing is **$6/month for Starter**, **$10/month for Growth**, and
+**$15/month for Scale**. These prices describe the implemented plan catalog and
+its limits; they do not imply that checkout is active. Until Stripe activation,
+the site must label billing as unavailable in the development preview and route
+interested sellers through account creation or direct contact.
+
 ## Definition of a launch-ready seller
 
 A seller is ready to publish only when:

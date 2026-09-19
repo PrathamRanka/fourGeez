@@ -169,6 +169,13 @@ export const developersMetadata = buildSupportingPageMetadata({
   path: "/developers",
 });
 
+export const contactMetadata = buildSupportingPageMetadata({
+  title: "Contact",
+  description:
+    "Contact AgentPay co-founders Pratham Ranka and Ayush Garg about seller onboarding, integrations, and launch access.",
+  path: "/contact",
+});
+
 export function buildMarketingRobots(): MetadataRoute.Robots {
   return {
     rules: {
@@ -194,6 +201,7 @@ const publicMarketingPaths = [
   "/",
   "/docs",
   "/developers",
+  "/contact",
   "/demo/agent-checkout",
   "/security",
   "/privacy",
@@ -251,6 +259,7 @@ AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, N
 - Home: ${agentPaySiteOrigin}/
 - Seller integration guide: ${agentPaySiteOrigin}/docs
 - Developers: ${agentPaySiteOrigin}/developers
+- Contact: ${agentPaySiteOrigin}/contact
 - Agent checkout demonstration: ${agentPaySiteOrigin}/demo/agent-checkout
 - Security: ${agentPaySiteOrigin}/security
 - Privacy: ${agentPaySiteOrigin}/privacy

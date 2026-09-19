@@ -1,0 +1,163 @@
+.page {
+  min-height: 75svh;
+  background: #050506;
+}
+
+.hero {
+  padding-block: clamp(2rem, 5vw, 4rem) clamp(3rem, 8vw, 6rem);
+}
+
+.backLink {
+  display: inline-flex;
+  min-height: 2.7rem;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: clamp(3rem, 7vw, 5rem);
+  border: 1px solid var(--border);
+  padding: 0.7rem 0.9rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.backLink svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.kicker,
+.cardTopline,
+.actions small {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  max-width: 11ch;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(3.2rem, 8vw, 7.2rem);
+  font-weight: 540;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+}
+
+.lede {
+  max-width: 42rem;
+  margin-top: 1.5rem;
+  color: var(--muted-foreground);
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  line-height: 1.65;
+}
+
+.contactGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-bottom: clamp(4rem, 9vw, 8rem);
+}
+
+.contactCard {
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: #050506;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.contactCard + .contactCard {
+  border-left: 0;
+}
+
+.cardTopline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.contactCard h2 {
+  margin-top: clamp(3rem, 7vw, 6rem);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  font-weight: 540;
+  letter-spacing: -0.06em;
+}
+
+.actions {
+  display: grid;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.actions a {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  border-bottom: 1px solid var(--border);
+  padding-block: 1.1rem;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    padding 150ms ease;
+}
+
+.actions a > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.actions a > svg:first-child {
+  color: var(--brand-pink);
+}
+
+.actions span,
+.actions strong,
+.actions small {
+  display: block;
+  min-width: 0;
+}
+
+.actions strong {
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .backLink:hover {
+    border-color: var(--foreground);
+    color: var(--foreground);
+    transform: translateX(-0.15rem);
+  }
+
+  .actions a:hover {
+    padding-inline: 0.5rem;
+    color: var(--brand-pink);
+  }
+}
+
+@media (max-width: 720px) {
+  .contactGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .contactCard + .contactCard {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backLink,
+  .actions a {
+    transition: none;
+  }
+}
