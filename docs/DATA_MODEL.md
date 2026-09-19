@@ -348,13 +348,33 @@ An intent becomes immutable after creation.
 | `maximumAmount` | string | Buyer safety limit |
 | `intentHash` | string | Canonical hash of all execution-relevant fields |
 | `expiresAt` | timestamp | Ten minutes after creation by default |
-| `status` | enum | `ready`, `expired`, `executed` |
+| `status` | enum | `ready`, `cancelled`, `expired`, `executed` |
+| `cancelledAt` | timestamp/null | Server time of an explicit buyer cancellation |
+| `cancellationReason` | enum/null | `buyer_requested`; absent unless cancelled |
+| `version` | integer | Starts at 1 and increments for the one lifecycle transition |
 
 The price and commercial fields of an intent never change after creation.
+Only lifecycle metadata may change. The legal Lean V1 transition is exactly one
+of `ready -> cancelled`, `ready -> expired`, or `ready -> executed`.
+Cancellation requires the owning buyer authority and is accepted only before
+checkout claims the intent. Checkout conditionally claims `ready -> executed`
+before issuing the first payment challenge; retries continue through the
+deterministic transaction identity. At `now >= expiresAt`, expiration wins over
+a new cancellation or execution claim while the intent is `ready`. An intent
+claimed before that boundary remains `executed` so the existing transaction can
+complete or recover without authorizing a second payment. Terminal intent
+states never transition again.
 Seller price updates affect only newly created intents. Historical M2 intents
 may contain `requiresApproval` and the `approval_pending` or `approved` states;
 they are retained for migration/read compatibility only and cannot enter the
 Lean V1 payment path.
+
+Intent and transaction API responses derive, but do not persist, an
+`ExactPriceBreakdown` containing `calculation=fixed_single_product`,
+`quantity=1`, `unitAmount`, `subtotal`, `adjustments=0`, `total`, `asset`, and
+`network`. All amount fields are atomic-unit strings. For V1, `unitAmount`,
+`subtotal`, and `total` equal the frozen quote; the projection never implies
+shipping, tax, discounts, or platform fees.
 
 ### BrowserPurchaseSession
 
@@ -526,6 +546,17 @@ The API derives one reconciliation bucket without mutating persisted state:
 `challenged`, `verified`, `finalized`, `fulfilled`, `failed`, or `disputed`.
 Every bucket carries one atomic-unit amount and its exact asset/network pair, so
 unlike currencies are never combined.
+
+The API also derives a `CommerceLifecycleProjection` from the authoritative
+transaction without persisting a second order record. It exposes
+`externalReference=transactionId`, an order-compatible `commerceState`,
+separate `paymentState`, `fulfillmentState`, and `refundState`, plus a bounded
+`recoveryAction`. Recovery actions are advisory and deterministic:
+`retry_same_request` before a payment is observed, `await_reconciliation` while
+finality is unknown, `none` after successful fulfillment, `open_dispute` after
+a finalized delivery failure, `await_resolution` for an open dispute, and
+`record_external_refund` only for `REFUND_RECOMMENDED`. A definitive failed
+payment requires a new intent and never reuses the failed authorization.
 
 ### SellerSalesAggregate (derived M7 read model)
 
@@ -887,6 +918,13 @@ transaction return `422 validation_failed`; a dispute outside the
 replay returns the original `201` response, while reuse of the key or the
 dispute's one-record slot with changed input returns
 `409 idempotency_conflict` or `409 state_conflict`, respectively.
+
+`GET /v1/sellers/{sellerId}/disputes/{disputeId}/refund-records/current`
+returns the one record to the owning seller. Authorized buyer transaction and
+dispute reads may expose only the same bounded record as a remediation
+projection. Its verification state is always `seller_reported`; a future
+provider or network verifier requires a separate contract and may not rewrite
+the append-only seller assertion.
 
 ## DynamoDB layout
 

@@ -232,6 +232,26 @@ published products expose their canonical storefront URLs in the dashboard.
 Package-registry publication and deployed AWS reachability remain explicit
 release dependencies rather than being represented as complete.
 
+## Parallel track EXT — MVP extension work
+
+- [-] **EXT-002** Preserve `purchaseIntent` and `transaction` as the canonical
+  lifecycle while adding buyer-owned pre-checkout cancellation with an
+  expiration-first conditional claim, deterministic single-product exact-price
+  breakdowns, an order-compatible derived transaction lifecycle/recovery
+  projection, readable seller-reported refund remediation, stronger replay and
+  transition coverage, and matching seller dashboard copy. Do not add carts,
+  physical inventory, shipping, tax, custody, Stripe, automated refunds, a
+  generic `Order` entity, discovery changes, payment-adapter changes, SDK work,
+  or Terraform. Depends on LCH-013–LCH-014.
+
+EXT-002 acceptance: cancellation, expiration, and checkout claim are mutually
+exclusive under optimistic concurrency; cancelled or expired intents never
+produce a payment challenge; exact-price totals contain no invented charges;
+transaction lifecycle and recovery projections are deterministic; refund
+records remain append-only, seller-scoped, idempotent, readable, and labeled as
+seller-reported rather than network-verified; focused backend, persistence,
+OpenAPI, and dashboard tests pass.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same
