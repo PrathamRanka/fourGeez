@@ -56,16 +56,48 @@ func TestSellerRoutesCreateAndUpdateCatalog(t *testing.T) {
 	if route.DisplayName != "Research Report" || route.ProductSlug != "research-report" {
 		t.Fatalf("product identity = %q/%q", route.DisplayName, route.ProductSlug)
 	}
+	pauseResponse := performCatalogRequest(
+		t,
+		handler,
+		http.MethodPost,
+		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+route.RouteID.String()+"/pause",
+		"route-pause-1",
+		`{"expectedVersion":1}`,
+	)
+	if pauseResponse.Code != http.StatusOK {
+		t.Fatalf("pause status = %d, body = %s", pauseResponse.Code, pauseResponse.Body.String())
+	}
 	updateResponse := performCatalogRequest(
 		t,
 		handler,
 		http.MethodPatch,
 		"/v1/sellers/"+seller.SellerID.String()+"/routes/"+route.RouteID.String(),
 		"route-update-1",
-		`{"amount":"36000000","expectedVersion":1}`,
+		`{"displayName":"Executive Research Report","method":"POST","pathPattern":"/research/executive","description":"Executive research","mimeType":"application/json","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"outputSchema":{"type":"object","properties":{},"additionalProperties":false},"amount":"36000000","upstreamTimeoutSeconds":25,"expectedVersion":2}`,
 	)
 	if updateResponse.Code != http.StatusOK {
 		t.Fatalf("update status = %d, body = %s", updateResponse.Code, updateResponse.Body.String())
+	}
+	var updated catalog.PaidRoute
+	decodeCatalogResponse(t, updateResponse, &updated)
+	if updated.DisplayName != "Executive Research Report" || updated.PathPattern != "/research/executive" || updated.Version != 3 {
+		t.Fatalf("updated route = %#v", updated)
+	}
+}
+
+func TestSellerRouteDraftUpdateRejectsLiveContract(t *testing.T) {
+	t.Parallel()
+
+	handler := newCatalogHandler(t)
+	sellerResponse := performCatalogRequest(t, handler, http.MethodPost, "/v1/sellers", "seller-create-live-edit", `{"name":"Demo","slug":"live-edit","upstreamBaseUrl":"https://seller.example"}`)
+	var seller catalog.SellerResponse
+	decodeCatalogResponse(t, sellerResponse, &seller)
+	routeResponse := performCatalogRequest(t, handler, http.MethodPost, "/v1/sellers/"+seller.SellerID.String()+"/routes", "route-create-live-edit", `{"displayName":"Research Report","productSlug":"research-report","method":"POST","pathPattern":"/research","description":"Research","mimeType":"application/json","amount":"35000000","asset":"test-usdc","network":"test-network","payTo":"0x123","upstreamTimeoutSeconds":20}`)
+	var route catalog.PaidRoute
+	decodeCatalogResponse(t, routeResponse, &route)
+	response := performCatalogRequest(t, handler, http.MethodPatch, "/v1/sellers/"+seller.SellerID.String()+"/routes/"+route.RouteID.String(), "route-update-live-edit", `{"displayName":"Changed","method":"POST","pathPattern":"/changed","description":"Changed","mimeType":"application/json","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"outputSchema":{"type":"object","properties":{},"additionalProperties":false},"amount":"36000000","upstreamTimeoutSeconds":20,"expectedVersion":1}`)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
 

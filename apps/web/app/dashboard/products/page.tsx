@@ -9,7 +9,7 @@ import {
   loadProductRouteSnapshot,
   pauseRoute,
   publishRoute,
-  updatePrice,
+  updateDraft,
   validateRoute,
 } from "@/features/products/controller";
 import { ProductRouteWorkspace } from "@/features/products/view/product-route-workspace";
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 const productRouteActions = {
   createDraft,
-  updatePrice,
+  updateDraft,
   validateRoute,
   publishRoute,
   pauseRoute,

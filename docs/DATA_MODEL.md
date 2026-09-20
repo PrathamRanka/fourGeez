@@ -332,12 +332,23 @@ Deterministic and sandbox validation results are computed responses and are not
 persisted; publication performs fresh validation so a stale result cannot
 authorize a changed route.
 
+Dashboard edits to `displayName`, `method`, `pathPattern`, `description`,
+`mimeType`, `inputSchema`, `outputSchema`, `amount`, and
+`upstreamTimeoutSeconds` are accepted only while the route is offline (`draft`,
+`paused`, or `emergency_disabled`). Each save uses optimistic concurrency,
+increments `version`, and invalidates any earlier validation result.
+`productSlug` stays immutable, while `asset`, `network`, and `payTo` remain
+controlled by verified payment configuration. A published route rejects draft
+edits, so dashboard changes cannot silently alter a live buyer contract.
+
 `RouteValidationResult` contains the current route `version` and a lowercase
 SHA-256 `contractHash` over the route and seller identity, public
 name/slug/description, method/path, canonical schemas, output MIME type, exact
 price and payout terms, timeout, and version. MCP publication must
 submit both values. The cloud confirmation grant binds the complete publish
-request, publication recomputes the hash, and any intervening draft change
+request; dashboard publication submits the same exact values after an explicit
+preview and approval. Publication recomputes the hash, and any intervening
+draft change
 fails closed. A successful route write atomically replaces its public-directory
 projection. The next signed discovery read includes the new route snapshot and
 advances `publicationRevision`; existing purchase intents retain frozen terms.
@@ -934,7 +945,8 @@ Action vocabulary is fixed to:
   `mcp_confirmation.denied`;
 - `payment_destination.created`, `payment_destination.verified`,
   `payment_destination.disabled`, and `payment_destination.rotated`;
-- `route.draft_created`, `route.price_changed`, `route.published`,
+- `route.draft_created`, `route.draft_updated`, `route.price_changed`,
+  `route.published`,
   `route.paused`, `route.archived`, and `route.emergency_disabled`;
 - `webhook_subscription.created`, `webhook_subscription.updated`, and
   `webhook_subscription.disabled`; and

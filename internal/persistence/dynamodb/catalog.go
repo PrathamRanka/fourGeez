@@ -325,9 +325,7 @@ func (repository *CatalogRepository) UpdateRoute(
 	if storedRoute.SellerID != route.SellerID {
 		return persistence.ErrConditionFailed
 	}
-	if storedRoute.PathPattern != route.PathPattern ||
-		(storedRoute.ProductSlug != "" && storedRoute.ProductSlug != route.ProductSlug) ||
-		(storedRoute.DisplayName != "" && storedRoute.DisplayName != route.DisplayName) {
+	if storedRoute.ProductSlug != "" && storedRoute.ProductSlug != route.ProductSlug {
 		return persistence.ErrConditionFailed
 	}
 

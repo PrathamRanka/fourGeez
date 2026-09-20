@@ -76,10 +76,10 @@ This register records issues found during the real seller onboarding, MCP config
 
 14. **Resolved locally (2026-09-20):** Seller-hosted `llms.txt` is generated from the same persisted catalog revision used to create the current signed AgentPay manifest and product contracts.
 15. **Resolved locally (2026-09-20):** Dashboard and MCP publication, price, pause, archive, and emergency-disable mutations refresh the durable publication snapshot; public responses require revalidation rather than retaining a stale framework cache.
-16. **Resolved locally (2026-09-20):** AgentPay directory, signed manifest/product documents, and seller-hosted `llms.txt` consume one server-authoritative publication snapshot. Editing a published price auto-pauses the route, excludes the changed draft from discovery, and requires validation plus explicit republication before exposure.
-16a. The dashboard is not yet the complete control plane for seller-owned product data, pricing, availability, schemas, payment settings, discovery metadata, and supported public files.
-16b. Every value that AgentPay is allowed to control should be editable from the dashboard and flow through validation, versioning, approval, publication, cache invalidation, and signed discovery regeneration.
-16c. Sellers need a clear draft -> validate -> preview -> publish workflow so dashboard edits never silently change live buyer contracts.
+16. **Resolved locally (2026-09-20):** AgentPay directory, signed manifest/product documents, and seller-hosted `llms.txt` consume one server-authoritative publication snapshot. Integration price staging auto-pauses a published route and removes it from discovery, while dashboard contract edits require the seller to pause first; either path requires validation plus explicit republication before the changed version is exposed.
+16a. **Resolved locally (2026-09-20):** The dashboard controls every seller-editable product contract field and availability action; immutable product slugs and verified payment rail/destination fields remain read-only.
+16b. **Resolved locally (2026-09-20):** Offline draft saves increment the authoritative route version, invalidate prior validation, and reuse the existing version/hash-bound publication path that refreshes discovery projections and signed public documents.
+16c. **Resolved locally (2026-09-20):** The product workspace now enforces draft -> validate -> preview -> explicit approve-and-publish, and the API rejects edits while the buyer contract is live.
 
 ### P1
 

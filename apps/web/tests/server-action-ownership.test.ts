@@ -42,6 +42,16 @@ describe("seller server-action ownership", () => {
       pathPattern: "/research",
       description: "Research",
       mimeType: "application/json",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      outputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
       amount: "1000000",
       asset: "USDC",
       network: "eip155:84532",

@@ -20,7 +20,7 @@ vi.mock("@/features/products/controller", () => ({
   loadProductRouteSnapshot: vi.fn(),
   pauseRoute: vi.fn(),
   publishRoute: vi.fn(),
-  updatePrice: vi.fn(),
+  updateDraft: vi.fn(),
   validateRoute: vi.fn(),
 }));
 vi.mock("@/features/analytics/controller", () => ({

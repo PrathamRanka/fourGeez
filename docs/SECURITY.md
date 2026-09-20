@@ -72,6 +72,7 @@ transaction authority.
 | Stale or forged discovery | Verify the AgentPay discovery signature and expiry, then perform fresh cloud authorization before intent creation, challenge, verification, or settlement |
 | Stale or forged product schema | Canonicalize bounded closed schemas, bind validation and seller confirmation to the exact route version and contract hash, sign the published product contract, and reauthorize commerce from current cloud state |
 | Unapproved discovery drift | Persist one versioned public catalog snapshot, render AgentPay discovery and seller-hosted `llms.txt` from it, auto-pause a published route before applying a price edit, and require validation plus explicit publication before exposing the changed version |
+| Dashboard edit changes a live contract | Reject contract edits while a route is published; require an offline versioned draft, fresh validation, buyer-contract preview, and explicit version/hash-bound publication |
 | Forged browser checkout | Use a short-lived purchase capability bound to seller, route, product slug, request hash, maximum amount, and browser channel; never expose seller credentials to the browser |
 | Generated secret exposure | Write secrets only to ignored server-side configuration, scan generated changes, and never serialize secrets into browser code or model prompts |
 | Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |

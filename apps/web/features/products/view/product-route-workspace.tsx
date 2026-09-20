@@ -7,6 +7,7 @@ import {
   CircleCheck,
   CirclePause,
   CirclePlay,
+  Eye,
   LoaderCircle,
   Package,
   Plus,
@@ -83,6 +84,8 @@ export function ProductRouteWorkspace({
   );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [confirmEmergencyDisable, setConfirmEmergencyDisable] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [previewedVersion, setPreviewedVersion] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(
     initialSnapshot.routes.length === 0,
   );
@@ -109,6 +112,7 @@ export function ProductRouteWorkspace({
       ),
     );
     setValidation(null);
+    setPreviewedVersion(null);
   }
 
   // submitDraft creates an unpublished product route from seller-entered fields.
@@ -120,8 +124,12 @@ export function ProductRouteWorkspace({
     const form = event.currentTarget;
     const fields = new FormData(form);
     let amount: string;
+    let inputSchema: Record<string, unknown>;
+    let outputSchema: Record<string, unknown>;
     try {
       amount = decimalToAtomicUnits(String(fields.get("price") ?? ""));
+      inputSchema = parseSchemaField(fields, "inputSchema", "Input schema");
+      outputSchema = parseSchemaField(fields, "outputSchema", "Output schema");
     } catch (error) {
       setPendingAction(null);
       setErrorMessage(
@@ -137,6 +145,8 @@ export function ProductRouteWorkspace({
       pathPattern: String(fields.get("pathPattern") ?? "").trim(),
       description: String(fields.get("description") ?? "").trim(),
       mimeType: String(fields.get("mimeType") ?? "").trim(),
+      inputSchema,
+      outputSchema,
       amount,
       asset: String(fields.get("asset") ?? "").trim(),
       network: String(fields.get("network") ?? "").trim(),
@@ -158,18 +168,22 @@ export function ProductRouteWorkspace({
     form.reset();
   }
 
-  // submitPrice updates the authoritative quote for future purchase intents.
-  async function submitPrice(event: React.FormEvent<HTMLFormElement>) {
+  // submitDraftChanges saves one complete offline contract revision.
+  async function submitDraftChanges(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedRoute) return;
 
     setErrorMessage(null);
     setStatusMessage(null);
-    setPendingAction("price");
+    setPendingAction("save");
     const fields = new FormData(event.currentTarget);
     let amount: string;
+    let inputSchema: Record<string, unknown>;
+    let outputSchema: Record<string, unknown>;
     try {
       amount = decimalToAtomicUnits(String(fields.get("price") ?? ""));
+      inputSchema = parseSchemaField(fields, "inputSchema", "Input schema");
+      outputSchema = parseSchemaField(fields, "outputSchema", "Output schema");
     } catch (error) {
       setPendingAction(null);
       setErrorMessage(
@@ -177,11 +191,19 @@ export function ProductRouteWorkspace({
       );
       return;
     }
-    const result = await actions.updatePrice({
+    const result = await actions.updateDraft({
       sellerId: initialSnapshot.sellerId,
       routeId: selectedRoute.routeId,
       expectedVersion: selectedRoute.version,
+      displayName: String(fields.get("displayName") ?? "").trim(),
+      method: String(fields.get("method")) === "GET" ? "GET" : "POST",
+      pathPattern: String(fields.get("pathPattern") ?? "").trim(),
+      description: String(fields.get("description") ?? "").trim(),
+      mimeType: String(fields.get("mimeType") ?? "").trim(),
+      inputSchema,
+      outputSchema,
       amount,
+      upstreamTimeoutSeconds: Number(fields.get("upstreamTimeoutSeconds")),
     });
     setPendingAction(null);
 
@@ -191,7 +213,7 @@ export function ProductRouteWorkspace({
     }
 
     replaceRoute(result.value);
-    setStatusMessage("Price updated for future purchases.");
+    setStatusMessage("Draft saved. Validate this version before publishing.");
   }
 
   // validateSelectedRoute refreshes deterministic publication checks.
@@ -213,6 +235,7 @@ export function ProductRouteWorkspace({
     }
 
     setValidation(result.value);
+    setPreviewedVersion(null);
   }
 
   // runLifecycleAction executes one guarded route transition using its current version.
@@ -251,6 +274,7 @@ export function ProductRouteWorkspace({
             : await actions.emergencyDisableRoute(input);
     setPendingAction(null);
     setConfirmEmergencyDisable(false);
+    setConfirmPublish(false);
 
     if (!result.ok) {
       setErrorMessage(result.error);
@@ -326,6 +350,7 @@ export function ProductRouteWorkspace({
 
       {isCreateOpen ? (
         <CreateProductPanel
+          activePaymentDestination={initialSnapshot.activePaymentDestination}
           isFirstProduct={routes.length === 0}
           isPending={pendingAction === "create"}
           onSubmit={submitDraft}
@@ -361,6 +386,7 @@ export function ProductRouteWorkspace({
                   onClick={() => {
                     setSelectedRouteId(route.routeId);
                     setValidation(null);
+                    setPreviewedVersion(null);
                   }}
                 >
                   <span className="product-route-copy">
@@ -383,17 +409,22 @@ export function ProductRouteWorkspace({
               actionsPending={pendingAction}
               auditEvents={initialSnapshot.auditEvents}
               confirmEmergencyDisable={confirmEmergencyDisable}
+              confirmPublish={confirmPublish}
               canonicalOrigin={canonicalOrigin}
               route={selectedRoute}
               sellerSlug={sellerSlug}
               validation={validation}
+              previewedVersion={previewedVersion}
               onArchive={() => runLifecycleAction("archive")}
               onCancelEmergencyDisable={() => setConfirmEmergencyDisable(false)}
               onConfirmEmergencyDisable={() => runLifecycleAction("emergency")}
+              onConfirmPublish={() => runLifecycleAction("publish")}
               onPause={() => runLifecycleAction("pause")}
-              onPublish={() => runLifecycleAction("publish")}
+              onPreview={() => setPreviewedVersion(selectedRoute.version)}
+              onPublish={() => setConfirmPublish(true)}
+              onCancelPublish={() => setConfirmPublish(false)}
               onRequestEmergencyDisable={() => setConfirmEmergencyDisable(true)}
-              onSubmitPrice={submitPrice}
+              onSubmitDraft={submitDraftChanges}
               onValidate={validateSelectedRoute}
             />
           ) : (
@@ -415,12 +446,14 @@ export function ProductRouteWorkspace({
 }
 
 type CreateProductPanelProps = {
+  activePaymentDestination?: ProductRouteSnapshot["activePaymentDestination"];
   isFirstProduct: boolean;
   isPending: boolean;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 };
 
 function CreateProductPanel({
+  activePaymentDestination,
   isFirstProduct,
   isPending,
   onSubmit,
@@ -492,14 +525,21 @@ function CreateProductPanel({
         </label>
         <label>
           <span>Price asset</span>
-          <input name="asset" required readOnly value="USDC" />
+          <input
+            name="asset"
+            required
+            readOnly
+            value={activePaymentDestination?.asset ?? "USDC"}
+          />
         </label>
         <label className="product-field-route">
           <span>Verified payment destination</span>
           <input
             name="payTo"
             required
-            placeholder="0x verified wallet address"
+            readOnly
+            value={activePaymentDestination?.address ?? ""}
+            placeholder="Verify a payout destination first"
           />
         </label>
         <Accordion className="product-advanced-fields">
@@ -537,7 +577,7 @@ function CreateProductPanel({
                     name="network"
                     required
                     readOnly
-                    value="eip155:84532"
+                    value={activePaymentDestination?.network ?? "eip155:84532"}
                   />
                 </label>
                 <label>
@@ -550,17 +590,43 @@ function CreateProductPanel({
                     defaultValue="20"
                   />
                 </label>
+                <label className="product-schema-field">
+                  <span>Buyer input schema</span>
+                  <textarea
+                    name="inputSchema"
+                    required
+                    rows={8}
+                    defaultValue={
+                      '{\n  "type": "object",\n  "properties": {},\n  "additionalProperties": false\n}'
+                    }
+                  />
+                </label>
+                <label className="product-schema-field">
+                  <span>Successful output schema</span>
+                  <textarea
+                    name="outputSchema"
+                    required
+                    rows={8}
+                    defaultValue={
+                      '{\n  "type": "object",\n  "properties": {},\n  "additionalProperties": false\n}'
+                    }
+                  />
+                </label>
               </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending || !activePaymentDestination}>
           {isPending ? (
             <LoaderCircle className="animate-spin" aria-hidden="true" />
           ) : (
             <Plus aria-hidden="true" />
           )}
-          {isPending ? "Creating draft…" : "Create draft"}
+          {isPending
+            ? "Creating draft…"
+            : activePaymentDestination
+              ? "Create draft"
+              : "Verify payout first"}
         </Button>
       </form>
     </section>
@@ -579,17 +645,22 @@ type RouteInspectorProps = {
   actionsPending: string | null;
   auditEvents: RouteAuditEvent[];
   confirmEmergencyDisable: boolean;
+  confirmPublish: boolean;
   canonicalOrigin?: string;
   route: PaidRoute;
   sellerSlug?: string;
   validation: RouteValidationResult | null;
+  previewedVersion: number | null;
   onArchive: () => void;
   onCancelEmergencyDisable: () => void;
+  onCancelPublish: () => void;
   onConfirmEmergencyDisable: () => void;
+  onConfirmPublish: () => void;
   onPause: () => void;
+  onPreview: () => void;
   onPublish: () => void;
   onRequestEmergencyDisable: () => void;
-  onSubmitPrice: (event: React.FormEvent<HTMLFormElement>) => void;
+  onSubmitDraft: (event: React.FormEvent<HTMLFormElement>) => void;
   onValidate: () => void;
 };
 
@@ -597,17 +668,22 @@ function RouteInspector({
   actionsPending,
   auditEvents,
   confirmEmergencyDisable,
+  confirmPublish,
   canonicalOrigin,
   route,
   sellerSlug,
   validation,
+  previewedVersion,
   onArchive,
   onCancelEmergencyDisable,
+  onCancelPublish,
   onConfirmEmergencyDisable,
+  onConfirmPublish,
   onPause,
+  onPreview,
   onPublish,
   onRequestEmergencyDisable,
-  onSubmitPrice,
+  onSubmitDraft,
   onValidate,
 }: RouteInspectorProps) {
   const routeHistory = auditEvents.filter(
@@ -620,6 +696,11 @@ function RouteInspector({
     route.lifecycleStatus,
   );
   const isBusy = actionsPending !== null;
+  const isEditable =
+    route.lifecycleStatus !== "published" &&
+    route.lifecycleStatus !== "archived";
+  const isCurrentValidation = validation?.version === route.version;
+  const hasPreviewedCurrentVersion = previewedVersion === route.version;
   const validationState = validation
     ? validation.valid
       ? "Verified"
@@ -656,8 +737,13 @@ function RouteInspector({
         <ReadinessStep
           label="Publication checks"
           state={validationState}
-          complete={validation?.valid === true}
+          complete={isCurrentValidation && validation?.valid === true}
           blocked={validation?.valid === false}
+        />
+        <ReadinessStep
+          label="Buyer preview"
+          state={hasPreviewedCurrentVersion ? "Reviewed" : "Not reviewed"}
+          complete={hasPreviewedCurrentVersion}
         />
         <ReadinessStep
           label="Storefront availability"
@@ -672,8 +758,12 @@ function RouteInspector({
           <div className="product-section-title">
             <div>
               <p className="product-section-kicker">Commercial</p>
-              <h3>Price</h3>
-              <p>Used for purchase intents created after the update.</p>
+              <h3>{isEditable ? "Draft contract" : "Live buyer contract"}</h3>
+              <p>
+                {isEditable
+                  ? "Save a new version, then validate and preview it."
+                  : "Pause this product before editing. The live buyer contract stays unchanged."}
+              </p>
             </div>
             <strong>{formatAtomicPrice(route.amount, route.asset)}</strong>
           </div>
@@ -684,39 +774,112 @@ function RouteInspector({
             />
             <Definition label="Settlement destination" value={route.payTo} />
           </dl>
-          <form
-            aria-label="Update product price"
-            className="product-price-form"
-            onSubmit={onSubmitPrice}
-          >
-            <label>
-              <span>Price</span>
-              <input
-                key={`${route.routeId}-${route.version}`}
-                name="price"
-                required
-                inputMode="decimal"
-                pattern="[0-9]+(?:\.[0-9]{1,6})?"
-                defaultValue={formatAtomicUnits(route.amount)}
-                disabled={route.lifecycleStatus === "archived" || isBusy}
-              />
-            </label>
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={route.lifecycleStatus === "archived" || isBusy}
+          {isEditable ? (
+            <form
+              aria-label="Edit product draft"
+              className="product-draft-form"
+              onSubmit={onSubmitDraft}
             >
-              {actionsPending === "price" ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : null}
-              {actionsPending === "price" ? "Updating…" : "Update price"}
-            </Button>
-          </form>
-          {route.lifecycleStatus === "published" ? (
-            <p>
-              Changing this price pauses the live product. Validate and publish
-              the new version before buyers can discover it again.
-            </p>
+              <label>
+                <span>Product name</span>
+                <input
+                  name="displayName"
+                  required
+                  maxLength={120}
+                  defaultValue={route.displayName}
+                  disabled={isBusy}
+                />
+              </label>
+              <label>
+                <span>What buyers receive</span>
+                <input
+                  name="description"
+                  required
+                  maxLength={500}
+                  defaultValue={route.description}
+                  disabled={isBusy}
+                />
+              </label>
+              <label>
+                <span>Price</span>
+                <input
+                  key={`${route.routeId}-${route.version}`}
+                  name="price"
+                  required
+                  inputMode="decimal"
+                  pattern="[0-9]+(?:\.[0-9]{1,6})?"
+                  defaultValue={formatAtomicUnits(route.amount)}
+                  disabled={isBusy}
+                />
+              </label>
+              <label>
+                <span>HTTP method</span>
+                <select
+                  name="method"
+                  defaultValue={route.method}
+                  disabled={isBusy}
+                >
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                </select>
+              </label>
+              <label>
+                <span>API path</span>
+                <input
+                  name="pathPattern"
+                  required
+                  pattern="/[A-Za-z0-9/_-]+"
+                  defaultValue={route.pathPattern}
+                  disabled={isBusy}
+                />
+              </label>
+              <label>
+                <span>Output MIME type</span>
+                <input
+                  name="mimeType"
+                  required
+                  defaultValue={route.mimeType}
+                  disabled={isBusy}
+                />
+              </label>
+              <label>
+                <span>Service timeout in seconds</span>
+                <input
+                  name="upstreamTimeoutSeconds"
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]+"
+                  defaultValue={route.upstreamTimeoutSeconds}
+                  disabled={isBusy}
+                />
+              </label>
+              <label className="product-schema-field">
+                <span>Buyer input schema</span>
+                <textarea
+                  name="inputSchema"
+                  required
+                  rows={8}
+                  defaultValue={formatSchema(route.inputSchema)}
+                  disabled={isBusy}
+                />
+              </label>
+              <label className="product-schema-field">
+                <span>Successful output schema</span>
+                <textarea
+                  name="outputSchema"
+                  required
+                  rows={8}
+                  defaultValue={formatSchema(route.outputSchema)}
+                  disabled={isBusy}
+                />
+              </label>
+              <Button type="submit" disabled={isBusy}>
+                {actionsPending === "save" ? (
+                  <LoaderCircle className="animate-spin" aria-hidden="true" />
+                ) : null}
+                {actionsPending === "save" ? "Saving…" : "Save draft"}
+              </Button>
+            </form>
           ) : null}
         </section>
 
@@ -767,8 +930,47 @@ function RouteInspector({
               <span>Run checks after changing price or delivery settings.</span>
             </div>
           )}
+          {isCurrentValidation && validation?.valid ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onPreview}
+              disabled={isBusy}
+            >
+              <Eye aria-hidden="true" />
+              Preview buyer contract
+            </Button>
+          ) : null}
         </section>
       </div>
+
+      {hasPreviewedCurrentVersion ? (
+        <section
+          className="product-detail-section product-contract-preview"
+          role="region"
+          aria-label="Buyer contract preview"
+        >
+          <div className="product-section-title">
+            <div>
+              <p className="product-section-kicker">Buyer view</p>
+              <h3>{route.displayName}</h3>
+              <p>{route.description}</p>
+            </div>
+            <strong>{formatAtomicPrice(route.amount, route.asset)}</strong>
+          </div>
+          <dl className="product-customer-details">
+            <Definition
+              label="Request"
+              value={`${route.method} ${route.pathPattern}`}
+            />
+            <Definition label="Returns" value={route.mimeType} />
+          </dl>
+          <p className="product-muted-copy">
+            Validated version {route.version} · contract{" "}
+            {validation?.contractHash.slice(0, 12)}…
+          </p>
+        </section>
+      ) : null}
 
       <section className="product-detail-section product-controls-section">
         <div className="product-section-title">
@@ -782,7 +984,16 @@ function RouteInspector({
         </div>
         <div className="product-control-row">
           {canPublish ? (
-            <Button type="button" onClick={onPublish} disabled={isBusy}>
+            <Button
+              type="button"
+              onClick={onPublish}
+              disabled={
+                isBusy ||
+                !isCurrentValidation ||
+                !validation?.valid ||
+                !hasPreviewedCurrentVersion
+              }
+            >
               {actionsPending === "publish" ? (
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
               ) : (
@@ -861,6 +1072,32 @@ function RouteInspector({
             </AlertDialog>
           ) : null}
         </div>
+        <AlertDialog
+          open={confirmPublish}
+          onOpenChange={(open) => {
+            if (!open) onCancelPublish();
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogMedia>
+                <CirclePlay aria-hidden="true" />
+              </AlertDialogMedia>
+              <AlertDialogTitle>Approve this buyer contract?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Publish validated version {route.version}. Buyers will see and
+                pay these exact terms. Later edits require taking the product
+                offline first.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep reviewing</AlertDialogCancel>
+              <AlertDialogAction onClick={onConfirmPublish}>
+                Approve and publish
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </section>
 
       <div className="product-lower-grid">
@@ -957,6 +1194,7 @@ function RouteHistory({ events }: { events: RouteAuditEvent[] }) {
 function auditActionLabel(action: string): string {
   const labels: Record<string, string> = {
     "route.draft_created": "Draft created",
+    "route.draft_updated": "Draft updated",
     "route.price_changed": "Price changed",
     "route.published": "Published product",
     "route.paused": "Paused product",
@@ -964,6 +1202,22 @@ function auditActionLabel(action: string): string {
     "route.emergency_disabled": "Emergency disabled product",
   };
   return labels[action] ?? action;
+}
+
+function parseSchemaField(
+  fields: FormData,
+  name: string,
+  label: string,
+): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(String(fields.get(name) ?? ""));
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new Error(`${label} must be a JSON object.`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function formatSchema(schema: Record<string, unknown>): string {
+  return JSON.stringify(schema, null, 2);
 }
 
 function Definition({ label, value }: { label: string; value: string }) {

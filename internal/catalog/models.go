@@ -158,6 +158,20 @@ type UpdateRoutePriceRequest struct {
 	ExpectedVersion uint64        `json:"expectedVersion"`
 }
 
+// UpdateRouteDraftRequest contains seller-controlled fields that may change only while a route is offline.
+type UpdateRouteDraftRequest struct {
+	DisplayName            string        `json:"displayName"`
+	Method                 RouteMethod   `json:"method"`
+	PathPattern            string        `json:"pathPattern"`
+	Description            string        `json:"description"`
+	MIMEType               string        `json:"mimeType"`
+	InputSchema            JSONSchema    `json:"inputSchema"`
+	OutputSchema           JSONSchema    `json:"outputSchema"`
+	Amount                 domain.Amount `json:"amount"`
+	UpstreamTimeoutSeconds int           `json:"upstreamTimeoutSeconds"`
+	ExpectedVersion        uint64        `json:"expectedVersion"`
+}
+
 // RouteVersionRequest guards a route lifecycle mutation with optimistic concurrency.
 type RouteVersionRequest struct {
 	ExpectedVersion uint64 `json:"expectedVersion"`

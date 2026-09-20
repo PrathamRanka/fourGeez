@@ -9,7 +9,7 @@ import type {
   RouteIdentityInput,
   RouteValidationResult,
   RouteVersionInput,
-  UpdateRoutePriceInput,
+  UpdateRouteDraftInput,
 } from "@/features/products/model";
 import {
   authenticatedSellerId,
@@ -29,7 +29,7 @@ export async function loadProductRouteSnapshot(): Promise<ProductRouteSnapshot> 
     };
   }
   const encodedSellerId = encodeURIComponent(sellerId);
-  const [routeResult, auditResult] = await Promise.all([
+  const [routeResult, auditResult, destinationResult] = await Promise.all([
     requestAgentPay<{ items: PaidRoute[] }>(
       `/v1/sellers/${encodedSellerId}/routes`,
       { method: "GET" },
@@ -38,18 +38,35 @@ export async function loadProductRouteSnapshot(): Promise<ProductRouteSnapshot> 
       `/v1/sellers/${encodedSellerId}/audit-events?limit=100`,
       { method: "GET" },
     ),
+    requestAgentPay<{
+      items: Array<{
+        address: string;
+        asset: string;
+        network: string;
+        status: string;
+      }>;
+    }>(`/v1/sellers/${encodedSellerId}/payment-destinations`, {
+      method: "GET",
+    }),
   ]);
 
   const error = !routeResult.ok
     ? routeResult.error
     : !auditResult.ok
       ? auditResult.error
-      : undefined;
+      : !destinationResult.ok
+        ? destinationResult.error
+        : undefined;
 
   return {
     sellerId,
     routes: routeResult.ok ? routeResult.value.items : [],
     auditEvents: auditResult.ok ? auditResult.value.items : [],
+    activePaymentDestination: destinationResult.ok
+      ? destinationResult.value.items.find(
+          (destination) => destination.status === "active",
+        )
+      : undefined,
     error,
   };
 }
@@ -71,16 +88,8 @@ export async function createDraft(
         pathPattern: input.pathPattern,
         description: input.description,
         mimeType: input.mimeType,
-        inputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
-        outputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
+        inputSchema: input.inputSchema,
+        outputSchema: input.outputSchema,
         amount: input.amount,
         asset: input.asset,
         network: input.network,
@@ -92,16 +101,24 @@ export async function createDraft(
   );
 }
 
-// updatePrice changes only the quote used by future purchase intents.
-export async function updatePrice(
-  input: UpdateRoutePriceInput,
+// updateDraft changes the seller-controlled contract only while it is offline.
+export async function updateDraft(
+  input: UpdateRouteDraftInput,
 ): Promise<ActionResult<PaidRoute>> {
   const sellerId = await authenticatedSellerId();
   if (!sellerId) return sellerSessionRequired();
   return requestAgentPay<PaidRoute>(routePath(sellerId, input), {
     method: "PATCH",
     body: {
+      displayName: input.displayName,
+      method: input.method,
+      pathPattern: input.pathPattern,
+      description: input.description,
+      mimeType: input.mimeType,
+      inputSchema: input.inputSchema,
+      outputSchema: input.outputSchema,
       amount: input.amount,
+      upstreamTimeoutSeconds: input.upstreamTimeoutSeconds,
       expectedVersion: input.expectedVersion,
     },
   });

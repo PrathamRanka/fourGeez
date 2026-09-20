@@ -146,9 +146,8 @@ func (repository *CatalogRepository) UpdateRoute(_ context.Context, route catalo
 		return persistence.ErrNotFound
 	}
 	if stored.Version != expectedVersion || route.Version != expectedVersion+1 ||
-		stored.SellerID != route.SellerID || stored.PathPattern != route.PathPattern ||
-		(stored.ProductSlug != "" && stored.ProductSlug != route.ProductSlug) ||
-		(stored.DisplayName != "" && stored.DisplayName != route.DisplayName) {
+		stored.SellerID != route.SellerID ||
+		(stored.ProductSlug != "" && stored.ProductSlug != route.ProductSlug) {
 		return persistence.ErrConditionFailed
 	}
 	productSlugs := repository.productSlugsBySeller[route.SellerID]

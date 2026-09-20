@@ -142,6 +142,57 @@ func TestPaidRouteChangePrice(t *testing.T) {
 	}
 }
 
+func TestPaidRouteUpdateDraftChangesTheWholeSellerControlledContract(t *testing.T) {
+	t.Parallel()
+
+	route := newLifecycleTestRoute(t, RouteLifecycleDraft)
+	changedAt := route.UpdatedAt.Add(time.Minute)
+	err := route.UpdateDraft(UpdateRouteDraftRequest{
+		DisplayName:            "Executive Research Brief",
+		Method:                 RouteMethodGet,
+		PathPattern:            "/research/executive",
+		Description:            "Return a concise executive research brief",
+		MIMEType:               "application/json",
+		InputSchema:            JSONSchema(`{"type":"object","properties":{"topic":{"type":"string"}},"required":["topic"],"additionalProperties":false}`),
+		OutputSchema:           JSONSchema(`{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"],"additionalProperties":false}`),
+		Amount:                 domain.MustParseAmount("40000000"),
+		UpstreamTimeoutSeconds: 25,
+	}, changedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if route.DisplayName != "Executive Research Brief" || route.Method != RouteMethodGet || route.PathPattern != "/research/executive" {
+		t.Fatalf("updated route identity = %#v", route)
+	}
+	if route.Amount.String() != "40000000" || route.UpstreamTimeoutSeconds != 25 || route.Version != 2 || route.UpdatedAt != changedAt {
+		t.Fatalf("updated route terms = %#v", route)
+	}
+}
+
+func TestPaidRouteUpdateDraftRejectsLiveProduct(t *testing.T) {
+	t.Parallel()
+
+	route := newLifecycleTestRoute(t, RouteLifecyclePublished)
+	before := route
+	err := route.UpdateDraft(UpdateRouteDraftRequest{
+		DisplayName:            route.DisplayName,
+		Method:                 route.Method,
+		PathPattern:            route.PathPattern,
+		Description:            route.Description,
+		MIMEType:               route.MIMEType,
+		InputSchema:            route.InputSchema,
+		OutputSchema:           route.OutputSchema,
+		Amount:                 domain.MustParseAmount("40000000"),
+		UpstreamTimeoutSeconds: route.UpstreamTimeoutSeconds,
+	}, route.UpdatedAt.Add(time.Minute))
+	if !errors.Is(err, ErrRoutePublished) {
+		t.Fatalf("UpdateDraft() error = %v, want ErrRoutePublished", err)
+	}
+	if route != before {
+		t.Fatal("rejected live edit mutated the product")
+	}
+}
+
 // TestDraftPaidRoutePublication verifies explicit publication state changes.
 func TestDraftPaidRoutePublication(t *testing.T) {
 	t.Parallel()

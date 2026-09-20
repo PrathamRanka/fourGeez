@@ -337,6 +337,38 @@ func (service *Service) UpdateRoutePrice(
 	return route, nil
 }
 
+// UpdateRouteDraft replaces seller-controlled contract fields while the product is offline.
+func (service *Service) UpdateRouteDraft(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	routeID domain.ID,
+	request UpdateRouteDraftRequest,
+) (PaidRoute, error) {
+	if err := service.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
+	route, err := service.ownedRoute(ctx, sellerID, routeID)
+	if err != nil {
+		return PaidRoute{}, err
+	}
+	if err := route.UpdateDraft(request, domain.NewTimestamp(service.clock.Now())); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.repository.UpdateRoute(ctx, route, request.ExpectedVersion); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID: sellerID, ActorType: audit.ActorTypeSellerUser, ActorID: ownerSubject,
+		Action: audit.ActionRouteDraftUpdated, TargetType: audit.TargetTypePaidRoute,
+		TargetID: routeID.String(), Outcome: audit.OutcomeSucceeded,
+		ChangedFields: []string{"displayName", "method", "pathPattern", "description", "mimeType", "inputSchema", "outputSchema", "amount", "upstreamTimeoutSeconds"},
+	}); err != nil {
+		return PaidRoute{}, err
+	}
+	return route, nil
+}
+
 // ListSellerRoutes returns every route owned by the authenticated seller.
 func (service *Service) ListSellerRoutes(
 	ctx context.Context,
@@ -1139,6 +1171,45 @@ func (paidRoute *PaidRoute) ChangePrice(
 		paidRoute.Enabled = false
 	}
 	paidRoute.Amount = amount
+	paidRoute.UpdatedAt = changedAt
+	paidRoute.Version++
+	return nil
+}
+
+// UpdateDraft changes the complete seller-controlled buyer contract without touching a live route.
+func (paidRoute *PaidRoute) UpdateDraft(request UpdateRouteDraftRequest, changedAt domain.Timestamp) error {
+	if paidRoute.effectiveLifecycleStatus() == RouteLifecyclePublished {
+		return ErrRoutePublished
+	}
+	if paidRoute.effectiveLifecycleStatus() == RouteLifecycleArchived {
+		return ErrRouteLifecycleTransition
+	}
+	candidate := routeParams(*paidRoute)
+	candidate.DisplayName = request.DisplayName
+	candidate.Method = request.Method
+	candidate.PathPattern = request.PathPattern
+	candidate.Description = request.Description
+	candidate.MIMEType = request.MIMEType
+	candidate.InputSchema = request.InputSchema
+	candidate.OutputSchema = request.OutputSchema
+	candidate.Amount = request.Amount
+	candidate.UpstreamTimeoutSeconds = request.UpstreamTimeoutSeconds
+	validationErrors := validatePaidRouteParams(candidate)
+	if len(validationErrors) > 0 {
+		return validationErrors
+	}
+	if changedAt.Before(paidRoute.UpdatedAt) {
+		return domain.NewValidationError("updatedAt", "chronology", "cannot occur before the previous update")
+	}
+	paidRoute.DisplayName = normalizeProductDisplayName(request.DisplayName)
+	paidRoute.Method = request.Method
+	paidRoute.PathPattern = request.PathPattern
+	paidRoute.Description = strings.TrimSpace(request.Description)
+	paidRoute.MIMEType = strings.TrimSpace(request.MIMEType)
+	paidRoute.InputSchema = normalizedSchema(request.InputSchema)
+	paidRoute.OutputSchema = normalizedSchema(request.OutputSchema)
+	paidRoute.Amount = request.Amount
+	paidRoute.UpstreamTimeoutSeconds = request.UpstreamTimeoutSeconds
 	paidRoute.UpdatedAt = changedAt
 	paidRoute.Version++
 	return nil

@@ -55,6 +55,9 @@ var actionDefinitions = map[Action]actionDefinition{
 		"lifecycleStatus",
 		"enabled",
 	),
+	ActionRouteDraftUpdated: newActionDefinition(
+		TargetTypePaidRoute, "displayName", "method", "pathPattern", "description", "mimeType", "inputSchema", "outputSchema", "amount", "upstreamTimeoutSeconds",
+	),
 	ActionRoutePriceChanged: newActionDefinition(TargetTypePaidRoute, "amount"),
 	ActionRoutePublished: newActionDefinition(
 		TargetTypePaidRoute,

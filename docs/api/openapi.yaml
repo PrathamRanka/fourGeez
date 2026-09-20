@@ -980,10 +980,10 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
     patch:
-      summary: Stage a new price for future purchase intents
-      description: If the route is published, the versioned update pauses it immediately. The changed price is excluded from public discovery until the seller validates and publishes the new route version and contract hash. Existing purchase intents retain their frozen quote.
+      summary: Update the seller-controlled draft contract while a product is offline
+      description: Replaces the editable buyer-contract fields on a draft, paused, or emergency-disabled route. Published routes reject this operation so the live contract remains unchanged; the seller must pause the route before saving a new version, then validate, preview, and explicitly publish the new version and contract hash. Immutable product identity and verified payment settings are not accepted by this schema.
       tags: [Sellers]
-      operationId: updatePaidRoutePrice
+      operationId: updatePaidRouteDraft
       security: [{ sellerBearer: [] }]
       parameters:
         - { $ref: '#/components/parameters/SellerId' }
@@ -993,10 +993,10 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateRoutePriceRequest' }
+            schema: { $ref: '#/components/schemas/UpdateRouteDraftRequest' }
       responses:
         '200':
-          description: Route price updated; a previously published route is returned paused and must be validated and published again
+          description: Offline route draft updated; validation of the prior version is stale
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
@@ -2221,7 +2221,7 @@ components:
         actorId: { type: string, minLength: 1, maxLength: 256 }
         action:
           type: string
-          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, service_endpoint.verified, integration_verification.completed, route.draft_created, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
+          enum: [credential.created, credential.revoked, credential.rotated, credential.exchange_succeeded, credential.exchange_denied, entitlement.changed, payment_destination.created, payment_destination.verified, payment_destination.disabled, payment_destination.rotated, service_endpoint.verified, integration_verification.completed, route.draft_created, route.draft_updated, route.price_changed, route.published, route.paused, route.archived, route.emergency_disabled, webhook_subscription.created, webhook_subscription.updated, webhook_subscription.disabled, seller.suspended]
         targetType: { type: string, enum: [integration_credential, payment_destination, paid_route, webhook_subscription, seller] }
         targetId: { type: string, minLength: 1, maxLength: 64 }
         outcome: { type: string, enum: [succeeded, failed, denied] }
@@ -2462,12 +2462,20 @@ components:
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
             version: { type: integer, minimum: 1 }
-    UpdateRoutePriceRequest:
+    UpdateRouteDraftRequest:
       type: object
       additionalProperties: false
-      required: [amount, expectedVersion]
+      required: [displayName, method, pathPattern, description, mimeType, inputSchema, outputSchema, amount, upstreamTimeoutSeconds, expectedVersion]
       properties:
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        method: { type: string, enum: [GET, POST] }
+        pathPattern: { type: string, pattern: '^/[A-Za-z0-9/_-]+$' }
+        description: { type: string, minLength: 1, maxLength: 500 }
+        mimeType: { type: string, minLength: 1, maxLength: 120 }
+        inputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
+        outputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
         amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
+        upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 30 }
         expectedVersion: { type: integer, minimum: 1 }
     RouteVersionRequest:
       type: object

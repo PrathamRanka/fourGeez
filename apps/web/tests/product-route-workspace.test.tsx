@@ -49,6 +49,11 @@ const publishedRoute: PaidRoute = {
 
 const initialSnapshot: ProductRouteSnapshot = {
   sellerId,
+  activePaymentDestination: {
+    address: "0x1111111111111111111111111111111111111111",
+    asset: "USDC",
+    network: "eip155:84532",
+  },
   routes: [publishedRoute],
   auditEvents: [
     {
@@ -92,7 +97,7 @@ function createActions(): ProductRouteActions {
         version: 1,
       },
     }),
-    updatePrice: vi.fn().mockResolvedValue({
+    updateDraft: vi.fn().mockResolvedValue({
       ok: true,
       value: { ...publishedRoute, amount: "40000000", version: 3 },
     }),
@@ -345,9 +350,9 @@ describe("product route workspace", () => {
     expect((await screen.findAllByText("Paused"))[0]).toBeVisible();
   });
 
-  it("updates a draft price, publishes it, and uses the returned route version", async () => {
+  it("saves a full draft, previews the exact validated contract, and approves publication", async () => {
     const actions = createActions();
-    vi.mocked(actions.updatePrice).mockResolvedValue({
+    vi.mocked(actions.updateDraft).mockResolvedValue({
       ok: true,
       value: { ...draftRoute, amount: "40000000", version: 2 },
     });
@@ -369,21 +374,27 @@ describe("product route workspace", () => {
       />,
     );
 
-    const priceForm = screen.getByRole("form", {
-      name: "Update product price",
+    const draftForm = screen.getByRole("form", {
+      name: "Edit product draft",
     });
-    fireEvent.change(within(priceForm).getByLabelText("Price"), {
+    fireEvent.change(within(draftForm).getByLabelText("Price"), {
       target: { value: "40" },
     });
-    fireEvent.submit(priceForm);
+    fireEvent.change(within(draftForm).getByLabelText("Product name"), {
+      target: { value: "Executive Research Report" },
+    });
+    fireEvent.submit(draftForm);
 
     await waitFor(() =>
-      expect(actions.updatePrice).toHaveBeenCalledWith({
-        sellerId,
-        routeId: draftRoute.routeId,
-        expectedVersion: 1,
-        amount: "40000000",
-      }),
+      expect(actions.updateDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sellerId,
+          routeId: draftRoute.routeId,
+          expectedVersion: 1,
+          displayName: "Executive Research Report",
+          amount: "40000000",
+        }),
+      ),
     );
     expect(await screen.findByText("Version 2")).toBeVisible();
 
@@ -401,7 +412,19 @@ describe("product route workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Validate product" }));
     await waitFor(() => expect(actions.validateRoute).toHaveBeenCalledTimes(1));
 
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview buyer contract" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Buyer contract preview" }),
+    ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Publish product" }));
+    expect(
+      screen.getByRole("heading", { name: "Approve this buyer contract?" }),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve and publish" }),
+    );
     await waitFor(() =>
       expect(actions.publishRoute).toHaveBeenCalledWith({
         sellerId,
@@ -412,43 +435,6 @@ describe("product route workspace", () => {
     );
     expect((await screen.findAllByText("Published"))[0]).toBeVisible();
     expect(screen.getByText("Version 3")).toBeVisible();
-  });
-
-  it("warns that editing a published price requires republication", async () => {
-    const actions = createActions();
-    vi.mocked(actions.updatePrice).mockResolvedValue({
-      ok: true,
-      value: {
-        ...publishedRoute,
-        amount: "40000000",
-        lifecycleStatus: "paused",
-        enabled: false,
-        version: publishedRoute.version + 1,
-      },
-    });
-
-    render(
-      <ProductRouteWorkspace
-        actions={actions}
-        initialSnapshot={{ ...initialSnapshot, routes: [publishedRoute] }}
-      />,
-    );
-
-    expect(
-      screen.getByText(/Changing this price pauses the live product/),
-    ).toBeVisible();
-    const priceForm = screen.getByRole("form", {
-      name: "Update product price",
-    });
-    fireEvent.change(within(priceForm).getByLabelText("Price"), {
-      target: { value: "40" },
-    });
-    fireEvent.submit(priceForm);
-
-    expect((await screen.findAllByText("Paused"))[0]).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Validate product" }),
-    ).toBeEnabled();
   });
 
   it("archives a stopped route and disables further edits", async () => {
@@ -485,10 +471,32 @@ describe("product route workspace", () => {
       }),
     );
     expect((await screen.findAllByText("Archived"))[0]).toBeVisible();
-    expect(screen.getByRole("button", { name: "Update price" })).toBeDisabled();
+    expect(
+      screen.queryByRole("form", { name: "Edit product draft" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Validate product" }),
     ).toBeDisabled();
+  });
+
+  it("keeps a live buyer contract read-only until the seller pauses it", () => {
+    const actions = createActions();
+    render(
+      <ProductRouteWorkspace
+        actions={actions}
+        initialSnapshot={initialSnapshot}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("form", { name: "Edit product draft" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/pause this product before editing/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/live buyer contract stays unchanged/i),
+    ).toBeVisible();
   });
 
   it("requires confirmation before emergency disable", async () => {

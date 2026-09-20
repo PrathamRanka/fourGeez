@@ -112,7 +112,7 @@ func TestCatalogRepositoryEnforcesSellerScopedProductSlugUniqueness(t *testing.T
 	}
 }
 
-func TestCatalogRepositoryPreservesProductAndTechnicalIdentity(t *testing.T) {
+func TestCatalogRepositoryPreservesImmutableProductSlug(t *testing.T) {
 	t.Parallel()
 
 	repository := NewCatalogRepository()
@@ -125,23 +125,11 @@ func TestCatalogRepositoryPreservesProductAndTechnicalIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tests := []struct {
-		name   string
-		mutate func(*catalog.PaidRoute)
-	}{
-		{name: "product slug", mutate: func(updated *catalog.PaidRoute) { updated.ProductSlug = "replacement-report" }},
-		{name: "display name", mutate: func(updated *catalog.PaidRoute) { updated.DisplayName = "Replacement Report" }},
-		{name: "path pattern", mutate: func(updated *catalog.PaidRoute) { updated.PathPattern = "/replacement" }},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			updated := route
-			updated.Version++
-			test.mutate(&updated)
-			if err := repository.UpdateRoute(t.Context(), updated, route.Version); !errors.Is(err, persistence.ErrConditionFailed) {
-				t.Fatalf("UpdateRoute() error = %v", err)
-			}
-		})
+	updated := route
+	updated.Version++
+	updated.ProductSlug = "replacement-report"
+	if err := repository.UpdateRoute(t.Context(), updated, route.Version); !errors.Is(err, persistence.ErrConditionFailed) {
+		t.Fatalf("UpdateRoute() error = %v", err)
 	}
 }
 

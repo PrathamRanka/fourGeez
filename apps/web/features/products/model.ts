@@ -60,6 +60,11 @@ export type ProductRouteSnapshot = {
   sellerId: string;
   routes: PaidRoute[];
   auditEvents: RouteAuditEvent[];
+  activePaymentDestination?: {
+    address: string;
+    asset: string;
+    network: string;
+  };
   error?: string;
 };
 
@@ -71,6 +76,8 @@ export type CreateRouteDraftInput = {
   pathPattern: string;
   description: string;
   mimeType: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
   amount: string;
   asset: string;
   network: string;
@@ -91,16 +98,24 @@ export type PublishRouteInput = RouteVersionInput & {
   contractHash: string;
 };
 
-export type UpdateRoutePriceInput = RouteVersionInput & {
+export type UpdateRouteDraftInput = RouteVersionInput & {
+  displayName: string;
+  method: "GET" | "POST";
+  pathPattern: string;
+  description: string;
+  mimeType: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
   amount: string;
+  upstreamTimeoutSeconds: number;
 };
 
 export type ProductRouteActions = {
   createDraft: (
     input: CreateRouteDraftInput,
   ) => Promise<ActionResult<PaidRoute>>;
-  updatePrice: (
-    input: UpdateRoutePriceInput,
+  updateDraft: (
+    input: UpdateRouteDraftInput,
   ) => Promise<ActionResult<PaidRoute>>;
   validateRoute: (
     input: RouteIdentityInput,

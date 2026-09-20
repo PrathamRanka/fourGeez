@@ -39,6 +39,7 @@ const (
 	ActionPaymentDestinationDisabled  Action = "payment_destination.disabled"
 	ActionPaymentDestinationRotated   Action = "payment_destination.rotated"
 	ActionRouteDraftCreated           Action = "route.draft_created"
+	ActionRouteDraftUpdated           Action = "route.draft_updated"
 	ActionRoutePriceChanged           Action = "route.price_changed"
 	ActionRoutePublished              Action = "route.published"
 	ActionRoutePaused                 Action = "route.paused"

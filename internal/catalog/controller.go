@@ -44,7 +44,7 @@ func (controller *HTTPController) RegisterControlRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.listRoutes)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes", api.RequireSeller(http.HandlerFunc(controller.createRoute)))
 	mux.Handle("GET /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.getRoute)))
-	mux.Handle("PATCH /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.updateRoutePrice)))
+	mux.Handle("PATCH /v1/sellers/{sellerId}/routes/{routeId}", api.RequireSeller(http.HandlerFunc(controller.updateRouteDraft)))
 	mux.Handle("GET /v1/sellers/{sellerId}/routes/{routeId}/validation", api.RequireSeller(http.HandlerFunc(controller.validateRoute)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/publish", api.RequireSeller(http.HandlerFunc(controller.publishRoute)))
 	mux.Handle("POST /v1/sellers/{sellerId}/routes/{routeId}/pause", api.RequireSeller(http.HandlerFunc(controller.pauseRoute)))
@@ -308,8 +308,8 @@ func (controller *HTTPController) createRoute(response http.ResponseWriter, requ
 	}, http.StatusCreated)
 }
 
-// updateRoutePrice validates and changes pricing for future intents.
-func (controller *HTTPController) updateRoutePrice(response http.ResponseWriter, request *http.Request) {
+// updateRouteDraft validates and changes an offline seller-controlled contract.
+func (controller *HTTPController) updateRouteDraft(response http.ResponseWriter, request *http.Request) {
 	sellerID, err := domain.ParseID(request.PathValue("sellerId"), domain.SellerIDPrefix)
 	if err != nil {
 		api.WriteError(response, request, http.StatusBadRequest, api.ErrorCodeBadRequest, "invalid seller ID", nil)
@@ -321,9 +321,9 @@ func (controller *HTTPController) updateRoutePrice(response http.ResponseWriter,
 		return
 	}
 
-	var input UpdateRoutePriceRequest
-	controller.executeMutation(response, request, "updatePaidRoutePrice", &input, func(principal api.Principal) (any, error) {
-		return controller.service.UpdateRoutePrice(request.Context(), principal.Subject, sellerID, routeID, input)
+	var input UpdateRouteDraftRequest
+	controller.executeMutation(response, request, "updatePaidRouteDraft", &input, func(principal api.Principal) (any, error) {
+		return controller.service.UpdateRouteDraft(request.Context(), principal.Subject, sellerID, routeID, input)
 	}, http.StatusOK)
 }
 

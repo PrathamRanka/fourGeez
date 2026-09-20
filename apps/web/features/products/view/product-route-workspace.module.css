@@ -152,7 +152,8 @@
   border: 1px solid var(--line-strong);
   border-radius: 0.9rem;
   background: var(--surface-raised);
-  box-shadow: 0 1.25rem 3rem -2.8rem color-mix(in oklab, var(--copy) 30%, transparent);
+  box-shadow: 0 1.25rem 3rem -2.8rem
+    color-mix(in oklab, var(--copy) 30%, transparent);
 }
 
 .workspace :global(.product-panel-heading) {
@@ -220,7 +221,7 @@
 }
 
 .workspace :global(.product-create-form label > span),
-.workspace :global(.product-price-form label > span) {
+.workspace :global(.product-draft-form label > span) {
   display: block;
   margin-bottom: 0.45rem;
   color: var(--copy-muted);
@@ -232,7 +233,10 @@
 
 .workspace :global(.product-create-form input),
 .workspace :global(.product-create-form select),
-.workspace :global(.product-price-form input) {
+.workspace :global(.product-create-form textarea),
+.workspace :global(.product-draft-form input),
+.workspace :global(.product-draft-form select),
+.workspace :global(.product-draft-form textarea) {
   width: 100%;
   min-height: 2.75rem;
   border: 1px solid var(--line-strong);
@@ -244,6 +248,15 @@
   font-size: 0.78rem;
 }
 
+.workspace :global(.product-create-form textarea),
+.workspace :global(.product-draft-form textarea) {
+  min-height: 10rem;
+  padding-block: 0.75rem;
+  resize: vertical;
+  font-family: var(--font-mono), monospace;
+  line-height: 1.5;
+}
+
 .workspace :global(.product-create-form input::placeholder),
 .workspace :global(.product-price-form input::placeholder) {
   color: var(--copy-faint);
@@ -251,7 +264,10 @@
 
 .workspace :global(.product-create-form input:focus-visible),
 .workspace :global(.product-create-form select:focus-visible),
-.workspace :global(.product-price-form input:focus-visible) {
+.workspace :global(.product-create-form textarea:focus-visible),
+.workspace :global(.product-draft-form input:focus-visible),
+.workspace :global(.product-draft-form select:focus-visible),
+.workspace :global(.product-draft-form textarea:focus-visible) {
   border-color: var(--copy);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--copy) 10%, transparent);
 }
@@ -267,7 +283,8 @@
 }
 
 .workspace :global(.product-advanced-fields [data-slot="accordion-trigger"]),
-.workspace :global(.product-technical-accordion [data-slot="accordion-trigger"]) {
+.workspace
+  :global(.product-technical-accordion [data-slot="accordion-trigger"]) {
   min-height: 3rem;
   border-radius: 0;
   color: var(--copy-muted);
@@ -305,7 +322,8 @@
   border: 1px solid var(--line);
   border-radius: 0.9rem;
   background: var(--surface-raised);
-  box-shadow: 0 1.5rem 3.5rem -3.2rem color-mix(in oklab, var(--copy) 28%, transparent);
+  box-shadow: 0 1.5rem 3.5rem -3.2rem
+    color-mix(in oklab, var(--copy) 28%, transparent);
 }
 
 .workspace :global(.product-route-list) {
@@ -475,7 +493,7 @@
 
 .workspace :global(.product-readiness) {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   border-bottom: 1px solid var(--line);
@@ -511,13 +529,19 @@
   height: 0.72rem;
 }
 
-.workspace :global(.product-readiness li[data-state="complete"] .product-readiness-marker) {
+.workspace
+  :global(
+    .product-readiness li[data-state="complete"] .product-readiness-marker
+  ) {
   border-color: var(--copy);
   background: var(--copy);
   color: var(--surface);
 }
 
-.workspace :global(.product-readiness li[data-state="blocked"] .product-readiness-marker) {
+.workspace
+  :global(
+    .product-readiness li[data-state="blocked"] .product-readiness-marker
+  ) {
   border-color: var(--destructive);
   color: var(--destructive);
 }
@@ -630,12 +654,22 @@
   font-size: 0.64rem;
 }
 
-.workspace :global(.product-price-form) {
+.workspace :global(.product-draft-form) {
   display: grid;
-  grid-template-columns: minmax(0, 11rem) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
   gap: 0.65rem;
   margin-top: 1rem;
+}
+
+.workspace :global(.product-draft-form .product-schema-field),
+.workspace :global(.product-draft-form [data-slot="button"]) {
+  grid-column: 1 / -1;
+}
+
+.workspace :global(.product-contract-preview) {
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--surface-raised) 72%, var(--surface));
 }
 
 .workspace :global(.product-validation) {
@@ -833,8 +867,10 @@
     grid-template-columns: 1fr;
   }
 
-  .workspace :global(.product-editor-grid > .product-detail-section:first-child),
-  .workspace :global(.product-lower-grid > .product-detail-section:first-child) {
+  .workspace
+    :global(.product-editor-grid > .product-detail-section:first-child),
+  .workspace
+    :global(.product-lower-grid > .product-detail-section:first-child) {
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -958,7 +994,7 @@
 
   .workspace :global(.product-customer-details),
   .workspace :global(.product-technical-details),
-  .workspace :global(.product-price-form) {
+  .workspace :global(.product-draft-form) {
     grid-template-columns: 1fr;
   }
 
@@ -971,8 +1007,11 @@
     border-bottom: 0;
   }
 
-  .workspace :global(.product-price-form [data-slot="button"]),
-  .workspace :global(.product-publication-section .product-section-title [data-slot="button"]) {
+  .workspace :global(.product-draft-form [data-slot="button"]),
+  .workspace
+    :global(
+      .product-publication-section .product-section-title [data-slot="button"]
+    ) {
     width: 100%;
   }
 
