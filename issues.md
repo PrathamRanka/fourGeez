@@ -206,7 +206,7 @@ This register records issues found during the real seller onboarding, MCP config
 69. The planned private managed Redis-compatible cache is not provisioned; DynamoDB remains authoritative without the complete distributed cache and revocation layer.
 70. Stripe webhook infrastructure, retries, dead-letter handling, and rotation remain incomplete while Stripe is disabled.
 71. Lambda regional concurrency is currently limited to 10, acceptable for zero traffic but not validated for bursts.
-72. At least one Lambda invocation hit the 15-second runtime timeout and still needs attribution.
+72. [x] CloudWatch correlated the timeout to Lambda request `f5b53fca-5ec4-4494-bf39-761a936e8dcc` and an API Gateway `POST` that returned `503` after exactly 15 seconds. The deployed runtime now uses a 29-second Lambda/API integration deadline, limits seller forwarding to 25 seconds, reserves two seconds before dispatch, and records path plus integration/response latency and integration errors. Terraform applied 0 additions, 3 in-place changes, and 0 destroys; the post-apply plan is clean and both health endpoints pass.
 73. Seller-facing responses and links can expose the raw API Gateway deployment origin (`execute-api.ap-south-1.amazonaws.com`) instead of a stable branded backend domain. Route public API traffic through an API Gateway custom domain such as `api.agentpay.prathamranka.in`, or keep browser traffic behind the Vercel BFF. Nginx is not required for the current Lambda and API Gateway architecture; it would add cost and operational complexity unless the backend later moves to ECS or EC2.
 
 ## 11. Observability and operations

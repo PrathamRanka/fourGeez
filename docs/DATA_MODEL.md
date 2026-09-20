@@ -296,7 +296,7 @@ authorization fields.
 | `payTo` | string | Compatibility snapshot of the verified seller destination used by new intents |
 | `paymentDestinationId` | string/null | Planned M7 reference to the verified seller destination |
 | `approvalThresholdAmount` | string/null | Historical M2 compatibility field; ignored by Lean V1 and omitted by new public contracts |
-| `upstreamTimeoutSeconds` | integer | Range 1–30 |
+| `upstreamTimeoutSeconds` | integer | Range 1-25. The API runtime reserves at least two seconds after seller forwarding before its 29-second integration deadline. |
 | `lifecycleStatus` | enum | `draft`, `published`, `paused`, `archived`, or `emergency_disabled` |
 | `enabled` | boolean | Compatibility publication flag; true only while `lifecycleStatus=published` |
 | `createdAt`, `updatedAt` | timestamp | UTC creation and latest configuration change |

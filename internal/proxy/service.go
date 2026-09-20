@@ -28,8 +28,9 @@ import (
 const maximumPaidRequestBytes int64 = 1024 * 1024
 
 const (
-	sellerSignatureDomain  = "agentpay.seller-request.v1"
-	minimumHMACSecretBytes = 32
+	sellerSignatureDomain         = "agentpay.seller-request.v1"
+	minimumHMACSecretBytes        = 32
+	sellerDispatchDeadlineReserve = 2 * time.Second
 )
 
 // Forwarder sends bounded requests only to validated public seller targets.
@@ -439,9 +440,13 @@ func (forwarder *Forwarder) Forward(
 		return ForwardResponse{}, ErrUpstreamUnavailable
 	}
 
+	upstreamTimeout := time.Duration(request.Route.UpstreamTimeoutSeconds) * time.Second
+	if parentDeadline, ok := ctx.Deadline(); ok && time.Until(parentDeadline) < upstreamTimeout+sellerDispatchDeadlineReserve {
+		return ForwardResponse{}, ErrUpstreamUnavailable
+	}
 	requestContext, cancel := context.WithTimeout(
 		ctx,
-		time.Duration(request.Route.UpstreamTimeoutSeconds)*time.Second,
+		upstreamTimeout,
 	)
 	defer cancel()
 	upstreamRequest, err := http.NewRequestWithContext(

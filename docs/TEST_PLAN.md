@@ -237,7 +237,7 @@ These are hackathon engineering targets, not customer SLAs:
 - Health and storefront p95 under 300 ms excluding cold starts.
 - Control API p95 under 700 ms excluding Bedrock.
 - Payment verification timeout at 8 seconds.
-- Seller upstream timeout configurable from 1–30 seconds; demo default 20 seconds.
+- Seller upstream timeout configurable from 1-25 seconds; demo default 20 seconds. The 29-second API runtime preserves at least two seconds for durable failure recording after seller forwarding.
 - Load test proves 20 concurrent purchase attempts without duplicate seller invocation.
 
 ## Required fixtures

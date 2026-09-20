@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -86,6 +87,32 @@ func TestForwarderAcceptsRetrySafeAssertionOnlyForRejectedInput(t *testing.T) {
 		if response.RetrySafe != want {
 			t.Fatalf("status %d retrySafe = %v, want %v", status, response.RetrySafe, want)
 		}
+	}
+}
+
+func TestForwarderPreservesParentDeadlineBudgetBeforeSellerDispatch(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeHTTPClient{response: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+	}}
+	forwarder := NewForwarderWithClient(
+		&staticResolver{addresses: []net.IP{net.ParseIP("93.184.216.34")}},
+		client,
+		1024,
+	)
+	request := validForwardRequest(t)
+	request.Route.UpstreamTimeoutSeconds = 25
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if _, err := forwarder.Forward(ctx, request); !errors.Is(err, ErrUpstreamUnavailable) {
+		t.Fatalf("Forward() error = %v, want upstream unavailable", err)
+	}
+	if client.calls.Load() != 0 {
+		t.Fatalf("HTTP calls = %d, want 0", client.calls.Load())
 	}
 }
 

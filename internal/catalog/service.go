@@ -31,7 +31,7 @@ const (
 	maximumNetworkLength            = 80
 	maximumPayToLength              = 160
 	minimumUpstreamTimeoutSeconds   = 1
-	maximumUpstreamTimeoutSeconds   = 30
+	maximumUpstreamTimeoutSeconds   = 25
 )
 
 var (
@@ -1423,7 +1423,7 @@ func validatePaidRouteParams(params PaidRouteParams) domain.ValidationErrors {
 		params.UpstreamTimeoutSeconds > maximumUpstreamTimeoutSeconds {
 		validationErrors = append(
 			validationErrors,
-			domain.NewValidationError("upstreamTimeoutSeconds", "range", "must be between 1 and 30 seconds"),
+			domain.NewValidationError("upstreamTimeoutSeconds", "range", "must be between 1 and 25 seconds"),
 		)
 	}
 	if params.CreatedAt.Time().IsZero() {

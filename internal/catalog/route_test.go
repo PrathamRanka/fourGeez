@@ -84,7 +84,7 @@ func TestNewPaidRouteValidation(t *testing.T) {
 		{name: "network required", mutate: func(params *PaidRouteParams) { params.Network = "" }, wantField: "network"},
 		{name: "payTo required", mutate: func(params *PaidRouteParams) { params.PayTo = "" }, wantField: "payTo"},
 		{name: "timeout too low", mutate: func(params *PaidRouteParams) { params.UpstreamTimeoutSeconds = 0 }, wantField: "upstreamTimeoutSeconds"},
-		{name: "timeout too high", mutate: func(params *PaidRouteParams) { params.UpstreamTimeoutSeconds = 31 }, wantField: "upstreamTimeoutSeconds"},
+		{name: "timeout too high", mutate: func(params *PaidRouteParams) { params.UpstreamTimeoutSeconds = 26 }, wantField: "upstreamTimeoutSeconds"},
 	}
 
 	for _, test := range tests {

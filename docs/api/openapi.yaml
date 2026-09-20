@@ -2345,7 +2345,7 @@ components:
         asset: { type: string, minLength: 1, maxLength: 160 }
         network: { type: string, minLength: 1, maxLength: 80 }
         payTo: { type: string, minLength: 1, maxLength: 160 }
-        upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 30, default: 20 }
+        upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 25, default: 20 }
         publishImmediately:
           type: boolean
           default: true
@@ -2558,7 +2558,7 @@ components:
         inputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
         outputSchema: { $ref: '#/components/schemas/ClosedJsonSchema' }
         amount: { $ref: '#/components/schemas/PositiveAtomicAmount' }
-        upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 30 }
+        upstreamTimeoutSeconds: { type: integer, minimum: 1, maximum: 25 }
         expectedVersion: { type: integer, minimum: 1 }
     RouteVersionRequest:
       type: object
@@ -3174,7 +3174,7 @@ components:
         paymentScheme: { type: string, const: exact }
         availability: { type: string, const: active }
         fulfillmentMode: { type: string, const: synchronous_https }
-        fulfillmentTimeoutSeconds: { type: integer, minimum: 1, maximum: 30 }
+        fulfillmentTimeoutSeconds: { type: integer, minimum: 1, maximum: 25 }
         updatedAt: { type: string, format: date-time }
         authoritativeForPurchase: { type: boolean, const: false }
         canonicalUrl: { type: string, format: uri }

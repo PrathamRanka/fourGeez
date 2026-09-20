@@ -192,9 +192,9 @@ variable "x402_asset" {
 }
 
 variable "api_timeout_seconds" {
-  description = "Maximum API Lambda invocation duration."
+  description = "Maximum API Lambda invocation and HTTP API integration duration."
   type        = number
-  default     = 15
+  default     = 29
 
   validation {
     condition     = var.api_timeout_seconds >= 1 && var.api_timeout_seconds <= 29

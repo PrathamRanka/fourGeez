@@ -82,6 +82,29 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   );
 });
 
+test("AWS-005 preserves time to record failures before the HTTP integration deadline", () => {
+  const application = read("infra/terraform/modules/application/main.tf");
+  const variables = read("infra/terraform/variables.tf");
+
+  assert.match(
+    variables,
+    /variable\s+"api_timeout_seconds"[^]*default\s*=\s*29/,
+  );
+  assert.match(application, /path\s*=\s*"\$context\.path"/);
+  assert.match(
+    application,
+    /integrationLatency\s*=\s*"\$context\.integrationLatency"/,
+  );
+  assert.match(
+    application,
+    /integrationErrorMessage\s*=\s*"\$context\.integrationErrorMessage"/,
+  );
+  assert.match(
+    application,
+    /responseLatency\s*=\s*"\$context\.responseLatency"/,
+  );
+});
+
 test("AWS-005 locks Lambda payments to the credential-free Base Sepolia profile", () => {
   const root = read("infra/terraform/main.tf");
   const rootVariables = read("infra/terraform/variables.tf");

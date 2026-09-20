@@ -169,6 +169,15 @@ repositories, Secrets Manager/KMS-backed cryptography and webhook secrets,
 protected S3 evidence storage, KMS signing, and the Lambda HTTP adapter. Do not
 apply an empty shell or bypass the required non-zero reserved-concurrency guard.
 
+On September 20, 2026, CloudWatch attribution identified one legacy invocation
+that exhausted the former 15-second Lambda deadline. A reviewed Terraform apply
+updated the Lambda and HTTP API integration to 29 seconds, restricted seller
+upstream contracts to 25 seconds, reserved two seconds before seller dispatch,
+and enriched access logs with request path, integration latency, integration
+error, and response latency. The apply changed three resources in place with no
+additions or destroys; the post-apply plan reported no changes and both health
+checks passed.
+
 New AWS accounts can have an applied regional Lambda concurrency quota of 10,
 even though the documented default quota is higher. Lambda requires at least 10
 executions to remain unreserved, so such an account cannot assign any positive
