@@ -232,14 +232,14 @@ Each task remains independently tested and committed.
 - [x] **DX-004** Produce reproducible, self-contained proprietary release artifacts for `@agentpay/local-mcp-connector` and `@agentpay/merchant-sdk`. Validate exact packed contents and clean installation, include the proprietary license and reviewed notice, generate SHA-256 checksums and source-commit provenance, and publish a Windows-first installation runbook for Claude Code, Codex, and generic stdio MCP hosts. Registry publication remains blocked; a release owner may distribute the artifacts only from a protected immutable release after approving customer-use terms and third-party provenance. Completed September 20, 2026: the manual environment-reviewed GitHub Release workflow builds from a protected version tag, separates read-only build from `contents: write` publication, binds verification to the exact tag and commit, refuses replacement releases, and publishes no registry package. No external release was created by this task; repository visibility, immutable-release enablement, tag protection, customer terms, and contributor provenance remain owner gates.
 - [x] **DX-005** Replace seller-funded onboarding proof with an authoritative automated integration verification result. Reuse the existing sandbox validator and protected seller forwarder; report bounded redacted pass/fail checks for reachability, signed request/response compatibility, closed input/output contracts, fulfillment readiness, payment gating, and replay/idempotency readiness. Persist only the latest route-version-bound result for onboarding, append a seller-scoped audit event for every completed run, and never create an intent or transaction, settle funds, invoke a paid business route, accept a caller-supplied URL, or expose secrets. Issue-register item 2.
 - [x] **DX-006** Replace the runnable seller prototype's process-local execution,
-  webhook, and fulfillment state with seller-owned DynamoDB adapters. Replay
-  claims must be atomic and TTL-bounded; fulfillment claims and completed
-  serializable results must be transaction-keyed, conditionally written, and
-  retained without TTL so restarts and concurrent instances cannot rerun a
-  completed business action. Keep memory adapters explicitly limited to tests
-  and single-process local development, fail closed on storage errors, and do
-  not add an AgentPay-managed seller-state table or mutate AWS. Issue-register
-  item 11.
+      webhook, and fulfillment state with seller-owned DynamoDB adapters. Replay
+      claims must be atomic and TTL-bounded; fulfillment claims and completed
+      serializable results must be transaction-keyed, conditionally written, and
+      retained without TTL so restarts and concurrent instances cannot rerun a
+      completed business action. Keep memory adapters explicitly limited to tests
+      and single-process local development, fail closed on storage errors, and do
+      not add an AgentPay-managed seller-state table or mutate AWS. Issue-register
+      item 11.
 
 M7.2 acceptance: an eligible first-time seller can identify an evidenced
 maintained stack, select the matching setup workflow, diagnose local connector
@@ -290,14 +290,14 @@ frontend tests remain pending, so EXT-001 stays in progress. AWS deployment and
 release verification remain M8/M9 work.
 
 - [x] **EXT-002** Preserve `purchaseIntent` and `transaction` as the canonical
-  lifecycle while adding buyer-owned pre-checkout cancellation with an
-  expiration-first conditional claim, deterministic single-product exact-price
-  breakdowns, an order-compatible derived transaction lifecycle/recovery
-  projection, readable seller-reported refund remediation, stronger replay and
-  transition coverage, and matching seller dashboard copy. Do not add carts,
-  physical inventory, shipping, tax, custody, Stripe, automated refunds, a
-  generic `Order` entity, discovery changes, payment-adapter changes, SDK work,
-  or Terraform. Depends on LCH-013–LCH-014.
+      lifecycle while adding buyer-owned pre-checkout cancellation with an
+      expiration-first conditional claim, deterministic single-product exact-price
+      breakdowns, an order-compatible derived transaction lifecycle/recovery
+      projection, readable seller-reported refund remediation, stronger replay and
+      transition coverage, and matching seller dashboard copy. Do not add carts,
+      physical inventory, shipping, tax, custody, Stripe, automated refunds, a
+      generic `Order` entity, discovery changes, payment-adapter changes, SDK work,
+      or Terraform. Depends on LCH-013–LCH-014.
 
 EXT-002 acceptance: cancellation, expiration, and checkout claim are mutually
 exclusive under optimistic concurrency; cancelled or expired intents never
@@ -308,16 +308,16 @@ seller-reported rather than network-verified; focused backend, persistence,
 OpenAPI, and dashboard tests pass.
 
 - [x] **EXT-003** Implement a pinned, server-only TypeScript merchant SDK that
-  composes the Node execution verifier, legacy sandbox request verifier,
-  webhook signature verification, typed AgentPay merchant contracts, and a
-  durable idempotent-fulfillment helper. Formalize one small merchant-adapter
-  interface and add tested generic HTTPS, Shopify, and WooCommerce reference
-  adapters that accept seller-owned runtime credentials without embedding
-  secrets. Add fixtures, runnable examples, setup documentation, and only the
-  supported-integration claims proven by focused tests. The SDK and adapters
-  never receive payment custody, wallet keys, payment verification authority,
-  AgentPay signing authority, publication authority, or core transaction
-  persistence. Depends on AUT-006, EVT-002, and LCH-013.
+      composes the Node execution verifier, legacy sandbox request verifier,
+      webhook signature verification, typed AgentPay merchant contracts, and a
+      durable idempotent-fulfillment helper. Formalize one small merchant-adapter
+      interface and add tested generic HTTPS, Shopify, and WooCommerce reference
+      adapters that accept seller-owned runtime credentials without embedding
+      secrets. Add fixtures, runnable examples, setup documentation, and only the
+      supported-integration claims proven by focused tests. The SDK and adapters
+      never receive payment custody, wallet keys, payment verification authority,
+      AgentPay signing authority, publication authority, or core transaction
+      persistence. Depends on AUT-006, EVT-002, and LCH-013.
 
 M7.3 acceptance: a TypeScript seller can verify an execution capability and a
 signed webhook over exact raw bytes, coordinate exactly-once local fulfillment
@@ -336,15 +336,15 @@ under `await_reconciliation`; they never fulfill, become ordinary terminal
 payment failure, or invite another payment.
 
 - [x] **EXT-005** Harden seller-first V1 interoperability with canonical closed
-  input/output schemas on route drafts, deterministic route-version contract
-  hashes, seller-confirmed publish binding, signed versioned public product
-  contracts, discovery revision refresh after approved changes, closed MCP tool
-  output schemas with structured content, stable machine-readable errors, and
-  truthful capability metadata. Do not add or advertise an AgentPay buyer
-  runtime, A2A execution, negotiation, mainnet, multi-currency, ranking, or
-  external Bazaar publication. Preserve negotiation analysis as deferred V2
-  documentation only. Depends on EXT-001, EXT-004, and LCH-013. No new
-  buyer-facing UI or infrastructure changes.
+      input/output schemas on route drafts, deterministic route-version contract
+      hashes, seller-confirmed publish binding, signed versioned public product
+      contracts, discovery revision refresh after approved changes, closed MCP tool
+      output schemas with structured content, stable machine-readable errors, and
+      truthful capability metadata. Do not add or advertise an AgentPay buyer
+      runtime, A2A execution, negotiation, mainnet, multi-currency, ranking, or
+      external Bazaar publication. Preserve negotiation analysis as deferred V2
+      documentation only. Depends on EXT-001, EXT-004, and LCH-013. No new
+      buyer-facing UI or infrastructure changes.
 
 EXT-005 acceptance: a seller can draft a route with bounded closed schemas,
 receive a validation result bound to the exact route version and contract hash,
@@ -357,14 +357,14 @@ capabilities explicitly keep AgentPay buyer execution, A2A, and negotiation
 disabled. Focused domain, transport, persistence, MCP, and OpenAPI checks pass.
 
 - [x] **EXT-006** Unify AgentPay discovery and seller-hosted metadata on the
-  durable `StorefrontPublication` snapshot. Persist approved seller identity,
-  availability, and route/version membership with a fingerprint that binds the
-  complete public catalog and its monotonic revision; refresh it after
-  dashboard and MCP
-  publication/lifecycle mutations, render `llms.txt` from the same signed
-  manifest projection, and require revalidation plus republication after a
-  live price edit automatically pauses the route. Keep discovery reads as a
-  server-authoritative repair path and do not expose unpublished values.
+      durable `StorefrontPublication` snapshot. Persist approved seller identity,
+      availability, and route/version membership with a fingerprint that binds the
+      complete public catalog and its monotonic revision; refresh it after
+      dashboard and MCP
+      publication/lifecycle mutations, render `llms.txt` from the same signed
+      manifest projection, and require revalidation plus republication after a
+      live price edit automatically pauses the route. Keep discovery reads as a
+      server-authoritative repair path and do not expose unpublished values.
 
 EXT-006 acceptance: manifest, product document, public directory, and
 seller-hosted `llms.txt` agree on product identity, route version, description,
@@ -375,13 +375,13 @@ responses require revalidation instead of retaining a stale framework cache;
 focused backend and web regressions pass.
 
 - [x] **EXT-007** Add deterministic paid-but-unfulfilled compensation without
-  custody or duplicate charging. Permit one same-payment fulfillment retry only
-  for a pre-dispatch failure or an explicit side-effect-free seller 400/422,
-  bind corrected bytes to a new execution capability while retaining the
-  original payment proof hash and transaction, expose seller-review, dispute,
-  refund-recommended, and seller-reported refund recovery states, and make buyer
-  and seller surfaces distinguish finalized payment from delivery failure.
-  Automatic USDC transfer remains unavailable because no refund adapter exists.
+      custody or duplicate charging. Permit one same-payment fulfillment retry only
+      for a pre-dispatch failure or an explicit side-effect-free seller 400/422,
+      bind corrected bytes to a new execution capability while retaining the
+      original payment proof hash and transaction, expose seller-review, dispute,
+      refund-recommended, and seller-reported refund recovery states, and make buyer
+      and seller surfaces distinguish finalized payment from delivery failure.
+      Automatic USDC transfer remains unavailable because no refund adapter exists.
 
 EXT-007 acceptance: deterministic tests prove one settlement followed by one
 corrected fulfillment retry, no second verification or settlement call, atomic
@@ -390,13 +390,13 @@ manual-refund paths, safe persistence without raw proofs or request bodies, and
 truthful local-only verification status.
 
 - [x] **EXT-008** Classify seller transaction activity without rewriting the
-  authoritative transaction state machine. Freeze `activityMode` and the
-  checkout payment deadline on transaction creation; derive expired unpaid
-  checkouts as abandoned, preserve separate payment and fulfillment outcomes,
-  filter seller reads by activity mode and seller outcome, and exclude test
-  activity from live dashboard summaries by default. Add deterministic local
-  three-run lifecycle coverage, but keep REL-009 open until the deployed
-  production-shaped flow succeeds three consecutive times without repair.
+      authoritative transaction state machine. Freeze `activityMode` and the
+      checkout payment deadline on transaction creation; derive expired unpaid
+      checkouts as abandoned, preserve separate payment and fulfillment outcomes,
+      filter seller reads by activity mode and seller outcome, and exclude test
+      activity from live dashboard summaries by default. Add deterministic local
+      three-run lifecycle coverage, but keep REL-009 open until the deployed
+      production-shaped flow succeeds three consecutive times without repair.
 
 EXT-008 acceptance: expired `PAYMENT_REQUIRED` rows no longer appear as active
 payments; seller views clearly separate live and test activity and distinguish
@@ -404,6 +404,26 @@ payment rejection, fulfillment failure, and successful fulfillment; seller
 ownership, exact-price, idempotency, replay, and redaction behavior remain
 unchanged; focused backend, persistence, OpenAPI, and accessible responsive web
 tests pass. Local deterministic repeat-run coverage is not deployed proof.
+
+- [x] **EXT-009** Resolve issues 21-24 locally without adding a V2 buyer
+      runtime: publish a stateless external-buyer x402 compatibility probe from the
+      runtime-enabled payment catalog; disclose the distinct buyer-agent key and
+      required HTTP headers while rejecting seller project keys as buyer
+      credentials; relabel the interactive agent route as an external-client
+      simulation with deterministic compatible selection rather than ranking; and
+      add a local browser-plus-agent parity harness that attaches redacted evidence
+      and proves exactly two unique transactions reach the same seller dashboard.
+      Deployed Base Sepolia external-agent purchase and dashboard evidence remain
+      open under REL-003 and REL-008. Depends on EXT-001, EXT-004, EXT-005, and
+      LCH-013-LCH-014.
+
+EXT-009 acceptance: a client can machine-check its x402 v2 exact Base Sepolia
+USDC support without creating commerce state; incompatible and local-mock
+runtimes fail compatibility deterministically; the response exposes no secret
+and states that seller project keys are not buyer credentials; local browser
+and agent transactions are distinct, visible once in the seller dashboard's
+Test activity view, and labeled by buyer channel; all V2 buyer-runtime, A2A, negotiation,
+and ranking capabilities remain disabled and unadvertised.
 
 ## Milestone M8 — AWS infrastructure and operations
 
@@ -442,34 +462,34 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-002** Run unit, integration, contract, web accessibility, and end-to-end suites.
 - [ ] **REL-003** Complete one real x402 testnet transaction and preserve its evidence bundle.
 - [ ] **REL-004** Demonstrate buyer-maximum rejection and exact wallet authorization without a buyer-approval step.
-  Local deterministic coverage completed on September 20, 2026: regression
-  tests prove a maximum below the frozen quote is rejected and a higher buyer
-  maximum remains only a ceiling while the wallet challenge authorizes the
-  exact seller amount. Deployed wallet evidence remains pending.
+      Local deterministic coverage completed on September 20, 2026: regression
+      tests prove a maximum below the frozen quote is rejected and a higher buyer
+      maximum remains only a ceiling while the wallet challenge authorizes the
+      exact seller amount. Deployed wallet evidence remains pending.
 - [ ] **REL-005** Demonstrate duplicate, non-delivery, and quality dispute outcomes.
-  Local payment replay and duplicate-forwarding coverage completed on
-  September 20, 2026: changed-proof replay is rejected, same-proof settlement
-  recovery does not verify or settle twice, and the atomic forwarding claim
-  permits exactly one seller invocation. Deployed evidence and the non-delivery
-  and quality-dispute demonstrations remain pending.
+      Local payment replay and duplicate-forwarding coverage completed on
+      September 20, 2026: changed-proof replay is rejected, same-proof settlement
+      recovery does not verify or settle twice, and the atomic forwarding claim
+      permits exactly one seller invocation. Deployed evidence and the non-delivery
+      and quality-dispute demonstrations remain pending.
 - [ ] **REL-006** Rehearse deterministic fallback and AWS dependency failures.
 - [ ] **REL-007** Connect a coding agent, generate a seller integration, approve publication, and pass the sandbox validator.
-- [ ] **REL-008** Complete one browser-wallet purchase and one agent/x402 purchase for the same storefront and show both in the seller dashboard without double counting.
+- [-] **REL-008** Complete one browser-wallet purchase and one agent/x402 purchase for the same storefront and show both in the seller dashboard without double counting. Local mock parity is covered by the deterministic Playwright harness and redacted attachment; deployed Base Sepolia proof remains pending.
 - [ ] **REL-009** Run the complete demo three consecutive times without manual data repair.
 - [-] **REL-010** Verify generated storefront metadata, structured data, sitemap, `llms.txt`, and manifest output across the supported stack fixtures. Local tests now cover all 21 maintained stack prompts and require regeneration from the latest signed product contract after price, availability, input-schema, or output-schema changes; deployed generated artifacts remain pending.
 - [ ] **REL-011** Revoke a project API key while its MCP access token is still unexpired and demonstrate that the next cloud MCP request fails through the entitlement-epoch check.
 - [ ] **REL-012** Cancel or suspend a seller while its local connector and a deliberately modified fork remain running; demonstrate that neither can mint capabilities, publish, create intents, settle payments, or produce official AgentPay receipts/evidence.
-  Local MCP coverage completed on September 20, 2026: automated regressions
-  prove that `suspended` and `cancelled` sellers cannot mint a fresh capability
-  through the official connector path or reuse an unexpired capability through
-  a modified client. REL-012 remains open for deployed publication, intent,
-  settlement, receipt, and evidence verification.
+      Local MCP coverage completed on September 20, 2026: automated regressions
+      prove that `suspended` and `cancelled` sellers cannot mint a fresh capability
+      through the official connector path or reuse an unexpired capability through
+      a modified client. REL-012 remains open for deployed publication, intent,
+      settlement, receipt, and evidence verification.
 - [-] **REL-013** Load a stale seller-hosted manifest after cancellation and demonstrate that authoritative intent creation and checkout fail while AgentPay discovery returns an inactive tombstone. Local regressions prove stale route data loses authoritative commerce access and discovery advances to a higher-revision signed cancellation tombstone; canonical deployed intent/browser checkout proof remains pending.
 - [ ] **REL-014** Exercise cancellation immediately before settlement and immediately after finalized settlement; verify that the first transaction is blocked and the second fulfills exactly once according to the documented buyer-obligation rule.
-  Local deterministic coverage completed on September 20, 2026: fresh
-  authorization denial immediately before settlement prevents a charge, while
-  cancellation after durable finality does not erase the seller's one-time
-  fulfillment obligation. Deployed race evidence remains pending.
+      Local deterministic coverage completed on September 20, 2026: fresh
+      authorization denial immediately before settlement prevents a charge, while
+      cancellation after durable finality does not erase the seller's one-time
+      fulfillment obligation. Deployed race evidence remains pending.
 - [ ] **REL-015** Complete the authenticated browser journey from clean sign-up through resumable onboarding, publication, browser purchase, agent purchase, dashboard reconciliation, dispute, sign-out, and expired-session recovery using the deployed production-shaped environment.
 - [x] **REL-016** Historical implementation of a seller-owned onboarding test-purchase journey. Superseded on September 20, 2026 by issues 1 and 2: seller onboarding and dashboard surfaces expose no buyer checkout, wallet authorization, or seller-funded purchase action, and instead show the route-version-bound automated non-payment verification result. Public storefront checkout remains available only to human buyers and external buyer agents.
 

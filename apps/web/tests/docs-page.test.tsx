@@ -34,14 +34,18 @@ describe("AgentPay developer documentation", () => {
     expect(screen.getAllByText(/development preview/i)).toHaveLength(2);
     expect(screen.getAllByText(/Base Sepolia USDC/i).length).toBeGreaterThan(0);
     expect(
+      screen.getAllByText(/payment-capabilities\/compatibility/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/seller project keys are never buyer credentials/i),
+    ).toBeVisible();
+    expect(
       screen.getByText(
         /the coding agent edits your repository using AgentPay MCP analysis and guidance/i,
       ),
     ).toBeVisible();
     expect(
-      screen.getByText(
-        /AgentPay MCP does not write repository files/i,
-      ),
+      screen.getByText(/AgentPay MCP does not write repository files/i),
     ).toBeVisible();
     expect(
       screen.getAllByText(/verified release artifact/i).length,

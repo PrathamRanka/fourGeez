@@ -35,10 +35,11 @@ export function BuyerActivity({ run }: { run: BuyerActivityAction }) {
   return (
     <main id="main-content" className={styles.page}>
       <header className={styles.hero}>
-        <p className={styles.kicker}>Agent channel demonstration</p>
-        <h1>Watch an agent discover, select and purchase.</h1>
+        <p className={styles.kicker}>External buyer compatibility demo</p>
+        <h1>A simulation of an external buyer client.</h1>
         <span>
-          The deterministic demo exposes every bounded tool step. A wallet
+          This deterministic local harness demonstrates the public agent
+          contract; it is not an AgentPay-operated buyer runtime. A wallet
           confirmation remains the buyer&apos;s payment consent.
         </span>
       </header>
@@ -85,7 +86,7 @@ export function BuyerActivity({ run }: { run: BuyerActivityAction }) {
           </div>
           <div className={styles.mode}>
             <ShieldCheck aria-hidden="true" />
-            <span>Deterministic fallback active</span>
+            <span>Deterministic external-client simulation</span>
           </div>
           {result ? (
             <>

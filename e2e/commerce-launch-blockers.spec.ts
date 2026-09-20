@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures/agentpay";
+import { expect, signInLaunchReadySeller, test } from "./fixtures/agentpay";
 
 test("browser storefront completes x402 payment, fulfillment, receipt, evidence, and dispute", async ({
   page,
@@ -49,6 +49,95 @@ test("agent demo completes below-threshold x402 purchase and fulfillment", async
     .click();
   await expect(page.getByText("Paid and fulfilled")).toBeVisible();
   await expect(page.getByText(/concise market snapshot/i)).toBeVisible();
+});
+
+test("browser and external-agent channels reconcile once in the same seller dashboard", async ({
+  page,
+  seed,
+}, testInfo) => {
+  test.setTimeout(30_000);
+  const baselineCount = new Set([
+    seed.paymentPendingTransactionId,
+    seed.fulfilledTransactionId,
+    seed.failedTransactionId,
+    seed.disputedTransactionId,
+  ]).size;
+
+  await page.goto("/store/demo-seller/products/market-snapshot");
+  await page.getByRole("checkbox", { name: /confirm/i }).check();
+  await page.getByRole("button", { name: "Review exact payment" }).click();
+  await page
+    .getByRole("button", { name: "Complete local demo payment" })
+    .click();
+  await expect(page.getByText("Paid and fulfilled")).toBeVisible();
+  const browserTransactionId = await page
+    .getByText(/^txn_/)
+    .first()
+    .textContent();
+
+  await page.goto("/demo/agent-checkout");
+  await page.getByLabel("Storefront slug").fill("demo-seller");
+  await page
+    .getByLabel("What do you need?")
+    .fill("Buy the Market Snapshot within 3 USDC");
+  await page.getByRole("button", { name: "Inspect storefront" }).click();
+  await page.getByRole("checkbox", { name: /confirm/i }).check();
+  await page.getByRole("button", { name: "Review exact payment" }).click();
+  await page
+    .getByRole("button", { name: "Complete local demo payment" })
+    .click();
+  await expect(page.getByText("Paid and fulfilled")).toBeVisible();
+  const agentTransactionId = await page
+    .getByText(/^txn_/)
+    .first()
+    .textContent();
+
+  expect(browserTransactionId).toMatch(/^txn_/);
+  expect(agentTransactionId).toMatch(/^txn_/);
+  expect(agentTransactionId).not.toBe(browserTransactionId);
+
+  await signInLaunchReadySeller(page);
+  await page.goto("/dashboard/transactions");
+  await page.getByRole("button", { name: "Test activity" }).click();
+  await expect(
+    page.getByText(browserTransactionId ?? "", { exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByText(agentTransactionId ?? "", { exact: true }),
+  ).toHaveCount(1);
+  const browserRow = page.getByRole("row").filter({
+    has: page.getByText(browserTransactionId ?? "", { exact: true }),
+  });
+  const agentRow = page.getByRole("row").filter({
+    has: page.getByText(agentTransactionId ?? "", { exact: true }),
+  });
+  await expect(browserRow.getByText("Browser", { exact: true })).toBeVisible();
+  await expect(
+    agentRow.getByText("External agent", { exact: true }),
+  ).toBeVisible();
+
+  await testInfo.attach("local-buyer-channel-parity", {
+    body: Buffer.from(
+      JSON.stringify(
+        {
+          evidenceType: "agentpay.local-buyer-channel-parity.v1",
+          environment: "local-mock",
+          sellerId: seed.launchReadySellerId,
+          storefront: "demo-seller",
+          product: "market-snapshot",
+          browserTransactionId,
+          agentTransactionId,
+          seededTransactionCount: baselineCount,
+          verifiedTestActivityRows: 2,
+          doubleCounted: false,
+          deployedTestnetProof: false,
+        },
+        null,
+        2,
+      ),
+    ),
+    contentType: "application/json",
+  });
 });
 
 test("cancellation and credential revocation deny stale discovery and new purchases", async ({

@@ -81,6 +81,7 @@ transaction authority.
 | Unauthorized publication or deployment | Produce a reviewable plan and diff, then require seller confirmation before publish, credential rotation, or production deployment |
 | Human checkout forgery or replay | Authenticate provider callbacks, bind them to immutable intents, process them idempotently, and reuse transaction replay protection |
 | Capability downgrade or false fallback | Publish only runtime-enabled payment capabilities, bind the selected rail/network/asset to the immutable intent and challenge, and never silently substitute another rail |
+| Seller project key confused with buyer authority | External-buyer compatibility is public and stateless, names only `X-AgentPay-Agent-Key` as buyer authentication, explicitly reports that seller project keys are not accepted, and never echoes submitted credentials |
 | Unknown settlement causes double authorization | Persist the verified payment identifier and proof hash before settlement; require the identical proof and intent on recovery and reject a changed proof |
 | Settled response contradicts verified payer | Preserve the verified claim and safe settlement reference at confirmed finality, block fulfillment, require reconciliation, and never invite a new authorization or repeat settlement |
 | Payout-address substitution | Verify wallet ownership, bind destinations to seller and asset/network, require explicit confirmed rotation, and freeze the destination in each purchase intent |
@@ -228,6 +229,12 @@ disabled for Lean V1. Historical M2 code and records are not transaction
 authority and must not be exposed by the launch runtime. Seller sessions,
 project keys, access tokens, browser purchase cookies, payment proofs, and
 execution capabilities must never appear in URLs.
+
+The external-buyer compatibility probe accepts protocol facts only: x402
+version, scheme, network, and asset. It accepts no API keys, wallet material,
+payment proof, seller identity, or project credential; unknown fields and
+oversized bodies fail closed. A compatible result describes a possible client
+integration but grants no authority and creates no commerce state.
 
 ## Seller request authorization
 

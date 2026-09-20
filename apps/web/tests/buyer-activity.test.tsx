@@ -36,7 +36,7 @@ describe("buyer activity", () => {
             detail: "Loaded 1 published route",
           },
           {
-            tool: "rankEligibleOffers",
+            tool: "selectCompatibleProduct",
             status: "completed",
             detail: "Selected /research within the stated budget",
           },
@@ -55,9 +55,14 @@ describe("buyer activity", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Buyer request" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Deterministic fallback active")).toBeVisible();
+    expect(
+      screen.getByText("Deterministic external-client simulation"),
+    ).toBeVisible();
     expect(screen.getByText("getStorefrontManifest")).toBeVisible();
-    expect(screen.getByText("rankEligibleOffers")).toBeVisible();
+    expect(screen.getByText("selectCompatibleProduct")).toBeVisible();
+    expect(
+      screen.getByText(/simulation of an external buyer client/i),
+    ).toBeVisible();
     expect(screen.getByText(/one published product/i)).toBeVisible();
     expect(
       screen.getByRole("heading", { name: "Agent-selected checkout" }),

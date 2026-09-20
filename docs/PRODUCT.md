@@ -259,6 +259,14 @@ deterministic preference order. The testnet x402 runtime advertises one
 capability: exact Base Sepolia USDC payment, direct seller settlement, and no
 custody. Omitted rails, networks, and assets are unsupported.
 
+An external buyer may submit its bounded protocol declaration to
+`POST /v1/payment-capabilities/compatibility`. AgentPay compares that
+declaration with the runtime-enabled catalog in server preference order and
+returns either the selected capability or a stable unsupported result. The
+response names the x402 HTTP headers and the separate buyer-agent credential
+header. It never accepts or returns a seller project key, creates a purchase,
+or runs an AgentPay buyer agent.
+
 Discovery is candidate information only. Even an authentic, unexpired manifest
 does not authorize a purchase; the cloud rechecks current seller entitlement,
 route publication, destination, quote, payment, and replay state at
@@ -302,7 +310,9 @@ settlement, so bypassing browser validation cannot pay for an invalid request.
 
 The public storefront is the browser buyer experience. A separate `/buyer`
 account area is not part of V1. Agent-specific interaction is demonstrated at
-`/demo/agent-checkout` and uses the same authoritative commerce services.
+`/demo/agent-checkout` as a deterministic simulation of an external client and
+uses the same authoritative commerce services. It is not an AgentPay-operated
+buyer runtime and does not rank or negotiate offers.
 The current M7 development runtime still requires an agent credential for
 intent and paid-route operations. The locked M7.1 contract replaces that gap
 with a durable opaque browser purchase grant: commerce authority expires within

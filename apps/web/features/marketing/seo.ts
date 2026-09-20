@@ -156,9 +156,9 @@ export const sellerDocsMetadata = buildSupportingPageMetadata({
 });
 
 export const agentCheckoutDemoMetadata = buildSupportingPageMetadata({
-  title: "Agent checkout demo",
+  title: "External buyer compatibility demo",
   description:
-    "See a deterministic buyer agent discover a sample offer and enter AgentPay's shared x402 testnet checkout flow.",
+    "See a deterministic simulation of an external buyer client enter AgentPay's shared x402 testnet checkout flow. AgentPay does not operate a V1 buyer agent.",
   path: "/demo/agent-checkout",
 });
 
@@ -261,7 +261,7 @@ AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, N
 - Seller integration guide: ${agentPaySiteOrigin}/docs
 - Developers: ${agentPaySiteOrigin}/developers
 - Contact: ${agentPaySiteOrigin}/contact
-- Agent checkout demonstration: ${agentPaySiteOrigin}/demo/agent-checkout
+- External buyer compatibility demonstration: ${agentPaySiteOrigin}/demo/agent-checkout
 - Security: ${agentPaySiteOrigin}/security
 - Privacy: ${agentPaySiteOrigin}/privacy
 - Terms: ${agentPaySiteOrigin}/terms
@@ -276,6 +276,7 @@ AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, N
 ## Limits
 
 - Discovery metadata is candidate information and never authorizes a transaction.
+- AgentPay does not operate a V1 buyer agent, A2A execution service, negotiation runtime, or marketplace ranking system.
 - Technical SEO and answer-engine discovery can improve crawlability, but AgentPay does not guarantee search ranking, traffic, conversion, or sales.
 - Card checkout, real-funds release validation, and the global marketplace directory are not part of the current release.
 `;

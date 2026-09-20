@@ -38,6 +38,9 @@ Run without AWS or network access.
 - Runtime payment capabilities advertise only enabled adapters, and wallet
   compatibility covers missing provider, disconnected account, wrong network,
   unavailable chain switching, typed-data support, and buyer cancellation.
+- External-buyer compatibility selects only an enabled agent-channel x402 v2
+  exact capability, rejects unsupported versions/networks/assets and local mock
+  runtimes, and never accepts a seller project key as buyer authentication.
 - Payment recovery covers expired intents, rejected proofs, facilitator
   unavailability before verification, unknown settlement after verification,
   same-proof retry, changed-proof rejection, nonce replay, and idempotency.
@@ -84,6 +87,9 @@ Run without AWS or network access.
 - Verify required authentication and idempotency headers.
 - Snapshot machine error codes, not prose-only messages.
 - Validate the public payment-capability schema and bounded recovery actions.
+- Validate the stateless external-buyer compatibility request/response,
+  unknown-field rejection, deterministic selection, buyer-agent authentication
+  metadata, required x402 headers, and explicit seller-project-key exclusion.
 - Validate receipt schemas 1 and 2 independently and reject a version-1
   document containing required version-2 semantics.
 - Assert every authenticated commerce operation documents its applicable 401,
@@ -160,7 +166,11 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
 8. Disable Bedrock and complete the purchase through deterministic fallback.
 9. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
 10. Buy the same published product through a browser wallet and an agent/x402
-   flow and verify both sales appear once in the seller dashboard.
+    flow and verify both sales appear once in the seller dashboard.
+    The local mock harness runs this as one test, verifies two distinct
+    transaction IDs, checks each row once in the Test activity view, verifies
+    buyer-channel labels, and attaches a redacted JSON result.
+    Deployed Base Sepolia evidence remains a separate release gate.
 11. Rotate the seller payment destination and prove existing intents retain the
     old frozen destination while new intents use the verified replacement.
 12. Disable seller webhooks, complete a purchase, and prove the dashboard and
@@ -193,8 +203,8 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
     after the connector and a draft product are ready. Assert the six bounded
     server-authored checks, the persisted route-version-bound result, and its
     seller-scoped audit event. Prove the run creates no purchase intent,
-     transaction, payment, or paid-route fulfillment. Correct one reported
-     failure and rerun to a passing result without manual database repair.
+    transaction, payment, or paid-route fulfillment. Correct one reported
+    failure and rerun to a passing result without manual database repair.
 
 Historical M2 approval tests remain regression coverage for dormant code only.
 They are not Lean V1 acceptance tests, no approval server is started, and no

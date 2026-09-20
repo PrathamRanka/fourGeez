@@ -37,24 +37,31 @@ const (
 	// MockPayerAddress is the deterministic local browser-wallet identity.
 	MockPayerAddress = "0x2222222222222222222222222222222222222222"
 
-	PaymentCapabilitySchemaVersion                      = "agentpay.payment-capabilities.v1"
-	X402BaseSepoliaUSDCCapabilityID                     = "x402-exact-base-sepolia-usdc"
-	MockExactPaymentCapabilityID                        = "mock-exact-local"
-	PaymentSelectionFirstCompatible                     = "first-compatible"
-	PaymentSettlementDirectToSeller                     = "direct-to-seller"
-	PaymentRailX402                                     = "x402"
-	PaymentRailMock                                     = "mock"
-	PaymentEnvironmentLocal                             = "local"
-	PaymentEnvironmentTestnet                           = "testnet"
-	PaymentChannelAgent                                 = "agent"
-	PaymentChannelBrowser                               = "browser"
-	RecoveryActionConnectWallet          RecoveryAction = "connect_wallet"
-	RecoveryActionSwitchNetwork          RecoveryAction = "switch_network"
-	RecoveryActionSignFreshAuthorization RecoveryAction = "sign_fresh_authorization"
-	RecoveryActionRetrySameRequest       RecoveryAction = "retry_same_request"
-	RecoveryActionRetrySamePayment       RecoveryAction = "retry_same_payment"
-	RecoveryActionAwaitReconciliation    RecoveryAction = "await_reconciliation"
-	RecoveryActionStartNewCheckout       RecoveryAction = "start_new_checkout"
+	PaymentCapabilitySchemaVersion                           = "agentpay.payment-capabilities.v1"
+	X402BaseSepoliaUSDCCapabilityID                          = "x402-exact-base-sepolia-usdc"
+	MockExactPaymentCapabilityID                             = "mock-exact-local"
+	PaymentSelectionFirstCompatible                          = "first-compatible"
+	PaymentSettlementDirectToSeller                          = "direct-to-seller"
+	PaymentRailX402                                          = "x402"
+	PaymentRailMock                                          = "mock"
+	PaymentEnvironmentLocal                                  = "local"
+	PaymentEnvironmentTestnet                                = "testnet"
+	PaymentChannelAgent                                      = "agent"
+	PaymentChannelBrowser                                    = "browser"
+	X402ProtocolVersion                                      = 2
+	ExternalBuyerCapabilitiesSchemaVersion                   = "agentpay.external-buyer-capabilities.v1"
+	ExternalBuyerCompatibilitySchemaVersion                  = "agentpay.external-buyer-compatibility.v1"
+	ExternalBuyerCompatibleReason                            = "compatible"
+	ExternalBuyerNoCompatibleCapabilityReason                = "no_compatible_payment_capability"
+	BuyerAgentCredentialType                                 = "buyer_agent_key"
+	BuyerAgentCredentialHeader                               = "X-AgentPay-Agent-Key"
+	RecoveryActionConnectWallet               RecoveryAction = "connect_wallet"
+	RecoveryActionSwitchNetwork               RecoveryAction = "switch_network"
+	RecoveryActionSignFreshAuthorization      RecoveryAction = "sign_fresh_authorization"
+	RecoveryActionRetrySameRequest            RecoveryAction = "retry_same_request"
+	RecoveryActionRetrySamePayment            RecoveryAction = "retry_same_payment"
+	RecoveryActionAwaitReconciliation         RecoveryAction = "await_reconciliation"
+	RecoveryActionStartNewCheckout            RecoveryAction = "start_new_checkout"
 )
 
 var (
@@ -143,6 +150,48 @@ type PaymentCapabilityCatalog struct {
 	Environment   string              `json:"environment"`
 	SelectionRule string              `json:"selectionRule"`
 	Capabilities  []PaymentCapability `json:"capabilities"`
+}
+
+// ExternalBuyerPaymentCapability is one x402 combination implemented by an external buyer.
+type ExternalBuyerPaymentCapability struct {
+	Protocol    string `json:"protocol"`
+	X402Version int    `json:"x402Version"`
+	Scheme      string `json:"scheme"`
+	Network     string `json:"network"`
+	Asset       string `json:"asset"`
+}
+
+// ExternalBuyerCompatibilityRequest declares bounded payment support without credentials.
+type ExternalBuyerCompatibilityRequest struct {
+	SchemaVersion string                           `json:"schemaVersion"`
+	Capabilities  []ExternalBuyerPaymentCapability `json:"capabilities"`
+}
+
+// BuyerAgentAuthentication describes the distinct buyer credential boundary.
+type BuyerAgentAuthentication struct {
+	CredentialType           string `json:"credentialType"`
+	HeaderName               string `json:"headerName"`
+	SellerProjectKeyAccepted bool   `json:"sellerProjectKeyAccepted"`
+}
+
+// ExternalBuyerHTTPHeaders names the x402 and AgentPay transport bindings.
+type ExternalBuyerHTTPHeaders struct {
+	IntentID         string `json:"intentId"`
+	PaymentRequired  string `json:"paymentRequired"`
+	PaymentSignature string `json:"paymentSignature"`
+	PaymentResponse  string `json:"paymentResponse"`
+	TransactionID    string `json:"transactionId"`
+}
+
+// ExternalBuyerCompatibilityResponse reports a deterministic runtime match.
+type ExternalBuyerCompatibilityResponse struct {
+	SchemaVersion      string                   `json:"schemaVersion"`
+	RuntimeEnvironment string                   `json:"runtimeEnvironment"`
+	Compatible         bool                     `json:"compatible"`
+	ReasonCode         string                   `json:"reasonCode"`
+	SelectedCapability *PaymentCapability       `json:"selectedCapability"`
+	Authentication     BuyerAgentAuthentication `json:"authentication"`
+	Headers            ExternalBuyerHTTPHeaders `json:"headers"`
 }
 
 // Requirements contains the immutable terms required for exact payment.

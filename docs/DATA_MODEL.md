@@ -728,6 +728,15 @@ read model never combines different assets or networks.
 | `amount` | string | Atomic-unit total for this exact asset/network/stage bucket |
 | `lastTransactionAt` | timestamp | Newest transaction update included in this bucket |
 
+### External buyer compatibility (non-persisted)
+
+External buyer compatibility is a stateless comparison between a bounded
+client declaration and the runtime-enabled `PaymentCapabilityCatalog`. It does
+not create an entity, intent, transaction, credential, or audit record. The
+response may select only an enabled `agent` channel x402 capability and exposes
+the buyer-agent authentication header plus required x402 transport headers.
+Seller project keys are never accepted as buyer credentials.
+
 ### WebhookSubscription and WebhookDelivery
 
 `WebhookSubscription` stores a seller-scoped HTTPS destination, allowlisted

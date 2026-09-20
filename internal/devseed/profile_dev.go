@@ -311,7 +311,7 @@ func (seeder *Seeder) seed(ctx context.Context) error {
 	if err := seeder.seedWebhookHistory(ctx, launchReadySeller, transactionFixtures); err != nil {
 		return err
 	}
-	if err := seeder.seedLaunchReadiness(ctx, launchReadySeller, transactionFixtures.fulfilled); err != nil {
+	if err := seeder.seedLaunchReadiness(ctx, launchReadySeller, routes.belowThreshold); err != nil {
 		return err
 	}
 	return nil
@@ -320,7 +320,7 @@ func (seeder *Seeder) seed(ctx context.Context) error {
 func (seeder *Seeder) seedLaunchReadiness(
 	ctx context.Context,
 	seller catalog.Seller,
-	fulfilledTransaction transactions.Transaction,
+	verifiedRoute catalog.PaidRoute,
 ) error {
 	readyAt := fixedSeedTimestamp.Add(3 * time.Minute)
 	credential, err := integrations.NewCredential(integrations.CredentialParams{
@@ -339,9 +339,25 @@ func (seeder *Seeder) seedLaunchReadiness(
 		return err
 	}
 	state := sellerworkspace.WorkspaceState{
-		SellerID:              seller.SellerID,
-		OwnerSubjectHash:      subjectHash(seller.OwnerSubject),
-		ConnectorVerifiedAt:   &readyAt,
+		SellerID:            seller.SellerID,
+		OwnerSubjectHash:    subjectHash(seller.OwnerSubject),
+		ConnectorVerifiedAt: &readyAt,
+		IntegrationVerification: &integrations.IntegrationVerificationResult{
+			SchemaVersion: integrations.IntegrationVerificationSchemaVersion,
+			SellerID:      seller.SellerID,
+			RouteID:       verifiedRoute.RouteID,
+			RouteVersion:  verifiedRoute.Version,
+			CompletedAt:   readyAt,
+			Valid:         true,
+			Checks: []integrations.IntegrationVerificationCheck{
+				{Name: integrations.IntegrationVerificationCheckEndpointReachability, Passed: true, Message: "Local demo endpoint is reachable."},
+				{Name: integrations.IntegrationVerificationCheckSignedExchange, Passed: true, Message: "Local signed exchange passed."},
+				{Name: integrations.IntegrationVerificationCheckSchemaContract, Passed: true, Message: "Local schema contract passed."},
+				{Name: integrations.IntegrationVerificationCheckFulfillmentReadiness, Passed: true, Message: "Local fulfillment readiness passed."},
+				{Name: integrations.IntegrationVerificationCheckPaymentGating, Passed: true, Message: "Local payment gating passed."},
+				{Name: integrations.IntegrationVerificationCheckReplayIdempotency, Passed: true, Message: "Local replay protection passed."},
+			},
+		},
 		StorefrontPreviewedAt: &readyAt,
 		Settings: sellerworkspace.SellerSettings{
 			SupportEmail:                "support@northstar.local",

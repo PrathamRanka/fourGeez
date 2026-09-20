@@ -30,9 +30,9 @@ This register records issues found during the real seller onboarding, MCP config
      deployed clean-account run passes and its sanitized evidence is reviewed.
 5. **Resolved locally (2026-09-20):** Seller onboarding now states that the workspace configures the store and that buyers purchase elsewhere; no buyer checkout control was added.
 6. **Resolved locally (2026-09-20):** The onboarding and dashboard entry surfaces now show publication readiness and integration health from the server-authored onboarding projection.
-6a. **Resolved locally (2026-09-20):** The entry experience collapses the underlying security checkpoints into one five-stage founder launch rail while retaining detailed checks under the setup surface.
-6b. **Resolved locally (2026-09-20):** The visible journey is connect service -> confirm payout -> review detected products -> publish -> monitor sales.
-6c. **Resolved locally (2026-09-20):** The UI maps authoritative onboarding state and the bounded integration result to pass/fail health plus one precise next action, including the first failed verification check. Deployed verification has not been claimed or performed for this change.
+   6a. **Resolved locally (2026-09-20):** The entry experience collapses the underlying security checkpoints into one five-stage founder launch rail while retaining detailed checks under the setup surface.
+   6b. **Resolved locally (2026-09-20):** The visible journey is connect service -> confirm payout -> review detected products -> publish -> monitor sales.
+   6c. **Resolved locally (2026-09-20):** The UI maps authoritative onboarding state and the bounded integration result to pass/fail health plus one precise next action, including the first failed verification check. Deployed verification has not been claimed or performed for this change.
 
 ## 2. MCP, SDK, and seller repository integration
 
@@ -77,9 +77,9 @@ This register records issues found during the real seller onboarding, MCP config
 14. **Resolved locally (2026-09-20):** Seller-hosted `llms.txt` is generated from the same persisted catalog revision used to create the current signed AgentPay manifest and product contracts.
 15. **Resolved locally (2026-09-20):** Dashboard and MCP publication, price, pause, archive, and emergency-disable mutations refresh the durable publication snapshot; public responses require revalidation rather than retaining a stale framework cache.
 16. **Resolved locally (2026-09-20):** AgentPay directory, signed manifest/product documents, and seller-hosted `llms.txt` consume one server-authoritative publication snapshot. Integration price staging auto-pauses a published route and removes it from discovery, while dashboard contract edits require the seller to pause first; either path requires validation plus explicit republication before the changed version is exposed.
-16a. **Resolved locally (2026-09-20):** The dashboard controls every seller-editable product contract field and availability action; immutable product slugs and verified payment rail/destination fields remain read-only.
-16b. **Resolved locally (2026-09-20):** Offline draft saves increment the authoritative route version, invalidate prior validation, and reuse the existing version/hash-bound publication path that refreshes discovery projections and signed public documents.
-16c. **Resolved locally (2026-09-20):** The product workspace now enforces draft -> validate -> preview -> explicit approve-and-publish, and the API rejects edits while the buyer contract is live.
+    16a. **Resolved locally (2026-09-20):** The dashboard controls every seller-editable product contract field and availability action; immutable product slugs and verified payment rail/destination fields remain read-only.
+    16b. **Resolved locally (2026-09-20):** Offline draft saves increment the authoritative route version, invalidate prior validation, and reuse the existing version/hash-bound publication path that refreshes discovery projections and signed public documents.
+    16c. **Resolved locally (2026-09-20):** The product workspace now enforces draft -> validate -> preview -> explicit approve-and-publish, and the API rejects edits while the buyer contract is live.
 
 ### P1
 
@@ -92,13 +92,13 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-21. A real external buyer agent has not completed the production x402 purchase flow; only browser-wallet purchasing is proven.
+21. [x] External buyers can machine-check the enabled x402 v2 exact Base Sepolia USDC capability and required headers without receiving a seller project key. A real external buyer agent has not yet completed the deployed testnet flow, so REL-003 remains open.
 
 ### P1
 
-22. Agent/x402 and browser-wallet purchases have not both been demonstrated for the same storefront and reconciled in the seller dashboard.
-23. Supported buyer-agent compatibility is documented but not dynamically negotiated.
-24. AgentPay-operated buyer execution, negotiation, A2A execution, and marketplace ranking remain deferred V2 capabilities and must not be advertised as active V1 behavior.
+22. [x] One deterministic Playwright harness purchases the same product through browser and external-agent channels, verifies two distinct transaction IDs appear once in the seller dashboard's Test activity view with the correct channel labels, and attaches redacted local-mock evidence. REL-008 remains open for deployed Base Sepolia proof.
+23. [x] `POST /v1/payment-capabilities/compatibility` deterministically compares an external buyer's bounded x402 declaration with the runtime-enabled catalog and returns the selected capability, required headers, buyer-agent authentication boundary, or a stable unsupported result. Deployment remains pending.
+24. [x] Public capability flags remain false for AgentPay buyer runtime, A2A execution, negotiation, and ranking; the interactive route is explicitly labeled an external-client simulation and uses deterministic compatible catalog selection rather than ranking. No V2 buyer agent was added.
 
 ## 5. Buyer checkout UI and request validation
 
@@ -227,9 +227,9 @@ This register records issues found during the real seller onboarding, MCP config
 80. Buyer errors need actionable recovery guidance without exposing sensitive verifier details.
 81. Product copy must accurately distinguish AgentPay's V1 seller infrastructure from the deferred AgentPay-operated buyer agent.
 82. Seller, buyer, testnet, and production contexts need unmistakable labels throughout the interface.
-82a. The full dashboard needs a cohesive visual system for spacing, typography, surfaces, data density, responsive behavior, focus states, and feedback instead of page-by-page styling decisions.
-82b. Decorative boxes and oversized marketing treatments must not replace clear operational hierarchy in authenticated product screens.
-82c. Each dashboard page should have one obvious primary task and should hide advanced technical information until the seller requests it.
+    82a. The full dashboard needs a cohesive visual system for spacing, typography, surfaces, data density, responsive behavior, focus states, and feedback instead of page-by-page styling decisions.
+    82b. Decorative boxes and oversized marketing treatments must not replace clear operational hierarchy in authenticated product screens.
+    82c. Each dashboard page should have one obvious primary task and should hide advanced technical information until the seller requests it.
 
 ## 13. Release verification gaps
 

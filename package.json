@@ -59,6 +59,7 @@
     "package:verify": "node scripts/verify-package-release.mjs",
     "test:e2e": "playwright test",
     "test:e2e:functional": "playwright test --project=chromium-functional",
+    "test:e2e:buyer-parity": "playwright test --project=chromium-functional --grep \"browser and external-agent channels reconcile once\"",
     "test:e2e:responsive": "playwright test --grep @visual",
     "test:e2e:install": "playwright install --with-deps chromium",
     "quality:lighthouse": "node scripts/lighthouse-budget.mjs",

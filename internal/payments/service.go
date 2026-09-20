@@ -854,6 +854,12 @@ func mockProofError(proof string) error {
 	case MockUnavailableProof:
 		return ErrPaymentUnavailable
 	default:
+		intentID := strings.TrimPrefix(proof, MockApprovedProof+":")
+		if intentID != proof {
+			if _, err := domain.ParseID(intentID, domain.IntentIDPrefix); err == nil {
+				return nil
+			}
+		}
 		return ErrPaymentRejected
 	}
 }

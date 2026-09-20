@@ -15,6 +15,7 @@ const transactions: Transaction[] = [
     activityMode: "live",
     checkoutExpiresAt: "2026-09-18T10:05:00Z",
     sellerOutcome: "fulfilled",
+    purchaseChannel: "browser",
     status: "FULFILLED",
     amount: "35000000",
     asset: "USDC",
@@ -59,6 +60,7 @@ const transactions: Transaction[] = [
     activityMode: "live",
     checkoutExpiresAt: "2026-09-18T11:05:00Z",
     sellerOutcome: "disputed",
+    purchaseChannel: "agent",
     status: "DISPUTED",
     amount: "12000000",
     asset: "USDC",
@@ -111,6 +113,7 @@ const abandonedTestTransaction: Transaction = {
     fulfillmentState: "not_started",
     refundState: "not_requested",
     recoveryAction: "create_new_intent",
+    recoveryState: "none",
   },
 };
 
@@ -127,6 +130,8 @@ describe("transaction list", () => {
     expect(within(table).getByText("Research Report")).toBeVisible();
     expect(within(table).getByText("buyer-demo")).toBeVisible();
     expect(within(table).getAllByText("Payment finalized")).toHaveLength(2);
+    expect(within(table).getByText("Browser")).toBeVisible();
+    expect(within(table).getByText("External agent")).toBeVisible();
     expect(within(table).getByText("Disputed")).toBeVisible();
     expect(
       within(table).getByRole("link", {

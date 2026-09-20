@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.9.0
+  version: 0.10.0
   description: |
+    Version 0.10.0 adds deterministic external-buyer x402 compatibility
+    detection and explicit buyer-agent authentication/header metadata without
+    adding an AgentPay-operated buyer runtime.
     Seller commerce gateway, transaction, and dispute API. AgentPay is a working name.
     Version 0.9.0 adds authoritative pre-payment validation against each
     published route inputSchema, bounded field-level validation failures, and
@@ -1674,6 +1677,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentCapabilityCatalog' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/payment-capabilities/compatibility:
+    post:
+      summary: Detect compatibility for an external x402 buyer
+      description: Compares a bounded external-buyer capability declaration with the payment adapter enabled by this runtime. The operation is stateless, creates no intent or transaction, accepts no credentials, and never treats a seller project key as buyer authentication.
+      tags: [Payments]
+      operationId: detectExternalBuyerCompatibility
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExternalBuyerCompatibilityRequest' }
+      responses:
+        '200':
+          description: Deterministic compatible or unsupported result
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExternalBuyerCompatibilityResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /pay/{slug}/{proxyPath}:
     parameters:
       - name: slug
@@ -2647,6 +2672,57 @@ components:
                   uniqueItems: true
                   items: { type: string, enum: [eth_accounts, eth_requestAccounts, eth_chainId, wallet_switchEthereumChain, eth_signTypedData_v4] }
             - type: 'null'
+    ExternalBuyerCompatibilityRequest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, capabilities]
+      properties:
+        schemaVersion: { type: string, const: agentpay.external-buyer-capabilities.v1 }
+        capabilities:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items:
+            type: object
+            additionalProperties: false
+            required: [protocol, x402Version, scheme, network, asset]
+            properties:
+              protocol: { type: string, const: x402 }
+              x402Version: { type: integer, minimum: 1, maximum: 16 }
+              scheme: { type: string, minLength: 1, maxLength: 32 }
+              network: { type: string, minLength: 1, maxLength: 80 }
+              asset: { type: string, minLength: 1, maxLength: 160 }
+    ExternalBuyerCompatibilityResponse:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, runtimeEnvironment, compatible, reasonCode, selectedCapability, authentication, headers]
+      properties:
+        schemaVersion: { type: string, const: agentpay.external-buyer-compatibility.v1 }
+        runtimeEnvironment: { type: string, enum: [local, testnet] }
+        compatible: { type: boolean }
+        reasonCode: { type: string, enum: [compatible, no_compatible_payment_capability] }
+        selectedCapability:
+          oneOf:
+            - { $ref: '#/components/schemas/PaymentCapability' }
+            - type: 'null'
+        authentication:
+          type: object
+          additionalProperties: false
+          required: [credentialType, headerName, sellerProjectKeyAccepted]
+          properties:
+            credentialType: { type: string, const: buyer_agent_key }
+            headerName: { type: string, const: X-AgentPay-Agent-Key }
+            sellerProjectKeyAccepted: { type: boolean, const: false }
+        headers:
+          type: object
+          additionalProperties: false
+          required: [intentId, paymentRequired, paymentSignature, paymentResponse, transactionId]
+          properties:
+            intentId: { type: string, const: X-AgentPay-Intent-Id }
+            paymentRequired: { type: string, const: PAYMENT-REQUIRED }
+            paymentSignature: { type: string, const: PAYMENT-SIGNATURE }
+            paymentResponse: { type: string, const: PAYMENT-RESPONSE }
+            transactionId: { type: string, const: X-AgentPay-Transaction-Id }
     PaymentRecoveryDetails:
       type: object
       additionalProperties: false
@@ -2921,14 +2997,16 @@ components:
     AgentPayPlatformManifest:
       type: object
       additionalProperties: false
-      required: [schemaVersion, name, status, canonicalOrigin, apiOrigin, directoryEndpoint, jwksUri, capabilities]
+      required: [schemaVersion, name, status, canonicalOrigin, apiOrigin, directoryEndpoint, paymentCapabilitiesEndpoint, externalBuyerCompatibilityEndpoint, jwksUri, capabilities]
       properties:
-        schemaVersion: { type: string, const: agentpay.platform.v1 }
+        schemaVersion: { type: string, const: agentpay.platform.v2 }
         name: { type: string, const: AgentPay }
         status: { type: string, const: development_preview }
         canonicalOrigin: { type: string, format: uri }
         apiOrigin: { type: string, format: uri }
         directoryEndpoint: { type: string, format: uri }
+        paymentCapabilitiesEndpoint: { type: string, format: uri }
+        externalBuyerCompatibilityEndpoint: { type: string, format: uri }
         jwksUri: { type: string, format: uri }
         capabilities:
           type: object

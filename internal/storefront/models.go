@@ -19,7 +19,7 @@ const (
 	ProductContractSchemaVersion   = "agentpay.product-contract.v1"
 	ProductContractDomainSeparator = "agentpay.product-contract.v1"
 	DiscoveryLifetime              = 5 * time.Minute
-	PlatformManifestSchemaVersion  = "agentpay.platform.v1"
+	PlatformManifestSchemaVersion  = "agentpay.platform.v2"
 	DirectorySchemaVersion         = "agentpay.directory.v1"
 	PlatformStatusDevelopment      = "development_preview"
 	DirectoryOrderingLexical       = "lexical"
@@ -105,14 +105,16 @@ type PlatformCapabilities struct {
 }
 
 type AgentPayPlatformManifest struct {
-	SchemaVersion     string               `json:"schemaVersion"`
-	Name              string               `json:"name"`
-	Status            string               `json:"status"`
-	CanonicalOrigin   string               `json:"canonicalOrigin"`
-	APIOrigin         string               `json:"apiOrigin"`
-	DirectoryEndpoint string               `json:"directoryEndpoint"`
-	JWKSURI           string               `json:"jwksUri"`
-	Capabilities      PlatformCapabilities `json:"capabilities"`
+	SchemaVersion                      string               `json:"schemaVersion"`
+	Name                               string               `json:"name"`
+	Status                             string               `json:"status"`
+	CanonicalOrigin                    string               `json:"canonicalOrigin"`
+	APIOrigin                          string               `json:"apiOrigin"`
+	DirectoryEndpoint                  string               `json:"directoryEndpoint"`
+	PaymentCapabilitiesEndpoint        string               `json:"paymentCapabilitiesEndpoint"`
+	ExternalBuyerCompatibilityEndpoint string               `json:"externalBuyerCompatibilityEndpoint"`
+	JWKSURI                            string               `json:"jwksUri"`
+	Capabilities                       PlatformCapabilities `json:"capabilities"`
 }
 
 type PublicPaymentCapability struct {

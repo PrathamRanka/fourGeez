@@ -56,6 +56,20 @@ required = true`;
 
 const setupPrompt = `Connect this project to AgentPay. Inspect only bounded committed manifests and OpenAPI, detect one maintained stack, propose sellable routes plus truthful SEO/AEO changes, install AgentPay request verification, and generate focused tests. Ask me for every exact price and payout destination. Never invent or change prices or payout addresses, publish, rotate credentials, or deploy without my explicit confirmation.`;
 
+const externalBuyerCompatibilityProbe = `POST /v1/payment-capabilities/compatibility
+Content-Type: application/json
+
+{
+  "schemaVersion": "agentpay.external-buyer-capabilities.v1",
+  "capabilities": [{
+    "protocol": "x402",
+    "x402Version": 2,
+    "scheme": "exact",
+    "network": "eip155:84532",
+    "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  }]
+}`;
+
 const supportedStacks = [
   "Next.js",
   "React/Vite + Node API",
@@ -342,10 +356,23 @@ export default function DocsPage() {
               <h3>Check payment compatibility</h3>
               <p>
                 Read <code>GET /v1/payment-capabilities</code> before presenting
-                payment. The development runtime currently enables exact x402
-                on Base Sepolia USDC only. Browser and agent buyers use the same
+                payment. The development runtime currently enables exact x402 on
+                Base Sepolia USDC only. Browser and agent buyers use the same
                 immutable quote and payment path; card checkout is not enabled.
               </p>
+              <p>
+                External buyer software can call{" "}
+                <code>POST /v1/payment-capabilities/compatibility</code> to
+                compare its declared x402 support with the running environment.
+                A compatible result names the required headers and the separate
+                buyer-agent key boundary. Seller project keys are never buyer
+                credentials and must not be sent to commerce endpoints.
+              </p>
+              <CodeBlock
+                code={externalBuyerCompatibilityProbe}
+                label="Copy external buyer compatibility probe"
+                language="HTTP"
+              />
             </div>
             <div className={styles.sequence}>
               <div>

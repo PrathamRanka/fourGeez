@@ -206,6 +206,11 @@ export function TransactionList({
                         <code>{transaction.transactionId}</code>
                         <small>{transaction.buyerId}</small>
                         <small>
+                          {transaction.purchaseChannel === "browser"
+                            ? "Browser"
+                            : "External agent"}
+                        </small>
+                        <small>
                           {transaction.activityMode === "live"
                             ? "Live"
                             : "Test"}

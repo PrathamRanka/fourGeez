@@ -237,7 +237,7 @@ export function CommerceCheckout({
       const signedPayment =
         paymentSignature ??
         (decoded.mode === "mock"
-          ? "mock-approved-proof"
+          ? `mock-approved-proof:${startResult.purchaseIntent.intentId}`
           : await createX402PaymentSignature(
               startResult.paymentRequired,
               provider!,

@@ -295,6 +295,8 @@ func TestServicePublishesPlatformCapabilitiesAndFreshDirectoryResults(t *testing
 	platform := fixture.service.GetPlatformManifest()
 	if platform.SchemaVersion != PlatformManifestSchemaVersion ||
 		platform.DirectoryEndpoint != "https://api.agentpay.example/v1/discovery/products" ||
+		platform.PaymentCapabilitiesEndpoint != "https://api.agentpay.example/v1/payment-capabilities" ||
+		platform.ExternalBuyerCompatibilityEndpoint != "https://api.agentpay.example/v1/payment-capabilities/compatibility" ||
 		!platform.Capabilities.SellerIntegration ||
 		!platform.Capabilities.ExternalBuyerCompatible ||
 		platform.Capabilities.AgentPayBuyerRuntime ||

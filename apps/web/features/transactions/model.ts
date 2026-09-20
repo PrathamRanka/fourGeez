@@ -87,6 +87,7 @@ export type Transaction = {
   activityMode: ActivityMode;
   checkoutExpiresAt: string;
   sellerOutcome: SellerOutcome;
+  purchaseChannel?: "agent" | "browser";
   status: TransactionStatus;
   amount: string;
   asset: string;

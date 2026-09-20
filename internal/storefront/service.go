@@ -60,13 +60,15 @@ func NewService(dependencies Dependencies) *Service {
 
 func (service *Service) GetPlatformManifest() AgentPayPlatformManifest {
 	return AgentPayPlatformManifest{
-		SchemaVersion:     PlatformManifestSchemaVersion,
-		Name:              "AgentPay",
-		Status:            PlatformStatusDevelopment,
-		CanonicalOrigin:   service.CanonicalOrigin,
-		APIOrigin:         service.APIOrigin,
-		DirectoryEndpoint: service.APIOrigin + "/v1/discovery/products",
-		JWKSURI:           service.APIOrigin + "/.well-known/jwks.json",
+		SchemaVersion:                      PlatformManifestSchemaVersion,
+		Name:                               "AgentPay",
+		Status:                             PlatformStatusDevelopment,
+		CanonicalOrigin:                    service.CanonicalOrigin,
+		APIOrigin:                          service.APIOrigin,
+		DirectoryEndpoint:                  service.APIOrigin + "/v1/discovery/products",
+		PaymentCapabilitiesEndpoint:        service.APIOrigin + "/v1/payment-capabilities",
+		ExternalBuyerCompatibilityEndpoint: service.APIOrigin + "/v1/payment-capabilities/compatibility",
+		JWKSURI:                            service.APIOrigin + "/.well-known/jwks.json",
 		Capabilities: PlatformCapabilities{
 			BuyerChannels: []string{BuyerChannelAgent, BuyerChannelBrowser},
 			Discovery: PlatformDiscoveryCapabilities{

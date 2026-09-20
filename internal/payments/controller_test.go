@@ -134,6 +134,64 @@ func TestPaidRouteControllerPublishesRuntimePaymentCapabilities(t *testing.T) {
 	}
 }
 
+func TestPaidRouteControllerDetectsExternalBuyerCompatibility(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	service := NewCheckoutService(
+		fixture.service,
+		NewX402Adapter(),
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		&checkoutExecutor{},
+		fixture.clock,
+	)
+	mux := http.NewServeMux()
+	NewHTTPController(service).RegisterRoutes(mux)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/payment-capabilities/compatibility",
+		strings.NewReader(`{"schemaVersion":"agentpay.external-buyer-capabilities.v1","capabilities":[{"protocol":"x402","x402Version":2,"scheme":"exact","network":"eip155:84532","asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q", response.Header().Get("Cache-Control"))
+	}
+	var result ExternalBuyerCompatibilityResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Compatible || result.SelectedCapability == nil {
+		t.Fatalf("compatibility result = %#v", result)
+	}
+}
+
+func TestPaidRouteControllerRejectsMalformedExternalBuyerCompatibilityProbe(t *testing.T) {
+	t.Parallel()
+
+	mux := http.NewServeMux()
+	NewCapabilityHTTPController(NewX402Adapter()).RegisterRoutes(mux)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/payment-capabilities/compatibility",
+		strings.NewReader(`{"schemaVersion":"agentpay.external-buyer-capabilities.v1","capabilities":[],"projectKey":"must-not-be-accepted"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
 func TestPaidRouteControllerMapsInactiveCommerceToGone(t *testing.T) {
 	t.Parallel()
 

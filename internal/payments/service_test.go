@@ -595,6 +595,26 @@ func TestMockAdapterVerifiesAndSettlesApprovedProof(t *testing.T) {
 	}
 }
 
+func TestMockAdapterAcceptsDistinctIntentScopedApprovedProofs(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewMockAdapter()
+	requirements := validRequirements()
+	firstProof := MockApprovedProof + ":int_01K5D09YJ0C0M7RJM4FWQ0K9H7"
+	secondProof := MockApprovedProof + ":int_01K5D09YJ0C0M7RJM4FWQ0K9H8"
+	first, err := adapter.Verify(t.Context(), firstProof, requirements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := adapter.Verify(t.Context(), secondProof, requirements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.PaymentIdentifier == second.PaymentIdentifier {
+		t.Fatalf("payment identifiers must differ: %q", first.PaymentIdentifier)
+	}
+}
+
 // TestMockAdapterReturnsDeterministicFailures verifies mock failure classes.
 func TestMockAdapterReturnsDeterministicFailures(t *testing.T) {
 	t.Parallel()

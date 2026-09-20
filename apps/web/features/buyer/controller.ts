@@ -58,10 +58,10 @@ export async function runBuyerActivity(
           detail: `Loaded ${products.length} signed product${products.length === 1 ? "" : "s"}`,
         },
         {
-          tool: "rankEligibleOffers",
+          tool: "selectCompatibleProduct",
           status: selectedProduct ? "completed" : "blocked",
           detail: selectedProduct
-            ? `Selected ${selectedProduct.displayName} using deterministic catalog order`
+            ? `Selected ${selectedProduct.displayName} using deterministic compatible catalog order`
             : "No Base Sepolia USDC product was available",
         },
       ],

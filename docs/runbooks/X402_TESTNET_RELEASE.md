@@ -46,6 +46,42 @@ control, Terraform state, logs, screenshots, or evidence objects.
    balance; never record the private key or seed phrase.
 6. Create an evidence directory outside source control. Redact cookies,
    authorization headers, `PAYMENT-SIGNATURE`, raw proofs, and one-time tokens.
+7. Obtain a dedicated environment-approved buyer-agent credential through the
+   deployment operator. Never give the external buyer a seller project key,
+   MCP access token, seller bearer, browser purchase cookie, or execution
+   capability.
+
+## Local parity harness
+
+Run this before collecting deployed evidence:
+
+```powershell
+npm run test:e2e:buyer-parity
+```
+
+The test resets the deterministic launch-ready profile, purchases
+`market-snapshot` once through browser checkout and once through the external-
+client simulation, verifies the two transaction IDs appear once in the same
+seller dashboard's Test activity view, verifies both rows appear exactly once, and
+attaches `local-buyer-channel-parity` JSON to Playwright output. The attachment
+is labeled `environment=local-mock` and `deployedTestnetProof=false`; it is not
+REL-003 or REL-008 release evidence.
+
+## External buyer compatibility check
+
+1. Read `/.well-known/agentpay` and follow
+   `externalBuyerCompatibilityEndpoint`; do not hardcode an API deployment
+   origin from a prior run.
+2. POST `agentpay.external-buyer-capabilities.v1` with the external client's
+   x402 version, scheme, network, and asset support. Include no credential or
+   wallet material in this request.
+3. Require `compatible=true`, reason `compatible`, selected capability
+   `x402-exact-base-sepolia-usdc`, runtime environment `testnet`, and
+   `sellerProjectKeyAccepted=false` before creating an intent.
+4. Use the separately provisioned buyer-agent key only in
+   `X-AgentPay-Agent-Key`. Use `X-AgentPay-Intent-Id`, `PAYMENT-REQUIRED`,
+   `PAYMENT-SIGNATURE`, `PAYMENT-RESPONSE`, and
+   `X-AgentPay-Transaction-Id` exactly as returned by the compatibility result.
 
 ## Manual wallet signatures
 
@@ -123,6 +159,10 @@ or the evidence bundle.
    evidence, and dispute rules.
 3. Confirm both transactions appear once in the seller dashboard and the Base
    Sepolia USDC totals equal the two exact quotes without cross-asset summing.
+4. Save the redacted compatibility request/result, both distinct intent and
+   transaction IDs, both safe payment references, the two dashboard rows, and
+   the before/after dashboard count and fulfilled amount. Do not save either
+   wallet signature, the buyer-agent key, cookies, or authorization headers.
 
 ## Evidence bundle
 
@@ -141,3 +181,9 @@ Preserve a redacted manifest containing:
 Do not mark REL-003, REL-004, REL-005, or REL-008 complete until the deployed
 environment produces this evidence and every observed value matches the
 authoritative transaction and evidence records.
+
+Current status on September 20, 2026: the compatibility contract and local
+mock browser/agent parity harness are implemented and locally testable. No
+external buyer agent has yet completed the deployed Base Sepolia flow, and no
+deployed same-storefront browser-plus-agent dashboard evidence bundle exists.
+REL-003 and REL-008 therefore remain incomplete.
