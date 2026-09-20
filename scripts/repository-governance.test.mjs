@@ -15,16 +15,27 @@ test("repository declares the proprietary ownership boundary", async () => {
 });
 
 test("publishable metadata cannot imply an open-source grant", async () => {
-  const npmPackages = await Promise.all([
+  const internalApplications = await Promise.all([
     readJson("package.json"),
     readJson("apps/web/package.json"),
+  ]);
+  const proprietaryPackages = await Promise.all([
     readJson("packages/local-mcp-connector/package.json"),
+    readJson("packages/merchant-sdk/package.json"),
     readJson("verification/node/package.json"),
   ]);
 
-  for (const npmPackage of npmPackages) {
+  for (const npmPackage of internalApplications) {
     assert.equal(npmPackage.private, true, `${npmPackage.name} must remain private`);
     assert.equal(npmPackage.license, "UNLICENSED", `${npmPackage.name} must be unlicensed`);
+  }
+  for (const npmPackage of proprietaryPackages) {
+    assert.equal(npmPackage.private, true, `${npmPackage.name} must remain private`);
+    assert.equal(
+      npmPackage.license,
+      "SEE LICENSE IN LICENSE",
+      `${npmPackage.name} must reference its packed proprietary license`,
+    );
   }
 
   const pythonVerifier = await readText("verification/python/pyproject.toml");
@@ -64,6 +75,11 @@ test("repository ownership and contribution controls remain discoverable", async
   assert.match(readme, /## Ownership and license/);
   assert.match(governance, /cannot make a public repository technically uncloneable/i);
   assert.match(governance, /Make the repository private/i);
+  assert.match(
+    governance,
+    /copyright notices remain\s+attributed to Pratham Ranka and Ayush Garg/i,
+  );
+  assert.match(governance, /contributor-provenance review/i);
   assert.match(productTerms, /AgentPay software, site, documentation, and branding are proprietary/);
 });
 
@@ -84,4 +100,7 @@ test("continuous integration enforces the governance contract", async () => {
   const workflow = await readText(".github/workflows/ci.yml");
 
   assert.match(workflow, /node --test scripts\/repository-governance\.test\.mjs/);
+  assert.match(workflow, /package-release:/);
+  assert.match(workflow, /npm run test:package-distribution/);
+  assert.match(workflow, /npm run test:package-release-workflow/);
 });

@@ -41,14 +41,16 @@ const navigationGroups: DocsNavGroup[] = [
   },
 ];
 
-const powerShellSetup = `$env:AGENTPAY_API_BASE_URL = "https://api.example.agentpay"
+const powerShellSetup = `$ConnectorEntry = Join-Path $env:LOCALAPPDATA "AgentPay\\mcp-connector\\0.1.0\\node_modules\\@agentpay\\local-mcp-connector\\dist\\cli.js"
+if (-not (Test-Path -LiteralPath $ConnectorEntry)) { throw "Install the verified release artifact first." }
+$env:AGENTPAY_API_BASE_URL = "https://api.example.agentpay"
 $env:AGENTPAY_PROJECT_KEY = Read-Host "Paste the project key shown once" -MaskInput
-npx --yes @agentpay/local-mcp-connector@0.1.0 --check
+node $ConnectorEntry --check
 codex`;
 
 const codexConfig = `[mcp_servers.agentpay]
-command = "npx"
-args = ["--yes", "@agentpay/local-mcp-connector@0.1.0"]
+command = "node"
+args = ["C:\\Users\\SELLER\\AppData\\Local\\AgentPay\\mcp-connector\\0.1.0\\node_modules\\@agentpay\\local-mcp-connector\\dist\\cli.js"]
 env_vars = ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY"]
 required = true`;
 
@@ -252,8 +254,10 @@ export default function DocsPage() {
             <h2>Connect the MCP client</h2>
             <p>
               Configure Claude Code, Codex, or a generic MCP host to launch the
-              pinned local connector over stdio. This example uses Codex and a
-              PowerShell session.
+              pinned local connector over stdio. First download the exact
+              versioned GitHub Release asset, verify its checksum and source
+              provenance, and install it in the documented versioned local
+              directory. This example uses Codex and a PowerShell session.
             </p>
             <CodeBlock
               code={codexConfig}
@@ -267,8 +271,10 @@ export default function DocsPage() {
             />
             <p className={styles.caption}>
               Replace the example API origin with the environment-specific
-              origin shown in the seller dashboard. The connector package is a
-              release dependency until registry publication is complete.
+              origin shown in the seller dashboard and replace the example
+              <code>SELLER</code> path with the installed connector path. Never
+              substitute an npm registry command or mutable Git URL for the
+              verified release artifact.
             </p>
 
             <div className={styles.subsection} id="integration-prompt">

@@ -3,3 +3,8 @@ AgentPay Node verification runtime notice
 This package contains AgentPay-authored proprietary code and has no runtime npm
 dependencies. It is bundled inside the `@agentpay/merchant-sdk` Lean V1 release
 artifact and is not independently distributed by this release process.
+Repository history includes human and automated contributors, and no complete
+written assignment record has been verified in the repository. Distribution
+requires release-owner approval of contributor provenance and customer-use
+terms. Copyright remains attributed to Pratham Ranka and Ayush Garg; these
+review requirements do not change ownership.

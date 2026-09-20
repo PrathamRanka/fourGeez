@@ -1,0 +1,97 @@
+name: Seller package release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Protected tag in the form agentpay-packages-vX.Y.Z
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: seller-package-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      source_commit: ${{ steps.release_ref.outputs.source_commit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_tag }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Validate protected release ref
+        id: release_ref
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^agentpay-packages-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+          test -z "$(git status --porcelain --untracked-files=all)"
+          echo "source_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - run: npm run test:mcp-connector
+      - run: npm run test:merchant-sdk
+      - run: npm run typecheck:mcp-connector
+      - run: npm run typecheck:merchant-sdk
+      - run: npm run test:package-distribution
+      - name: Build and verify release bundle
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_COMMIT: ${{ steps.release_ref.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          npm run package:release -- --output "artifacts/$RELEASE_TAG"
+          npm run package:verify -- --directory "artifacts/$RELEASE_TAG" --expected-tag "$RELEASE_TAG" --expected-commit "$SOURCE_COMMIT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ inputs.release_tag }}
+          path: artifacts/${{ inputs.release_tag }}/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: seller-package-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.release_tag }}
+          path: release-assets
+      - name: Publish reviewed immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_COMMIT: ${{ needs.build.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          cd release-assets
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 4
+          sha256sum --check SHA256SUMS
+          test "$(jq -er '.releaseId' provenance.json)" = "$RELEASE_TAG"
+          test "$(jq -er '.source.commit' provenance.json)" = "$SOURCE_COMMIT"
+          test "$(jq -er '.source.dirty' provenance.json)" = "false"
+          test "$(jq -er '.artifacts | length' provenance.json)" -eq 2
+          cd ..
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to replace immutable assets." >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --latest=false --title "$RELEASE_TAG" --notes "Proprietary AgentPay seller packages. Verify SHA256SUMS and provenance.json before installation. Distribution requires approved customer-use terms and contributor provenance."
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false

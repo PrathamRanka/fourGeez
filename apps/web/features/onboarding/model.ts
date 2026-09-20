@@ -333,9 +333,12 @@ const integrationCheckActionLabels: Record<
   replay_idempotency: "replay protection",
 };
 
+const connectorEntry =
+  "C:\\Users\\SELLER\\AppData\\Local\\AgentPay\\mcp-connector\\0.1.0\\node_modules\\@agentpay\\local-mcp-connector\\dist\\cli.js";
+
 export function createMCPConfiguration(host: MCPHost): string {
   if (host === "codex") {
-    return `[mcp_servers.agentpay]\ncommand = "npx"\nargs = ["--yes", "@agentpay/local-mcp-connector@0.1.0"]\nenv_vars = ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY"]\nrequired = true`;
+    return `[mcp_servers.agentpay]\ncommand = "node"\nargs = ["${connectorEntry.replaceAll("\\", "\\\\")}"]\nenv_vars = ["AGENTPAY_API_BASE_URL", "AGENTPAY_PROJECT_KEY"]\nrequired = true`;
   }
   if (host === "generic-mcp") {
     return JSON.stringify(
@@ -343,8 +346,8 @@ export function createMCPConfiguration(host: MCPHost): string {
         schemaVersion: "agentpay.mcp-connection.v1",
         name: "agentpay",
         transport: "stdio",
-        command: "npx",
-        args: ["--yes", "@agentpay/local-mcp-connector@0.1.0"],
+        command: "node",
+        args: [connectorEntry],
         requiredEnvironmentVariables: [
           "AGENTPAY_API_BASE_URL",
           "AGENTPAY_PROJECT_KEY",
@@ -364,8 +367,8 @@ export function createMCPConfiguration(host: MCPHost): string {
       mcpServers: {
         agentpay: {
           type: "stdio",
-          command: "npx",
-          args: ["--yes", "@agentpay/local-mcp-connector@0.1.0"],
+          command: "node",
+          args: [connectorEntry],
           env: {
             AGENTPAY_API_BASE_URL: "${AGENTPAY_API_BASE_URL}",
             AGENTPAY_PROJECT_KEY: "${AGENTPAY_PROJECT_KEY}",
@@ -388,5 +391,5 @@ export function createPowerShellSetup(
       : host === "codex"
         ? "codex"
         : "# Start your generic MCP host after importing agentpay.mcp.json";
-  return `$env:AGENTPAY_API_BASE_URL = "${apiOrigin.replace(/\/$/, "")}"\n$env:AGENTPAY_PROJECT_KEY = Read-Host "Paste the project key shown once" -MaskInput\nnpx --yes @agentpay/local-mcp-connector@0.1.0 --check\n${startCommand}`;
+  return `$ConnectorEntry = Join-Path $env:LOCALAPPDATA "AgentPay\\mcp-connector\\0.1.0\\node_modules\\@agentpay\\local-mcp-connector\\dist\\cli.js"\nif (-not (Test-Path -LiteralPath $ConnectorEntry)) { throw "Install the verified AgentPay connector release artifact first." }\n$env:AGENTPAY_API_BASE_URL = "${apiOrigin.replace(/\/$/, "")}"\n$env:AGENTPAY_PROJECT_KEY = Read-Host "Paste the project key shown once" -MaskInput\nnode $ConnectorEntry --check\n${startCommand}`;
 }

@@ -34,8 +34,10 @@ describe("seller MCP host configuration", () => {
     const configuration = createMCPConfiguration(host);
     expect(configuration).toContain(marker);
     expect(configuration).toContain(hostShape);
-    expect(configuration).toContain("@agentpay/local-mcp-connector@0.1.0");
+    expect(configuration).toContain("mcp-connector\\\\0.1.0");
+    expect(configuration).toContain("dist\\\\cli.js");
     expect(configuration).toContain("AGENTPAY_PROJECT_KEY");
+    expect(configuration).not.toContain("npx");
     expect(configuration).not.toContain("Authorization");
     expect(configuration).not.toContain("/mcp");
   });
@@ -54,7 +56,9 @@ describe("seller MCP host configuration", () => {
       expect(setup).toContain(
         'Read-Host "Paste the project key shown once" -MaskInput',
       );
-      expect(setup).toContain("@agentpay/local-mcp-connector@0.1.0 --check");
+      expect(setup).toContain("$ConnectorEntry");
+      expect(setup).toContain("node $ConnectorEntry --check");
+      expect(setup).not.toContain("npx");
       expect(setup).toContain(startMarker);
       expect(setup).not.toContain("apc2.");
     },

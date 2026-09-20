@@ -12,8 +12,9 @@ bounded AgentPay MCP analysis, configuration, and verification tools.
 
 ## Installation
 
-This package is not published to npm. Authorized Lean V1 sellers install the
-exact downloaded release tarball after verifying `SHA256SUMS`:
+This package is not published to npm. Authorized Lean V1 sellers download the
+exact asset from the protected `agentpay-packages-v0.1.0` GitHub Release and
+install it only after verifying `SHA256SUMS` and `provenance.json`:
 
 ```powershell
 npm install --ignore-scripts --no-audit --no-fund --save-exact .\agentpay-local-mcp-connector-0.1.0.tgz

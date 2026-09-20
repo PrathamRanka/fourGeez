@@ -44,6 +44,12 @@ describe("AgentPay developer documentation", () => {
       ),
     ).toBeVisible();
     expect(
+      screen.getAllByText(/verified release artifact/i).length,
+    ).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain(
+      "npx --yes @agentpay/local-mcp-connector",
+    );
+    expect(
       within(documentationNavigation).getByRole("link", { name: "Quickstart" }),
     ).toHaveAttribute("aria-current", "location");
   });

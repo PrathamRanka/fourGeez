@@ -6,10 +6,15 @@ const expectedPackages = new Set([
   "@agentpay/local-mcp-connector",
   "@agentpay/merchant-sdk",
 ]);
-const releaseDirectory = parseDirectory(process.argv.slice(2));
-await verifyRelease(releaseDirectory);
+const options = parseArguments(process.argv.slice(2));
+await verifyRelease(options);
 
-async function verifyRelease(directory) {
+async function verifyRelease({
+  directory,
+  expectedTag,
+  expectedCommit,
+  allowDirty,
+}) {
   const provenance = JSON.parse(
     await readFile(path.join(directory, "provenance.json"), "utf8"),
   );
@@ -22,6 +27,18 @@ async function verifyRelease(directory) {
     throw new Error("Package provenance does not contain a full source commit");
   }
   if (
+    provenance.source.repository !==
+    "https://github.com/PrathamRanka/fourGeez"
+  ) {
+    throw new Error("Package provenance contains an unexpected source repository");
+  }
+  if (provenance.source.dirty !== false && !allowDirty) {
+    throw new Error("Package provenance records a dirty source worktree");
+  }
+  if (expectedCommit && provenance.source.commit !== expectedCommit) {
+    throw new Error("source commit does not match provenance");
+  }
+  if (
     !Array.isArray(provenance.artifacts) ||
     provenance.artifacts.length !== 2
   ) {
@@ -31,8 +48,10 @@ async function verifyRelease(directory) {
     await readFile(path.join(directory, "SHA256SUMS"), "utf8"),
   );
   const packageNames = new Set();
+  const versions = new Set();
   for (const artifact of provenance.artifacts) {
     packageNames.add(artifact.packageName);
+    versions.add(artifact.version);
     if (!/^[a-z0-9@/._-]+\.tgz$/u.test(artifact.fileName)) {
       throw new Error("Package provenance contains an invalid artifact name");
     }
@@ -46,6 +65,17 @@ async function verifyRelease(directory) {
     ) {
       throw new Error(`Checksum verification failed for ${artifact.fileName}`);
     }
+  }
+  if (versions.size !== 1) {
+    throw new Error("Package provenance contains mismatched versions");
+  }
+  const [version] = versions;
+  const releaseTag = `agentpay-packages-v${version}`;
+  if (provenance.releaseId !== releaseTag) {
+    throw new Error("release ID does not match package versions");
+  }
+  if (expectedTag && releaseTag !== expectedTag) {
+    throw new Error("release tag does not match provenance");
   }
   assertEqualSets(packageNames, expectedPackages, "unexpected package set");
   assertEqualSets(
@@ -93,9 +123,52 @@ async function sha256(filePath) {
     .digest("hex");
 }
 
-function parseDirectory(argumentsList) {
-  if (argumentsList.length !== 2 || argumentsList[0] !== "--directory") {
-    throw new Error("Usage: npm run package:verify -- --directory <directory>");
+function parseArguments(argumentsList) {
+  const options = {
+    directory: "",
+    expectedTag: "",
+    expectedCommit: "",
+    allowDirty: false,
+  };
+  for (let index = 0; index < argumentsList.length; index += 1) {
+    const argument = argumentsList[index];
+    if (argument === "--allow-dirty") {
+      options.allowDirty = true;
+      continue;
+    }
+    if (
+      argument === "--directory" ||
+      argument === "--expected-tag" ||
+      argument === "--expected-commit"
+    ) {
+      const value = argumentsList[index + 1];
+      if (!value) throw new Error(`${argument} requires a value`);
+      if (argument === "--directory") options.directory = path.resolve(value);
+      if (argument === "--expected-tag") options.expectedTag = value;
+      if (argument === "--expected-commit") options.expectedCommit = value;
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown argument: ${argument}`);
   }
-  return path.resolve(argumentsList[1]);
+  if (!options.directory) {
+    throw new Error(
+      "Usage: npm run package:verify -- --directory <directory> [--expected-tag <tag>] [--expected-commit <sha>]",
+    );
+  }
+  if (
+    options.expectedTag &&
+    !/^agentpay-packages-v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(
+      options.expectedTag,
+    )
+  ) {
+    throw new Error("expected release tag is invalid");
+  }
+  if (
+    options.expectedCommit &&
+    !/^[a-f0-9]{40}$/u.test(options.expectedCommit)
+  ) {
+    throw new Error("expected source commit must be a full Git SHA");
+  }
+  return options;
 }

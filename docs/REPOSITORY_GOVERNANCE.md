@@ -58,7 +58,7 @@ Create an active branch ruleset targeting the default branch `main`:
 - require all conversations to be resolved;
 - require the branch to be current before merging;
 - require these CI jobs: `contracts`, `backend`, `rl-scaffold`,
-  `extended-verification`, `web`, and `terraform`;
+  `extended-verification`, `package-release`, `web`, and `terraform`;
 - restrict direct pushes and keep bypass access limited to a documented
   emergency owner path; and
 - require linear history.
@@ -107,11 +107,12 @@ Before changing analytics configuration or adding another tracker:
 ## Contribution and ownership gaps
 
 Repository history contains commits from Tushar-Upadhiya and automated Vercel
-identities in addition to the two named owners. No signed assignment or
-historical contributor agreement was found in the repository. Copyright should
-not be represented as exclusively owned by Pratham Ranka and Ayush Garg until
-qualified counsel reviews provenance and the applicable contributors provide
-the required written license or assignment.
+identities in addition to the two named owners. The copyright notices remain
+attributed to Pratham Ranka and Ayush Garg, and this governance document does
+not change ownership. No signed assignment or historical contributor agreement
+was found in the repository, so qualified counsel must complete the
+contributor-provenance review and obtain any required written license or
+assignment before release.
 
 Future pull requests use the contribution grant and DCO sign-off in
 `CONTRIBUTING.md`. If the business requires exclusive ownership, adopt a
@@ -122,6 +123,14 @@ The seller verification packages and local MCP connector are currently marked
 private/proprietary. Before distributing them to customers or package
 registries, approve explicit customer-use and redistribution terms and produce
 a complete third-party notice bundle for each artifact.
+
+The `seller-package-release` Actions environment is the release-owner boundary
+for the connector and merchant SDK. Require an authorized human reviewer,
+protect `agentpay-packages-v*` tags, and enable immutable releases before the
+workflow is used. The workflow is intentionally manual and uses only the
+repository-scoped GitHub token. If the repository remains public, its GitHub
+Release assets are public too; access-controlled customer distribution therefore
+requires a private repository or another counsel-approved protected channel.
 
 ## Official GitHub references
 

@@ -54,23 +54,26 @@ stack-native integration notes, and the required SEO/AEO validation checklist.
 Unsupported stacks remain visible in the matrix but have no verification setup
 and cannot be selected by the setup prompt.
 
-Templates launch the pinned `@agentpay/local-mcp-connector@0.1.0` package over
-stdio and may contain `${AGENTPAY_API_BASE_URL}` and `${AGENTPAY_PROJECT_KEY}`
-references. `AGENTPAY_MCP_SCOPES` is optional. Templates never contain a
-resolved credential, seller signing secret, wallet material, approval token,
-or deployment credential.
+Templates launch the checksum-verified `@agentpay/local-mcp-connector` 0.1.0
+GitHub Release artifact from its versioned user-local installation directory.
+They may name `AGENTPAY_API_BASE_URL` and `AGENTPAY_PROJECT_KEY` as inherited
+environment variables. `AGENTPAY_MCP_SCOPES` is optional. Templates never
+contain a resolved credential, seller signing secret, wallet material,
+approval token, deployment credential, npm registry invocation, mutable Git
+URL, or vendored tarball path.
 
 ## Host configuration
 
-- Claude Code uses a project-scoped `.mcp.json` stdio entry that runs the local
-  connector with `npx` and passes the API base URL and project key as process
-  environment variables.
-- Codex uses project-scoped `.codex/config.toml` with the same stdio command and
+- Claude Code uses a project-scoped `.mcp.json` stdio entry that runs `node`
+  with the absolute path to the installed connector entry point and inherits
+  the API base URL and project key from the launching shell.
+- Codex uses project-scoped `.codex/config.toml` with the same versioned entry
+  point and
   only the two required allowlisted environment-variable names. The optional
   `AGENTPAY_MCP_SCOPES` variable is omitted so Codex does not treat it as a
   required startup input; the connector's fixed default scopes apply.
 - Generic hosts receive an AgentPay-neutral JSON descriptor naming the stdio
-  command, pinned connector package, required environment variables, and
+  command, pinned connector entry point, required environment variables, and
   separately labeled optional environment variables. The host must map those
   values into its supported local-process configuration.
 

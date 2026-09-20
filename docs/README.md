@@ -23,6 +23,14 @@ M9 deployed release verification remains pending. Until those release gates pass
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 
+The DX-004 seller-package release engineering path is complete: deterministic
+connector and merchant SDK artifacts, checksum/provenance verification, clean
+offline installation tests, pinned local-host instructions, and a manual
+least-privilege GitHub Release workflow are committed. No package release has
+been published. Repository owners must still approve customer-use terms and
+contributor provenance, protect the release tag and review environment, choose
+private or otherwise authorized distribution, and enable immutable releases.
+
 OpenAPI 0.8 removes the seller-callable onboarding purchase action while
 preserving the public buyer storefront and external buyer-agent commerce.
 It retains the OpenAPI 0.7 bounded EXT-001 public capability manifest and

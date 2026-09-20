@@ -38,9 +38,9 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-7. `@agentpay/local-mcp-connector` and `@agentpay/merchant-sdk` are not available from a stable public or protected release channel.
-8. The seller prototype currently depends on vendored `.tgz` artifacts, complicating installation and upgrades.
-9. Package artifacts still need an immutable release location, checksums, provenance, licensing review, and pinned installation instructions.
+7. **Resolved in repository (2026-09-20; publication pending owner approval):** `@agentpay/local-mcp-connector` and `@agentpay/merchant-sdk` now have a manual, environment-reviewed GitHub Release workflow for protected `agentpay-packages-v*` tags. It separates read-only build from release write permission and refuses to replace an existing release. This task did not publish externally; the first release remains blocked on the documented owner controls and legal approvals.
+8. **Resolved (2026-09-20):** seller-facing onboarding and documentation no longer invoke an unpublished npm package or rely on a repository-vendored tarball. They launch the checksum-verified connector from a versioned user-local installation created from the downloaded release asset.
+9. **Resolved in repository (2026-09-20; legal approval remains a release gate):** release generation produces deterministic tarballs, `SHA256SUMS`, and source-commit provenance; verification binds the bundle to an expected tag and full commit and fails on dirty or tampered artifacts; tests inspect packed contents and perform clean offline installs. Package licenses and notices no longer claim exclusive ownership by two named people and explicitly disclose the unresolved historical assignment review. GitHub immutable-release enablement, tag protection, repository visibility, customer-use terms, and contributor provenance remain release-owner prerequisites.
 
 ### P1
 
@@ -233,7 +233,7 @@ This register records issues found during the real seller onboarding, MCP config
 
 ## 13. Release verification gaps
 
-1. Publish immutable MCP connector and Merchant SDK release artifacts.
+1. After owner approval of customer-use terms and contributor provenance, enable the documented repository controls and run the manual workflow to publish the first immutable MCP connector and Merchant SDK release. No release was published by the issue 7-9 engineering task.
 2. Complete one external buyer-agent x402 production purchase.
 3. Run the complete production-shaped flow three consecutive times without manual repair.
 4. Demonstrate buyer-maximum rejection and exact wallet authorization.

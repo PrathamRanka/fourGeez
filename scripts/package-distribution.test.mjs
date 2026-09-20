@@ -62,7 +62,7 @@ test("seller packages produce reproducible self-contained release artifacts", as
   await verifyReleaseMetadata(firstOutput, sourceDirty);
   await verifyReleaseCommand(firstOutput);
   await verifyCleanInstall(firstOutput, temporaryRoot);
-  await verifyTamperDetection(secondOutput);
+  await verifyTamperDetection(secondOutput, sourceDirty);
   await verifyDirtyWorktreeRefusal(temporaryRoot);
 });
 
@@ -170,14 +170,42 @@ async function isWorktreeDirty() {
 }
 
 async function verifyReleaseCommand(outputDirectory) {
+  const provenance = JSON.parse(
+    await readFile(path.join(outputDirectory, "provenance.json"), "utf8"),
+  );
   await execFileAsync(
     process.execPath,
-    ["scripts/verify-package-release.mjs", "--directory", outputDirectory],
+    [
+      "scripts/verify-package-release.mjs",
+      "--directory",
+      outputDirectory,
+      "--expected-tag",
+      provenance.releaseId,
+      "--expected-commit",
+      provenance.source.commit,
+      ...(provenance.source.dirty ? ["--allow-dirty"] : []),
+    ],
     { cwd: repositoryRoot, timeout: 30_000 },
+  );
+
+  await assert.rejects(
+    execFileAsync(
+      process.execPath,
+      [
+        "scripts/verify-package-release.mjs",
+        "--directory",
+        outputDirectory,
+        "--expected-tag",
+        "agentpay-packages-v9.9.9",
+        ...(provenance.source.dirty ? ["--allow-dirty"] : []),
+      ],
+      { cwd: repositoryRoot, timeout: 30_000 },
+    ),
+    /release tag does not match provenance/u,
   );
 }
 
-async function verifyTamperDetection(outputDirectory) {
+async function verifyTamperDetection(outputDirectory, sourceDirty) {
   const artifactPath = path.join(outputDirectory, expectedArtifacts[0]);
   const original = await readFile(artifactPath);
   await writeFile(
@@ -187,7 +215,12 @@ async function verifyTamperDetection(outputDirectory) {
   await assert.rejects(
     execFileAsync(
       process.execPath,
-      ["scripts/verify-package-release.mjs", "--directory", outputDirectory],
+      [
+        "scripts/verify-package-release.mjs",
+        "--directory",
+        outputDirectory,
+        ...(sourceDirty ? ["--allow-dirty"] : []),
+      ],
       { cwd: repositoryRoot, timeout: 30_000 },
     ),
     /Checksum verification failed/u,
@@ -230,6 +263,7 @@ async function verifyCleanInstall(outputDirectory, temporaryRoot) {
       const connectorPackage = JSON.parse(
         await readFile(path.join(installedPackageRoot, "package.json"), "utf8"),
       );
+      await assertTruthfulPackageOwnership(installedPackageRoot);
       assert.deepEqual(connectorPackage.bin, {
         "agentpay-mcp": "dist/cli.js",
       });
@@ -273,6 +307,7 @@ async function verifyCleanInstall(outputDirectory, temporaryRoot) {
       const sdkPackage = JSON.parse(
         await readFile(path.join(installedPackageRoot, "package.json"), "utf8"),
       );
+      await assertTruthfulPackageOwnership(installedPackageRoot);
       assert.deepEqual(sdkPackage.bundleDependencies, [
         "@agentpay/verify-node",
       ]);
@@ -289,8 +324,27 @@ async function verifyCleanInstall(outputDirectory, temporaryRoot) {
         ).then((entry) => entry.isFile()),
         true,
       );
+      await assertTruthfulPackageOwnership(
+        path.join(
+          installedPackageRoot,
+          "node_modules",
+          "@agentpay",
+          "verify-node",
+        ),
+      );
     }
   }
+}
+
+async function assertTruthfulPackageOwnership(packageRoot) {
+  const license = await readFile(path.join(packageRoot, "LICENSE"), "utf8");
+  const notice = await readFile(path.join(packageRoot, "NOTICE"), "utf8");
+  assert.match(
+    license,
+    /^Copyright \(c\) 2026 Pratham Ranka and Ayush Garg\. All rights reserved\.$/mu,
+  );
+  assert.match(notice, /no complete\s+written assignment record/u);
+  assert.match(notice, /release-owner/u);
 }
 
 async function assertNoPackedSecrets(rootDirectory) {

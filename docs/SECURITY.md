@@ -208,6 +208,14 @@ reveal-once project key outside repository files and host configuration. An
 installed connector remains untrusted and receives no cloud signing or payment
 authority.
 
+The release workflow is manual and split by privilege: package build and tests
+run with read-only repository access, while only the environment-reviewed
+publication job receives `contents: write`. It uses the repository-scoped
+GitHub token, refuses an existing release tag, and publishes no registry
+package. GitHub immutable releases, protected package tags, repository
+visibility, customer-use terms, and contributor-provenance approval remain
+owner-controlled prerequisites and are not implied by committed automation.
+
 Buyer-side approval invitation, cookie, token, and WebSocket mechanisms are
 disabled for Lean V1. Historical M2 code and records are not transaction
 authority and must not be exposed by the launch runtime. Seller sessions,

@@ -1,8 +1,9 @@
 # `@agentpay/merchant-sdk`
 
 Server-only TypeScript helpers for receiving AgentPay fulfillment requests and
-seller webhooks. Version `0.1.0` is distributed as a checksummed private release
-tarball; it is not published to a package registry.
+seller webhooks. Version `0.1.0` is distributed as a checksummed asset on the
+protected `agentpay-packages-v0.1.0` GitHub Release; it is not published to a
+package registry.
 
 Install the verified artifact with lifecycle scripts disabled:
 

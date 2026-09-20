@@ -449,9 +449,9 @@ describe("seller onboarding MCP gate", () => {
     expect(await screen.findByText(createdCredential.token)).toBeVisible();
     expect(screen.getByText(/shown only once/i)).toBeVisible();
     const configuration = screen.getByLabelText("Host configuration");
-    expect(configuration).toHaveTextContent(
-      "@agentpay/local-mcp-connector@0.1.0",
-    );
+    expect(configuration).toHaveTextContent(/mcp-connector.*0\.1\.0/u);
+    expect(configuration).toHaveTextContent(/dist.*cli\.js/u);
+    expect(configuration).not.toHaveTextContent("npx");
     expect(configuration).toHaveTextContent("AGENTPAY_PROJECT_KEY");
     expect(configuration).not.toHaveTextContent(createdCredential.token);
     expect(configuration).not.toHaveTextContent("Authorization");

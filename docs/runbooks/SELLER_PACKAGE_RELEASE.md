@@ -7,9 +7,13 @@ tarballs attached to the protected immutable tag
 `agentpay-packages-v0.1.0`, with `SHA256SUMS` and `provenance.json` from the same
 build.
 
-The repository is proprietary. Do not distribute an artifact until the owners
-have approved customer-use terms, contributor provenance, and the included
-notices. Possession of a tarball alone does not grant use rights.
+The repository is proprietary. Do not distribute an artifact until the release
+owners have approved customer-use terms, contributor provenance, and the
+included notices. Repository history contains additional human and automated
+contributors, and the repository contains no complete written assignment
+record. The package copyright remains attributed to Pratham Ranka and Ayush
+Garg; the provenance and release-review requirements do not change ownership.
+Possession of a tarball alone does not grant use rights.
 
 ## Package audit
 
@@ -27,7 +31,31 @@ formats, private-key markers, or a project-key assignment in packed content.
 The legal customer-use agreement and historical contributor-provenance review
 remain release-owner gates; this technical workflow does not resolve them.
 
-## Release-owner procedure
+## Protected GitHub Release procedure
+
+The supported channel is the manual `Seller package release` GitHub Actions
+workflow. It accepts only an existing version tag, checks that the tagged
+commit is on `main`, builds and verifies the packages in a read-only job, and
+passes only the four release files to a separate `contents: write` job. That
+job is gated by the `seller-package-release` environment, refuses to replace an
+existing release, creates a draft, uploads the assets, and then publishes it.
+It uses only the repository-scoped GitHub token and requires no stored release
+secret.
+
+Before enabling that environment, repository owners must:
+
+1. approve the customer-use terms and contributor-provenance review;
+2. make the repository private if downloads must be restricted to authorized
+   sellers, because a release in a public repository is publicly downloadable;
+3. protect `main` and `agentpay-packages-v*` tags;
+4. enable GitHub immutable releases for the repository; and
+5. require an authorized release-owner reviewer on the
+   `seller-package-release` environment.
+
+This change does not apply those owner settings and does not publish a release.
+Do not run the workflow until all five controls are verified.
+
+## Local release rehearsal
 
 Requirements are Node.js 24 or newer, npm 11 or newer, a clean reviewed Git
 commit, and no credentials in the shell command or repository.
@@ -40,6 +68,7 @@ npm run test:merchant-sdk
 npm run typecheck:mcp-connector
 npm run typecheck:merchant-sdk
 npm run test:package-distribution
+npm run test:package-release-workflow
 
 $ReleaseDirectory = Resolve-Path .\artifacts -ErrorAction SilentlyContinue
 if (-not $ReleaseDirectory) {
@@ -47,7 +76,8 @@ if (-not $ReleaseDirectory) {
 }
 
 npm run package:release -- --output .\artifacts\agentpay-packages-v0.1.0
-npm run package:verify -- --directory .\artifacts\agentpay-packages-v0.1.0
+$Commit = git rev-parse HEAD
+npm run package:verify -- --directory .\artifacts\agentpay-packages-v0.1.0 --expected-tag agentpay-packages-v0.1.0 --expected-commit $Commit
 ```
 
 The build refuses a dirty worktree. It runs `npm pack --dry-run --json`, rejects
@@ -60,10 +90,10 @@ provenance.json
 SHA256SUMS
 ```
 
-Before upload, compare `provenance.json` with `git rev-parse HEAD`. Protect and
-sign the release tag according to repository governance. Upload all four files
-without renaming them. Do not run `npm publish`; both manifests deliberately
-retain `private: true`.
+The local rehearsal does not upload anything. For an approved release, create
+and protect the exact tag, then manually run the `Seller package release`
+workflow with that tag. Do not upload assets by hand, rerun an existing release
+tag, or run `npm publish`; both manifests deliberately retain `private: true`.
 
 ## Download and checksum verification on Windows
 
@@ -106,8 +136,15 @@ foreach ($PackageFile in $Files.Where({ $_.EndsWith(".tgz") })) {
 ```
 
 Inspect `provenance.json` and require its full `source.commit` to match the
-protected release tag. Stop if the checksum, commit, package version, or file
-name differs from the dashboard release record.
+protected release tag. The release owner can run the same fail-closed check
+after download:
+
+```powershell
+npm run package:verify -- --directory $DownloadDirectory --expected-tag $ReleaseTag --expected-commit "FULL_40_CHARACTER_TAG_COMMIT"
+```
+
+Stop if the checksum, commit, package version, file name, or release tag differs
+from the approved release record.
 
 ## Install the local connector
 
