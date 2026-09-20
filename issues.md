@@ -28,11 +28,11 @@ This register records issues found during the real seller onboarding, MCP config
    - A secret-safe production-shaped rehearsal harness and runbook are prepared
      for execution after issues 1-3 merge. The issue remains open until that
      deployed clean-account run passes and its sanitized evidence is reviewed.
-5. Seller onboarding wording can blur the distinction between configuring a store and buying from it.
-6. The dashboard needs a clear publication and integration-health status without buyer-facing controls.
-6a. The founder journey currently requires too many separate screens, technical decisions, and manual checks before a product is ready.
-6b. The V1 seller journey should be reduced to a small guided sequence: connect service, confirm payout, review detected products, publish, then monitor sales.
-6c. Every step needs hard server-authoritative checks, plain pass/fail results, and one precise next action instead of leaving founders to diagnose infrastructure terms.
+5. **Resolved locally (2026-09-20):** Seller onboarding now states that the workspace configures the store and that buyers purchase elsewhere; no buyer checkout control was added.
+6. **Resolved locally (2026-09-20):** The onboarding and dashboard entry surfaces now show publication readiness and integration health from the server-authored onboarding projection.
+6a. **Resolved locally (2026-09-20):** The entry experience collapses the underlying security checkpoints into one five-stage founder launch rail while retaining detailed checks under the setup surface.
+6b. **Resolved locally (2026-09-20):** The visible journey is connect service -> confirm payout -> review detected products -> publish -> monitor sales.
+6c. **Resolved locally (2026-09-20):** The UI maps authoritative onboarding state and the bounded integration result to pass/fail health plus one precise next action, including the first failed verification check. Deployed verification has not been claimed or performed for this change.
 
 ## 2. MCP, SDK, and seller repository integration
 

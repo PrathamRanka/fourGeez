@@ -183,6 +183,17 @@ export async function listOnboardingResources(): Promise<{
   };
 }
 
+// loadOnboardingState reads the authoritative launch status without loading setup secrets or wallet records.
+export async function loadOnboardingState(): Promise<SellerOnboardingState> {
+  const sellerId = await authenticatedSellerId();
+  if (!sellerId) return emptyOnboardingState();
+  const result = await requestAgentPay<SellerOnboardingState>(
+    "/v1/me/onboarding",
+    { method: "GET" },
+  );
+  return result.ok ? result.value : emptyOnboardingState(sellerId);
+}
+
 function emptyOnboardingState(
   sellerId: string | null = null,
 ): SellerOnboardingState {

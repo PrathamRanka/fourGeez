@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   Check,
   CheckCircle2,
   Circle,
@@ -28,8 +29,10 @@ import type {
   SellerOnboardingState,
 } from "@/features/onboarding/model";
 import {
+  buildSellerJourney,
   createMCPConfiguration,
   createPowerShellSetup,
+  getSellerNextAction,
   setupPrompt,
 } from "@/features/onboarding/model";
 import styles from "./seller-onboarding.module.css";
@@ -62,17 +65,15 @@ const eligibilitySteps = [
   "subscription_active",
   "payment_destination_verified",
 ] as const satisfies readonly OnboardingStepName[];
-const integrationCheckLabels: Record<
-  IntegrationVerificationCheckName,
-  string
-> = {
-  endpoint_reachability: "Endpoint reachability",
-  signed_exchange: "Signed request and response",
-  schema_contract: "Input and output contract",
-  fulfillment_readiness: "Fulfillment readiness",
-  payment_gating: "Payment gating",
-  replay_idempotency: "Replay and idempotency",
-};
+const integrationCheckLabels: Record<IntegrationVerificationCheckName, string> =
+  {
+    endpoint_reachability: "Endpoint reachability",
+    signed_exchange: "Signed request and response",
+    schema_contract: "Input and output contract",
+    fulfillment_readiness: "Fulfillment readiness",
+    payment_gating: "Payment gating",
+    replay_idempotency: "Replay and idempotency",
+  };
 const prerequisiteDetails: Record<
   (typeof eligibilitySteps)[number],
   { label: string; href: string; action: string }
@@ -150,6 +151,16 @@ export function SellerOnboarding({
     () => createPowerShellSetup(apiOrigin, host),
     [apiOrigin, host],
   );
+  const sellerJourney = buildSellerJourney(onboarding);
+  const nextAction = getSellerNextAction(onboarding);
+  const integrationHealth = onboarding.integrationVerification
+    ? onboarding.integrationVerification.valid
+      ? "Pass"
+      : "Fail"
+    : "Not checked";
+  const authoritativeCurrentStep =
+    onboarding.steps.find((step) => step.status !== "complete")?.name ??
+    onboarding.currentStep;
 
   if (seller?.status === "suspended") {
     return <OperationState kind="seller_suspended" />;
@@ -301,16 +312,52 @@ export function SellerOnboarding({
       aria-label="Storefront launch sequence"
     >
       <aside className="onboarding-summary" aria-label="Launch progress">
-        <p className="dashboard-eyebrow">Launch Rail</p>
-        <h1>Launch your storefront</h1>
+        <p className="dashboard-eyebrow">Seller setup</p>
+        <h1>Configure your store</h1>
         <p>
-          Complete the authoritative seller prerequisites before connecting a
-          coding agent. Commercial changes always stay behind your approval.
+          Connect the service you sell, confirm where you get paid, and publish
+          only after AgentPay passes every check. Buyers purchase somewhere
+          else; this workspace has no checkout controls.
         </p>
+        <div className="onboarding-health" aria-label="Store status">
+          <div>
+            <span>Publication</span>
+            <strong>
+              {onboarding.publication.allowed ? "Ready" : "Blocked"}
+            </strong>
+          </div>
+          <div role="status" aria-label="Integration health">
+            <span>Integration</span>
+            <strong>{integrationHealth}</strong>
+          </div>
+        </div>
+        <section className="onboarding-next-action" aria-label="Next action">
+          <span>Next action</span>
+          <strong>{nextAction.label}</strong>
+          <p>{nextAction.description}</p>
+          <Link href={nextAction.href}>
+            Continue <ArrowRight aria-hidden="true" />
+          </Link>
+        </section>
+        <ol className="seller-journey" aria-label="Seller launch journey">
+          {sellerJourney.map((step, index) => (
+            <li key={step.id} data-status={step.status}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{step.label}</strong>
+              <small>
+                {step.status === "complete"
+                  ? "Passed"
+                  : step.status === "current"
+                    ? "Now"
+                    : "Next"}
+              </small>
+            </li>
+          ))}
+        </ol>
         <div className="onboarding-progress" aria-label="Onboarding progress">
           <div>
             <span>
-              {completedSteps} of {totalSteps} complete
+              {completedSteps} of {totalSteps} checks passed
             </span>
             <span>{Math.round((completedSteps / totalSteps) * 100)}%</span>
           </div>
@@ -320,7 +367,6 @@ export function SellerOnboarding({
             />
           </div>
         </div>
-        <PrerequisiteChecklist onboarding={onboarding} />
       </aside>
 
       <div className="onboarding-steps">
@@ -393,7 +439,11 @@ export function SellerOnboarding({
                 stepComplete("storefront_created") &&
                 stepComplete("service_connection_verified")
               }
-              current={!stepComplete("service_connection_verified")}
+              current={
+                authoritativeCurrentStep === "account_verified" ||
+                authoritativeCurrentStep === "storefront_created" ||
+                authoritativeCurrentStep === "service_connection_verified"
+              }
               detail={seller.upstreamBaseUrl}
               locked={false}
             >
@@ -441,7 +491,7 @@ export function SellerOnboarding({
               title="Testnet launch entitlement"
               description="Stripe checkout is disabled for this launch. AgentPay must provision an active testnet entitlement."
               complete={stepComplete("subscription_active")}
-              current={!stepComplete("subscription_active")}
+              current={authoritativeCurrentStep === "subscription_active"}
               locked={false}
             >
               <div className="sandbox-readiness">
@@ -466,7 +516,9 @@ export function SellerOnboarding({
               title="Verify your payout destination"
               description="Enter your own address, select a supported testnet pair, then prove that the connected wallet controls it."
               complete={stepComplete("payment_destination_verified")}
-              current={!stepComplete("payment_destination_verified")}
+              current={
+                authoritativeCurrentStep === "payment_destination_verified"
+              }
               detail={
                 paymentDestinations.find((item) => item.status === "active")
                   ?.address
@@ -525,6 +577,9 @@ export function SellerOnboarding({
                 </div>
                 <span className="onboarding-step-status">Blocked</span>
               </header>
+              <div className="onboarding-step-content">
+                <PrerequisiteChecklist onboarding={onboarding} />
+              </div>
             </section>
           ) : (
             <>
@@ -535,8 +590,12 @@ export function SellerOnboarding({
                 title="Project credential"
                 description="Create a scoped bootstrap key. The raw value is never recoverable after this page leaves memory."
                 complete={lifecycle === "active"}
-                current={!projectCredential}
+                current={authoritativeCurrentStep === "project_key_created"}
                 detail={projectCredential?.label}
+                expanded={
+                  authoritativeCurrentStep === "project_key_created" ||
+                  createdCredential !== null
+                }
                 locked={false}
               >
                 <div className="onboarding-copy-grid">
@@ -584,8 +643,9 @@ export function SellerOnboarding({
                   title="Connect and diagnose MCP"
                   description="Your coding agent edits the repository using AgentPay MCP analysis and guidance. AgentPay MCP does not write repository files; the connector provides short-lived cloud access for bounded tools and seller-confirmed cloud mutations."
                   complete={connectorState === "connected"}
-                  current
+                  current={authoritativeCurrentStep === "connector_verified"}
                   detail={`Connector ${connectorState}`}
+                  expanded={authoritativeCurrentStep === "connector_verified"}
                   locked={false}
                 >
                   <div className="onboarding-copy-grid">
@@ -659,8 +719,11 @@ export function SellerOnboarding({
                 description="AgentPay probes the dedicated no-op endpoint without creating a purchase, transaction, or payment."
                 complete={stepComplete("integration_verification")}
                 current={
-                  connectorState === "connected" &&
-                  !stepComplete("integration_verification")
+                  authoritativeCurrentStep === "integration_verification"
+                }
+                expanded={
+                  authoritativeCurrentStep === "integration_verification" ||
+                  onboarding.integrationVerification !== undefined
                 }
                 locked={connectorState !== "connected"}
               >
@@ -674,9 +737,11 @@ export function SellerOnboarding({
                   >
                     {stepComplete("integration_verification")
                       ? "Integration verified"
-                      : connectorState === "connected"
-                        ? "Verification required"
-                        : "Validation not run"}
+                      : onboarding.integrationVerification
+                        ? "Integration failed"
+                        : connectorState === "connected"
+                          ? "Verification required"
+                          : "Validation not run"}
                   </span>
                   <p>
                     {connectorState === "connected"
@@ -822,6 +887,7 @@ type OnboardingStepProps = {
   current: boolean;
   description: string;
   detail?: string;
+  expanded?: boolean;
   icon: React.ComponentType<{
     className?: string;
     "aria-hidden"?: boolean | "true" | "false";
@@ -838,6 +904,7 @@ function OnboardingStep({
   current,
   description,
   detail,
+  expanded,
   icon: Icon,
   id,
   locked,
@@ -879,7 +946,7 @@ function OnboardingStep({
           <CheckCircle2 className="onboarding-step-check" aria-hidden="true" />
         ) : null}
       </header>
-      {current || !locked ? (
+      {(expanded ?? current) ? (
         <div className="onboarding-step-content">{children}</div>
       ) : null}
     </section>

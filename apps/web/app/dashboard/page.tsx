@@ -15,6 +15,8 @@ import {
 } from "@/features/analytics/model";
 import { DailyActivityChart } from "@/features/analytics/view/daily-activity-chart";
 import { getSellerSession } from "@/features/auth/server/session";
+import { loadOnboardingState } from "@/features/onboarding/controller";
+import { getSellerNextAction } from "@/features/onboarding/model";
 import { formatAtomicPrice } from "@/lib/money";
 import styles from "./overview.module.css";
 
@@ -48,7 +50,10 @@ export default async function DashboardPage() {
     redirect("/dashboard/onboarding");
   }
 
-  const snapshot = await loadAnalyticsSnapshot();
+  const [snapshot, onboarding] = await Promise.all([
+    loadAnalyticsSnapshot(),
+    loadOnboardingState(),
+  ]);
   const paymentPairs = buildPaymentPairSummaries(snapshot.aggregates);
   const dailyActivity = buildDailyActivity(snapshot.aggregates);
   const stageCounts = dailyActivity.reduce(
@@ -60,8 +65,15 @@ export default async function DashboardPage() {
     { fulfilled: 0, processing: 0, needsAttention: 0 },
   );
 
-  const recommendedAction =
-    snapshot.routes.length === 0
+  const setupAction = getSellerNextAction(onboarding);
+  const recommendedAction = !onboarding.publication.allowed
+    ? {
+        title: setupAction.label,
+        description: setupAction.description,
+        href: setupAction.href,
+        label: setupAction.label,
+      }
+    : snapshot.routes.length === 0
       ? {
           title: "Publish your first product",
           description:
@@ -76,9 +88,7 @@ export default async function DashboardPage() {
               "Review failed or disputed transactions before they interrupt fulfillment.",
             href: "/dashboard/transactions",
             label: `Review ${stageCounts.needsAttention} ${
-              stageCounts.needsAttention === 1
-                ? "transaction"
-                : "transactions"
+              stageCounts.needsAttention === 1 ? "transaction" : "transactions"
             }`,
           }
         : snapshot.transactionCount === 0
@@ -113,6 +123,35 @@ export default async function DashboardPage() {
           {snapshot.error ? "Reporting degraded" : "Systems operational"}
         </div>
       </header>
+
+      <section className={styles.storeHealth} aria-label="Store health">
+        <div>
+          <span>Publication</span>
+          <strong>
+            {onboarding.publication.allowed ? "Ready" : "Blocked"}
+          </strong>
+          <small>
+            {onboarding.publication.allowed
+              ? "Server checks allow an approved product to go live."
+              : "Complete the next setup action before publishing."}
+          </small>
+        </div>
+        <div>
+          <span>Integration</span>
+          <strong>
+            {onboarding.integrationVerification
+              ? onboarding.integrationVerification.valid
+                ? "Pass"
+                : "Fail"
+              : "Not checked"}
+          </strong>
+          <small>
+            {onboarding.integrationVerification?.valid
+              ? `Verified for product version ${onboarding.integrationVerification.routeVersion}.`
+              : "AgentPay has not recorded a passing check for the current product version."}
+          </small>
+        </div>
+      </section>
 
       <section className={styles.metrics} aria-label="Commerce metrics">
         <article
@@ -270,12 +309,17 @@ export default async function DashboardPage() {
         ) : (
           <div className={styles.emptyPairs}>
             <strong>No settlements yet</strong>
-            <span>Verified payments will appear here by asset and network.</span>
+            <span>
+              Verified payments will appear here by asset and network.
+            </span>
           </div>
         )}
       </section>
 
-      <section aria-labelledby="seller-operations" className={styles.operations}>
+      <section
+        aria-labelledby="seller-operations"
+        className={styles.operations}
+      >
         <div className={styles.sectionHeading}>
           <div>
             <p>Workspace shortcuts</p>

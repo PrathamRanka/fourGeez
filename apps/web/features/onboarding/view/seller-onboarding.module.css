@@ -22,6 +22,10 @@
 .workspace :global(.onboarding-step-status),
 .workspace :global(.onboarding-form label > span),
 .workspace :global(.onboarding-code-block > div),
+.workspace :global(.onboarding-health span),
+.workspace :global(.onboarding-next-action > span),
+.workspace :global(.seller-journey li > span),
+.workspace :global(.seller-journey small),
 .workspace :global(.status-ready),
 .workspace :global(.status-waiting) {
   font-family: var(--font-mono);
@@ -36,10 +40,9 @@
   display: grid;
   min-width: 0;
   min-height: calc(100svh - var(--dash-header-height, 4.5rem));
-  grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.55fr);
-  grid-template-rows: 1fr auto;
+  grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr);
   align-content: center;
-  gap: 2.25rem 3rem;
+  gap: 1.5rem 3rem;
   border-inline: 1px solid var(--line);
   background: var(--dash-canvas);
   padding: clamp(2rem, 5vw, 5rem) clamp(1rem, 4vw, 4rem) 2rem;
@@ -76,14 +79,128 @@
   line-height: 1.6;
 }
 
-.workspace :global(.onboarding-progress) {
+.workspace :global(.onboarding-health) {
   grid-column: 2;
-  grid-row: 1;
-  align-self: center;
-  min-width: 0;
+  grid-row: 1 / span 3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-self: end;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  padding-block: 1.15rem;
+}
+
+.workspace :global(.onboarding-health > div) {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.workspace :global(.onboarding-health > div + div) {
+  border-left: 1px solid var(--line);
+}
+
+.workspace :global(.onboarding-health span),
+.workspace :global(.onboarding-next-action > span),
+.workspace :global(.seller-journey li > span),
+.workspace :global(.seller-journey small) {
+  color: var(--muted);
+  font-size: 0.52rem;
+}
+
+.workspace :global(.onboarding-health strong) {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 560;
+  letter-spacing: -0.04em;
+}
+
+.workspace :global(.onboarding-next-action) {
+  grid-column: 2;
+  display: grid;
+  align-self: start;
+  gap: 0.55rem;
+  border-left: 1px solid var(--copy);
+  padding-left: 1rem;
+}
+
+.workspace :global(.onboarding-next-action strong) {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 580;
+  letter-spacing: -0.025em;
+}
+
+.workspace :global(.onboarding-next-action p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.workspace :global(.onboarding-next-action a) {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--copy);
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.workspace :global(.onboarding-next-action svg) {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.workspace :global(.seller-journey) {
+  grid-column: 1 / -1;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+
+.workspace :global(.seller-journey li) {
+  display: grid;
+  min-width: 0;
+  min-height: 6rem;
+  align-content: space-between;
+  gap: 0.65rem;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 0.8rem;
+  color: var(--muted);
+}
+
+.workspace :global(.seller-journey li[data-status="current"]) {
+  background: var(--copy);
+  color: var(--dash-canvas);
+}
+
+.workspace :global(.seller-journey li[data-status="complete"]) {
+  color: var(--copy);
+}
+
+.workspace :global(.seller-journey li[data-status="current"] > span),
+.workspace :global(.seller-journey li[data-status="current"] small) {
+  color: color-mix(in srgb, var(--dash-canvas) 64%, transparent);
+}
+
+.workspace :global(.seller-journey strong) {
+  max-width: 13ch;
+  font-size: 0.72rem;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.workspace :global(.onboarding-progress) {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .workspace :global(.onboarding-progress > div:first-child) {
@@ -92,14 +209,14 @@
   gap: 1rem;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 .workspace :global(.onboarding-progress-track) {
-  height: 0.22rem;
-  margin-top: 0.8rem;
+  height: 0.18rem;
+  margin-top: 0.65rem;
   overflow: hidden;
   background: var(--surface-soft);
 }
@@ -111,43 +228,6 @@
   transform-origin: left;
   background: var(--copy);
   transition: transform 180ms ease-out;
-}
-
-.workspace :global(.onboarding-checklist) {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: grid;
-  min-width: 0;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-  list-style: none;
-}
-
-.workspace :global(.onboarding-checklist li) {
-  display: flex;
-  min-width: 0;
-  min-height: 3.25rem;
-  align-items: center;
-  gap: 0.55rem;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 0.75rem;
-  color: var(--muted);
-  font-size: 0.64rem;
-  line-height: 1.35;
-}
-
-.workspace :global(.onboarding-checklist li[data-complete="true"]) {
-  color: var(--copy);
-}
-
-.workspace :global(.onboarding-checklist svg) {
-  width: 0.8rem;
-  height: 0.8rem;
-  flex: none;
 }
 
 .workspace :global(.onboarding-steps) {
@@ -276,6 +356,42 @@
   font-size: 0.58rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.workspace :global(.onboarding-checklist) {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+
+.workspace :global(.onboarding-checklist li) {
+  display: flex;
+  min-width: 0;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.55rem;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem;
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.workspace :global(.onboarding-checklist li[data-complete="true"]) {
+  color: var(--copy);
+}
+
+.workspace :global(.onboarding-checklist svg) {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: none;
 }
 
 .workspace :global(.onboarding-step:not([data-current="true"]) header p) {
@@ -525,10 +641,17 @@
   .workspace :global(.onboarding-summary > .dashboard-eyebrow),
   .workspace :global(.onboarding-summary > h1),
   .workspace :global(.onboarding-summary > p),
+  .workspace :global(.onboarding-health),
+  .workspace :global(.onboarding-next-action),
+  .workspace :global(.seller-journey),
   .workspace :global(.onboarding-progress),
   .workspace :global(.onboarding-checklist) {
     grid-column: 1;
     grid-row: auto;
+  }
+
+  .workspace :global(.onboarding-health) {
+    align-self: stretch;
   }
 
   .workspace :global(.dashboard-eyebrow) {
@@ -547,6 +670,14 @@
 
   .workspace :global(.onboarding-checklist) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace :global(.seller-journey) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace :global(.seller-journey li:last-child) {
+    grid-column: 1 / -1;
   }
 
   .workspace :global(.onboarding-form) {
@@ -581,7 +712,7 @@
 
 @media (max-width: 30rem) {
   .workspace :global(.onboarding-summary) {
-    min-height: 32rem;
+    min-height: auto;
     padding: 2rem 0.75rem 1.25rem;
   }
 
@@ -596,6 +727,15 @@
 
   .workspace :global(.onboarding-checklist) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace :global(.onboarding-health) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace :global(.onboarding-health > div + div) {
+    border-top: 1px solid var(--line);
+    border-left: 0;
   }
 
   .workspace :global(.onboarding-checklist li) {

@@ -74,7 +74,9 @@ export async function registerAndSignInSeller(page: Page, testInfo: TestInfo) {
   expect(developmentCode).toMatch(/^\d{6}$/);
   await page.getByRole("button", { name: "Continue to verification" }).click();
   await expect(page).toHaveURL(/\/verify/);
-  await page.getByLabel("Verification code").fill(developmentCode ?? "");
+  await page
+    .getByRole("textbox", { name: "Verification code", exact: true })
+    .fill(developmentCode ?? "");
   await page.getByRole("button", { name: "Verify email" }).click();
   await expect(page).toHaveURL(/\/sign-in/);
 

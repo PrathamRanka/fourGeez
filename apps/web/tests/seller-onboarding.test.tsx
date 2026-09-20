@@ -127,6 +127,30 @@ function createActions(): OnboardingActions {
 }
 
 describe("seller onboarding MCP gate", () => {
+  it("presents one five-step seller journey and one server-directed next action", () => {
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot()}
+        actions={createActions()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Configure your store" }),
+    ).toBeVisible();
+    expect(screen.getByText(/buyers purchase somewhere else/i)).toBeVisible();
+    const journey = screen.getByRole("list", { name: "Seller launch journey" });
+    expect(within(journey).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(journey).getByText("Connect service")).toBeVisible();
+    expect(within(journey).getByText("Confirm payout")).toBeVisible();
+    expect(within(journey).getByText("Review detected products")).toBeVisible();
+    expect(within(journey).getByText("Publish")).toBeVisible();
+    expect(within(journey).getByText("Monitor sales")).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Next action" }),
+    ).toHaveTextContent("Create project connection key");
+  });
+
   it("renders the server-authored automated integration result", () => {
     const verified = onboardingState({
       project_key_created: "complete",
@@ -142,12 +166,36 @@ describe("seller onboarding MCP gate", () => {
       completedAt: "2026-09-20T10:00:00Z",
       valid: true,
       checks: [
-        { name: "endpoint_reachability", passed: true, message: "Endpoint reached." },
-        { name: "signed_exchange", passed: true, message: "Signed exchange passed." },
-        { name: "schema_contract", passed: true, message: "Schema contract passed." },
-        { name: "fulfillment_readiness", passed: true, message: "Fulfillment is ready." },
-        { name: "payment_gating", passed: true, message: "Payment gating passed." },
-        { name: "replay_idempotency", passed: true, message: "Replay protection passed." },
+        {
+          name: "endpoint_reachability",
+          passed: true,
+          message: "Endpoint reached.",
+        },
+        {
+          name: "signed_exchange",
+          passed: true,
+          message: "Signed exchange passed.",
+        },
+        {
+          name: "schema_contract",
+          passed: true,
+          message: "Schema contract passed.",
+        },
+        {
+          name: "fulfillment_readiness",
+          passed: true,
+          message: "Fulfillment is ready.",
+        },
+        {
+          name: "payment_gating",
+          passed: true,
+          message: "Payment gating passed.",
+        },
+        {
+          name: "replay_idempotency",
+          passed: true,
+          message: "Replay protection passed.",
+        },
       ],
     };
 
@@ -165,6 +213,78 @@ describe("seller onboarding MCP gate", () => {
       screen.getByRole("list", { name: "Integration verification checks" }),
     ).toHaveTextContent("Replay and idempotency. Replay protection passed.");
     expect(screen.getByText("Integration verified")).toBeVisible();
+    expect(
+      screen.getByRole("status", { name: "Integration health" }),
+    ).toHaveTextContent("Pass");
+  });
+
+  it("turns a failed server check into one precise recovery action", () => {
+    const failed = onboardingState({
+      project_key_created: "complete",
+      connector_verified: "complete",
+      product_configured: "complete",
+      integration_verification: "blocked",
+    });
+    failed.currentStep = "integration_verification";
+    failed.integrationVerification = {
+      schemaVersion: "agentpay.sandbox.v2",
+      sellerId: seller.sellerId,
+      routeId: "rte_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+      routeVersion: 3,
+      completedAt: "2026-09-20T10:00:00Z",
+      valid: false,
+      checks: [
+        {
+          name: "endpoint_reachability",
+          passed: true,
+          message: "Endpoint reached.",
+        },
+        {
+          name: "signed_exchange",
+          passed: false,
+          message: "Response signature was missing.",
+        },
+        {
+          name: "schema_contract",
+          passed: true,
+          message: "Schema contract passed.",
+        },
+        {
+          name: "fulfillment_readiness",
+          passed: true,
+          message: "Fulfillment is ready.",
+        },
+        {
+          name: "payment_gating",
+          passed: true,
+          message: "Payment gating passed.",
+        },
+        {
+          name: "replay_idempotency",
+          passed: true,
+          message: "Replay protection passed.",
+        },
+      ],
+    };
+
+    render(
+      <SellerOnboarding
+        initialSnapshot={snapshot({
+          credentials: [createdCredential],
+          onboarding: failed,
+        })}
+        actions={createActions()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("status", { name: "Integration health" }),
+    ).toHaveTextContent("Fail");
+    expect(
+      screen.getByRole("region", { name: "Next action" }),
+    ).toHaveTextContent(
+      "Fix signed request and response, then run the check again",
+    );
   });
 
   it("never exposes buyer checkout after connector and product prerequisites", () => {
@@ -227,7 +347,9 @@ describe("seller onboarding MCP gate", () => {
       screen.queryByText(/Connect this project to AgentPay/),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/contact the AgentPay launch operator/i),
+      within(checklist).getByRole("link", {
+        name: /request launch entitlement/i,
+      }),
     ).toBeVisible();
     expect(
       screen.queryByRole("button", { name: /grant.*entitlement/i }),
@@ -365,13 +487,11 @@ describe("seller onboarding MCP gate", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Project key active — secret hidden"),
-    ).toBeVisible();
+    expect(screen.getByText("Primary coding agent")).toBeVisible();
     expect(screen.getAllByText("Connector connected")[0]).toBeVisible();
     expect(
-      screen.getAllByText(/authenticated MCP initialization passed/i)[0],
-    ).toBeVisible();
+      screen.getByRole("region", { name: "Next action" }),
+    ).toHaveTextContent("Review detected products");
   });
 
   it("reports revoked credentials with safe retry guidance", () => {
@@ -392,6 +512,8 @@ describe("seller onboarding MCP gate", () => {
     );
 
     expect(screen.getAllByText("Connector revoked")[0]).toBeVisible();
-    expect(screen.getAllByText(/create a new project key/i)[0]).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Next action" }),
+    ).toHaveTextContent("Create project connection key");
   });
 });

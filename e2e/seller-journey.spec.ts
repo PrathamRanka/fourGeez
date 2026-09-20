@@ -14,14 +14,14 @@ test("seller can register, verify, sign in, and resume onboarding", async ({
   void seed;
   await registerAndSignInSeller(page, testInfo);
   await expect(
-    page.getByRole("heading", { name: "Launch your storefront" }),
+    page.getByRole("heading", { name: "Configure your store" }),
   ).toBeVisible();
   await expect(
     page.getByRole("form", { name: "Create storefront" }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Launch your storefront" }),
+    page.getByRole("heading", { name: "Configure your store" }),
   ).toBeVisible();
 });
 
@@ -129,7 +129,7 @@ test("onboarding layers the launch summary behind the task flow @visual", async 
   await steps.scrollIntoViewIfNeeded();
   await page.evaluate(() => window.scrollBy(0, 180));
   await expect(
-    page.getByRole("region", { name: "01 Create your storefront" }),
+    page.getByRole("form", { name: "Create storefront" }),
   ).toBeVisible();
 });
 
@@ -179,15 +179,32 @@ test("seller test purchase passes three clean reset rehearsals", async ({
   }
 });
 
-test("seller test purchase remains usable at supported widths @visual", async ({
+test("seller launch rail remains usable at supported widths @visual", async ({
   page,
-}) => {
+}, testInfo) => {
   await signInLaunchReadySeller(page);
-  await page.goto("/dashboard/onboarding#test-purchase");
-  const testPurchase = page.getByRole("region", { name: "Run test purchase" });
-  await expect(testPurchase).toBeVisible();
   await expect(
-    testPurchase.getByRole("button", { name: "Run test purchase" }),
+    page.getByRole("region", { name: "Store health" }),
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath(`seller-dashboard-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.goto("/dashboard/onboarding");
+  const journey = page.getByRole("list", { name: "Seller launch journey" });
+  await expect(journey).toBeVisible();
+  await expect(journey.getByRole("listitem")).toHaveCount(5);
+  await expect(
+    page.getByRole("status", { name: "Integration health" }),
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Next action" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Run test purchase" }),
+  ).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath(`seller-launch-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
 });

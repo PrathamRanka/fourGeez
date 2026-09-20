@@ -90,7 +90,23 @@ inventory, tax calculation, and physical returns are outside the initial scope.
 
 ## Seller experience
 
-The intended onboarding flow is:
+The seller-facing journey is presented as five founder actions. The dashboard
+may disclose the underlying security checks inside the current action, but it
+must not turn those checks into a longer top-level journey or expose buyer
+checkout controls:
+
+1. **Connect service** — create the store, enable the HTTPS service, and receive
+   launch access.
+2. **Confirm payout** — verify the supported asset-and-network payout wallet.
+3. **Review detected products** — connect the coding agent, then confirm names,
+   prices, schemas, and delivery routes proposed from the seller's service.
+4. **Publish** — pass the server-authored integration verification, preview the
+   buyer-facing contract, and explicitly publish.
+5. **Monitor sales** — review payment, delivery, failure, and dispute outcomes.
+
+At every point the authenticated seller surface displays one server-derived
+publication result, one integration-health result, and one precise next action.
+The underlying onboarding flow is:
 
 1. The seller creates an AgentPay seller account and storefront.
 2. The seller completes the required profile, enters and verifies a payout
