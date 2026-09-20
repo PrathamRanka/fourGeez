@@ -67,7 +67,13 @@ describe("public legal and security pages", () => {
         "href",
         "/security",
       );
-      expect(metadata.alternates).toEqual({ canonical });
+      expect(metadata.alternates).toEqual({
+        canonical,
+        languages: {
+          en: canonical,
+          "x-default": canonical,
+        },
+      });
       expect(metadata.openGraph).toMatchObject({
         url: canonical,
         siteName: "AgentPay",

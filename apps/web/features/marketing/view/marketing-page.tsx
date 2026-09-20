@@ -77,7 +77,9 @@ function HeroSection() {
         <p className={styles.heroDescription}>
           Give people and software agents one storefront for your existing API.
           Prepare x402 testnet checkout, signed fulfillment, and
-          machine-readable discovery for seller review.
+          machine-readable discovery for seller review. The public website and
+          machine-readable discovery are available worldwide; payment remains
+          testnet-only during the development preview.
         </p>
         <div className={styles.heroActions}>
           <Link className={styles.primaryAction} href="/sign-up">

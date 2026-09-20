@@ -23,6 +23,11 @@ describe("AgentPay public site", () => {
     expect(
       screen.getByText(/give people and software agents one storefront/i),
     ).toBeVisible();
+    expect(
+      screen.getByText(
+        /public website and machine-readable discovery are available worldwide/i,
+      ),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: "Start selling" })).toHaveAttribute(
       "href",
       "/sign-up",

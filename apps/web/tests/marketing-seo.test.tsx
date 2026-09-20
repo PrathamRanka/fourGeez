@@ -12,6 +12,7 @@ import sitemap from "@/app/sitemap";
 import { metadata as rootMetadata } from "@/app/layout";
 import {
   agentCheckoutDemoMetadata as demoMetadata,
+  globalEnglishOpenGraphLocales,
   sellerDocsMetadata as docsMetadata,
 } from "@/features/marketing/seo";
 
@@ -23,11 +24,16 @@ describe("AgentPay marketing discovery", () => {
     expect(rootMetadata.manifest).toBe("/manifest.webmanifest");
     expect(homeMetadata.alternates).toEqual({
       canonical: `${canonicalOrigin}/`,
+      languages: {
+        en: `${canonicalOrigin}/`,
+        "x-default": `${canonicalOrigin}/`,
+      },
     });
     expect(homeMetadata.openGraph).toMatchObject({
       type: "website",
       url: `${canonicalOrigin}/`,
       siteName: "AgentPay",
+      alternateLocale: globalEnglishOpenGraphLocales,
       images: [
         expect.objectContaining({
           url: `${canonicalOrigin}/opengraph-image`,
@@ -76,11 +82,16 @@ describe("AgentPay marketing discovery", () => {
   it("publishes canonical social metadata for public supporting pages", () => {
     expect(docsMetadata.alternates).toEqual({
       canonical: `${canonicalOrigin}/docs`,
+      languages: {
+        en: `${canonicalOrigin}/docs`,
+        "x-default": `${canonicalOrigin}/docs`,
+      },
     });
     expect(docsMetadata.openGraph).toMatchObject({
       type: "website",
       url: `${canonicalOrigin}/docs`,
       siteName: "AgentPay",
+      alternateLocale: globalEnglishOpenGraphLocales,
     });
     expect(docsMetadata.twitter).toMatchObject({
       card: "summary_large_image",
@@ -88,11 +99,16 @@ describe("AgentPay marketing discovery", () => {
 
     expect(demoMetadata.alternates).toEqual({
       canonical: `${canonicalOrigin}/demo/agent-checkout`,
+      languages: {
+        en: `${canonicalOrigin}/demo/agent-checkout`,
+        "x-default": `${canonicalOrigin}/demo/agent-checkout`,
+      },
     });
     expect(demoMetadata.openGraph).toMatchObject({
       type: "website",
       url: `${canonicalOrigin}/demo/agent-checkout`,
       siteName: "AgentPay",
+      alternateLocale: globalEnglishOpenGraphLocales,
     });
     expect(demoMetadata.twitter).toMatchObject({
       card: "summary_large_image",
@@ -167,6 +183,16 @@ describe("AgentPay marketing discovery", () => {
     expect(body).toContain("# AgentPay");
     expect(body).toContain(`${canonicalOrigin}/`);
     expect(body).toContain("21 maintained stacks");
+    expect(body).toContain("## Authoritative machine-readable entry points");
+    expect(body).toContain(
+      `${canonicalOrigin}/api/backend/.well-known/agentpay`,
+    );
+    expect(body).toContain(
+      `${canonicalOrigin}/api/backend/v1/payment-capabilities`,
+    );
+    expect(body).toContain(
+      "Africa, Asia, Europe, North America, South America, and Oceania",
+    );
     expect(body).toContain("x402 testnet");
     expect(body).toContain("does not guarantee search ranking");
     expect(body).toContain(
@@ -205,12 +231,28 @@ describe("AgentPay marketing discovery", () => {
           expect.objectContaining({
             "@type": "Organization",
             name: "AgentPay",
+            alternateName: "AgentPay API Commerce",
+            sameAs: expect.arrayContaining([
+              "https://github.com/PrathamRanka/fourGeez",
+            ]),
           }),
           expect.objectContaining({
             "@type": "WebApplication",
             name: "AgentPay",
             featureList: expect.arrayContaining([
               "Coding-agent repository integration with AgentPay MCP guidance",
+            ]),
+          }),
+          expect.objectContaining({
+            "@type": "Service",
+            name: "AgentPay API commerce infrastructure",
+            areaServed: expect.arrayContaining([
+              expect.objectContaining({ name: "Africa" }),
+              expect.objectContaining({ name: "Asia" }),
+              expect.objectContaining({ name: "Europe" }),
+              expect.objectContaining({ name: "North America" }),
+              expect.objectContaining({ name: "South America" }),
+              expect.objectContaining({ name: "Oceania" }),
             ]),
           }),
           expect.objectContaining({

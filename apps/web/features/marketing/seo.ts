@@ -5,6 +5,33 @@ export const agentPaySiteOrigin = "https://agentpay.prathamranka.in";
 export const marketingDescription =
   "AgentPay helps API sellers create agent-ready storefronts with x402 testnet checkout, signed fulfillment, MCP integration, and machine-readable discovery.";
 
+export const globalEnglishOpenGraphLocales = [
+  "en_GB",
+  "en_IN",
+  "en_ZA",
+  "en_AU",
+  "en_GY",
+] as const;
+
+const globalServiceAreas = [
+  "Africa",
+  "Asia",
+  "Europe",
+  "North America",
+  "South America",
+  "Oceania",
+] as const;
+
+function buildLanguageAlternates(canonicalUrl: string) {
+  return {
+    canonical: canonicalUrl,
+    languages: {
+      en: canonicalUrl,
+      "x-default": canonicalUrl,
+    },
+  };
+}
+
 export const socialImage = {
   url: `${agentPaySiteOrigin}/opengraph-image`,
   secureUrl: `${agentPaySiteOrigin}/opengraph-image`,
@@ -31,10 +58,11 @@ export const marketingMetadata: Metadata = {
   },
   description: marketingDescription,
   keywords: [...marketingKeywords],
-  alternates: { canonical: `${agentPaySiteOrigin}/` },
+  alternates: buildLanguageAlternates(`${agentPaySiteOrigin}/`),
   openGraph: {
     type: "website",
     locale: "en_US",
+    alternateLocale: [...globalEnglishOpenGraphLocales],
     siteName: "AgentPay",
     title: "AgentPay | Seller-first x402 storefronts for APIs",
     description: marketingDescription,
@@ -57,8 +85,14 @@ export const marketingStructuredData = {
       "@type": "Organization",
       "@id": `${agentPaySiteOrigin}/#organization`,
       name: "AgentPay",
+      alternateName: "AgentPay API Commerce",
       url: `${agentPaySiteOrigin}/`,
       logo: `${agentPaySiteOrigin}/brand/agentpay-icon-512.png`,
+      sameAs: [
+        "https://github.com/PrathamRanka/fourGeez",
+        "https://www.linkedin.com/in/prathamranka06/",
+        "https://www.linkedin.com/in/gargayush1911/",
+      ],
       founder: [
         {
           "@type": "Person",
@@ -98,6 +132,20 @@ export const marketingStructuredData = {
       ],
     },
     {
+      "@type": "Service",
+      "@id": `${agentPaySiteOrigin}/#service`,
+      name: "AgentPay API commerce infrastructure",
+      serviceType: "Seller-first commerce infrastructure for APIs",
+      provider: { "@id": `${agentPaySiteOrigin}/#organization` },
+      url: `${agentPaySiteOrigin}/`,
+      description: marketingDescription,
+      availableLanguage: "English",
+      areaServed: globalServiceAreas.map((name) => ({
+        "@type": "Place",
+        name,
+      })),
+    },
+    {
       "@type": "SoftwareSourceCode",
       "@id": `${agentPaySiteOrigin}/#source`,
       name: "AgentPay",
@@ -128,10 +176,11 @@ export function buildSupportingPageMetadata({
   return {
     title,
     description,
-    alternates: { canonical: canonicalUrl },
+    alternates: buildLanguageAlternates(canonicalUrl),
     openGraph: {
       type: "website",
       locale: "en_US",
+      alternateLocale: [...globalEnglishOpenGraphLocales],
       siteName: "AgentPay",
       title: `${title} | AgentPay`,
       description,
@@ -254,6 +303,20 @@ AgentPay is a development preview. Seller workflows are verified locally, AWS de
 ## Maintained integrations
 
 AgentPay has 21 maintained stacks: Next.js, React/Vite with a Node API, Remix, Nuxt, SvelteKit, Astro, Express, Fastify, NestJS, Go net/http, Gin, Echo, Fiber, FastAPI, Starlette, Flask, Django, ASP.NET Core, Spring Boot, Rails, and Laravel.
+
+## Global scope
+
+The English-language public website and machine-readable discovery are available worldwide across Africa, Asia, Europe, North America, South America, and Oceania. Current checkout support remains limited to mock mode or exact Base Sepolia USDC through x402 testnet.
+
+## Authoritative machine-readable entry points
+
+- Agent overview: ${agentPaySiteOrigin}/llms.txt
+- Platform capability manifest: ${agentPaySiteOrigin}/api/backend/.well-known/agentpay
+- Runtime payment capabilities: ${agentPaySiteOrigin}/api/backend/v1/payment-capabilities
+- Public product directory: ${agentPaySiteOrigin}/api/backend/v1/discovery/products
+- Seller integration guide: ${agentPaySiteOrigin}/docs
+
+Agents should treat discovery as candidate information, inspect the signed product contract, and rely on the current AgentPay cloud response for purchase authorization.
 
 ## Public pages
 
