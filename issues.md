@@ -199,7 +199,7 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0/P1
 
-65. Direct IAM and Lambda patches created Terraform drift that must be reconciled with committed infrastructure.
+65. [x] Terraform refresh detected the direct Lambda and IAM changes, a reviewed plan reconciled them with 0 additions, 3 in-place changes, and 0 destroys, and the post-apply plan reported no changes on September 20, 2026.
 66. The public demo is served from `dev` resources such as `agentpay-dev-api` and `agentpay-dev-main` rather than a separately managed demo or production environment.
 67. The Terraform teardown path has not been verified while retaining protected evidence resources.
 68. **Partially resolved locally (2026-09-20):** durable route/entitlement publication outbox writes, consumer ordering/retry/idempotency, and completion persistence are implemented and tested. Subscription/credential stream deployment, Redis/CDN integration, retry/DLQ redrive, and live observability remain open under AWS-012.

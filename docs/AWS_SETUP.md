@@ -12,7 +12,7 @@ Use separate AWS accounts when available:
 
 The default development region is Mumbai, `ap-south-1`. Confirm that every required service is available in the selected region. Never hardcode account IDs, URLs, addresses, or secrets in source. Bedrock is disabled for the seller-first V1 deployment.
 
-## Verified environment snapshot — September 19, 2026
+## Verified environment snapshot — September 20, 2026
 
 Read-only checks against the configured `agentpay-india` profile established:
 
@@ -20,6 +20,11 @@ Read-only checks against the configured `agentpay-india` profile established:
 - the configured region is `ap-south-1`;
 - Terraform applied **37 additions, 0 changes, and 0 destroys**, and the
   post-apply plan reports no changes;
+- a September 20 drift audit detected the emergency Lambda upload and
+  `dynamodb:ConditionCheckItem` IAM patch; the reviewed reconciliation applied
+  **0 additions, 3 in-place changes, and 0 destroys**, deployed the current
+  Lambda artifact, tightened the launch-entitlement operator role, and ended
+  with a no-change plan;
 - the applied Lambda regional concurrency quota is `400`, and
   `agentpay-dev-api` is `Active` on `provided.al2023`, ARM64, with reserved
   concurrency `5`;
