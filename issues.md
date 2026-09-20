@@ -104,11 +104,11 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-25. Checkout validates JSON syntax but does not validate the request against the published `inputSchema` before payment.
-26. Required fields such as `productName` and `audience` can be omitted and discovered only after settlement.
-27. Checkout incorrectly labels the request body as optional when the product schema requires input.
-28. Raw JSON is unsuitable for normal human buyers; the UI should render schema-driven form fields.
-29. Unknown properties, types, required fields, string limits, and other schema rules are not enforced before payment.
+25. **Resolved locally (2026-09-20):** Browser and agent checkout validate the request against the published `inputSchema`, and the Go checkout boundary repeats validation against the authoritative route before transaction creation or payment activity.
+26. **Resolved locally (2026-09-20):** Required fields such as `productName` and `audience` produce exact inline errors before checkout can start.
+27. **Resolved locally (2026-09-20):** Browser checkout derives required labels and empty-input copy from the schema instead of describing required JSON as optional.
+28. **Resolved locally (2026-09-20):** Ordinary browser buyers receive accessible schema-driven controls; the explicit JSON editor remains limited to the agent-channel demonstration.
+29. **Resolved locally (2026-09-20):** Unknown properties, JSON types, required fields, string/item/number bounds, patterns, formats, enums/constants, nested schemas, and supported compositions are enforced before payment. Focused frontend and Go regressions pass; deployed verification has not been performed.
 
 ### P1
 

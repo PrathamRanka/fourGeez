@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fourgeez/agentpay/internal/browserpurchase"
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
@@ -286,6 +287,72 @@ func TestCheckoutServiceRejectsBodyThatDoesNotMatchImmutableIntent(t *testing.T)
 	}
 	if adapter.challengeCalls != 0 || adapter.verifyCalls != 0 || adapter.settleCalls != 0 {
 		t.Fatalf("adapter calls = (%d, %d, %d)", adapter.challengeCalls, adapter.verifyCalls, adapter.settleCalls)
+	}
+}
+
+func TestCheckoutServiceRejectsInputThatViolatesPublishedSchemaBeforePayment(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "missing required field", body: `{"productName":"AgentPay"}`},
+		{name: "unknown field", body: `{"productName":"AgentPay","audience":"Founders","secret":true}`},
+		{name: "wrong type", body: `{"productName":42,"audience":"Founders"}`},
+		{name: "string too long", body: `{"productName":"AgentPay checkout validation","audience":"Founders"}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newPaidRouteFixture(t, false)
+			fixture.route.Method = catalog.RouteMethodPost
+			fixture.route.InputSchema = catalog.JSONSchema(`{"additionalProperties":false,"properties":{"audience":{"type":"string"},"productName":{"maxLength":20,"type":"string"}},"required":["productName","audience"],"type":"object"}`)
+			bodyHash, err := intents.HashRequestBody([]byte(test.body), "application/json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			snapshot := fixture.purchaseIntent.Snapshot()
+			fixture.purchaseIntent, err = intents.NewPurchaseIntent(intents.PurchaseIntentParams{
+				IntentID: snapshot.IntentID, SellerID: snapshot.SellerID, RouteID: snapshot.RouteID,
+				BuyerID: snapshot.BuyerID, ProductDisplayName: snapshot.ProductDisplayName, ProductSlug: snapshot.ProductSlug,
+				PaymentDestinationID: snapshot.PaymentDestinationID, PayTo: snapshot.PayTo,
+				RequestMethod: intents.RequestMethodPost, RequestPath: snapshot.RequestPath, RequestBodyHash: bodyHash,
+				Amount: snapshot.Amount, Asset: snapshot.Asset, Network: snapshot.Network, MaximumAmount: snapshot.MaximumAmount,
+				RequiresApproval: false, CreatedAt: snapshot.CreatedAt, ExpiresAt: snapshot.ExpiresAt,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fixture.service = NewPaidRouteService(
+				&paidRouteCatalogRepository{seller: fixture.seller, route: fixture.route},
+				&paidRouteIntentRepository{purchaseIntent: fixture.purchaseIntent},
+				&paidRouteApprovalRepository{}, nil, fixture.clock, "https://api.example",
+			)
+			adapter := &recordingCheckoutAdapter{}
+			executor := &checkoutExecutor{}
+			transactionRepository := memory.NewTransactionRepository()
+			service := NewCheckoutService(
+				fixture.service, adapter, transactionRepository,
+				newCheckoutEvidenceRecorder(t, fixture), executor, fixture.clock,
+			)
+			request := checkoutRequest(fixture)
+			request.Body = []byte(test.body)
+			request.ContentType = "application/json"
+			request.PaymentProof = MockApprovedProof
+
+			_, err = service.Execute(t.Context(), request)
+			if !errors.Is(err, ErrRequestValidation) {
+				t.Fatalf("Execute() error = %v, want request validation", err)
+			}
+			if adapter.challengeCalls != 0 || adapter.verifyCalls != 0 || adapter.settleCalls != 0 || executor.calls != 0 {
+				t.Fatalf("calls = challenge %d verify %d settle %d execute %d", adapter.challengeCalls, adapter.verifyCalls, adapter.settleCalls, executor.calls)
+			}
+			transactionID, idErr := transactionIDForIntent(fixture.purchaseIntent.IntentID())
+			if idErr != nil {
+				t.Fatal(idErr)
+			}
+			if _, loadErr := transactionRepository.Get(t.Context(), transactionID); loadErr == nil {
+				t.Fatal("schema-invalid input created a transaction")
+			}
+		})
 	}
 }
 

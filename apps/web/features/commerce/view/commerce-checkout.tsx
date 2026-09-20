@@ -15,6 +15,15 @@ import {
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  asPublishedInputSchema,
+  buildSchemaDocument,
+  schemaFieldLabel,
+  schemaPropertyEntries,
+  validatePublishedInput,
+  type InputDrafts,
+  type PublishedInputSchema,
+} from "@/features/commerce/input-schema";
 import type {
   CheckoutCompleteResult,
   CheckoutStartResult,
@@ -71,6 +80,8 @@ export function CommerceCheckout({
     formatAtomicUnits(product.amount),
   );
   const [requestBody, setRequestBody] = useState(defaultRequestBody);
+  const [inputDrafts, setInputDrafts] = useState<InputDrafts>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [startResult, setStartResult] = useState<CheckoutStartResult | null>(
     null,
   );
@@ -88,7 +99,9 @@ export function CommerceCheckout({
 
   async function startCheckout() {
     setCheckoutError(null);
+    setFieldErrors({});
     let maximumAmount: string;
+    let validatedRequestBody = requestBody;
     try {
       maximumAmount = decimalToAtomicUnits(maximumSpend);
       if (BigInt(maximumAmount) < BigInt(product.amount)) {
@@ -96,21 +109,59 @@ export function CommerceCheckout({
           `Maximum spend must cover the exact ${exactPrice} price.`,
         );
       }
-      if (requestBody.trim()) {
-        JSON.parse(requestBody);
+    } catch (error) {
+      setFieldErrors({
+        maximumSpend:
+          error instanceof Error
+            ? error.message
+            : "Enter a valid maximum spend.",
+      });
+      return;
+    }
+    try {
+      if (channel === "browser") {
+        const document = buildSchemaDocument(
+          asPublishedInputSchema(product.inputSchema),
+          inputDrafts,
+        );
+        if (!document.value || document.issues.length > 0) {
+          setFieldErrors(
+            Object.fromEntries(
+              document.issues.map((issue) => [issue.field, issue.message]),
+            ),
+          );
+          return;
+        }
+        validatedRequestBody = JSON.stringify(document.value);
+      } else {
+        const parsedRequest = requestBody.trim()
+          ? (JSON.parse(requestBody) as unknown)
+          : {};
+        const issues = validatePublishedInput(
+          asPublishedInputSchema(product.inputSchema),
+          parsedRequest,
+        );
+        if (issues.length > 0) {
+          setFieldErrors(
+            Object.fromEntries(
+              issues.map((issue) => [issue.field, issue.message]),
+            ),
+          );
+          return;
+        }
+        validatedRequestBody = JSON.stringify(parsedRequest);
       }
     } catch (error) {
-      setStage("error");
-      setCheckoutError({
-        message:
+      setFieldErrors({
+        requestBody:
           error instanceof Error
             ? error.message
             : "Check the purchase details.",
-        retryable: true,
       });
       return;
     }
 
+    setRequestBody(validatedRequestBody);
     setStage("starting");
     const response = await requestCheckout<CheckoutStartResult>(
       "/api/commerce/start",
@@ -120,7 +171,7 @@ export function CommerceCheckout({
         productSlug: product.productSlug,
         routeId: product.routeId,
         maximumAmount,
-        requestBody,
+        requestBody: validatedRequestBody,
       },
     );
     if (!response.ok) {
@@ -331,7 +382,12 @@ export function CommerceCheckout({
               <div className={styles.amountInput}>
                 <input
                   aria-label="Maximum spend"
-                  aria-describedby={maximumSpendHelpID}
+                  aria-describedby={
+                    fieldErrors.maximumSpend
+                      ? `${maximumSpendID}-error`
+                      : maximumSpendHelpID
+                  }
+                  aria-invalid={fieldErrors.maximumSpend ? true : undefined}
                   disabled={stage !== "ready" && stage !== "error"}
                   id={maximumSpendID}
                   inputMode="decimal"
@@ -341,25 +397,65 @@ export function CommerceCheckout({
                 />
                 <span>{product.asset}</span>
               </div>
-              <small id={maximumSpendHelpID}>
-                A ceiling only. Your wallet authorizes the seller&apos;s exact{" "}
-                {exactPrice} quote.
-              </small>
+              {fieldErrors.maximumSpend ? (
+                <small
+                  className={styles.fieldError}
+                  id={`${maximumSpendID}-error`}
+                  role="alert"
+                >
+                  {fieldErrors.maximumSpend}
+                </small>
+              ) : (
+                <small id={maximumSpendHelpID}>
+                  A ceiling only. Your wallet authorizes the seller&apos;s exact{" "}
+                  {exactPrice} quote.
+                </small>
+              )}
             </label>
-            <label htmlFor={requestBodyID}>
-              <span>Request body (JSON)</span>
-              <textarea
-                aria-label="Request body (JSON)"
+            {channel === "agent" ? (
+              <label htmlFor={requestBodyID}>
+                <span>Request body (JSON)</span>
+                <textarea
+                  aria-describedby={
+                    fieldErrors.requestBody
+                      ? `${requestBodyID}-error`
+                      : undefined
+                  }
+                  aria-invalid={fieldErrors.requestBody ? true : undefined}
+                  aria-label="Request body (JSON)"
+                  disabled={stage !== "ready" && stage !== "error"}
+                  id={requestBodyID}
+                  name="requestBody"
+                  onChange={(event) => setRequestBody(event.target.value)}
+                  spellCheck={false}
+                  value={requestBody}
+                />
+                {fieldErrors.requestBody ? (
+                  <small
+                    className={styles.fieldError}
+                    id={`${requestBodyID}-error`}
+                    role="alert"
+                  >
+                    {fieldErrors.requestBody}
+                  </small>
+                ) : (
+                  <small>JSON must match the published product schema.</small>
+                )}
+              </label>
+            ) : (
+              <SchemaFields
                 disabled={stage !== "ready" && stage !== "error"}
-                id={requestBodyID}
-                name="requestBody"
-                onChange={(event) => setRequestBody(event.target.value)}
-                placeholder='Optional, for example {"topic":"agent commerce"}'
-                spellCheck={false}
-                value={requestBody}
+                drafts={inputDrafts}
+                errors={fieldErrors}
+                onChange={(path, value) =>
+                  setInputDrafts((current) => ({
+                    ...current,
+                    [path]: value,
+                  }))
+                }
+                schema={asPublishedInputSchema(product.inputSchema)}
               />
-              <small>Leave empty for products that do not need input.</small>
-            </label>
+            )}
             <label className={styles.confirmation}>
               <input
                 checked={confirmed}
@@ -604,6 +700,191 @@ function assertPaymentTerms(
       "AgentPay blocked checkout because the signed payment terms did not match the displayed product.",
     );
   }
+}
+
+function SchemaFields({
+  disabled,
+  drafts,
+  errors,
+  onChange,
+  schema,
+  path = "",
+}: {
+  disabled: boolean;
+  drafts: InputDrafts;
+  errors: Record<string, string>;
+  onChange: (path: string, value: string | boolean) => void;
+  schema: PublishedInputSchema;
+  path?: string;
+}) {
+  const entries = schemaPropertyEntries(schema);
+  if (entries.length === 0) {
+    return (
+      <div className={styles.noInput}>
+        <strong>No additional details required</strong>
+        <small>This product accepts an empty request.</small>
+      </div>
+    );
+  }
+  return (
+    <fieldset className={styles.schemaFields}>
+      <legend>Purchase details</legend>
+      {entries.map(([name, fieldSchema]) => {
+        const fieldPath = path ? `${path}.${name}` : name;
+        if (fieldSchema.type === "object") {
+          return (
+            <fieldset className={styles.nestedFields} key={fieldPath}>
+              <legend>{schemaFieldLabel(name)}</legend>
+              {fieldSchema.description ? (
+                <small>{fieldSchema.description}</small>
+              ) : null}
+              <SchemaFields
+                disabled={disabled}
+                drafts={drafts}
+                errors={errors}
+                onChange={onChange}
+                path={fieldPath}
+                schema={fieldSchema}
+              />
+            </fieldset>
+          );
+        }
+        const required = schema.required?.includes(name) ?? false;
+        const label = `${schemaFieldLabel(name)}${required ? " (required)" : ""}`;
+        const idBase = fieldPath.replaceAll(".", "-");
+        const errorID = `${idBase}-error`;
+        const descriptionID = `${idBase}-description`;
+        const describedBy = errors[fieldPath]
+          ? errorID
+          : fieldSchema.description
+            ? descriptionID
+            : undefined;
+        return (
+          <label key={fieldPath}>
+            <span>{label}</span>
+            <SchemaControl
+              describedBy={describedBy}
+              disabled={disabled}
+              fieldPath={fieldPath}
+              fieldSchema={fieldSchema}
+              invalid={Boolean(errors[fieldPath])}
+              label={label}
+              onChange={onChange}
+              required={required}
+              value={drafts[fieldPath]}
+            />
+            {errors[fieldPath] ? (
+              <small className={styles.fieldError} id={errorID} role="alert">
+                {errors[fieldPath]}
+              </small>
+            ) : fieldSchema.description ? (
+              <small id={descriptionID}>{fieldSchema.description}</small>
+            ) : null}
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+function SchemaControl({
+  describedBy,
+  disabled,
+  fieldPath,
+  fieldSchema,
+  invalid,
+  label,
+  onChange,
+  required,
+  value,
+}: {
+  describedBy?: string;
+  disabled: boolean;
+  fieldPath: string;
+  fieldSchema: PublishedInputSchema;
+  invalid: boolean;
+  label: string;
+  onChange: (path: string, value: string | boolean) => void;
+  required: boolean;
+  value: string | boolean | undefined;
+}) {
+  if (fieldSchema.type === "boolean") {
+    return (
+      <input
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
+        aria-label={label}
+        checked={value === true}
+        disabled={disabled}
+        onChange={(event) => onChange(fieldPath, event.target.checked)}
+        required={required}
+        type="checkbox"
+      />
+    );
+  }
+  if (fieldSchema.enum?.every((choice) => typeof choice === "string")) {
+    return (
+      <select
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
+        aria-label={label}
+        disabled={disabled}
+        onChange={(event) => onChange(fieldPath, event.target.value)}
+        required={required}
+        value={typeof value === "string" ? value : ""}
+      >
+        <option value="">Select an option</option>
+        {(fieldSchema.enum as string[]).map((choice) => (
+          <option key={choice} value={choice}>
+            {choice}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (
+    fieldSchema.type === "array" ||
+    (fieldSchema.type === "string" && (fieldSchema.maxLength ?? 0) > 160)
+  ) {
+    return (
+      <textarea
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
+        aria-label={label}
+        disabled={disabled}
+        maxLength={fieldSchema.maxLength}
+        onChange={(event) => onChange(fieldPath, event.target.value)}
+        placeholder={
+          fieldSchema.type === "array" ? '["first item"]' : undefined
+        }
+        required={required}
+        value={typeof value === "string" ? value : ""}
+      />
+    );
+  }
+  return (
+    <input
+      aria-describedby={describedBy}
+      aria-invalid={invalid || undefined}
+      aria-label={label}
+      disabled={disabled}
+      max={fieldSchema.maximum}
+      maxLength={fieldSchema.maxLength}
+      min={fieldSchema.minimum}
+      minLength={fieldSchema.minLength}
+      onChange={(event) => onChange(fieldPath, event.target.value)}
+      pattern={fieldSchema.pattern}
+      required={required}
+      type={
+        fieldSchema.type === "number" || fieldSchema.type === "integer"
+          ? "number"
+          : fieldSchema.format === "email"
+            ? "email"
+            : "text"
+      }
+      value={typeof value === "string" ? value : ""}
+    />
+  );
 }
 
 function formatFulfillment(value: unknown): string {

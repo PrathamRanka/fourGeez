@@ -31,7 +31,9 @@ been published. Repository owners must still approve customer-use terms and
 contributor provenance, protect the release tag and review environment, choose
 private or otherwise authorized distribution, and enable immutable releases.
 
-OpenAPI 0.8 removes the seller-callable onboarding purchase action while
+OpenAPI 0.9 adds authoritative pre-payment input-schema validation and the
+schema-driven human buyer form. It retains the OpenAPI 0.8 removal of the
+seller-callable onboarding purchase action while
 preserving the public buyer storefront and external buyer-agent commerce.
 It retains the OpenAPI 0.7 bounded EXT-001 public capability manifest and
 deterministic product directory, EXT-004 runtime payment-capability and recovery

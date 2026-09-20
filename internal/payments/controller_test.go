@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/fourgeez/agentpay/internal/api"
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
@@ -159,6 +160,34 @@ func TestPaidRouteControllerMapsReplayToPaymentSpecificConflict(t *testing.T) {
 		t.Fatalf("Cache-Control = %q", response.Header().Get("Cache-Control"))
 	}
 	assertPaymentErrorCode(t, response, "payment_replayed")
+}
+
+func TestPaidRouteControllerReturnsFieldValidationDetails(t *testing.T) {
+	t.Parallel()
+
+	controller := &HTTPController{}
+	request := httptest.NewRequest(http.MethodPost, "/pay/demo-seller/weather", nil)
+	response := httptest.NewRecorder()
+	controller.writeError(response, request, CheckoutResult{}, RequestValidationError{
+		Issues: []catalog.InputValidationIssue{{
+			Field: "productName", Rule: "required", Message: "productName is required.",
+		}},
+	})
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var body api.ErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != api.ErrorCodeValidationFailed {
+		t.Fatalf("error code = %q", body.Error.Code)
+	}
+	validationErrors, ok := body.Error.Details["validationErrors"].([]any)
+	if !ok || len(validationErrors) != 1 {
+		t.Fatalf("validation errors = %#v", body.Error.Details["validationErrors"])
+	}
 }
 
 func TestPaidRouteControllerLabelsRejectedProofWithoutLosingChallenge(t *testing.T) {

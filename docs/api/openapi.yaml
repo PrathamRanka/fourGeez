@@ -1,10 +1,12 @@
 openapi: 3.1.0
 info:
   title: AgentPay API
-  version: 0.8.0
+  version: 0.9.0
   description: |
     Seller commerce gateway, transaction, and dispute API. AgentPay is a working name.
-    Version 0.8.0 removes the seller-callable onboarding purchase action while
+    Version 0.9.0 adds authoritative pre-payment validation against each
+    published route inputSchema and bounded field-level validation failures.
+    Version 0.8.0 removed the seller-callable onboarding purchase action while
     preserving public buyer storefront and external buyer-agent commerce.
     Version 0.7.0 extended the locked M7.1 production target with EXT-001 public
     capability and deterministic product-directory contracts plus the EXT-004
@@ -1701,14 +1703,16 @@ paths:
         '503': { $ref: '#/components/responses/PaymentUnavailable' }
     post:
       summary: Purchase a configured POST resource
+      description: The JSON body is required and must validate against the authoritative published route inputSchema before AgentPay creates a transaction, returns an x402 challenge, verifies a proof, or settles payment. Products with no input properties send an empty JSON object.
       tags: [Proxy]
       operationId: postPaidResource
       security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
-            schema: {}
+            schema:
+              type: object
       responses:
         '200': { $ref: '#/components/responses/ProxiedResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -1718,7 +1722,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '410': { $ref: '#/components/responses/CommerceGone' }
-        '422': { $ref: '#/components/responses/PaymentCapabilityUnsupported' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/PaymentUnavailable' }
 components:
@@ -3205,7 +3209,7 @@ components:
     Gone: { description: 410 expired one-time resource, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     CommerceGone: { description: '410 payment_expired or seller_inactive; payment_expired uses recoveryAction=start_new_checkout', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     SellerInactive: { description: 410 seller_inactive; known seller cannot participate in discovery or new commerce, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    Unprocessable: { description: 422 validation_failed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unprocessable: { description: '422 validation_failed with bounded field details, or payment_capability_unsupported with bounded recovery details', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     PaymentCapabilityUnsupported: { description: '422 payment_capability_unsupported with bounded compatibility and recovery details', content: { application/json: { schema: { $ref: '#/components/schemas/PaymentRecoveryError' } } } }
     PermissionDenied: { description: '403 subscription_inactive, insufficient_scope, or permission_denied', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     RateLimited:

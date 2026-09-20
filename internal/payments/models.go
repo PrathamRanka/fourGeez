@@ -77,7 +77,22 @@ var (
 	ErrPaymentReplay = errors.New("payment proof has already been used")
 	// ErrPaymentCapabilityUnsupported reports a proof using a disabled rail, network, or asset.
 	ErrPaymentCapabilityUnsupported = errors.New("payment capability is unsupported")
+	// ErrRequestValidation reports a request body outside the published input schema.
+	ErrRequestValidation = errors.New("request body does not match published input schema")
 )
+
+// RequestValidationError preserves safe field-level failures for the buyer.
+type RequestValidationError struct {
+	Issues []catalog.InputValidationIssue
+}
+
+func (validationError RequestValidationError) Error() string {
+	return ErrRequestValidation.Error()
+}
+
+func (validationError RequestValidationError) Unwrap() error {
+	return ErrRequestValidation
+}
 
 // RecoveryAction identifies the only safe next action after a payment failure.
 type RecoveryAction string

@@ -75,7 +75,8 @@
   font-weight: 650;
 }
 .fields input,
-.fields textarea {
+.fields textarea,
+.fields select {
   width: 100%;
   border: 1px solid var(--input);
   border-radius: 0;
@@ -91,7 +92,8 @@
   line-height: 1.55;
 }
 .fields input:focus,
-.fields textarea:focus {
+.fields textarea:focus,
+.fields select:focus {
   border-color: var(--ring);
   outline: 0;
 }
@@ -100,6 +102,43 @@
   font-size: 0.65rem;
   font-weight: 400;
   line-height: 1.5;
+}
+.schemaFields,
+.nestedFields {
+  display: grid;
+  gap: 1rem;
+  border: 0;
+  padding: 0;
+}
+.schemaFields > legend,
+.nestedFields > legend {
+  margin-bottom: 0.25rem;
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.nestedFields {
+  border-left: 1px solid var(--border);
+  padding-left: 0.9rem;
+}
+.schemaFields input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--foreground);
+}
+.fieldError {
+  color: var(--destructive) !important;
+}
+.noInput {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  padding: 0.85rem;
+}
+.noInput strong {
+  color: var(--foreground);
+  font-size: 0.75rem;
 }
 .amountInput {
   display: grid;

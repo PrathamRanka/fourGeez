@@ -189,6 +189,10 @@ func (controller *HTTPController) writeError(
 		errors.Is(err, persistence.ErrNotFound):
 		status = http.StatusNotFound
 		code = api.ErrorCodeNotFound
+	case errors.Is(err, ErrRequestValidation):
+		status = http.StatusUnprocessableEntity
+		code = api.ErrorCodeValidationFailed
+		message = ErrRequestValidation.Error()
 	case errors.Is(err, ErrPaymentReplay):
 		status = http.StatusConflict
 		code = api.ErrorCodePaymentReplayed
@@ -227,7 +231,12 @@ func (controller *HTTPController) writeError(
 		}
 		response.Header().Set("Retry-After", "2")
 	}
-	api.WriteError(response, request, status, code, message, controller.paymentRecoveryDetails(result.RecoveryAction))
+	details := controller.paymentRecoveryDetails(result.RecoveryAction)
+	var validationError RequestValidationError
+	if errors.As(err, &validationError) {
+		details = map[string]any{"validationErrors": validationError.Issues}
+	}
+	api.WriteError(response, request, status, code, message, details)
 }
 
 func (controller *HTTPController) paymentRecoveryDetails(action RecoveryAction) map[string]any {

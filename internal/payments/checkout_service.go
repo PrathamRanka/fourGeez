@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fourgeez/agentpay/internal/browserpurchase"
+	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/evidence"
 	"github.com/fourgeez/agentpay/internal/intents"
@@ -88,6 +89,9 @@ func (service *CheckoutService) Execute(
 	requestBodyHash, err := intents.HashRequestBody(request.Body, request.ContentType)
 	if err != nil || requestBodyHash != resolved.PurchaseIntent.RequestBodyHash() {
 		return CheckoutResult{}, ErrPaidRouteMismatch
+	}
+	if issues := catalog.ValidateJSONAgainstSchema(resolved.Route.InputSchema, request.Body, request.ContentType); len(issues) > 0 {
+		return CheckoutResult{}, RequestValidationError{Issues: issues}
 	}
 	transaction, _, err := service.loadOrCreateTransaction(ctx, resolved)
 	if err != nil {

@@ -29,6 +29,36 @@ func TestNormalizeClosedJSONSchema(t *testing.T) {
 	}
 }
 
+func TestValidateJSONAgainstSchemaReportsExactFieldFailures(t *testing.T) {
+	schema := JSONSchema(`{"additionalProperties":false,"properties":{"audience":{"enum":["Founders","Developers"],"type":"string"},"details":{"additionalProperties":false,"properties":{"notes":{"maxLength":5,"type":"string"}},"required":["notes"],"type":"object"},"productName":{"maxLength":20,"minLength":2,"type":"string"}},"required":["productName","audience"],"type":"object"}`)
+
+	tests := []struct {
+		name      string
+		body      string
+		wantField string
+		wantRule  string
+	}{
+		{name: "required", body: `{"productName":"AgentPay"}`, wantField: "audience", wantRule: "required"},
+		{name: "unknown", body: `{"productName":"AgentPay","audience":"Founders","secret":true}`, wantField: "secret", wantRule: "unknown"},
+		{name: "type", body: `{"productName":42,"audience":"Founders"}`, wantField: "productName", wantRule: "type"},
+		{name: "maximum length", body: `{"productName":"AgentPay checkout validation","audience":"Founders"}`, wantField: "productName", wantRule: "maxLength"},
+		{name: "enum", body: `{"productName":"AgentPay","audience":"Everyone"}`, wantField: "audience", wantRule: "enum"},
+		{name: "nested required", body: `{"productName":"AgentPay","audience":"Founders","details":{}}`, wantField: "details.notes", wantRule: "required"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			errors := ValidateJSONAgainstSchema(schema, []byte(test.body), "application/json")
+			if len(errors) == 0 || errors[0].Field != test.wantField || errors[0].Rule != test.wantRule {
+				t.Fatalf("validation errors = %#v", errors)
+			}
+		})
+	}
+	if errors := ValidateJSONAgainstSchema(schema, []byte(`{"productName":"AgentPay","audience":"Founders","details":{"notes":"short"}}`), "application/json"); len(errors) != 0 {
+		t.Fatalf("valid document errors = %#v", errors)
+	}
+}
+
 func TestPublishedContractHashBindsPublishedAndExecutionTerms(t *testing.T) {
 	route := PaidRoute{
 		RouteID:     mustCatalogID(t, "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.RouteIDPrefix),

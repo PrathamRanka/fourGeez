@@ -66,6 +66,102 @@ describe("commerce checkout", () => {
     window.ethereum = undefined;
   });
 
+  it("renders the published input schema as buyer fields and blocks invalid input before checkout", async () => {
+    const schemaProduct: PublicProduct = {
+      ...product,
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["productName", "audience"],
+        properties: {
+          productName: {
+            type: "string",
+            description: "Name the product to analyze.",
+            minLength: 2,
+            maxLength: 20,
+          },
+          audience: {
+            type: "string",
+            description: "Choose who will read the report.",
+            enum: ["Founders", "Developers"],
+          },
+          includeSources: {
+            type: "boolean",
+            description: "Include source links in the result.",
+          },
+        },
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          error: {
+            code: "payment_unavailable",
+            message: "Checkout paused for this test.",
+          },
+        },
+        503,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={schemaProduct}
+        sellerSlug="northstar"
+      />,
+    );
+
+    expect(
+      screen.queryByLabelText("Request body (JSON)"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Product name (required)")).toBeVisible();
+    expect(screen.getByLabelText("Audience (required)")).toBeVisible();
+    expect(screen.getByLabelText("Include sources")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+
+    expect(await screen.findByText("Product name is required.")).toBeVisible();
+    expect(screen.getByText("Audience is required.")).toBeVisible();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Product name (required)"), {
+      target: { value: "A product name that is too long" },
+    });
+    fireEvent.change(screen.getByLabelText("Audience (required)"), {
+      target: { value: "Founders" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+
+    expect(
+      await screen.findByText("Product name must be at most 20 characters."),
+    ).toBeVisible();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Product name (required)"), {
+      target: { value: "AgentPay" },
+    });
+    fireEvent.click(screen.getByLabelText("Include sources"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      requestBody: JSON.stringify({
+        audience: "Founders",
+        includeSources: true,
+        productName: "AgentPay",
+      }),
+    });
+  });
+
   it("completes the local x402 demo without a buyer approval step", async () => {
     const fetchMock = vi
       .fn()
@@ -121,9 +217,6 @@ describe("commerce checkout", () => {
     expect(screen.queryByText(/AgentPay charges/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/manager approval/i)).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Request body (JSON)"), {
-      target: { value: '{"topic":"agent commerce"}' },
-    });
     fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
     fireEvent.click(
       screen.getByRole("button", { name: "Review exact payment" }),

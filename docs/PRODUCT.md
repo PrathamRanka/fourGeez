@@ -285,6 +285,16 @@ signature. Missing wallets, disconnected accounts, wrong networks, unavailable
 chain switching, and unavailable typed-data signing produce specific guidance.
 No card, alternate stablecoin, or alternate-network fallback is implied.
 
+Before AgentPay creates a browser purchase session or requests an x402
+challenge, the product page renders ordinary labeled controls from the signed
+published `inputSchema` and validates the resulting JSON document. Required
+fields are visibly required, field failures are specific, and unknown fields,
+incorrect types, string and collection limits, numeric bounds, patterns,
+formats, enums, constants, nested schemas, and supported compositions fail
+before payment. The Go checkout boundary repeats validation against the
+authoritative route schema before transaction creation, verification, or
+settlement, so bypassing browser validation cannot pay for an invalid request.
+
 The public storefront is the browser buyer experience. A separate `/buyer`
 account area is not part of V1. Agent-specific interaction is demonstrated at
 `/demo/agent-checkout` and uses the same authoritative commerce services.

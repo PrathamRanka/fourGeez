@@ -304,6 +304,14 @@ authorization fields.
 
 Price updates apply only to purchase intents created after the update. Existing intents retain their frozen amount until they expire or execute.
 
+Every paid request body is validated against the authoritative route's
+canonical `inputSchema` after its hash is matched to the immutable intent and
+before a transaction, payment challenge, proof verification, or settlement is
+created. Empty input is interpreted as the empty JSON object. Required and
+unknown properties, JSON types, string/item/number bounds, patterns, formats,
+enums, constants, nested object/array rules, and the supported schema
+compositions fail with `422 validation_failed` and bounded field details.
+
 `routeId`, `sellerId`, `productSlug`, `method`, and `pathPattern` are immutable.
 Product slugs are unique within a seller across every lifecycle state, including
 archived routes, so a historical public URL is never reassigned to a different
