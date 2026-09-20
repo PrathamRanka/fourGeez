@@ -75,7 +75,8 @@ function HeroSection() {
         </p>
         <HeroHeadline />
         <p className={styles.heroDescription}>
-          The next visitor to your site will be an AI agent.
+          The next visitor to your site will be an AI agent 
+          <br />
           Make them your next customer.
         </p>
         <div className={styles.heroActions}>
