@@ -451,6 +451,65 @@ describe("commerce checkout", () => {
     expect(screen.queryByText("pending")).not.toBeInTheDocument();
   });
 
+  it("preserves fresh-checkout recovery when the route contract changes during start", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              code: "route_contract_stale",
+              message: "The published payment contract changed.",
+              requestId: "req_stale_contract",
+            },
+          },
+          409,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchaseIntent: intent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          traceId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          paymentRequired: btoa(
+            JSON.stringify({
+              scheme: "exact",
+              network: product.network,
+              asset: product.asset,
+              amount: product.amount,
+              payTo: intent.payTo,
+              resource: "http://localhost:8080/pay/northstar/research/basic",
+              maxTimeoutSeconds: 30,
+            }),
+          ),
+          paymentMode: "mock",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={product}
+        sellerSlug="northstar"
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+
+    expect(
+      await screen.findByText("The published payment contract changed."),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start new checkout" }),
+    );
+
+    expect(await screen.findByText("Payment ready")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("starts a fresh intent after the payment contract expires", async () => {
     const renewedIntent = {
       ...intent,

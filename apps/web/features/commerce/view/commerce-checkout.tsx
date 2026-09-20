@@ -186,6 +186,7 @@ export function CommerceCheckout({
       setCheckoutError({
         message: response.error,
         retryable: response.retryable,
+        recoveryAction: response.recoveryAction,
       });
       return;
     }
