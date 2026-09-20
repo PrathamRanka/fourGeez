@@ -172,6 +172,66 @@ func TestServiceReturnsSignedTombstoneForKnownInactiveSeller(t *testing.T) {
 	verifySignedDocument(t, fixture.keys, tombstone.Tombstone.Document, tombstone.Tombstone.Signature)
 }
 
+func TestStaleManifestCannotAuthorizeCommerceAfterCancellation(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+	staleManifest, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.entitlements.response.Assignment.Status = billing.EntitlementStatusCancelled
+	fixture.entitlements.response.Assignment.NetworkAccess = billing.NetworkAccessBlocked
+
+	if _, err := fixture.service.AuthorizeCommerce(t.Context(), staleManifest.Document.Products[0].RouteID); !errors.Is(err, ErrCommerceUnavailable) {
+		t.Fatalf("stale manifest commerce error = %v", err)
+	}
+	tombstone, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
+	if !errors.Is(err, ErrSellerInactive) || tombstone.Tombstone == nil {
+		t.Fatalf("inactive discovery = %#v, error = %v", tombstone, err)
+	}
+	if tombstone.Tombstone.Document.PublicationRevision <= staleManifest.Document.PublicationRevision {
+		t.Fatalf("tombstone revision = %d, stale manifest revision = %d", tombstone.Tombstone.Document.PublicationRevision, staleManifest.Document.PublicationRevision)
+	}
+}
+
+func TestServiceRefreshesPublishedSchemasAndSignedProductVersion(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+	initial, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updatedRoute := fixture.route
+	updatedRoute.InputSchema = catalog.JSONSchema(`{"additionalProperties":false,"properties":{"topic":{"type":"string"}},"required":["topic"],"type":"object"}`)
+	updatedRoute.OutputSchema = catalog.JSONSchema(`{"additionalProperties":false,"properties":{"summary":{"type":"string"}},"required":["summary"],"type":"object"}`)
+	updatedRoute.Version++
+	updatedRoute.UpdatedAt = fixture.now.Add(time.Minute)
+	if err := fixture.catalog.UpdateRoute(t.Context(), updatedRoute, fixture.route.Version); err != nil {
+		t.Fatal(err)
+	}
+
+	refreshed, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	product, err := fixture.service.GetProduct(t.Context(), fixture.seller.Slug, fixture.route.ProductSlug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.Document.PublicationRevision != initial.Document.PublicationRevision+1 ||
+		refreshed.Document.Products[0].RouteVersion != updatedRoute.Version ||
+		refreshed.Document.Products[0].InputSchema != updatedRoute.InputSchema ||
+		refreshed.Document.Products[0].OutputSchema != updatedRoute.OutputSchema ||
+		product.Document.PublicationRevision != refreshed.Document.PublicationRevision ||
+		product.Document.Product.RouteVersion != updatedRoute.Version {
+		t.Fatalf("refreshed manifest/product = %#v / %#v", refreshed.Document, product.Document)
+	}
+	verifySignedDocument(t, fixture.keys, refreshed.Document, refreshed.Signature)
+	verifySignedDocumentWithDomain(t, fixture.keys, product.Document, product.Signature, ProductContractDomainSeparator)
+}
+
 func TestAuthorizeCommerceFailsClosedForEveryFreshPrerequisite(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

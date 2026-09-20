@@ -81,6 +81,7 @@ The complete gap analysis and reference security design are recorded in
 | [runbooks/LAUNCH_ENTITLEMENT.md](runbooks/LAUNCH_ENTITLEMENT.md)                       | Dry-run-first operator workflow while Stripe subscription collection is disabled                 |
 | [runbooks/CLEAN_SELLER_ONBOARDING_REHEARSAL.md](runbooks/CLEAN_SELLER_ONBOARDING_REHEARSAL.md) | Clean-account seller onboarding, MCP publication, signed discovery, and dashboard rehearsal      |
 | [runbooks/WEBHOOK_CANARY.md](runbooks/WEBHOOK_CANARY.md)                               | Exact-body signature, retry, dead-letter, redelivery, and secret-rotation verification           |
+| [runbooks/PUBLICATION_INVALIDATION_REHEARSAL.md](runbooks/PUBLICATION_INVALIDATION_REHEARSAL.md) | Durable publication outbox, stale-manifest, schema-refresh, and inactive-route rehearsal          |
 | [DECISIONS.md](DECISIONS.md)                                                           | Locked decisions, assumptions, deferred choices, and change procedure                            |
 | [SOURCES.md](SOURCES.md)                                                               | External protocol and platform sources that must be verified before implementation               |
 | [api/openapi.yaml](api/openapi.yaml)                                                   | REST/HTTP API contract                                                                           |

@@ -392,14 +392,14 @@ authorization, revocation, transaction, and failure semantics proven locally.
 - [-] **AWS-009** Add CloudWatch dashboards and alarms for API, MCP, checkout, facilitator, evidence, seller forwarding, webhook retry/dead-letter, Lambda errors/throttles, API latency, and 5xx responses. Thirteen alarms and the seller operations dashboard were deployed on September 19, 2026 with missing-data-safe low-cost settings. SNS alarm notification actions are not configured and delivery is unverified, so this task remains in progress.
 - [ ] **AWS-010** Verify teardown behavior while retaining protected evidence resources.
 - [ ] **AWS-011** Provision a private TLS-protected managed Redis-compatible cache for entitlement epochs, bounded entitlement caching, revocation, replay, idempotency, rate limits, and discovery invalidation; configure authentication, subnet/security boundaries, metrics, alarms, and failure testing while retaining DynamoDB as source of truth.
-- [ ] **AWS-012** Deploy the durable subscription/credential outbox processor and cache/CDN invalidation consumers with retry, dead-letter handling, revision recovery, and observability.
+- [-] **AWS-012** Deploy the durable subscription/credential outbox processor and cache/CDN invalidation consumers with retry, dead-letter handling, revision recovery, and observability. Local publication infrastructure completed September 20, 2026: route and entitlement versions atomically write immutable DynamoDB outbox records; the tested consumer invalidates before signed refresh, retries incomplete work, and records conditional completion. The DynamoDB stream trigger, private Redis/CDN targets, deployed retry/DLQ redrive, credential-event coverage, and observability proof remain pending and were not run.
 - [-] **AWS-013** Configure and verify authenticated subscription-provider callbacks, event replay protection, environment separation, cancellation scheduling, entitlement projection, and secret rotation independently from buyer x402 settlement. While Stripe is disabled, cloud environments require an explicit dry-run-first, environment- and version-bound, assumed-role-only launch-entitlement operation. The reviewed plan digest and exact confirmation bind the seller and complete operation; an immutable seller-scoped operation claim makes exact replay idempotent and conflicting replay fail closed; the claim, reconciliation, projection, and administrator audit record commit atomically. No seller API or normal UI can grant entitlement. Webhook signature/history canary tooling is implemented. Stripe callbacks, the AWS-012 worker, live retry/DLQ proof, and seller-facing webhook replacement/disable remain pending.
 
 M8 acceptance: a new development environment can be deployed from committed Terraform without console-only changes or dual ownership with CDK.
 
 ## Milestone M9 — Demo and release gate
 
-- [ ] **REL-001** Seed the demo seller with fixed-price active and inactive routes.
+- [-] **REL-001** Seed the demo seller with fixed-price active and inactive routes. The deterministic local launch-ready profile now includes two published routes and one paused fixed-price route; deployed demo verification remains pending.
 - [ ] **REL-002** Run unit, integration, contract, web accessibility, and end-to-end suites.
 - [ ] **REL-003** Complete one real x402 testnet transaction and preserve its evidence bundle.
 - [ ] **REL-004** Demonstrate buyer-maximum rejection and exact wallet authorization without a buyer-approval step.
@@ -408,7 +408,7 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-007** Connect a coding agent, generate a seller integration, approve publication, and pass the sandbox validator.
 - [ ] **REL-008** Complete one browser-wallet purchase and one agent/x402 purchase for the same storefront and show both in the seller dashboard without double counting.
 - [ ] **REL-009** Run the complete demo three consecutive times without manual data repair.
-- [ ] **REL-010** Verify generated storefront metadata, structured data, sitemap, `llms.txt`, and manifest output across the supported stack fixtures.
+- [-] **REL-010** Verify generated storefront metadata, structured data, sitemap, `llms.txt`, and manifest output across the supported stack fixtures. Local tests now cover all 21 maintained stack prompts and require regeneration from the latest signed product contract after price, availability, input-schema, or output-schema changes; deployed generated artifacts remain pending.
 - [ ] **REL-011** Revoke a project API key while its MCP access token is still unexpired and demonstrate that the next cloud MCP request fails through the entitlement-epoch check.
 - [ ] **REL-012** Cancel or suspend a seller while its local connector and a deliberately modified fork remain running; demonstrate that neither can mint capabilities, publish, create intents, settle payments, or produce official AgentPay receipts/evidence.
   Local MCP coverage completed on September 20, 2026: automated regressions
@@ -416,7 +416,7 @@ M8 acceptance: a new development environment can be deployed from committed Terr
   through the official connector path or reuse an unexpired capability through
   a modified client. REL-012 remains open for deployed publication, intent,
   settlement, receipt, and evidence verification.
-- [ ] **REL-013** Load a stale seller-hosted manifest after cancellation and demonstrate that authoritative intent creation and checkout fail while AgentPay discovery returns an inactive tombstone.
+- [-] **REL-013** Load a stale seller-hosted manifest after cancellation and demonstrate that authoritative intent creation and checkout fail while AgentPay discovery returns an inactive tombstone. Local regressions prove stale route data loses authoritative commerce access and discovery advances to a higher-revision signed cancellation tombstone; canonical deployed intent/browser checkout proof remains pending.
 - [ ] **REL-014** Exercise cancellation immediately before settlement and immediately after finalized settlement; verify that the first transaction is blocked and the second fulfills exactly once according to the documented buyer-obligation rule.
 - [ ] **REL-015** Complete the authenticated browser journey from clean sign-up through resumable onboarding, publication, browser purchase, agent purchase, dashboard reconciliation, dispute, sign-out, and expired-session recovery using the deployed production-shaped environment.
 - [x] **REL-016** Historical implementation of a seller-owned onboarding test-purchase journey. Superseded on September 20, 2026 by issues 1 and 2: seller onboarding and dashboard surfaces expose no buyer checkout, wallet authorization, or seller-funded purchase action, and instead show the route-version-bound automated non-payment verification result. Public storefront checkout remains available only to human buyers and external buyer agents.

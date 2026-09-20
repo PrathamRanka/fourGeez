@@ -8,6 +8,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/catalog"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
+	"github.com/fourgeez/agentpay/internal/publicationops"
 )
 
 const (
@@ -271,6 +272,17 @@ func (repository *CatalogRepository) CreateRoute(ctx context.Context, route cata
 		return err
 	}
 	writes = append(writes, directoryWrites...)
+	outboxWrite, err := repository.publicationOutboxPut(
+		publicationops.EventRouteChanged,
+		route.SellerID.String(),
+		route.RouteID.String(),
+		route.Version,
+		route.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+	writes = append(writes, outboxWrite)
 	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
 		TransactItems: writes,
 	})
@@ -379,6 +391,17 @@ func (repository *CatalogRepository) UpdateRoute(
 		}
 		writes = append(writes, directoryWrites...)
 	}
+	outboxWrite, err := repository.publicationOutboxPut(
+		publicationops.EventRouteChanged,
+		route.SellerID.String(),
+		route.RouteID.String(),
+		route.Version,
+		route.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+	writes = append(writes, outboxWrite)
 	_, err = repository.client.TransactWriteItems(ctx, &awssdk.TransactWriteItemsInput{
 		TransactItems: writes,
 	})

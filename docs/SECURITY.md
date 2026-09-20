@@ -6,10 +6,13 @@ Implementation status: the existing controls cover the M0–M7 development
 preview. The reduced M7.1 Lean V1 adds production subscription enforcement,
 short-lived MCP capabilities, authoritative entitlement and credential checks,
 signed discovery status, execution capabilities, authenticated seller sessions,
-and their required failure tests. Redis/outbox scaling and a full operator UI
-are deferred; transaction-critical authorization reads authoritative persistence
-and fails closed. Until M7.1, M8, and M9 pass, cancellation-safe production
-access is not implemented.
+and their required failure tests. Immutable route/entitlement publication
+outbox writes, idempotent consumer ordering, stale-manifest rejection, and
+signed tombstone/schema-refresh regressions are implemented locally. The
+stream-triggered worker and Redis/CDN invalidation endpoints remain undeployed;
+transaction-critical authorization reads authoritative persistence and fails
+closed. Until M8 and M9 pass, cancellation-safe production access is not
+represented as deployed.
 
 ## Security goals
 

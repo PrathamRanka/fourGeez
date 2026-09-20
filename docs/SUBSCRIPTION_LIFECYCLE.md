@@ -197,6 +197,10 @@ projection, and audit records; exact replay returns the original applied
 version, while changed replay fails closed. No seller-authenticated API or
 normal seller UI can grant or reactivate entitlement.
 
-Production activation remains blocked on the AWS application runtime,
-asynchronous outbox/reconciliation workers, authenticated Stripe callbacks,
-and deployed lifecycle verification under AWS-005, AWS-012, AWS-013, and M9.
+Route and entitlement mutations now create immutable publication outbox events
+inside their authoritative DynamoDB transactions. The local consumer contract
+invalidates derived publication caches, regenerates signed publication, and
+records completion only after both succeed. Production activation remains
+blocked on deploying that stream-triggered worker with Redis/CDN targets,
+retry/dead-letter handling, authenticated Stripe callbacks, and lifecycle
+verification under AWS-012, AWS-013, and M9.

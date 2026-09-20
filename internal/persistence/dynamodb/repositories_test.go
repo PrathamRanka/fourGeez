@@ -115,7 +115,7 @@ func TestCatalogRepositoryAtomicallyClaimsSellerProductSlug(t *testing.T) {
 		t.Fatal(err)
 	}
 	transaction := client.transactWriteInput
-	if transaction == nil || len(transaction.TransactItems) != 5 {
+	if transaction == nil || len(transaction.TransactItems) != 6 {
 		t.Fatalf("route transaction = %#v", transaction)
 	}
 	claim := transaction.TransactItems[0].Put
@@ -124,6 +124,7 @@ func TestCatalogRepositoryAtomicallyClaimsSellerProductSlug(t *testing.T) {
 		claim.ConditionExpression == nil || *claim.ConditionExpression != createItemCondition {
 		t.Fatalf("product slug claim = %#v", claim)
 	}
+	assertPublicationOutboxItem(t, transaction.TransactItems[len(transaction.TransactItems)-1], route.SellerID.String(), "route.changed", route.RouteID.String(), route.Version)
 
 	client.transactErr = &types.TransactionCanceledException{Message: stringPointer("duplicate")}
 	if err := repository.CreateRoute(t.Context(), route); !errors.Is(err, persistence.ErrAlreadyExists) {
@@ -215,7 +216,7 @@ func TestCatalogRepositoryBackfillsLegacyProductIdentityAtomically(t *testing.T)
 		t.Fatal(err)
 	}
 	transaction := client.transactWriteInput
-	if transaction == nil || len(transaction.TransactItems) != 7 {
+	if transaction == nil || len(transaction.TransactItems) != 8 {
 		t.Fatalf("legacy migration transaction = %#v", transaction)
 	}
 	claim := transaction.TransactItems[0].Put
@@ -224,6 +225,7 @@ func TestCatalogRepositoryBackfillsLegacyProductIdentityAtomically(t *testing.T)
 	}
 	assertDirectoryDeleteExists(t, transaction.TransactItems, directoryProductsPartitionKey())
 	assertDirectoryDeleteExists(t, transaction.TransactItems, directoryTermPartitionKey("research"))
+	assertPublicationOutboxItem(t, transaction.TransactItems[len(transaction.TransactItems)-1], updated.SellerID.String(), "route.changed", updated.RouteID.String(), updated.Version)
 }
 
 // TestQuotaCounterRepositoryUsesConditionalAtomicWrites verifies persisted quota safety.
@@ -270,7 +272,7 @@ func TestSellerEntitlementRepositoryAtomicallyWritesProjectionAndReconciliation(
 		t.Fatal(err)
 	}
 	input := client.transactWriteInput
-	if input == nil || len(input.TransactItems) != 2 {
+	if input == nil || len(input.TransactItems) != 3 {
 		t.Fatalf("entitlement transaction = %#v", input)
 	}
 	history := input.TransactItems[0].Put
@@ -284,6 +286,7 @@ func TestSellerEntitlementRepositoryAtomicallyWritesProjectionAndReconciliation(
 		projection.ConditionExpression == nil || *projection.ConditionExpression != createItemCondition {
 		t.Fatalf("entitlement item = %#v", projection)
 	}
+	assertPublicationOutboxItem(t, input.TransactItems[2], entitlement.SellerID().String(), "entitlement.changed", entitlement.SellerID().String(), entitlement.Version())
 }
 
 func TestSellerEntitlementRepositoryAppliesOperatorAuditAtomically(t *testing.T) {
@@ -318,14 +321,37 @@ func TestSellerEntitlementRepositoryAppliesOperatorAuditAtomically(t *testing.T)
 		t.Fatal(err)
 	}
 	input := client.transactWriteInput
-	if input == nil || len(input.TransactItems) != 4 {
+	if input == nil || len(input.TransactItems) != 5 {
 		t.Fatalf("operator transaction = %#v", input)
 	}
-	if got := readStringAttribute(input.TransactItems[2].Put.Item["SK"]); got != launchEntitlementOperationSortKey(operation.OperationID) {
+	if got := readStringAttribute(input.TransactItems[3].Put.Item["SK"]); got != launchEntitlementOperationSortKey(operation.OperationID) {
 		t.Fatalf("operation sort key = %q", got)
 	}
-	if got := readStringAttribute(input.TransactItems[3].Put.Item["SK"]); !strings.HasPrefix(got, "AUDIT#") {
+	if got := readStringAttribute(input.TransactItems[4].Put.Item["SK"]); !strings.HasPrefix(got, "AUDIT#") {
 		t.Fatalf("audit sort key = %q", got)
+	}
+}
+
+func assertPublicationOutboxItem(t *testing.T, item types.TransactWriteItem, sellerID, eventType, aggregateID string, aggregateVersion uint64) {
+	t.Helper()
+	if item.Put == nil {
+		t.Fatalf("publication outbox item = %#v", item)
+	}
+	var event struct {
+		SchemaVersion    string `json:"schemaVersion"`
+		EventType        string `json:"eventType"`
+		SellerID         string `json:"sellerId"`
+		AggregateID      string `json:"aggregateId"`
+		AggregateVersion uint64 `json:"aggregateVersion"`
+	}
+	if err := unmarshalPayload(item.Put.Item, &event); err != nil {
+		t.Fatal(err)
+	}
+	if event.SchemaVersion != "agentpay.publication-outbox.v1" || event.EventType != eventType || event.SellerID != sellerID || event.AggregateID != aggregateID || event.AggregateVersion != aggregateVersion {
+		t.Fatalf("publication outbox event = %#v", event)
+	}
+	if item.Put.ConditionExpression == nil || *item.Put.ConditionExpression != createItemCondition {
+		t.Fatalf("publication outbox condition = %#v", item.Put)
 	}
 }
 

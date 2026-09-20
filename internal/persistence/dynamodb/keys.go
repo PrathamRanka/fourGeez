@@ -37,6 +37,12 @@ const profileSortKey = "PROFILE"
 
 const sellerPlanSortKey = "BILLING_PLAN"
 
+func publicationEventPartitionKey(eventID string) string {
+	return "PUBLICATION_EVENT#" + eventID
+}
+
+const publicationCompletionSortKey = "COMPLETION"
+
 func subscriptionReconciliationSortKey(sourceRevision string) string {
 	return "SUBSCRIPTION_RECONCILIATION#" + sourceRevision
 }

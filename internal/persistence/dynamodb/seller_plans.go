@@ -9,6 +9,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/billing"
 	"github.com/fourgeez/agentpay/internal/domain"
 	"github.com/fourgeez/agentpay/internal/persistence"
+	"github.com/fourgeez/agentpay/internal/publicationops"
 )
 
 type SellerEntitlementRepository struct{ repositoryBase }
@@ -178,9 +179,20 @@ func (repository *SellerEntitlementRepository) entitlementTransactionItems(
 		attributeNames = map[string]string{"#version": "version"}
 		attributeValues = map[string]types.AttributeValue{":expectedVersion": numberAttributeValue(expectedVersion)}
 	}
+	outboxWrite, err := repository.publicationOutboxPut(
+		publicationops.EventEntitlementChanged,
+		entitlement.SellerID().String(),
+		entitlement.SellerID().String(),
+		entitlement.Version(),
+		entitlement.UpdatedAt(),
+	)
+	if err != nil {
+		return nil, err
+	}
 	return []types.TransactWriteItem{
 		{Put: &types.Put{TableName: &repository.tableName, Item: reconciliationItem, ConditionExpression: stringPointer(createItemCondition)}},
 		{Put: &types.Put{TableName: &repository.tableName, Item: entitlementItem, ConditionExpression: &entitlementCondition, ExpressionAttributeNames: attributeNames, ExpressionAttributeValues: attributeValues}},
+		outboxWrite,
 	}, nil
 }
 

@@ -371,6 +371,33 @@ func TestServicePublishesExtendedStackSetup(t *testing.T) {
 	}
 }
 
+func TestEverySupportedStackRefreshesPublicAssetsFromTheLatestSignedProductContract(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	bundle, err := service.BundleV2(HostCodex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, setup := range bundle.Stacks {
+		t.Run(string(setup.Stack), func(t *testing.T) {
+			t.Parallel()
+			prompt, promptErr := service.PromptV2(HostCodex, string(setup.Stack))
+			if promptErr != nil {
+				t.Fatal(promptErr)
+			}
+			for _, fragment := range []string{
+				"latest signed AgentPay product contract",
+				"price, availability, input schema, or output schema",
+				"regenerate product pages, structured data, sitemap, llms.txt, and manifest",
+			} {
+				if !strings.Contains(prompt, fragment) {
+					t.Fatalf("%s prompt omitted refresh contract %q: %s", setup.Stack, fragment, prompt)
+				}
+			}
+		})
+	}
+}
+
 // findStackSetup returns one required setup from a versioned bundle.
 func findStackSetup(t *testing.T, setups []StackSetup, stack stacks.Stack) StackSetup {
 	t.Helper()

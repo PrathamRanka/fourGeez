@@ -98,6 +98,26 @@ prerequisites and conditionally repairs a stale snapshot. Concurrent writers or
 readers may retry but may never decrease or reuse a revision for different
 public authority state.
 
+### PublicationOutbox and completion
+
+Every persisted paid-route version and seller-entitlement version atomically
+writes an immutable `publicationOutbox` record in the owning seller partition:
+`PK=SELLER#<sellerId>` and
+`SK=PUBLICATION_OUTBOX#<eventType>#<aggregateId>#<aggregateVersion padded to 20 digits>`.
+The payload is `agentpay.publication-outbox.v1` and contains a deterministic
+SHA-256 `eventId`, `eventType` (`route.changed` or `entitlement.changed`),
+`sellerId`, `aggregateId`, positive `aggregateVersion`, and UTC `occurredAt`.
+The same aggregate version cannot produce two differently interpreted events.
+
+Consumers invalidate derived seller publication caches before regenerating the
+signed storefront/product view. They record completion only after both steps
+succeed at `PK=PUBLICATION_EVENT#<eventId>`, `SK=COMPLETION`, using a conditional
+create. Delivery is at least once; invalidation and refresh must remain
+idempotent. DynamoDB seller, route, entitlement, destination, workspace, and
+publication records remain authoritative when a consumer is delayed or
+unavailable. Redis/CDN deployment and live retry/dead-letter proof remain
+AWS-011/AWS-012 work.
+
 Lean V1 permits exactly one seller for each normalized identity-provider
 subject. Creation atomically reserves
 `PK=SELLER_OWNER#<sha256("agentpay.seller-owner.v1" + NUL + ownerSubject)>`,

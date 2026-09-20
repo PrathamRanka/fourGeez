@@ -45,10 +45,11 @@ Verification recipe:
 5. Add raw-body AgentPay signature verification before fulfillment and a side-effect-free POST /.well-known/agentpay/sandbox endpoint behind the same middleware. Return the closed agentpay.sandbox.v2 response with the supplied routeId and routeVersion plus ready: true.
 6. Generate storefront and product pages using the selected stack's native routing, rendering, metadata, robots, and sitemap conventions.
 7. Generate truthful title and description metadata, canonical URLs, Open Graph metadata, semantic product content, visible-fact-backed JSON-LD, robots directives, sitemap output, llms.txt, and an AgentPay manifest that agree on every published route.
-8. Add focused signature, stale-request, replay, payment-gating, sandbox, metadata, accessibility, performance, llms.txt, and manifest-consistency tests.
-9. Measure the generated artifacts and call validate_storefront_artifacts; fix every failed deterministic check.
-10. Run the repository's existing checks and this focused command: %s
-11. Present route proposals, generated SEO/AEO assets, validation output, complete diff, and commands for seller review.
+8. Treat the latest signed AgentPay product contract as the refresh source. After any approved price, availability, input schema, or output schema change, regenerate product pages, structured data, sitemap, llms.txt, and manifest from that exact published version.
+9. Add focused signature, stale-request, replay, payment-gating, sandbox, metadata, accessibility, performance, llms.txt, and manifest-consistency tests.
+10. Measure the generated artifacts and call validate_storefront_artifacts; fix every failed deterministic check.
+11. Run the repository's existing checks and this focused command: %s
+12. Present route proposals, generated SEO/AEO assets, validation output, complete diff, and commands for seller review.
 
 SEO/AEO work can improve crawlability and machine discovery but cannot guarantee ranking, traffic, or conversion. Do not create hidden text, keyword stuffing, doorway pages, fabricated reviews, unsupported structured data, or claims absent from visible content.
 
@@ -322,6 +323,7 @@ func generationRequirements() []string {
 		"Public robots directives and sitemap entries for visible product pages.",
 		"Semantic visible product content and truthful JSON-LD supported by page facts.",
 		"Consistent llms.txt and AgentPay storefront manifest route discovery.",
+		"Regeneration of every public product artifact from the latest signed contract after approved price, availability, input-schema, or output-schema changes.",
 		"Keyboard accessibility, semantic landmarks, labels, and error descriptions.",
 		"performance budgets for page weight, blocking scripts, and primary content rendering.",
 	}

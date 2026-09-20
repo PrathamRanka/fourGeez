@@ -83,10 +83,10 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P1
 
-17. Automatic cache invalidation and durable publication/outbox consumers are not fully deployed.
-18. Stale seller manifests after cancellation have not been tested against authoritative intent and checkout rejection.
-19. Product/schema publication refresh has not been verified across all supported stack fixtures.
-20. The inactive-route demo case has not been fully exercised in the deployed environment.
+17. **Resolved locally (2026-09-20; deployment pending):** paid-route and entitlement versions now atomically write immutable DynamoDB publication outbox events. A tested consumer invalidates before signed refresh, retries incomplete work, and conditionally records completion. The stream trigger, Redis/CDN targets, credential-event coverage, live retry/DLQ redrive, and observability proof remain undeployed under AWS-012.
+18. **Resolved locally (2026-09-20; deployed proof pending):** a regression retains a signed active manifest, cancels the seller, proves its route can no longer authorize commerce, and verifies discovery returns a higher-revision signed cancellation tombstone. Canonical deployed intent and browser-checkout evidence remains REL-013.
+19. **Resolved locally (2026-09-20; deployed fixture proof pending):** signed storefront and product documents advance together after input/output schema changes, and all 21 maintained stack prompts require public product pages, structured data, sitemap, `llms.txt`, and manifest regeneration from the latest signed contract. Deployed generated-artifact verification remains REL-010.
+20. **Resolved locally (2026-09-20; deployed demo proof pending):** the deterministic launch-ready profile now includes a fixed-price paused route with a stable identifier and regression coverage. The canonical deployed demo remains REL-001.
 
 ## 4. Buyer discovery and autonomous-agent flow
 
@@ -202,7 +202,7 @@ This register records issues found during the real seller onboarding, MCP config
 65. Direct IAM and Lambda patches created Terraform drift that must be reconciled with committed infrastructure.
 66. The public demo is served from `dev` resources such as `agentpay-dev-api` and `agentpay-dev-main` rather than a separately managed demo or production environment.
 67. The Terraform teardown path has not been verified while retaining protected evidence resources.
-68. Durable outbox, subscription processing, and cache/CDN invalidation consumers are not fully deployed.
+68. **Partially resolved locally (2026-09-20):** durable route/entitlement publication outbox writes, consumer ordering/retry/idempotency, and completion persistence are implemented and tested. Subscription/credential stream deployment, Redis/CDN integration, retry/DLQ redrive, and live observability remain open under AWS-012.
 69. The planned private managed Redis-compatible cache is not provisioned; DynamoDB remains authoritative without the complete distributed cache and revocation layer.
 70. Stripe webhook infrastructure, retries, dead-letter handling, and rotation remain incomplete while Stripe is disabled.
 71. Lambda regional concurrency is currently limited to 10, acceptable for zero traffic but not validated for bursts.

@@ -4,9 +4,12 @@ Status: **Locked; the M7.1 local launch gate passes and M9 remains the deployed 
 
 The M7.1 unit, contract, integration, browser E2E, responsive, and Lighthouse
 checks prove the local launch core. They do not prove AWS production readiness.
-Redis/outbox-specific testing is deferred because Lean V1 performs
-transaction-critical authorization against authoritative persistence. M9
-remains the final deployed release gate.
+Local tests cover immutable route/entitlement publication outbox writes,
+consumer ordering/retry/idempotency, stale-manifest rejection, signed schema
+refresh, and the inactive-route fixture. Redis/CDN integration, stream retries,
+dead-letter redrive, and canonical-origin verification remain deployed M8/M9
+gates. Transaction-critical authorization continues to read authoritative
+persistence and fail closed.
 
 ## Test layers
 

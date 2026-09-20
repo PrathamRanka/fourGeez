@@ -43,6 +43,7 @@ const (
 	incompleteSellerIDValue       = "sel_01K5D09YJ0C0M7RJM4FWQ0K9H8"
 	belowThresholdRouteIDValue    = "rte_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 	approvalRequiredRouteIDValue  = "rte_01K5D09YJ0C0M7RJM4FWQ0K9H8"
+	inactiveRouteIDValue          = "rte_01K5D09YJ0C0M7RJM4FWQ0K9H9"
 	paymentPendingTransactionID   = "txn_01K5D09YJ0C0M7RJM4FWQ0K9H7"
 	fulfilledTransactionID        = "txn_01K5D09YJ0C0M7RJM4FWQ0K9H8"
 	failedTransactionID           = "txn_01K5D09YJ0C0M7RJM4FWQ0K9H9"
@@ -104,6 +105,7 @@ type Metadata struct {
 	IncompleteSellerID           domain.ID `json:"incompleteSellerId"`
 	BelowThresholdRouteID        domain.ID `json:"belowThresholdRouteId"`
 	ApprovalRequiredRouteID      domain.ID `json:"approvalRequiredRouteId"`
+	InactiveRouteID              domain.ID `json:"inactiveRouteId"`
 	PaymentPendingTransactionID  domain.ID `json:"paymentPendingTransactionId"`
 	FulfilledTransactionID       domain.ID `json:"fulfilledTransactionId"`
 	FailedTransactionID          domain.ID `json:"failedTransactionId"`
@@ -467,6 +469,7 @@ func (seeder *Seeder) seedPaymentDestinations(ctx context.Context, seller catalo
 type routeFixtures struct {
 	belowThreshold   catalog.PaidRoute
 	approvalRequired catalog.PaidRoute
+	inactive         catalog.PaidRoute
 }
 
 func (seeder *Seeder) seedRoutes(ctx context.Context, seller catalog.Seller) (routeFixtures, error) {
@@ -511,12 +514,35 @@ func (seeder *Seeder) seedRoutes(ctx context.Context, seller catalog.Seller) (ro
 	if err != nil {
 		return routeFixtures{}, err
 	}
-	for _, route := range []catalog.PaidRoute{belowThreshold, approvalRequired} {
+	inactive, err := catalog.NewPaidRoute(catalog.PaidRouteParams{
+		RouteID:                 seeder.metadata.InactiveRouteID,
+		SellerID:                seller.SellerID,
+		DisplayName:             "Archived Market Brief",
+		ProductSlug:             "archived-market-brief",
+		Method:                  catalog.RouteMethodPost,
+		PathPattern:             "/research/archived",
+		Description:             "A deterministic inactive product fixture.",
+		MIMEType:                "application/json",
+		Amount:                  domain.MustParseAmount("5000000"),
+		Asset:                   "USDC",
+		Network:                 "eip155:84532",
+		PayTo:                   "0x1111111111111111111111111111111111111111",
+		ApprovalThresholdAmount: &approvalThreshold,
+		UpstreamTimeoutSeconds:  20,
+		CreatedAt:               fixedSeedTimestamp.Add(5 * time.Minute),
+	})
+	if err != nil {
+		return routeFixtures{}, err
+	}
+	if err := inactive.Pause(fixedSeedTimestamp.Add(6 * time.Minute)); err != nil {
+		return routeFixtures{}, err
+	}
+	for _, route := range []catalog.PaidRoute{belowThreshold, approvalRequired, inactive} {
 		if err := seeder.repositories.Catalog.CreateRoute(ctx, route); err != nil {
 			return routeFixtures{}, err
 		}
 	}
-	return routeFixtures{belowThreshold: belowThreshold, approvalRequired: approvalRequired}, nil
+	return routeFixtures{belowThreshold: belowThreshold, approvalRequired: approvalRequired, inactive: inactive}, nil
 }
 
 type transactionFixtures struct {
@@ -896,6 +922,7 @@ func newMetadata() (Metadata, error) {
 		IncompleteSellerID:           mustProfileID(incompleteSellerIDValue, domain.SellerIDPrefix),
 		BelowThresholdRouteID:        mustProfileID(belowThresholdRouteIDValue, domain.RouteIDPrefix),
 		ApprovalRequiredRouteID:      mustProfileID(approvalRequiredRouteIDValue, domain.RouteIDPrefix),
+		InactiveRouteID:              mustProfileID(inactiveRouteIDValue, domain.RouteIDPrefix),
 		PaymentPendingTransactionID:  mustProfileID(paymentPendingTransactionID, domain.TransactionIDPrefix),
 		FulfilledTransactionID:       mustProfileID(fulfilledTransactionID, domain.TransactionIDPrefix),
 		FailedTransactionID:          mustProfileID(failedTransactionID, domain.TransactionIDPrefix),

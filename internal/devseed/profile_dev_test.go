@@ -71,8 +71,8 @@ func TestLaunchReadyProfileSeedsEveryRequiredLocalScenario(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(routes) != 2 {
-		t.Fatalf("routes = %d, want 2", len(routes))
+	if len(routes) != 3 {
+		t.Fatalf("routes = %d, want 3", len(routes))
 	}
 	assertSeedRoutePolicy(t, routes, metadata)
 	destinations, err := fixture.paymentDestinations.ListBySeller(
@@ -377,6 +377,31 @@ func TestCancelEndpointMakesEntitlementAndCredentialDenialObservable(t *testing.
 	}
 }
 
+func TestLaunchReadyProfileIncludesOneDeterministicInactiveRoute(t *testing.T) {
+	t.Parallel()
+	fixture := newSeedFixture(t)
+	metadata, err := fixture.seeder.ResetAndSeed(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	route, err := fixture.catalog.GetRoute(context.Background(), metadata.InactiveRouteID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if route.LifecycleStatus != catalog.RouteLifecyclePaused || route.Enabled {
+		t.Fatalf("inactive route = %#v", route)
+	}
+	manifest, err := catalog.NewService(fixture.catalog, nil, nil, nil).GetStorefrontManifest(context.Background(), "demo-seller")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, publishedRoute := range manifest.Routes {
+		if publishedRoute.RouteID == metadata.InactiveRouteID {
+			t.Fatalf("inactive route leaked into storefront manifest: %#v", manifest)
+		}
+	}
+}
+
 // TestNewRejectsAnyProductionShapedSeedConfiguration protects the build-tag boundary.
 func TestNewRejectsAnyProductionShapedSeedConfiguration(t *testing.T) {
 	t.Parallel()
@@ -538,6 +563,12 @@ func performCancelRequest(t *testing.T, seeder *Seeder, sellerID string) *httpte
 func assertSeedRoutePolicy(t *testing.T, routes []catalog.PaidRoute, metadata Metadata) {
 	t.Helper()
 	for _, route := range routes {
+		if route.RouteID == metadata.InactiveRouteID {
+			if route.LifecycleStatus != catalog.RouteLifecyclePaused || route.Enabled {
+				t.Fatalf("inactive route = %#v, want paused", route)
+			}
+			continue
+		}
 		if route.LifecycleStatus != catalog.RouteLifecyclePublished || !route.Enabled {
 			t.Fatalf("route = %#v, want published", route)
 		}
