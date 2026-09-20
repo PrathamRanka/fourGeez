@@ -91,6 +91,9 @@ export function CommerceCheckout({
     null,
   );
   const [paymentSignature, setPaymentSignature] = useState<string | null>(null);
+  const [buyerWalletAddress, setBuyerWalletAddress] = useState<string | null>(
+    null,
+  );
 
   const maximumSpendID = useId();
   const maximumSpendHelpID = useId();
@@ -100,6 +103,10 @@ export function CommerceCheckout({
   async function startCheckout() {
     setCheckoutError(null);
     setFieldErrors({});
+    setStartResult(null);
+    setCompleteResult(null);
+    setPaymentSignature(null);
+    setBuyerWalletAddress(null);
     let maximumAmount: string;
     let validatedRequestBody = requestBody;
     try {
@@ -199,6 +206,7 @@ export function CommerceCheckout({
     if (response.value.paymentMode === "x402") {
       const compatibility =
         await detectWalletCompatibility(getInjectedWallet());
+      setBuyerWalletAddress(compatibility.address ?? null);
       if (!compatibility.compatible) {
         setCheckoutError({
           message: compatibility.message,
@@ -266,6 +274,7 @@ export function CommerceCheckout({
 
   async function checkWalletAgain() {
     const compatibility = await detectWalletCompatibility(getInjectedWallet());
+    setBuyerWalletAddress(compatibility.address ?? null);
     if (compatibility.compatible) {
       setCheckoutError(null);
       setStage("payment_ready");
@@ -284,7 +293,13 @@ export function CommerceCheckout({
     setCompleteResult(null);
     setCheckoutError(null);
     setPaymentSignature(null);
+    setBuyerWalletAddress(null);
     setStage("ready");
+  }
+
+  async function startFreshCheckout() {
+    resetCheckout();
+    await startCheckout();
   }
 
   return (
@@ -477,6 +492,33 @@ export function CommerceCheckout({
             stage={stage}
           />
 
+          {startResult &&
+          (stage === "payment_ready" ||
+            stage === "wallet_missing" ||
+            stage === "signing" ||
+            stage === "error") ? (
+            <dl className={styles.paymentParties} aria-label="Payment parties">
+              {buyerWalletAddress ? (
+                <div>
+                  <dt>Buyer wallet</dt>
+                  <dd>{buyerWalletAddress}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt>Seller wallet</dt>
+                <dd>{startResult.purchaseIntent.payTo}</dd>
+              </div>
+              <div>
+                <dt>
+                  {startResult.transactionId
+                    ? "Transaction trace"
+                    : "Request trace"}
+                </dt>
+                <dd>{startResult.traceId ?? startResult.transactionId}</dd>
+              </div>
+            </dl>
+          ) : null}
+
           <div className={styles.actions}>
             {stage === "ready" ? (
               <Button
@@ -534,7 +576,9 @@ export function CommerceCheckout({
                   checkoutError.recoveryAction === "connect_wallet" ||
                   checkoutError.recoveryAction === "switch_network"
                     ? completeCheckout
-                    : resetCheckout
+                    : checkoutError.recoveryAction === "start_new_checkout"
+                      ? startFreshCheckout
+                      : resetCheckout
                 }
               >
                 <RotateCcw aria-hidden="true" />
@@ -667,6 +711,8 @@ function paymentRecoveryLabel(action?: PaymentRecoveryAction): string {
       return "Retry payment verification";
     case "retry_same_payment":
       return "Retry settlement check";
+    case "start_new_checkout":
+      return "Start new checkout";
     default:
       return "Try again";
   }

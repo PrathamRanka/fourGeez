@@ -16,12 +16,13 @@ export type PaymentRecoveryAction =
   | "start_new_checkout";
 
 export type WalletCompatibility =
-  | { compatible: true }
+  | { compatible: true; address: string }
   | {
       compatible: false;
       code: string;
       message: string;
       recoveryAction: PaymentRecoveryAction;
+      address?: string;
     };
 
 export class PaymentCapabilityError extends Error {
@@ -115,9 +116,10 @@ export async function detectWalletCompatibility(
         code: "network_switch_required",
         message: "Switch the wallet to Base Sepolia to continue.",
         recoveryAction: "switch_network",
+        address: accounts[0],
       };
     }
-    return { compatible: true };
+    return { compatible: true, address: accounts[0] };
   } catch {
     return {
       compatible: false,

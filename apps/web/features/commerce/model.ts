@@ -33,7 +33,8 @@ export type PurchaseIntent = {
 
 export type CheckoutStartResult = {
   purchaseIntent: PurchaseIntent;
-  transactionId: string;
+  transactionId?: string;
+  traceId: string;
   paymentRequired: string;
   paymentMode: "mock" | "x402";
 };

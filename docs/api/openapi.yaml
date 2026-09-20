@@ -3195,6 +3195,8 @@ components:
       description: x402 v2 challenge for payment_required or payment_rejected; PAYMENT-REQUIRED is present when the same intent may be reauthorized
       headers:
         PAYMENT-REQUIRED: { schema: { type: string }, description: Base64-encoded x402 PaymentRequired payload }
+        X-AgentPay-Transaction-Id: { schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' }, description: Stable transaction identifier created before the challenge and safe to show as the buyer support trace. }
+        X-AgentPay-Request-Id: { schema: { type: string, minLength: 1, maxLength: 128 }, description: Request correlation identifier available as a fallback support trace. }
         Cache-Control: { schema: { type: string, const: no-store } }
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     BadRequest: { description: 400 invalid_request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

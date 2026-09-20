@@ -106,6 +106,19 @@ describe("x402 wallet", () => {
       code: "network_switch_required",
       message: "Switch the wallet to Base Sepolia to continue.",
       recoveryAction: "switch_network",
+      address: "0x2222222222222222222222222222222222222222",
+    });
+
+    const compatibleAddress = "0x2222222222222222222222222222222222222222";
+    const compatible = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce("0x14a34")
+        .mockResolvedValueOnce([compatibleAddress]),
+    };
+    await expect(detectWalletCompatibility(compatible)).resolves.toEqual({
+      compatible: true,
+      address: compatibleAddress,
     });
   });
 

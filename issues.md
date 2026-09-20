@@ -112,11 +112,11 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P1
 
-30. Buyer and seller wallet addresses are not clearly displayed before authorization.
-31. MetaMask account labels can make different addresses appear identical, creating avoidable confusion.
-32. The checkout challenge temporarily reports the transaction ID as `pending`, reducing support traceability.
-33. Checkout contains corrupted typography such as `Â·` in user-facing copy.
-34. The retry action can reuse stale checkout state after expiration or a backend payment-contract change instead of forcing a fresh intent.
+30. **Resolved locally (2026-09-20):** Checkout displays the complete buyer wallet and seller payment-destination addresses in separately labeled fields before authorization.
+31. **Resolved locally (2026-09-20):** Address identity no longer depends on MetaMask account labels; the UI renders the actual hexadecimal addresses returned by the wallet and frozen intent.
+32. **Resolved locally (2026-09-20):** Payment-required responses now carry the deterministic transaction ID, and checkout exposes that real transaction/request trace instead of the placeholder `pending`.
+33. **Resolved locally (2026-09-20):** Buyer checkout copy uses valid UTF-8 typography and regression coverage protects the testnet separator text.
+34. **Resolved locally (2026-09-20):** `payment_expired`, `route_contract_stale`, and explicit `start_new_checkout` recovery discard the prior intent, challenge, and signature before obtaining fresh terms. Same-payment recovery remains limited to settlement uncertainty.
 
 ## 6. Payment authorization and settlement flow
 

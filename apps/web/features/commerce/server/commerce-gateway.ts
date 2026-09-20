@@ -19,6 +19,7 @@ const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const routeIDPattern = /^rte_[A-Za-z0-9]+$/;
 const intentIDPattern = /^int_[A-Za-z0-9]+$/;
 const transactionIDPattern = /^txn_[A-Za-z0-9]+$/;
+const requestIDPattern = /^[\x20-\x7e]{1,128}$/;
 const disputeIDPattern = /^dsp_[A-Za-z0-9]+$/;
 const paidPathPattern = /^\/[A-Za-z0-9/_-]+$/;
 const disputeReasons = new Set<DisputeReason>([
@@ -180,14 +181,30 @@ export async function startCommerce(
       "AgentPay returned an incomplete x402 payment challenge.",
     );
   }
+  const transactionId = challengeResponse.response.headers.get(
+    "X-AgentPay-Transaction-Id",
+  );
+  const requestId = challengeResponse.response.headers.get(
+    "X-AgentPay-Request-Id",
+  );
+  if (
+    (transactionId !== null && !transactionIDPattern.test(transactionId)) ||
+    (!transactionId &&
+      (requestId === null || !requestIDPattern.test(requestId)))
+  ) {
+    return gatewayFailure(
+      502,
+      "invalid_upstream_response",
+      "AgentPay returned a payment challenge without a trace identifier.",
+    );
+  }
 
   return {
     ok: true,
     value: {
       purchaseIntent,
-      transactionId:
-        challengeResponse.response.headers.get("X-AgentPay-Transaction-Id") ??
-        "pending",
+      ...(transactionId ? { transactionId } : {}),
+      traceId: transactionId ?? requestId!,
       paymentRequired,
       paymentMode: paymentChallengeMode(paymentRequired),
     },

@@ -31,7 +31,11 @@ export async function requestCheckout<Value>(
         isRecord(apiError.details) &&
         isPaymentRecoveryAction(apiError.details.recoveryAction)
           ? apiError.details.recoveryAction
-          : undefined;
+          : apiError &&
+              (apiError.code === "payment_expired" ||
+                apiError.code === "route_contract_stale")
+            ? "start_new_checkout"
+            : undefined;
       return {
         ok: false,
         error:

@@ -66,11 +66,13 @@ func TestPaidRouteControllerReturnsChallengeAndDelivery(t *testing.T) {
 	challengeResponse := httptest.NewRecorder()
 	handler.ServeHTTP(challengeResponse, challengeRequest)
 	if challengeResponse.Code != http.StatusPaymentRequired ||
-		challengeResponse.Header().Get(paymentRequiredHeader) == "" {
+		challengeResponse.Header().Get(paymentRequiredHeader) == "" ||
+		challengeResponse.Header().Get(transactionIDHeader) == "" {
 		t.Fatalf(
-			"challenge status/header = %d/%q",
+			"challenge status/payment/transaction headers = %d/%q/%q",
 			challengeResponse.Code,
 			challengeResponse.Header().Get(paymentRequiredHeader),
+			challengeResponse.Header().Get(transactionIDHeader),
 		)
 	}
 

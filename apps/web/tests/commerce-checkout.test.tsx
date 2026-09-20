@@ -387,6 +387,158 @@ describe("commerce checkout", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("shows distinct buyer and seller addresses plus a real trace before authorization", async () => {
+    const buyerAddress = "0x2222222222222222222222222222222222222222";
+    window.ethereum = {
+      request: vi.fn().mockImplementation(({ method }) => {
+        if (method === "eth_chainId") return Promise.resolve("0x14a34");
+        if (method === "eth_accounts") return Promise.resolve([buyerAddress]);
+        return Promise.reject(new Error(`unexpected method ${method}`));
+      }),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          purchaseIntent: intent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          traceId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          paymentRequired: btoa(
+            JSON.stringify({
+              x402Version: 2,
+              accepts: [
+                {
+                  scheme: "exact",
+                  network: product.network,
+                  asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                  amount: product.amount,
+                  payTo: intent.payTo,
+                  maxTimeoutSeconds: 60,
+                  extra: { name: "USDC", version: "2" },
+                },
+              ],
+              resource: {
+                url: "http://localhost:8080/pay/northstar/research/basic",
+                description: product.description,
+                mimeType: product.mimeType,
+              },
+            }),
+          ),
+          paymentMode: "x402",
+        }),
+      ),
+    );
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={product}
+        sellerSlug="northstar"
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+
+    expect(await screen.findByText("Payment ready")).toBeVisible();
+    expect(screen.getByText("Buyer wallet")).toBeVisible();
+    expect(screen.getByText(buyerAddress)).toBeVisible();
+    expect(screen.getByText("Seller wallet")).toBeVisible();
+    expect(screen.getByText(intent.payTo)).toBeVisible();
+    expect(screen.getByText("Transaction trace")).toBeVisible();
+    expect(screen.getByText("txn_01ARZ3NDEKTSV4RRFFQ69G5FB0")).toBeVisible();
+    expect(screen.queryByText("pending")).not.toBeInTheDocument();
+  });
+
+  it("starts a fresh intent after the payment contract expires", async () => {
+    const renewedIntent = {
+      ...intent,
+      intentId: "int_01ARZ3NDEKTSV4RRFFQ69G5FC0",
+      intentHash: "c".repeat(64),
+      expiresAt: "2026-09-18T13:10:00Z",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchaseIntent: intent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          traceId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          paymentRequired: btoa(
+            JSON.stringify({
+              scheme: "exact",
+              network: product.network,
+              asset: product.asset,
+              amount: product.amount,
+              payTo: intent.payTo,
+              resource: "http://localhost:8080/pay/northstar/research/basic",
+              maxTimeoutSeconds: 30,
+            }),
+          ),
+          paymentMode: "mock",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              code: "payment_expired",
+              message: "The checkout expired. Start a new checkout.",
+              requestId: "req_expired",
+              details: { recoveryAction: "start_new_checkout" },
+            },
+          },
+          410,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchaseIntent: renewedIntent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FC1",
+          traceId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FC1",
+          paymentRequired: btoa(
+            JSON.stringify({
+              scheme: "exact",
+              network: product.network,
+              asset: product.asset,
+              amount: product.amount,
+              payTo: renewedIntent.payTo,
+              resource: "http://localhost:8080/pay/northstar/research/basic",
+              maxTimeoutSeconds: 30,
+            }),
+          ),
+          paymentMode: "mock",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={product}
+        sellerSlug="northstar"
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Complete local demo payment",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Start new checkout" }),
+    );
+
+    expect(await screen.findByText("Payment ready")).toBeVisible();
+    expect(screen.getByText("txn_01ARZ3NDEKTSV4RRFFQ69G5FC1")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/commerce/start");
+  });
+
   it("announces a retryable checkout error and permits another attempt", async () => {
     vi.stubGlobal(
       "fetch",

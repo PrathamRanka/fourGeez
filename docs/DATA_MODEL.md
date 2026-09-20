@@ -447,6 +447,13 @@ may contain `requiresApproval` and the `approval_pending` or `approved` states;
 they are retained for migration/read compatibility only and cannot enter the
 Lean V1 payment path.
 
+The first payment challenge returns the deterministic `transactionId` in
+`X-AgentPay-Transaction-Id` and the middleware request correlation identifier
+in `X-AgentPay-Request-Id`. These identifiers are safe buyer-visible support
+traces; wallet proofs and authorization material remain secret. A recovery
+action of `start_new_checkout` creates a new browser purchase session, intent,
+transaction, and challenge and never reuses the prior payment contract.
+
 Intent and transaction API responses derive, but do not persist, an
 `ExactPriceBreakdown` containing `calculation=fixed_single_product`,
 `quantity=1`, `unitAmount`, `subtotal`, `adjustments=0`, `total`, `asset`, and

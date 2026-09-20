@@ -118,7 +118,7 @@ func (controller *HTTPController) execute(
 		return
 	}
 	if result.Challenge != nil {
-		controller.writeChallenge(response, request, *result.Challenge)
+		controller.writeChallenge(response, request, result)
 		return
 	}
 	response.Header().Set(transactionIDHeader, result.TransactionID.String())
@@ -134,9 +134,10 @@ func (controller *HTTPController) execute(
 func (controller *HTTPController) writeChallenge(
 	response http.ResponseWriter,
 	request *http.Request,
-	challenge Challenge,
+	result CheckoutResult,
 ) {
-	response.Header().Set(paymentRequiredHeader, challenge.Header)
+	response.Header().Set(paymentRequiredHeader, result.Challenge.Header)
+	response.Header().Set(transactionIDHeader, result.TransactionID.String())
 	response.Header().Set("Cache-Control", "no-store")
 	api.WriteError(
 		response,
@@ -157,6 +158,9 @@ func (controller *HTTPController) writeError(
 ) {
 	if result.Challenge != nil && errors.Is(err, ErrPaymentRejected) {
 		response.Header().Set(paymentRequiredHeader, result.Challenge.Header)
+		if result.TransactionID.String() != "" {
+			response.Header().Set(transactionIDHeader, result.TransactionID.String())
+		}
 		response.Header().Set("Cache-Control", "no-store")
 		api.WriteError(
 			response,

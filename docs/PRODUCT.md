@@ -284,6 +284,11 @@ The browser evaluates the challenge and injected wallet before requesting a
 signature. Missing wallets, disconnected accounts, wrong networks, unavailable
 chain switching, and unavailable typed-data signing produce specific guidance.
 No card, alternate stablecoin, or alternate-network fallback is implied.
+Before wallet authorization, checkout labels and displays the complete buyer
+wallet and seller payment-destination addresses independently of wallet account
+names. It also shows the real transaction ID returned with the challenge, or
+the request correlation ID when a transaction identifier is unavailable, so a
+buyer can give support a usable trace without exposing a payment proof.
 
 Before AgentPay creates a browser purchase session or requests an x402
 challenge, the product page renders ordinary labeled controls from the signed
@@ -347,6 +352,10 @@ to be retried. Settlement uncertainty after durable verification requires the
 same proof and intent; the buyer must not sign a second authorization. Expired
 intents and definitive settlement rejection require a new checkout. Responses
 identify the safe recovery action without exposing raw payment proofs.
+Browser checkout must discard the prior intent, challenge, and signature before
+following `start_new_checkout`, including `payment_expired` and
+`route_contract_stale`; those failures may never reuse the stale payment
+contract.
 
 ## Seller payment and reporting
 

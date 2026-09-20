@@ -218,6 +218,32 @@
 .ready {
   border-color: color-mix(in oklab, var(--chart-3) 45%, var(--border));
 }
+.paymentParties {
+  display: grid;
+  margin: 1rem 1rem 0;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+.paymentParties > div {
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem;
+}
+.paymentParties dt {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.paymentParties dd {
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -319,6 +345,12 @@
 }
 
 @media (min-width: 560px) {
+  .paymentParties {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .paymentParties > div:last-child:nth-child(3) {
+    grid-column: 1 / -1;
+  }
   .success dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
