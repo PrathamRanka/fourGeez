@@ -333,7 +333,7 @@ Authoritative progress is tracked in [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTAT
 - [Hackathon demo runbook](docs/runbooks/DEMO.md)
 - [AWS deployment guide](docs/AWS_SETUP.md)
 
-## License
+## Ownership and license
 
 AgentPay is proprietary source and is not an open-source project. Copyright © 2026 Pratham Ranka and Ayush Garg in their respective AgentPay-authored materials; all rights are reserved. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [repository governance](docs/REPOSITORY_GOVERNANCE.md).
 
