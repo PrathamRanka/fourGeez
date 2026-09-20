@@ -151,7 +151,8 @@ func (service *AccessTokenService) Exchange(
 	projectKey string,
 	request AccessTokenRequest,
 ) (AccessTokenResponse, error) {
-	if service == nil || service.exchange == nil || service.signer == nil || service.idGenerator == nil || service.clock == nil {
+	if service == nil || service.exchange == nil || service.credentials == nil || service.entitlements == nil ||
+		service.signer == nil || service.idGenerator == nil || service.clock == nil {
 		return AccessTokenResponse{}, ErrAuthorizationUnavailable
 	}
 	if request.Audience != service.config.Audience || request.Audience != MCPAudience {
@@ -169,6 +170,16 @@ func (service *AccessTokenService) Exchange(
 		return AccessTokenResponse{}, err
 	}
 	now := service.clock.Now().UTC()
+	if err := service.authorizeCurrentCapabilityState(
+		ctx,
+		authorization.SellerID,
+		authorization.CredentialID,
+		scopes,
+		authorization.EntitlementEpoch,
+		now,
+	); err != nil {
+		return AccessTokenResponse{}, err
+	}
 	jti, err := service.idGenerator.New(domain.CapabilityIDPrefix)
 	if err != nil {
 		return AccessTokenResponse{}, err
@@ -217,41 +228,65 @@ func (service *AccessTokenService) AuthorizeAccessToken(ctx context.Context, raw
 	if err := service.validateClaims(claims, now); err != nil {
 		return integrations.Principal{}, err
 	}
-	credential, err := service.credentials.GetByID(ctx, claims.CredentialID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return integrations.Principal{}, ErrAccessTokenRevoked
-	}
-	if err != nil {
-		return integrations.Principal{}, ErrAuthorizationUnavailable
-	}
-	if credential.CredentialID() != claims.CredentialID || credential.SellerID() != claims.SellerID ||
-		credential.RevokedAt() != nil || credential.EntitlementEpoch() != claims.EntitlementEpoch {
-		return integrations.Principal{}, ErrAccessTokenRevoked
-	}
-	if expiresAt := credential.ExpiresAt(); expiresAt != nil && !now.Before(expiresAt.Time()) {
-		return integrations.Principal{}, ErrAccessTokenRevoked
-	}
 	scopes, err := parseScopeClaim(claims.Scope)
-	if err != nil || !scopesSubset(scopes, credential.Scopes()) {
-		return integrations.Principal{}, ErrAccessTokenRevoked
-	}
-	entitlement, err := service.entitlements.ResolveSellerPlan(ctx, claims.SellerID)
-	if errors.Is(err, billing.ErrSellerEntitlementNotFound) || errors.Is(err, persistence.ErrNotFound) {
-		return integrations.Principal{}, ErrSubscriptionInactive
-	}
 	if err != nil {
-		return integrations.Principal{}, ErrAuthorizationUnavailable
+		return integrations.Principal{}, ErrInvalidAccessToken
 	}
-	if entitlement.Assignment.SellerID != claims.SellerID {
-		return integrations.Principal{}, ErrAccessTokenRevoked
-	}
-	if entitlement.Assignment.Status != billing.EntitlementStatusActive || !now.Before(entitlement.Assignment.AccessEndsAt.Time()) {
-		return integrations.Principal{}, ErrSubscriptionInactive
-	}
-	if entitlement.Assignment.EntitlementEpoch != claims.EntitlementEpoch {
-		return integrations.Principal{}, ErrAccessTokenRevoked
+	if err := service.authorizeCurrentCapabilityState(
+		ctx,
+		claims.SellerID,
+		claims.CredentialID,
+		scopes,
+		claims.EntitlementEpoch,
+		now,
+	); err != nil {
+		return integrations.Principal{}, err
 	}
 	return integrations.Principal{SellerID: claims.SellerID, CredentialID: claims.CredentialID, Scopes: scopes}, nil
+}
+
+func (service *AccessTokenService) authorizeCurrentCapabilityState(
+	ctx context.Context,
+	sellerID domain.ID,
+	credentialID domain.ID,
+	scopes []integrations.Scope,
+	entitlementEpoch uint64,
+	now time.Time,
+) error {
+	credential, err := service.credentials.GetByID(ctx, credentialID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return ErrAccessTokenRevoked
+	}
+	if err != nil {
+		return ErrAuthorizationUnavailable
+	}
+	if credential.CredentialID() != credentialID || credential.SellerID() != sellerID ||
+		credential.RevokedAt() != nil || credential.EntitlementEpoch() != entitlementEpoch {
+		return ErrAccessTokenRevoked
+	}
+	if expiresAt := credential.ExpiresAt(); expiresAt != nil && !now.Before(expiresAt.Time()) {
+		return ErrAccessTokenRevoked
+	}
+	if !scopesSubset(scopes, credential.Scopes()) {
+		return ErrAccessTokenRevoked
+	}
+	entitlement, err := service.entitlements.ResolveSellerPlan(ctx, sellerID)
+	if errors.Is(err, billing.ErrSellerEntitlementNotFound) || errors.Is(err, persistence.ErrNotFound) {
+		return ErrSubscriptionInactive
+	}
+	if err != nil {
+		return ErrAuthorizationUnavailable
+	}
+	if entitlement.Assignment.SellerID != sellerID {
+		return ErrAccessTokenRevoked
+	}
+	if entitlement.Assignment.Status != billing.EntitlementStatusActive || !now.Before(entitlement.Assignment.AccessEndsAt.Time()) {
+		return ErrSubscriptionInactive
+	}
+	if entitlement.Assignment.EntitlementEpoch != entitlementEpoch {
+		return ErrAccessTokenRevoked
+	}
+	return nil
 }
 
 func (service *AccessTokenService) JWKS(ctx context.Context) (JSONWebKeySet, error) {

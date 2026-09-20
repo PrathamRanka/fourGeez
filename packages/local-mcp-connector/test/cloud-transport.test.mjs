@@ -119,6 +119,41 @@ test("stops after the single permitted 401 retry", async () => {
   assert.equal(invalidations, 1);
 });
 
+test("treats server-authoritative suspension as terminal", async () => {
+  let requests = 0;
+  let invalidations = 0;
+  const transport = new CloudMcpTransport({
+    baseUrl: "https://api.agentpay.test",
+    tokenClient: {
+      getAccessToken: async () => "header.payload.signature",
+      invalidate: () => {
+        invalidations += 1;
+      },
+    },
+    fetch: async () => {
+      requests += 1;
+      return response(
+        403,
+        '{"error":{"code":"subscription_inactive","message":"private lifecycle detail"}}',
+        { "content-type": "application/json" },
+      );
+    },
+  });
+
+  await assert.rejects(
+    transport.send('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'),
+    (error) => {
+      assert.equal(error instanceof ConnectorHttpError, true);
+      assert.equal(error.status, 403);
+      assert.equal(error.code, "subscription_inactive");
+      assert.equal(String(error).includes("private lifecycle detail"), false);
+      return true;
+    },
+  );
+  assert.equal(requests, 1);
+  assert.equal(invalidations, 0);
+});
+
 for (const status of [403, 429, 503]) {
   test(`does not retry status ${status}`, async () => {
     let requests = 0;

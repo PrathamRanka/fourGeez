@@ -392,6 +392,11 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-010** Verify generated storefront metadata, structured data, sitemap, `llms.txt`, and manifest output across the supported stack fixtures.
 - [ ] **REL-011** Revoke a project API key while its MCP access token is still unexpired and demonstrate that the next cloud MCP request fails through the entitlement-epoch check.
 - [ ] **REL-012** Cancel or suspend a seller while its local connector and a deliberately modified fork remain running; demonstrate that neither can mint capabilities, publish, create intents, settle payments, or produce official AgentPay receipts/evidence.
+  Local MCP coverage completed on September 20, 2026: automated regressions
+  prove that `suspended` and `cancelled` sellers cannot mint a fresh capability
+  through the official connector path or reuse an unexpired capability through
+  a modified client. REL-012 remains open for deployed publication, intent,
+  settlement, receipt, and evidence verification.
 - [ ] **REL-013** Load a stale seller-hosted manifest after cancellation and demonstrate that authoritative intent creation and checkout fail while AgentPay discovery returns an inactive tombstone.
 - [ ] **REL-014** Exercise cancellation immediately before settlement and immediately after finalized settlement; verify that the first transaction is blocked and the second fulfills exactly once according to the documented buyer-obligation rule.
 - [ ] **REL-015** Complete the authenticated browser journey from clean sign-up through resumable onboarding, publication, browser purchase, agent purchase, dashboard reconciliation, dispute, sign-out, and expired-session recovery using the deployed production-shaped environment.

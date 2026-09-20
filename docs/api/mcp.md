@@ -21,7 +21,11 @@ project key is accepted only by the proprietary
 `POST /v1/integration-access-tokens` bootstrap exchange. This endpoint is not
 OAuth and clients must not send OAuth grant parameters. It authenticates
 `X-AgentPay-Project-Key`, checks current credential and entitlement state,
-narrows requested scopes to `read`, `configure`, `publish`, or `validate`, and returns an ES256 access token for
+narrows requested scopes to `read`, `configure`, `publish`, or `validate`, and
+then reloads the current credential and entitlement immediately before the
+capability-signing boundary. Only `active` status with current UTC time strictly
+before `accessEndsAt` and matching credential/entitlement epochs may be signed.
+It returns an ES256 access token for
 `aud=urn:agentpay:mcp` with a 120–300 second lifetime and
 `Cache-Control: no-store`. The connector keeps that token in process memory and
 proxies local MCP traffic; a project key is never configured directly as the
@@ -61,6 +65,13 @@ ES256 signature and `exp` remain valid. The cloud authorizer performs a fresh,
 strongly consistent credential read before quota consumption or JSON-RPC
 dispatch; an unavailable current-state read fails closed with
 `dependency_unavailable`.
+
+Automated lifecycle regression coverage starts with an active seller, mints one
+token, changes authoritative state to both `suspended` and `cancelled`, and
+proves that the official connector path cannot exchange another token while a
+deliberately modified client cannot reuse the still-unexpired token. The
+official connector also treats `subscription_inactive` as a terminal `403`
+without retrying or exposing the cloud response body.
 
 Every authorized request consumes one `mcp_operation` unit before JSON-RPC
 dispatch. Authentication and authorization failures do not consume quota.

@@ -62,7 +62,13 @@ This register records issues found during the real seller onboarding, MCP config
     before quota consumption or JSON-RPC dispatch. MCP authorization uses fresh
     authoritative credential state and fails closed when that state is
     unavailable.
-13. Seller cancellation or suspension has not been demonstrated against both the official connector and a modified connector fork.
+13. **Resolved locally (2026-09-20):** Server-authoritative lifecycle tests now
+    keep the official connector path and a deliberately token-reusing modified
+    client active across both `suspended` and `cancelled` states. The final
+    capability-signing boundary reloads current credential and entitlement
+    state, fresh exchange returns `subscription_inactive`, and the next MCP
+    authorization rejects the still-unexpired token. The official connector
+    treats that `403` as terminal and does not expose the response body.
 
 ## 3. Product configuration and publication flow
 
@@ -234,7 +240,10 @@ This register records issues found during the real seller onboarding, MCP config
 5. Demonstrate payment replay and duplicate fulfillment prevention.
 6. Demonstrate cancellation before settlement and after finalized settlement.
 7. Demonstrate refund and dispute outcomes.
-8. Demonstrate seller suspension, stale-manifest rejection, and connector revocation.
+8. Repeat seller suspension against the deployed environment and complete
+   stale-manifest, publication, commerce, receipt/evidence, and connector-key
+   revocation verification. Local official/modified connector capability and
+   MCP denial is covered by issue 13.
 9. Verify webhook delivery, retries, dead-letter handling, and secret rotation.
 10. Verify automatic signed discovery and seller-hosted metadata refresh.
 11. Reconcile direct AWS changes into Terraform and verify a clean reproducible deployment.

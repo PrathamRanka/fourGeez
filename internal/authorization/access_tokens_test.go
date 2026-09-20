@@ -50,6 +50,70 @@ func TestAccessTokenServiceIssuesAndValidatesExactES256Capability(t *testing.T) 
 	}
 }
 
+func TestSellerLifecycleBlocksOfficialAndModifiedConnectorClients(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.September, 20, 12, 0, 0, 0, time.UTC)
+	clock := &mutableClock{now: now}
+	keys, err := NewLocalES256KeyRing(clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credential := testCredential(now)
+
+	for _, status := range []billing.EntitlementStatus{
+		billing.EntitlementStatusSuspended,
+		billing.EntitlementStatusCancelled,
+	} {
+		t.Run(string(status), func(t *testing.T) {
+			entitlements := &entitlementReader{response: activeEntitlement(now.Add(time.Hour), 7)}
+			service := NewAccessTokenService(
+				AccessTokenConfig{Issuer: "https://api.agentpay.test", Audience: MCPAudience, Lifetime: MinimumAccessTokenLifetime},
+				&exchangeAuthorizer{authorization: integrations.ExchangeAuthorization{
+					Principal: integrations.Principal{
+						SellerID: credential.SellerID(), CredentialID: credential.CredentialID(),
+						Scopes: []integrations.Scope{integrations.ScopeRead},
+					},
+					EntitlementEpoch: 7,
+				}},
+				&credentialReader{credential: credential},
+				entitlements,
+				keys,
+				keys,
+				&fixedIDGenerator{id: domain.ID(testCapabilityID)},
+				clock,
+			)
+
+			issued, err := service.Exchange(t.Context(), "apc2.project.secret", AccessTokenRequest{
+				Audience: MCPAudience,
+				Scopes:   []integrations.Scope{integrations.ScopeRead},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			entitlements.response.Assignment.Status = status
+
+			// The official connector attempts the bootstrap exchange when it needs a
+			// fresh token. The signing boundary must reload lifecycle state even if
+			// an earlier exchange collaborator returned stale authorization.
+			_, err = service.Exchange(t.Context(), "apc2.project.secret", AccessTokenRequest{
+				Audience: MCPAudience,
+				Scopes:   []integrations.Scope{integrations.ScopeRead},
+			})
+			if !errors.Is(err, ErrSubscriptionInactive) {
+				t.Fatalf("Exchange() error = %v, want ErrSubscriptionInactive", err)
+			}
+
+			// A deliberately modified connector can ignore local invalidation and
+			// keep replaying the unexpired token, but every MCP request rechecks the
+			// same current server-side lifecycle state.
+			if _, err := service.AuthorizeAccessToken(t.Context(), issued.AccessToken); !errors.Is(err, ErrSubscriptionInactive) {
+				t.Fatalf("AuthorizeAccessToken() error = %v, want ErrSubscriptionInactive", err)
+			}
+		})
+	}
+}
+
 func TestAccessTokenServicePublishesOverlappingJWKSOnRotation(t *testing.T) {
 	t.Parallel()
 	clock := &mutableClock{now: time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)}
@@ -162,7 +226,7 @@ func TestAccessTokenAuthorizationRejectsMalformedDomainIdentifiers(t *testing.T)
 	}
 }
 
-func TestAccessTokenAuthorizationRejectsMismatchedEntitlementSeller(t *testing.T) {
+func TestAccessTokenExchangeRejectsMismatchedEntitlementSeller(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
 	clock := &mutableClock{now: now}
@@ -182,11 +246,7 @@ func TestAccessTokenAuthorizationRejectsMismatchedEntitlementSeller(t *testing.T
 		&credentialReader{credential: credential}, &entitlementReader{response: entitlement}, keys, keys,
 		&fixedIDGenerator{id: domain.ID(testCapabilityID)}, clock,
 	)
-	issued, err := service.Exchange(t.Context(), "apc2.project.secret", AccessTokenRequest{Audience: MCPAudience, Scopes: []integrations.Scope{integrations.ScopeRead}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.AuthorizeAccessToken(t.Context(), issued.AccessToken); !errors.Is(err, ErrAccessTokenRevoked) {
+	if _, err := service.Exchange(t.Context(), "apc2.project.secret", AccessTokenRequest{Audience: MCPAudience, Scopes: []integrations.Scope{integrations.ScopeRead}}); !errors.Is(err, ErrAccessTokenRevoked) {
 		t.Fatalf("mismatched entitlement seller error = %v", err)
 	}
 }

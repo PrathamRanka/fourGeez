@@ -163,6 +163,11 @@ Credential reads used for MCP authorization are strongly consistent. A
 completed project-key revocation or rotation therefore blocks an already-issued
 unexpired MCP token before quota consumption and tool dispatch; inability to
 establish current credential state fails closed.
+The capability signer reloads current credential and entitlement state
+immediately before signing. MCP middleware also reloads authoritative
+entitlement state on every request; suspended or cancelled entitlement and
+elapsed `accessEndsAt` are rejected. Connector code is not part of either
+authorization decision.
 
 An MCP access token is permission to request a scoped tool, not confirmation of
 a commercial mutation. The seller dashboard's authenticated browser/BFF
@@ -356,6 +361,10 @@ Forbidden:
   authority. If it bypasses AgentPay cloud, its traffic is not an AgentPay
   transaction and cannot receive official receipts, evidence, signatures, or
   discovery status.
+- Regression coverage keeps an official-style connector and a deliberately
+  token-reusing modified client active across `suspended` and `cancelled`
+  transitions. Fresh capability minting and reuse of an unexpired capability
+  both fail from current server-side state.
 
 ## Human checkout requirements
 

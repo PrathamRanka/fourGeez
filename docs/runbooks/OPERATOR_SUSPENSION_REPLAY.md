@@ -71,3 +71,16 @@ invalid even when their JWT expiry has not elapsed.
 Run the cancellation, stale-discovery, browser checkout, agent checkout,
 payment-replay, and exactly-once tests before closing the incident. Attach test
 names and request IDs, not secrets or raw proofs, to the incident record.
+
+For the local connector boundary, run:
+
+```powershell
+go test ./internal/authorization -run TestSellerLifecycleBlocksOfficialAndModifiedConnectorClients -count=1
+npm run test:mcp-connector
+```
+
+The Go regression proves fresh capability minting and still-unexpired token
+reuse fail for both `suspended` and `cancelled` state. The connector suite proves
+the official transport treats `subscription_inactive` as a terminal sanitized
+cloud denial. These local checks do not replace the open deployed REL-012
+publication and commerce rehearsal.

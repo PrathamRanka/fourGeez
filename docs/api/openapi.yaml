@@ -103,7 +103,7 @@ paths:
   /v1/integration-access-tokens:
     post:
       summary: Exchange a seller project key for a short-lived MCP access token
-      description: Proprietary AgentPay bootstrap exchange; this endpoint is not OAuth and accepts no OAuth grant type.
+      description: Proprietary AgentPay bootstrap exchange; this endpoint is not OAuth and accepts no OAuth grant type. Immediately before signing, the server reloads the current credential and seller entitlement, requires active status and now strictly before accessEndsAt, and verifies the credential and entitlement epochs. Suspension or cancellation therefore prevents capability minting even if a caller keeps an official or modified connector running.
       tags: [Authorization, Integrations]
       operationId: exchangeProjectKey
       security: [{ projectKey: [] }]
