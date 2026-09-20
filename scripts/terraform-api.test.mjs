@@ -82,6 +82,27 @@ test("AWS-005 infrastructure is reproducible and deploys only a reviewed ARM64 a
   );
 });
 
+test("AWS-005 publishes branded API links while Vercel retains the private AWS origin", () => {
+  const variables = read("infra/terraform/variables.tf");
+  const application = read("infra/terraform/modules/application/main.tf");
+  const root = read("infra/terraform/main.tf");
+  const outputs = read("infra/terraform/outputs.tf");
+
+  assert.match(
+    variables,
+    /variable\s+"public_api_origin"[^]*default\s*=\s*"https:\/\/agentpay\.prathamranka\.in\/api\/backend"/,
+  );
+  assert.match(root, /public_api_origin\s*=\s*var\.public_api_origin/);
+  assert.match(
+    application,
+    /AGENTPAY_API_ORIGIN\s*=\s*var\.public_api_origin/,
+  );
+  assert.match(
+    outputs,
+    /AGENTPAY_API_ORIGIN\s*=\s*module\.application\.http_api_url/,
+  );
+});
+
 test("AWS-005 preserves time to record failures before the HTTP integration deadline", () => {
   const application = read("infra/terraform/modules/application/main.tf");
   const variables = read("infra/terraform/variables.tf");

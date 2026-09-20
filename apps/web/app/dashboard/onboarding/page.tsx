@@ -40,7 +40,7 @@ export default async function OnboardingPage() {
   return (
     <SellerOnboarding
       actions={onboardingActions}
-      apiOrigin={process.env.AGENTPAY_API_ORIGIN ?? "http://localhost:8080"}
+      apiOrigin={`${(process.env.AGENTPAY_WEB_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "")}/api/backend`}
       initialSnapshot={initialSnapshot}
     />
   );

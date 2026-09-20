@@ -18,6 +18,11 @@ variable "web_origin" {
   type        = string
 }
 
+variable "public_api_origin" {
+  description = "Stable branded public API origin emitted by the Lambda runtime."
+  type        = string
+}
+
 variable "payment_mode" {
   description = "Payment adapter mode passed to the API runtime."
   type        = string

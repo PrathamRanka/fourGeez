@@ -181,7 +181,13 @@ Shared primitives and storage adapters remain organized by their concrete respon
 
 ### AWS managed services
 
-- API Gateway HTTP API routes browser, agent, and proxy traffic.
+- API Gateway HTTP API routes the Go application traffic. Its generated
+  `execute-api` origin is private deployment configuration for the Vercel
+  server runtime, not a seller- or buyer-facing URL.
+- Vercel exposes the stable same-origin `/api/backend/*` BFF. It proxies only
+  to the fixed server-only API Gateway origin, forwards an explicit bounded
+  request/response header allowlist, never forwards browser cookies, preserves
+  x402 response streaming, and fails closed on recursive configuration.
 - The historical API Gateway approval WebSocket design is not deployed for
   Lean V1.
 - Lambda runs the Go modular monolith for the hackathon.
@@ -193,7 +199,7 @@ Shared primitives and storage adapters remain organized by their concrete respon
 - Bedrock produces structured purchase proposals and explanations.
 - A remote MCP endpoint exposes seller-scoped integration tools and documentation.
 - CloudWatch receives logs, metrics, alarms, and traces.
-- Amplify Hosting deploys the Next.js application.
+- Vercel deploys the Next.js application and branded API BFF.
 
 ## Trust boundaries
 

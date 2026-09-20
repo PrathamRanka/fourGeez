@@ -90,7 +90,8 @@ AGENTPAY_CONFIRMATION_GRANT_PEPPER_SECRET_ARN=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_ID=<Terraform output>
 AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<Terraform output>
 AGENTPAY_SESSION_ENCRYPTION_KEY=<Vercel-only base64url 32-byte secret>
-AGENTPAY_HTTP_API_URL=<Terraform output>
+AGENTPAY_HTTP_API_URL=<Terraform output; private server-only upstream>
+AGENTPAY_PUBLIC_API_ORIGIN=https://agentpay.prathamranka.in/api/backend
 AGENTPAY_MCP_URL=<Terraform output>
 AGENTPAY_BUYER_MAXIMUM_PRICE_ATOMIC=<positive atomic-unit amount>
 AGENTPAY_PAYMENT_MODE=x402
@@ -232,7 +233,10 @@ deployment. The deterministic buyer path remains available without it.
 ### Web module
 
 - Vercel production deployment connected to the intended project and canonical domain.
-- Server-side environment variables contain API origins and Cognito identifiers.
+- Server-side environment variables contain the private API Gateway origin and
+  Cognito identifiers. Public discovery and seller connector instructions use
+  `https://agentpay.prathamranka.in/api/backend`; the generated `execute-api`
+  URL must not be rendered into public responses.
 - No AWS secret or wallet material is exposed through `NEXT_PUBLIC_*` variables.
 - Configure CSP, frame ancestors, referrer policy, and secure cookies.
 
@@ -362,7 +366,7 @@ variables after AWS-005 has produced a real API origin:
 AGENTPAY_ENV=dev
 AGENTPAY_IDENTITY_MODE=cognito
 AGENTPAY_WEB_ORIGIN=https://agentpay.prathamranka.in
-AGENTPAY_API_ORIGIN=<http_api_url>
+AGENTPAY_API_ORIGIN=<http_api_url; server-only and never NEXT_PUBLIC_*>
 AWS_REGION=ap-south-1
 AGENTPAY_SELLER_USER_POOL_CLIENT_ID=<seller_user_pool_client_id>
 AGENTPAY_SESSION_ENCRYPTION_KEY=<independently generated 32-byte base64url value>
@@ -398,6 +402,12 @@ rotating it invalidates current seller sessions. The linked Vercel project is
 origin, deployment `dpl_ExWeM7fxdqtUoLK2HUA1cki2X3Ti` was `READY` and aliased
 to `https://agentpay.prathamranka.in`, and `/api/auth/csrf`, `/sign-in`, and
 `/docs` each returned `200`.
+
+The branded public API is implemented by the Vercel catch-all route at
+`/api/backend/*`. Terraform passes that branded origin to Lambda for public
+manifest, JWKS, purchase-session, and connector links while Vercel's
+server-only `AGENTPAY_API_ORIGIN` remains the raw API Gateway upstream. Deploy
+Vercel before applying a Lambda configuration change to the branded origin.
 
 No step may require an undocumented console change except initial account/Bedrock provider access. If a console action is unavoidable, add it here with the exact verification command.
 

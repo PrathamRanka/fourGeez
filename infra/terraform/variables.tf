@@ -92,6 +92,17 @@ variable "web_origin" {
   }
 }
 
+variable "public_api_origin" {
+  description = "Stable branded public API origin exposed in discovery and seller setup."
+  type        = string
+  default     = "https://agentpay.prathamranka.in/api/backend"
+
+  validation {
+    condition     = var.public_api_origin == "https://agentpay.prathamranka.in/api/backend"
+    error_message = "public_api_origin must be the canonical AgentPay Vercel BFF origin."
+  }
+}
+
 variable "seller_self_registration_enabled" {
   description = "Whether Cognito permits seller self-registration in this environment."
   type        = bool

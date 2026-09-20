@@ -150,8 +150,8 @@ resource "aws_lambda_function" "api" {
       AGENTPAY_ENV                                  = var.environment
       AGENTPAY_REPOSITORY_MODE                      = "dynamodb"
       AGENTPAY_WEB_ORIGIN                           = var.web_origin
-      AGENTPAY_API_ORIGIN                           = aws_apigatewayv2_api.http[0].api_endpoint
-      AGENTPAY_PUBLIC_BASE_URL                      = aws_apigatewayv2_api.http[0].api_endpoint
+      AGENTPAY_API_ORIGIN                           = var.public_api_origin
+      AGENTPAY_PUBLIC_BASE_URL                      = var.public_api_origin
       AGENTPAY_PAYMENT_MODE                         = var.payment_mode
       AGENTPAY_TABLE_NAME                           = var.table_name
       AGENTPAY_EVIDENCE_BUCKET                      = var.evidence_bucket_name
