@@ -339,6 +339,14 @@ describe("seller onboarding MCP gate", () => {
     expect(screen.getByLabelText("Windows PowerShell setup")).toHaveTextContent(
       "--check",
     );
+    expect(
+      screen.getByText(
+        /your coding agent edits the repository using AgentPay MCP analysis and guidance/i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/AgentPay MCP does not write repository files/i),
+    ).toBeVisible();
     expect(screen.getAllByText("Connector disconnected")[0]).toBeVisible();
   });
 

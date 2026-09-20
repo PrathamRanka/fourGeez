@@ -36,6 +36,11 @@ Each JSON resource contains:
 - the ordered integration workflow; and
 - the prompt used to prepare a reviewable seller-repository change.
 
+The prompt is executed by the seller's coding agent. That agent reads and edits
+the local repository. AgentPay MCP provides bounded analysis, configuration,
+and verification tools plus seller-confirmed cloud mutations; neither the cloud
+MCP server nor the local connector writes repository files.
+
 Version 2 also includes a Windows PowerShell setup sequence and a connector
 preflight command. The sequence sets the API base URL and project key only in
 the current process environment, verifies the requested scopes by exchanging

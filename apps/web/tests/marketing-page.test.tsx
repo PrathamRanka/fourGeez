@@ -74,6 +74,19 @@ describe("AgentPay public site", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("AgentPay integration network")).toBeVisible();
     expect(screen.queryByText("Seller API")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /your coding agent uses AgentPay MCP guidance to prepare the repository integration/i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /AgentPay MCP provides bounded analysis, verification, and confirmed cloud configuration/i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/AgentPay prepares technical SEO/i),
+    ).not.toBeInTheDocument();
   });
 
   it("groups the maintained stack matrix into distinct ecosystem marks", () => {

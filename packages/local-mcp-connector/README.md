@@ -6,7 +6,9 @@ short-lived access capability, keeps that capability in memory, and proxies
 bounded JSON-RPC messages.
 
 The connector does not verify or settle payments, sign AgentPay capabilities,
-publish without cloud confirmation, or store the project key on disk.
+publish without cloud confirmation, store the project key on disk, or edit the
+seller repository. The seller's coding agent performs repository changes using
+bounded AgentPay MCP analysis, configuration, and verification tools.
 
 ## Installation
 

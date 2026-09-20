@@ -582,7 +582,7 @@ export function SellerOnboarding({
                   number="05"
                   icon={Code2}
                   title="Connect and diagnose MCP"
-                  description="The local connector exchanges the project key for short-lived cloud access. The project key is never sent to /mcp."
+                  description="Your coding agent edits the repository using AgentPay MCP analysis and guidance. AgentPay MCP does not write repository files; the connector provides short-lived cloud access for bounded tools and seller-confirmed cloud mutations."
                   complete={connectorState === "connected"}
                   current
                   detail={`Connector ${connectorState}`}

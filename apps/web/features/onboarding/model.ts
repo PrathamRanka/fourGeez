@@ -158,7 +158,7 @@ export type OnboardingActions = {
   ) => Promise<ActionResult<CredentialCreated>>;
 };
 
-export const setupPrompt = `Connect this project to AgentPay. Inspect only bounded committed manifests and OpenAPI, detect one maintained stack, propose sellable routes plus truthful SEO/AEO changes, install AgentPay request verification, and generate focused tests. Ask me for every exact price and payout destination. Never invent or change prices or payout addresses, publish, rotate credentials, or deploy without my explicit confirmation.`;
+export const setupPrompt = `You are the seller's coding agent. Edit this repository to connect it to AgentPay. Use AgentPay MCP tools for bounded analysis, configuration, and verification. Inspect only bounded committed manifests and OpenAPI, detect one maintained stack, propose sellable routes plus truthful SEO/AEO changes, install AgentPay request verification, and generate focused tests. Ask me for every exact price and payout destination. AgentPay cloud mutations require explicit seller confirmation. Never invent or change prices or payout addresses, publish, rotate credentials, or deploy without my explicit confirmation.`;
 
 export function createMCPConfiguration(host: MCPHost): string {
   if (host === "codex") {

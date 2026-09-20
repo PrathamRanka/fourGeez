@@ -2,9 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   createMCPConfiguration,
   createPowerShellSetup,
+  setupPrompt,
 } from "@/features/onboarding/model";
 
 describe("seller MCP host configuration", () => {
+  it("assigns repository edits to the seller's coding agent", () => {
+    expect(setupPrompt).toContain(
+      "You are the seller's coding agent. Edit this repository",
+    );
+    expect(setupPrompt).toContain(
+      "Use AgentPay MCP tools for bounded analysis, configuration, and verification",
+    );
+    expect(setupPrompt).toContain(
+      "AgentPay cloud mutations require explicit seller confirmation",
+    );
+  });
+
   it.each([
     ["claude-code", '"type": "stdio"', '"mcpServers"'],
     [

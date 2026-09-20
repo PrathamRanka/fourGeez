@@ -16,7 +16,7 @@ var (
 	ErrStackUnavailable     = errors.New("seller stack does not have a setup package")
 )
 
-const setupPromptTemplate = `Connect this repository to AgentPay using the %s setup bundle and the maintained %s verification package.
+const setupPromptTemplate = `You are the seller's coding agent. Edit this repository to connect it to AgentPay using the %s setup bundle and the maintained %s verification package. AgentPay MCP tools provide bounded analysis, configuration, and verification; they do not write repository files.
 
 1. Read the repository instructions and inspect the existing application and tests before editing.
 2. Read agentpay://seller, agentpay://routes, and the selected versioned setup resource.
@@ -30,7 +30,7 @@ const setupPromptTemplate = `Connect this repository to AgentPay using the %s se
 
 Do not invent or change prices or payout addresses. Do not publish a route, rotate credentials, or deploy production changes without explicit seller confirmation.`
 
-const setupPromptV2Template = `Connect this repository to AgentPay using the %s setup bundle for %s. The current support tier is %s and verification uses %s.
+const setupPromptV2Template = `You are the seller's coding agent. Edit this repository to connect it to AgentPay using the %s setup bundle for %s. AgentPay MCP tools provide bounded analysis, configuration, and verification; they do not write repository files. The current support tier is %s and verification uses %s.
 
 Stack-native conventions:
 %s
@@ -475,7 +475,8 @@ func integrationNotesForStack(stack stacks.Stack) []string {
 // bundlePromptV2 returns host-neutral SEO and publication safety guidance.
 func bundlePromptV2() string {
 	return strings.Join([]string{
-		"Prepare this repository for AgentPay using the detected stack and maintained language verification package.",
+		"You are the seller's coding agent: edit the repository using the detected stack and maintained language verification package.",
+		"AgentPay MCP tools provide bounded analysis, configuration, and verification; they do not write repository files.",
 		"Generate stack-native storefront pages, truthful technical SEO, AEO, llms.txt, and manifest output with focused accessibility and performance tests.",
 		"Generated changes cannot guarantee ranking and must not use hidden or fabricated content.",
 		"Do not invent or change prices or payout addresses, publish routes, rotate credentials, or deploy production changes without explicit seller confirmation.",
@@ -484,5 +485,5 @@ func bundlePromptV2() string {
 
 // bundlePrompt returns host-neutral safety and integration instructions.
 func bundlePrompt() string {
-	return `Prepare this repository for AgentPay using the selected framework setup. Inspect before editing, install the maintained verification package, generate storefront integration code, add and run tests, then present a reviewable diff. Do not invent or change prices or payout addresses, publish routes, rotate credentials, or deploy production changes without explicit seller confirmation.`
+	return `You are the seller's coding agent: edit the repository using the selected framework setup. AgentPay MCP tools provide bounded analysis, configuration, and verification; they do not write repository files. Inspect before editing, install the maintained verification package, generate storefront integration code, add and run tests, then present a reviewable diff. Do not invent or change prices or payout addresses, publish routes, rotate credentials, or deploy production changes without explicit seller confirmation.`
 }

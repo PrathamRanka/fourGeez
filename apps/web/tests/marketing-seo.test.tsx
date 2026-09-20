@@ -169,6 +169,12 @@ describe("AgentPay marketing discovery", () => {
     expect(body).toContain("21 maintained stacks");
     expect(body).toContain("x402 testnet");
     expect(body).toContain("does not guarantee search ranking");
+    expect(body).toContain(
+      "The seller's coding agent edits the repository using AgentPay MCP analysis and guidance.",
+    );
+    expect(body).toContain(
+      "AgentPay MCP performs bounded configuration, verification, and seller-confirmed cloud mutations; it does not write repository files.",
+    );
     expect(body).toContain("https://github.com/PrathamRanka/fourGeez");
     expect(body).toContain("Pratham Ranka and Ayush Garg");
     expect(body).not.toContain("production-ready");
@@ -203,6 +209,9 @@ describe("AgentPay marketing discovery", () => {
           expect.objectContaining({
             "@type": "WebApplication",
             name: "AgentPay",
+            featureList: expect.arrayContaining([
+              "Coding-agent repository integration with AgentPay MCP guidance",
+            ]),
           }),
           expect.objectContaining({
             "@type": "SoftwareSourceCode",

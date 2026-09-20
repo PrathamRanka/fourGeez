@@ -396,8 +396,9 @@ function ProductBento() {
             <p className={styles.cardLabel}>Discovery Mesh</p>
             <h3>Ship with machine-readable discovery</h3>
             <p>
-              AgentPay prepares technical SEO, canonical metadata, structured
-              data, sitemap entries, your storefront manifest, and `llms.txt`.
+              Your coding agent uses AgentPay MCP guidance to prepare technical
+              SEO, canonical metadata, structured data, sitemap entries, your
+              storefront manifest, and `llms.txt`.
             </p>
           </div>
           <DiscoveryPreview />
@@ -418,9 +419,11 @@ function IntegrationSection() {
         <p className={styles.kicker}>Integration</p>
         <h2 id="integration-title">One integration. Every sale.</h2>
         <p>
-          Connect your existing product once. AgentPay prepares discovery,
-          verifies payment, and authorizes fulfillment while buyer funds go
-          directly to you, without taking custody of buyer funds.
+          Your coding agent uses AgentPay MCP guidance to prepare the repository
+          integration. AgentPay MCP provides bounded analysis, verification,
+          and confirmed cloud configuration; AgentPay verifies payment and
+          authorizes fulfillment while buyer funds go directly to you, without
+          taking custody of buyer funds.
         </p>
         <ol className={styles.setupSteps}>
           {setupSteps.map(([number, title, description, outcome]) => (

@@ -1,6 +1,6 @@
 # fourGeez
 
-fourGeez is the repository for **AgentPay**, an automated commerce gateway for sellers of APIs and digitally fulfilled products. It prepares seller integrations through MCP-enabled coding agents and serves the same products to human storefront buyers and autonomous agents.
+fourGeez is the repository for **AgentPay**, an automated commerce gateway for sellers of APIs and digitally fulfilled products. A seller's coding agent prepares repository integrations using AgentPay MCP analysis and guidance; AgentPay provides bounded configuration, verification, and seller-confirmed cloud mutations. The same products are then served to human storefront buyers and autonomous agents.
 
 The repository is documentation-first. Implementation must follow the numbered tasks and accepted contracts instead of inventing behavior while coding.
 

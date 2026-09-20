@@ -44,7 +44,12 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P1
 
-10. Product wording can overpromise that MCP itself edits repositories; the coding agent performs changes using MCP guidance.
+10. **Resolved (2026-09-20):** Public site, onboarding, documentation, setup
+    bundles, metadata, package guidance, and examples now state that the
+    seller's coding agent edits the repository using AgentPay MCP tools and
+    guidance. AgentPay MCP is limited to bounded analysis, configuration,
+    verification, and seller-confirmed cloud mutations; it does not write
+    repository files.
 11. The seller prototype uses in-memory replay and fulfillment state, which is unsafe for horizontal or multi-instance scaling.
 12. Project-key revocation has not been demonstrated while an issued MCP token remains unexpired.
 13. Seller cancellation or suspension has not been demonstrated against both the official connector and a modified connector fork.

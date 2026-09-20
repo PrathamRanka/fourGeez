@@ -5,6 +5,11 @@ and loads every identifier or secret from server-side environment variables.
 It uses memory replay/idempotency stores only to stay runnable as a local
 example. Replace them with atomic shared persistence before deployment.
 
+When this example is used through an AgentPay setup bundle, the seller's coding
+agent applies the repository edits. AgentPay MCP supplies bounded analysis,
+configuration guidance, verification, and seller-confirmed cloud mutations; it
+does not edit this repository itself.
+
 Build the packages, configure a seller-owned HTTPS fulfillment endpoint, then
 run:
 

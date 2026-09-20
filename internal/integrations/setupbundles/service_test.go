@@ -101,6 +101,15 @@ func TestServicePublishesVersionedHostBundles(t *testing.T) {
 			if !strings.Contains(bundle.Prompt, "explicit seller confirmation") {
 				t.Fatalf("prompt omitted publication boundary: %s", bundle.Prompt)
 			}
+			for _, fragment := range []string{
+				"seller's coding agent",
+				"edit the repository",
+				"AgentPay MCP tools provide bounded analysis, configuration, and verification",
+			} {
+				if !strings.Contains(bundle.Prompt, fragment) {
+					t.Fatalf("prompt omitted actor boundary %q: %s", fragment, bundle.Prompt)
+				}
+			}
 			if strings.Contains(bundle.Configuration.Template, "integration_test_token") {
 				t.Fatal("configuration embedded raw credential material")
 			}
@@ -270,6 +279,8 @@ func TestServiceSelectsVersionTwoStackPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, fragment := range []string{
+		"You are the seller's coding agent",
+		"AgentPay MCP tools provide bounded analysis, configuration, and verification",
 		"Next.js",
 		"maintained",
 		"detect_repository_stacks",

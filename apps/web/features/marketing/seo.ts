@@ -92,7 +92,7 @@ export const marketingStructuredData = {
       featureList: [
         "Seller storefront generation",
         "x402 testnet checkout",
-        "MCP-assisted repository integration",
+        "Coding-agent repository integration with AgentPay MCP guidance",
         "Signed fulfillment",
         "Machine-readable product discovery",
       ],
@@ -244,11 +244,12 @@ AgentPay is a development preview. Seller workflows are verified locally, AWS de
 ## What AgentPay does
 
 - Prepares a storefront for an existing HTTPS API or digital service.
-- Uses Claude Code, Codex, or a generic MCP host to propose reviewable repository changes.
+- The seller's coding agent edits the repository using AgentPay MCP analysis and guidance.
+- AgentPay MCP performs bounded configuration, verification, and seller-confirmed cloud mutations; it does not write repository files.
 - Keeps publication, pricing, credentials, and deployment subject to explicit seller approval.
 - Sends buyer funds directly to the seller's verified wallet; AgentPay does not custody seller revenue in V1.
 - Records transaction, fulfillment, evidence, receipt, and dispute facts in one seller control plane.
-- Generates canonical metadata, structured data, sitemap entries, llms.txt, and signed storefront manifests for discovery.
+- Guides the coding agent in generating canonical metadata, structured data, sitemap entries, llms.txt, and storefront manifests; AgentPay cloud signs and publishes authoritative discovery.
 
 ## Maintained integrations
 

@@ -16,6 +16,10 @@ supported coding agent, approves the proposed repository changes, and publishes
 products without manually implementing payment, evidence, or agent
 discovery protocols.
 
+The seller's coding agent, not the AgentPay MCP server, edits the repository.
+AgentPay MCP provides bounded analysis, configuration guidance, verification,
+and cloud mutations that require the seller's confirmation where specified.
+
 AgentPay is the commerce gateway and control plane. The seller continues to own
 and operate the upstream service that fulfills each product.
 

@@ -14,10 +14,12 @@ The required middleware order is:
 3. `claim_replay_identifier`; and
 4. `fulfillment_handler`.
 
-Every recipe generates `robots.txt`, `sitemap.xml`, `llms.txt`, and
-`manifest.json`, and places `POST /.well-known/agentpay/sandbox` behind the same
-verification boundary as fulfillment. Production replay storage must be shared
-and atomic when more than one process can receive requests. The sandbox handler
+The seller's coding agent follows each recipe to generate `robots.txt`,
+`sitemap.xml`, `llms.txt`, and `manifest.json`, and to place
+`POST /.well-known/agentpay/sandbox` behind the same verification boundary as
+fulfillment. AgentPay MCP supplies bounded recipe guidance and validation; it
+does not edit the repository. Production replay storage must be shared and
+atomic when more than one process can receive requests. The sandbox handler
 returns the closed `agentpay.sandbox.v2` response containing the supplied
 `routeId`, `routeVersion`, and `ready: true`.
 

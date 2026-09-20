@@ -186,6 +186,12 @@ export default function DocsPage() {
               short-lived cloud capability; the key is never sent to
               <code>/mcp</code> directly.
             </p>
+            <p>
+              The coding agent edits your repository using AgentPay MCP analysis
+              and guidance. AgentPay MCP does not write repository files; it
+              provides bounded configuration and verification tools, and cloud
+              mutations remain subject to seller confirmation.
+            </p>
 
             <div className={styles.workflow} aria-label="Integration flow">
               <span>Your repository</span>

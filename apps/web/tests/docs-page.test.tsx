@@ -34,6 +34,16 @@ describe("AgentPay developer documentation", () => {
     expect(screen.getAllByText(/development preview/i)).toHaveLength(2);
     expect(screen.getAllByText(/Base Sepolia USDC/i).length).toBeGreaterThan(0);
     expect(
+      screen.getByText(
+        /the coding agent edits your repository using AgentPay MCP analysis and guidance/i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /AgentPay MCP does not write repository files/i,
+      ),
+    ).toBeVisible();
+    expect(
       within(documentationNavigation).getByRole("link", { name: "Quickstart" }),
     ).toHaveAttribute("aria-current", "location");
   });

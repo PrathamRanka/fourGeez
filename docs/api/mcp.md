@@ -96,7 +96,9 @@ The transaction summary excludes buyer identity, payment identifiers, payment
 proof hashes, response bodies, evidence payloads, and seller secrets.
 
 The server exposes no subscriptions, arbitrary files, shell commands, or
-unrestricted HTTP requests.
+unrestricted HTTP requests. It cannot read or write the seller repository. The
+seller's coding agent performs local repository edits using the MCP tools'
+bounded analysis and guidance.
 
 ## Setup prompt
 
