@@ -159,6 +159,10 @@ are deferred. Connector access tokens carry exact issuer, audience, subject,
 seller, credential, scopes, `entitlementEpoch`, JTI, issued-at, and expiry
 claims. Middleware additionally loads current credential and entitlement state;
 a valid signature with a stale epoch or revoked credential is rejected.
+Credential reads used for MCP authorization are strongly consistent. A
+completed project-key revocation or rotation therefore blocks an already-issued
+unexpired MCP token before quota consumption and tool dispatch; inability to
+establish current credential state fails closed.
 
 An MCP access token is permission to request a scoped tool, not confirmation of
 a commercial mutation. The seller dashboard's authenticated browser/BFF

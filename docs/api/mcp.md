@@ -55,6 +55,13 @@ exact operation scope, and quota. A top-level `read` scope never authorizes a
 mutation. A modified local connector cannot bypass these cloud checks or obtain
 signing material.
 
+Revoking or rotating a project key invalidates every previously issued MCP
+access token for that credential on its next request, even when the token's
+ES256 signature and `exp` remain valid. The cloud authorizer performs a fresh,
+strongly consistent credential read before quota consumption or JSON-RPC
+dispatch; an unavailable current-state read fails closed with
+`dependency_unavailable`.
+
 Every authorized request consumes one `mcp_operation` unit before JSON-RPC
 dispatch. Authentication and authorization failures do not consume quota.
 

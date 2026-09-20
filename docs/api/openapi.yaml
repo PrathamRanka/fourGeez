@@ -892,6 +892,7 @@ paths:
   /v1/sellers/{sellerId}/integration-credentials/{credentialId}/revoke:
     post:
       summary: Revoke a seller integration credential
+      description: Immediately invalidates the project key and every already-issued MCP access token naming this credential, regardless of the token's remaining lifetime. Each MCP request rechecks authoritative credential state before quota consumption or dispatch.
       tags: [Integrations]
       operationId: revokeIntegrationCredential
       security: [{ sellerBearer: [] }]

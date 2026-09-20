@@ -56,7 +56,12 @@ This register records issues found during the real seller onboarding, MCP config
     fulfillment records deliberately do not. Process-local memory stores require
     the explicit `local-memory` development mode, and no AWS resources were
     created or changed.
-12. Project-key revocation has not been demonstrated while an issued MCP token remains unexpired.
+12. **Resolved (2026-09-20):** A focused cloud-boundary regression now issues
+    an MCP access token, proves it is usable, revokes the underlying project
+    key, and proves the same still-unexpired token receives `401 token_revoked`
+    before quota consumption or JSON-RPC dispatch. MCP authorization uses fresh
+    authoritative credential state and fails closed when that state is
+    unavailable.
 13. Seller cancellation or suspension has not been demonstrated against both the official connector and a modified connector fork.
 
 ## 3. Product configuration and publication flow
