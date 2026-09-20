@@ -138,18 +138,18 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-43. [x] **Resolved locally (2026-09-20):** finalized fulfillment failures now receive a deterministic recovery state and action.
-44. [x] **Resolved locally (2026-09-20):** one corrected fulfillment retry may reuse the identical finalized payment only after a pre-dispatch failure or an explicit side-effect-free seller 400/422; verification and settlement are not repeated.
-45. [x] **Resolved locally (2026-09-20):** buyer and seller transaction views distinguish finalized payment with failed fulfillment and show the bounded next action.
-46. [x] **Resolved locally (2026-09-20):** paid failures route explicitly to same-payment retry, seller review, dispute, or seller-reported external refund according to recorded facts.
-47. [x] **Truthfully constrained (2026-09-20):** AgentPay still records but does not transfer refunds. No refund-transfer adapter exists, so automated USDC refunds remain out of scope and are not represented as completed.
+43. [x] Finalized fulfillment failures now receive a deterministic recovery state and action.
+44. [x] One corrected fulfillment retry may reuse the identical finalized payment only after a pre-dispatch failure or an explicit side-effect-free seller 400/422; verification and settlement are not repeated.
+45. [x] Buyer and seller transaction views distinguish finalized payment with failed fulfillment and show the bounded next action.
+46. [x] Paid failures route explicitly to same-payment retry, seller review, dispute, or seller-reported external refund according to recorded facts.
+47. [x] AgentPay records but does not transfer refunds. No refund-transfer adapter exists, so automated USDC refunds remain out of scope and are not represented as completed.
 
 ### P1
 
-48. [x] **Resolved locally (2026-09-20):** EXT-007 locks the compensation policy for retry, seller review, dispute, and external refund recording.
-49. [x] **Local implementation verified (2026-09-20):** deterministic local tests cover payment and paid-fulfillment recovery; deployed live verification remains pending.
-50. [x] **Local implementation verified (2026-09-20):** deterministic dispute tests cover duplicate, non-delivery, and quality classifications; deployed end-to-end evidence remains pending under REL-005.
-51. [x] **Local implementation verified (2026-09-20):** local transaction lifecycle and reconciliation projections include explicit recovery states; deployed uncertain-settlement demonstration remains pending.
+48. [x] EXT-007 locks the compensation policy for retry, seller review, dispute, and external refund recording.
+49. [x] Deterministic tests cover payment and paid-fulfillment recovery; deployed live verification remains pending.
+50. [x] Deterministic dispute tests cover duplicate, non-delivery, and quality classifications; deployed end-to-end evidence remains pending under REL-005.
+51. [x] Transaction lifecycle and reconciliation projections include explicit recovery states; deployed uncertain-settlement demonstration remains pending.
 
 ## 8. Transaction, dashboard, and lifecycle UX
 
@@ -173,11 +173,11 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P1
 
-52. [x] **Resolved locally (2026-09-20):** expired unpaid `PAYMENT_REQUIRED` rows receive a deterministic abandoned-checkout projection without rewriting the authoritative transaction state.
-53. [x] **Resolved locally (2026-09-20):** seller transaction views label and filter awaiting, expired/abandoned, payment-rejected, fulfillment-failed, and fulfilled outcomes.
-54. [x] **Resolved locally (2026-09-20):** transactions freeze `activityMode`; seller reporting defaults to live activity and exposes test activity only through an explicit filter.
-55. [x] **Resolved locally (2026-09-20):** seller and buyer transaction projections expose separate payment and fulfillment states, including finalized-payment delivery failures.
-56. [x] **Local implementation verified (2026-09-20; deployed proof pending):** deterministic regression coverage completes the lifecycle three consecutive times without shared-state repair. REL-009 remains open because no deployed three-run production-shaped verification was performed.
+52. [x] Expired unpaid `PAYMENT_REQUIRED` rows receive a deterministic abandoned-checkout projection without rewriting the authoritative transaction state.
+53. [x] Seller transaction views label and filter awaiting, expired/abandoned, payment-rejected, fulfillment-failed, and fulfilled outcomes.
+54. [x] Transactions freeze `activityMode`; seller reporting defaults to live activity and exposes test activity only through an explicit filter.
+55. [x] Seller and buyer transaction projections expose separate payment and fulfillment states, including finalized-payment delivery failures.
+56. [x] Deterministic regression coverage completes the lifecycle three consecutive times without shared-state repair. REL-009 remains open because no deployed three-run production-shaped verification was performed.
 
 ## 9. Authentication, authorization, and data safety
 
