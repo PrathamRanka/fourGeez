@@ -19,7 +19,10 @@ the expected authentication and documentation routes. Thirteen CloudWatch
 alarms and the seller operations dashboard are deployed, but AWS-009 remains
 in progress because SNS alarm actions and notification delivery are not
 configured. Bedrock remains disabled and is not a seller-first V1 blocker.
-M9 deployed release verification remains pending. Until those release gates pass,
+Public backend links now use the deployed Vercel BFF at
+`https://agentpay.prathamranka.in/api/backend`; the generated API Gateway URL
+is retained only as Vercel's server-side upstream. M9 deployed release
+verification remains pending. Until those release gates pass,
 AgentPay supports local mock and x402 testnet use only and must not be
 represented as a production-ready paid service.
 

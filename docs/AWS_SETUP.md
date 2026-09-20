@@ -39,9 +39,10 @@ Read-only checks against the configured `agentpay-india` profile established:
   SNS alarm notification actions and delivery are not configured;
 - the Terraform-managed development budget is healthy at `$10/month` and
   reported `$0` actual spend at the time of inspection;
-- Vercel production variables use the Terraform HTTP API origin; deployment
-  `dpl_ExWeM7fxdqtUoLK2HUA1cki2X3Ti` is `READY` and aliased to
-  `https://agentpay.prathamranka.in`; and
+- Vercel production variables use the Terraform HTTP API origin as a
+  server-only upstream; commit `eb9bb19` deployed the branded
+  `/api/backend/*` BFF through Git integration, and public platform discovery
+  no longer emits the generated API Gateway origin; and
 - `GET /api/auth/csrf`, `GET /sign-in`, and `GET /docs` return `200` on the
   canonical Vercel domain.
 
