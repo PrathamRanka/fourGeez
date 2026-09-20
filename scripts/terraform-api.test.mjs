@@ -105,6 +105,24 @@ test("AWS-005 preserves time to record failures before the HTTP integration dead
   );
 });
 
+test("AWS-012 deploys the publication outbox stream consumer with bounded retries and a DLQ", () => {
+  const foundation = read("infra/terraform/modules/foundation/main.tf");
+  const foundationOutputs = read("infra/terraform/modules/foundation/outputs.tf");
+  const application = read("infra/terraform/modules/application/main.tf");
+  const root = read("infra/terraform/main.tf");
+
+  assert.match(foundation, /stream_enabled\s*=\s*true/);
+  assert.match(foundation, /stream_view_type\s*=\s*"NEW_IMAGE"/);
+  assert.match(foundationOutputs, /output\s+"table_stream_arn"/);
+  assert.match(root, /table_stream_arn\s*=\s*module\.foundation\.table_stream_arn/);
+  assert.match(application, /resource\s+"aws_sqs_queue"\s+"publication_outbox_dlq"/);
+  assert.match(application, /resource\s+"aws_lambda_event_source_mapping"\s+"publication_outbox"/);
+  assert.match(application, /function_response_types\s*=\s*\["ReportBatchItemFailures"\]/);
+  assert.match(application, /maximum_retry_attempts\s*=\s*3/);
+  assert.match(application, /bisect_batch_on_function_error\s*=\s*true/);
+  assert.match(application, /destination_arn\s*=\s*aws_sqs_queue\.publication_outbox_dlq\[0\]\.arn/);
+});
+
 test("AWS-005 locks Lambda payments to the credential-free Base Sepolia profile", () => {
   const root = read("infra/terraform/main.tf");
   const rootVariables = read("infra/terraform/variables.tf");

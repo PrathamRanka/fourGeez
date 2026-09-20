@@ -1,6 +1,6 @@
 # Publication invalidation rehearsal
 
-Status: local deterministic rehearsal implemented; deployed AWS proof pending.
+Status: local deterministic rehearsal and AWS-012 worker deployment verified.
 
 This runbook covers issue-register items 17 through 20 without treating a
 seller-hosted manifest as authorization. DynamoDB remains authoritative and
@@ -32,15 +32,20 @@ The tests prove:
 6. the local launch-ready profile includes a deterministic paused route that is
    excluded from active commerce.
 
-## Deployed proof still required
+## Deployed verification
 
-Do not mark AWS-012, REL-001, REL-010, or REL-013 complete from the local gate.
-After AWS-011 provides the private cache and a CDN endpoint exists, deploy the
-stream-triggered consumer with bounded retries and a dead-letter queue, then
-capture sanitized evidence for:
+On September 20, 2026, Terraform enabled the DynamoDB `NEW_IMAGE` stream,
+attached the filtered Lambda consumer with partial-batch failure reporting,
+three retries and batch bisection, and created an encrypted SQS dead-letter
+queue. A live Lambda invocation returned no batch failures and the matching
+`publicationCompletion` record was verified by a consistent DynamoDB read.
+
+Do not mark REL-001, REL-010, or REL-013 complete from this worker proof.
+Release evidence must still capture:
 
 - an entitlement cancellation and route update producing stream records;
-- cache/CDN invalidation and signed revision refresh;
+- authoritative signed revision refresh; cache/CDN invalidation remains
+  inapplicable until optional AWS-011 cache infrastructure is introduced;
 - retry after an injected refresh failure and redrive from the dead-letter
   queue;
 - stale manifest intent and browser checkout rejection at the canonical origin;

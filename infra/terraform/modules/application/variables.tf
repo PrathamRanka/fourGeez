@@ -97,6 +97,11 @@ variable "table_name" {
   type        = string
 }
 
+variable "table_stream_arn" {
+  description = "DynamoDB stream ARN for publication outbox processing."
+  type        = string
+}
+
 variable "evidence_bucket_name" {
   description = "Protected evidence bucket name."
   type        = string

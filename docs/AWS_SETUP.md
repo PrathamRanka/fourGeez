@@ -202,6 +202,22 @@ and 0 destroys**. That plan was applied successfully, and the post-apply plan
 reported no changes. Regenerate the plan after every code, quota,
 configuration, or state change.
 
+### Publication outbox stream
+
+AWS-012 is deployed for the authoritative no-cache V1 profile. The
+`agentpay-dev-main` table publishes `NEW_IMAGE` stream records. A filtered
+event-source mapping sends only immutable `publicationOutbox` inserts to the
+API Lambda event multiplexer. Processing uses partial-batch responses, three
+bounded retries, batch bisection, a one-hour maximum record age, and the
+managed-encryption `agentpay-dev-publication-outbox-dlq`.
+
+The consumer refreshes the durable signed publication snapshot before writing
+an idempotent `publicationCompletion` record. On September 20, 2026, a live
+runtime invocation returned no batch failures and a consistent DynamoDB read
+verified the completion record. Because AWS-011 is intentionally deferred, no
+Redis or CDN cache exists to invalidate and credential authorization continues
+to read DynamoDB directly.
+
 ### Bedrock application permissions
 
 Bedrock remains disabled and is non-blocking for the seller-first V1

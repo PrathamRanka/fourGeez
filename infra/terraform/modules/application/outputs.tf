@@ -22,3 +22,8 @@ output "operations_dashboard_name" {
   description = "CloudWatch operations dashboard name when the application deployment is enabled."
   value       = var.deployment_enabled ? aws_cloudwatch_dashboard.operations[0].dashboard_name : null
 }
+
+output "publication_outbox_dlq_url" {
+  description = "DLQ URL for publication outbox records that exhaust bounded retries."
+  value       = var.deployment_enabled ? aws_sqs_queue.publication_outbox_dlq[0].url : null
+}

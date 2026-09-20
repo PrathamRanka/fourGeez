@@ -43,6 +43,7 @@ module "application" {
   api_runtime_role_arn                 = module.foundation.api_runtime_role_arn
   api_runtime_role_name                = module.foundation.api_runtime_role_name
   table_name                           = module.foundation.table_name
+  table_stream_arn                     = module.foundation.table_stream_arn
   evidence_bucket_name                 = module.foundation.evidence_bucket_name
   evidence_kms_key_id                  = module.foundation.evidence_kms_key_id
   capability_signing_key_id            = module.foundation.capability_signing_key_id

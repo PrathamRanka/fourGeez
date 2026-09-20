@@ -13,6 +13,11 @@ output "table_arn" {
   value       = module.foundation.table_arn
 }
 
+output "table_stream_arn" {
+  description = "DynamoDB stream ARN for publication outbox processing."
+  value       = module.foundation.table_stream_arn
+}
+
 output "evidence_bucket_name" {
   description = "S3 bucket name for AGENTPAY_EVIDENCE_BUCKET."
   value       = module.foundation.evidence_bucket_name
@@ -121,6 +126,11 @@ output "api_lambda_function_name" {
 output "operations_dashboard_name" {
   description = "CloudWatch seller-operations dashboard; null while AWS-005 is disabled."
   value       = module.application.operations_dashboard_name
+}
+
+output "publication_outbox_dlq_url" {
+  description = "Publication outbox dead-letter queue URL."
+  value       = module.application.publication_outbox_dlq_url
 }
 
 output "launch_entitlement_operator_role_arn" {

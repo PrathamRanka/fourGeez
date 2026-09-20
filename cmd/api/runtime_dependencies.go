@@ -39,6 +39,7 @@ import (
 	dynamorepository "github.com/fourgeez/agentpay/internal/persistence/dynamodb"
 	"github.com/fourgeez/agentpay/internal/persistence/memory"
 	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/publicationops"
 	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/storefront"
@@ -88,6 +89,7 @@ type runtimeDependencies struct {
 	sellerSessionRevocations   identity.RevocationRepository
 	sellerWorkspaces           sellerworkspace.Repository
 	storefrontPublications     storefront.PublicationRepository
+	publicationCompletions     publicationops.CompletionStore
 	auditEvents                audit.Repository
 	idempotency                domain.IdempotencyStore
 	projectKeyExchangeLimiter  integrations.ExchangeRateLimiter
@@ -370,6 +372,7 @@ func newAWSRuntimeDependencies(ctx context.Context, config runtimeConfig, clock 
 		sellerSessionRevocations:  dynamorepository.NewSellerSessionRevocationRepository(dynamoClient, config.TableName),
 		sellerWorkspaces:          dynamorepository.NewSellerWorkspaceRepository(dynamoClient, config.TableName),
 		storefrontPublications:    dynamorepository.NewStorefrontPublicationRepository(dynamoClient, config.TableName),
+		publicationCompletions:    dynamorepository.NewPublicationCompletionStore(dynamoClient, config.TableName),
 		auditEvents:               dynamorepository.NewAuditEventRepository(dynamoClient, config.TableName),
 		idempotency:               dynamorepository.NewIdempotencyStore(dynamoClient, config.TableName),
 		projectKeyExchangeLimiter: dynamorepository.NewProjectKeyExchangeRateLimiter(dynamoClient, config.TableName, clock, integrations.DefaultProjectKeyExchangeAttempts, integrations.DefaultProjectKeyExchangeWindow),

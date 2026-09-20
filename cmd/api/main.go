@@ -8,9 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
-
 	"github.com/fourgeez/agentpay/internal/analytics"
 	"github.com/fourgeez/agentpay/internal/api"
 	"github.com/fourgeez/agentpay/internal/audit"
@@ -32,6 +29,7 @@ import (
 	"github.com/fourgeez/agentpay/internal/operations"
 	"github.com/fourgeez/agentpay/internal/payments"
 	"github.com/fourgeez/agentpay/internal/proxy"
+	"github.com/fourgeez/agentpay/internal/publicationops"
 	"github.com/fourgeez/agentpay/internal/sellerworkspace"
 	"github.com/fourgeez/agentpay/internal/settlement"
 	"github.com/fourgeez/agentpay/internal/storefront"
@@ -290,6 +288,11 @@ func main() {
 	})
 	catalogService.SetPublicationAuthorizer(storefrontService)
 	catalogService.SetPublicationRefresher(storefrontService)
+	publicationConsumer := publicationops.NewConsumer(
+		publicationops.NoopCacheInvalidator{},
+		publicationops.NewStorefrontRefresher(catalogRepository, storefrontService),
+		runtime.publicationCompletions,
+	)
 	sandboxService.SetEndpointVerificationRecorder(storefrontService)
 	sandboxService.SetResultRecorder(workspaceService)
 	storefront.NewHTTPController(storefrontService).RegisterRoutes(mux)
@@ -435,7 +438,7 @@ func main() {
 
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
-		lambda.Start(httpadapter.NewV2(handler).ProxyWithContext)
+		startLambdaRuntime(handler, publicationConsumer)
 		return
 	}
 	slog.Info("starting AgentPay API", "address", config.HTTPAddress)

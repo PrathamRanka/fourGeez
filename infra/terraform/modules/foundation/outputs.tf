@@ -19,6 +19,11 @@ output "table_arn" {
   value       = aws_dynamodb_table.agentpay.arn
 }
 
+output "table_stream_arn" {
+  description = "DynamoDB stream ARN used by the durable publication outbox consumer."
+  value       = aws_dynamodb_table.agentpay.stream_arn
+}
+
 output "evidence_bucket_name" {
   description = "Object Lock evidence bucket name."
   value       = aws_s3_bucket.evidence.id

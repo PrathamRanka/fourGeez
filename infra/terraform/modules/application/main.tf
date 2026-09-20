@@ -47,6 +47,49 @@ resource "aws_iam_role_policy" "runtime_logs" {
   policy = data.aws_iam_policy_document.runtime_logs[0].json
 }
 
+resource "aws_sqs_queue" "publication_outbox_dlq" {
+  count = var.deployment_enabled ? 1 : 0
+
+  name                       = "${local.resource_prefix}-publication-outbox-dlq"
+  message_retention_seconds  = 1209600
+  visibility_timeout_seconds = 60
+  sqs_managed_sse_enabled    = true
+}
+
+data "aws_iam_policy_document" "publication_outbox" {
+  count = var.deployment_enabled ? 1 : 0
+
+  statement {
+    sid = "ReadPublicationStream"
+    actions = [
+      "dynamodb:DescribeStream",
+      "dynamodb:GetRecords",
+      "dynamodb:GetShardIterator",
+    ]
+    resources = [var.table_stream_arn]
+  }
+
+  statement {
+    sid       = "ListPublicationStreams"
+    actions   = ["dynamodb:ListStreams"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "SendPublicationFailures"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.publication_outbox_dlq[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "publication_outbox" {
+  count = var.deployment_enabled ? 1 : 0
+
+  name   = "${local.resource_prefix}-publication-outbox"
+  role   = var.api_runtime_role_name
+  policy = data.aws_iam_policy_document.publication_outbox[0].json
+}
+
 resource "aws_apigatewayv2_api" "http" {
   count = var.deployment_enabled ? 1 : 0
 
@@ -212,4 +255,39 @@ resource "aws_lambda_permission" "http_api" {
   function_name = aws_lambda_function.api[0].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http[0].execution_arn}/*/*"
+}
+
+resource "aws_lambda_event_source_mapping" "publication_outbox" {
+  count = var.deployment_enabled ? 1 : 0
+
+  event_source_arn                   = var.table_stream_arn
+  function_name                      = aws_lambda_function.api[0].arn
+  starting_position                  = "LATEST"
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 1
+  maximum_record_age_in_seconds      = 3600
+  maximum_retry_attempts             = 3
+  bisect_batch_on_function_error     = true
+  function_response_types            = ["ReportBatchItemFailures"]
+
+  filter_criteria {
+    filter {
+      pattern = jsonencode({
+        eventName = ["INSERT"]
+        dynamodb = {
+          NewImage = {
+            entity = { S = ["publicationOutbox"] }
+          }
+        }
+      })
+    }
+  }
+
+  destination_config {
+    on_failure {
+      destination_arn = aws_sqs_queue.publication_outbox_dlq[0].arn
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.publication_outbox]
 }

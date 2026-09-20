@@ -9,6 +9,8 @@ resource "aws_dynamodb_table" "agentpay" {
   range_key    = "SK"
 
   deletion_protection_enabled = var.environment != "dev"
+  stream_enabled              = true
+  stream_view_type            = "NEW_IMAGE"
 
   attribute {
     name = "PK"
