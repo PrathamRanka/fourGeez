@@ -119,6 +119,27 @@ func TestExecutionServiceMetersSuccessWithoutBlockingFulfillment(t *testing.T) {
 	}
 }
 
+func TestExecutionServiceMakesPreDispatchSigningFailureRetryable(t *testing.T) {
+	t.Parallel()
+
+	repository := memory.NewTransactionRepository()
+	transaction := verifiedTransaction(t)
+	if err := repository.Create(t.Context(), transaction); err != nil {
+		t.Fatal(err)
+	}
+	service := NewExecutionService(repository, &failingRequestSigner{}, &recordingForwarder{}, &recordingLifecycleRecorder{}, domain.FixedClock{Value: time.Date(2026, time.September, 17, 10, 1, 0, 0, time.UTC)})
+	if _, err := service.Execute(t.Context(), validExecutionRequest(t, transaction)); !errors.Is(err, ErrSigningUnavailable) {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	stored, err := repository.Get(t.Context(), transaction.TransactionID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status() != transactions.StatusFailed || !stored.CanRetryFulfillment() || stored.PaymentFinality() != transactions.PaymentFinalityFinalized {
+		t.Fatalf("stored transaction = %#v", stored.Snapshot())
+	}
+}
+
 // verifiedTransaction creates a transaction ready for its forwarding claim.
 func verifiedTransaction(t *testing.T) transactions.Transaction {
 	t.Helper()
@@ -217,6 +238,12 @@ func validExecutionRequest(
 
 type recordingRequestSigner struct {
 	calls atomic.Int32
+}
+
+type failingRequestSigner struct{}
+
+func (*failingRequestSigner) Sign(context.Context, string, SigningInput) (SignatureHeaders, error) {
+	return SignatureHeaders{}, ErrSigningUnavailable
 }
 
 // Sign records one post-claim signing operation.

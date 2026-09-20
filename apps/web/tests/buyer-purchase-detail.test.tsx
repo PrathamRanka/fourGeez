@@ -89,6 +89,39 @@ describe("buyer purchase detail", () => {
     window.history.replaceState({}, "", "/");
   });
 
+  it("distinguishes finalized payment with retryable fulfillment failure", async () => {
+    const failedPurchase = structuredClone(purchase);
+    Object.assign(failedPurchase.transaction, {
+      status: "FAILED",
+      upstreamStatus: 422,
+      failureCode: "upstream_status",
+      commerceLifecycle: {
+        externalReference: transactionId,
+        commerceState: "failed",
+        paymentState: "finalized",
+        fulfillmentState: "failed",
+        refundState: "not_requested",
+        recoveryAction: "retry_same_payment",
+        recoveryState: "retry_available",
+      },
+      fulfillmentAttempts: 1,
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse(failedPurchase)));
+
+    render(<BuyerPurchaseDetail transactionId={transactionId} />);
+
+    expect(
+      await screen.findByText("Payment completed, but fulfillment failed.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Your payment succeeded. You may correct the request and retry fulfillment without authorizing another payment.",
+      ),
+    ).toBeVisible();
+  });
+
   it("shows the outcome, verifies and downloads the receipt, exposes evidence, and creates a durable dispute link", async () => {
     const fetchMock = vi
       .fn()

@@ -23,6 +23,10 @@ const (
 	SellerTimestampHeader = "X-AgentPay-Timestamp"
 	// SellerTransactionHeader carries the signed AgentPay transaction ID.
 	SellerTransactionHeader = "X-AgentPay-Transaction-Id"
+	// SellerRetrySafeHeader is an explicit seller assertion that a rejected
+	// request produced no business side effect and may be corrected once.
+	SellerRetrySafeHeader         = "X-AgentPay-Retry-Safe"
+	SellerRetrySafeCorrectedInput = "corrected-input"
 )
 
 var (
@@ -64,6 +68,7 @@ type ForwardResponse struct {
 	StatusCode  int
 	Body        []byte
 	ContentType string
+	RetrySafe   bool
 }
 
 // SigningInput contains the request values covered by the seller HMAC.

@@ -67,6 +67,28 @@ func TestForwarderForwardsOnlyConfiguredRoute(t *testing.T) {
 	}
 }
 
+func TestForwarderAcceptsRetrySafeAssertionOnlyForRejectedInput(t *testing.T) {
+	t.Parallel()
+
+	for _, status := range []int{http.StatusBadRequest, http.StatusUnprocessableEntity, http.StatusInternalServerError} {
+		headers := http.Header{"Content-Type": []string{"application/json"}}
+		headers.Set(SellerRetrySafeHeader, SellerRetrySafeCorrectedInput)
+		client := &fakeHTTPClient{response: &http.Response{
+			StatusCode: status,
+			Header:     headers,
+			Body:       io.NopCloser(strings.NewReader(`{"error":"invalid input"}`)),
+		}}
+		response, err := NewForwarderWithClient(&staticResolver{addresses: []net.IP{net.ParseIP("93.184.216.34")}}, client, 1024).Forward(t.Context(), validForwardRequest(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := status == http.StatusBadRequest || status == http.StatusUnprocessableEntity
+		if response.RetrySafe != want {
+			t.Fatalf("status %d retrySafe = %v, want %v", status, response.RetrySafe, want)
+		}
+	}
+}
+
 func TestForwarderSendsExecutionCapabilityWithoutLegacyHMACHeaders(t *testing.T) {
 	t.Parallel()
 

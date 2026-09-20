@@ -392,11 +392,13 @@ function recoveryActionLabel(
 ): string {
   const labels = {
     retry_same_request: "Retry the same request",
+    retry_same_payment: "Retry fulfillment with the same payment",
     await_reconciliation: "Await payment reconciliation",
     create_new_intent: "Create a new purchase intent",
     open_dispute: "Open a dispute",
     await_resolution: "Await dispute resolution",
     record_external_refund: "Record the external refund",
+    request_seller_review: "Review delivery before resolving",
     none: "No recovery action required",
   } as const;
   return labels[action];

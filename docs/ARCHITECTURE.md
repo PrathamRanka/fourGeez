@@ -380,6 +380,11 @@ destination, and workspace publication prerequisites before signing.
 - Payment identifiers are globally unique in the transaction table.
 - A DynamoDB conditional write changes a transaction from `PAYMENT_VERIFIED` to `FORWARDED` only when `paymentFinality=finalized`, the expected version matches, and no forwarding owner exists; only the winner calls the seller.
 - Retried requests return the stored response metadata when replay is safe.
+- One paid fulfillment retry may reopen `FAILED` to `PAYMENT_VERIFIED` only
+  under optimistic concurrency when payment is already finalized and the
+  failure is known to precede dispatch or the seller explicitly returned
+  `X-AgentPay-Retry-Safe: corrected-input` with HTTP 400/422. The same proof
+  hash and transaction are reused; verification and settlement are not called.
 
 ## Failure behavior
 
@@ -403,6 +408,7 @@ destination, and workspace publication prerequisites before signing.
 | Intent cancellation races checkout | One conditional intent transition wins; a cancelled or expired intent never receives a challenge, while an executed intent cannot be cancelled. |
 | Payment outcome is unknown | Keep the transaction at confirmed finality, expose `await_reconciliation`, and never create a replacement charge or call the seller. |
 | Finalized payment has delivery failure | Preserve the same transaction identity and expose the dispute/remediation path; never blindly repeat an upstream side effect after an ambiguous timeout. |
+| Seller explicitly rejects input without side effects | Permit one corrected-body retry against the same finalized payment and transaction; issue a fresh body-bound execution capability and never settle again. |
 | Seller webhook unavailable | Retain the authoritative event, retry within policy, and expose the failed delivery in the dashboard. |
 | Seller entitlement inactive or expired | Return `403 subscription_inactive` for authenticated seller/MCP operations, `410 seller_inactive` for public discovery, and reject new intent, challenge, verification, and settlement authorization. |
 | MCP confirmation missing, expired, replayed, or mismatched | Fail before domain mutation; never infer approval from caller fields. Exact idempotent replay returns the stored redacted result only after the original grant was validly consumed. |

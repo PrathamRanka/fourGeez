@@ -125,6 +125,12 @@ func (service *ExecutionService) Execute(
 		request.Route.SellerID != request.Seller.SellerID {
 		return ForwardResponse{}, ErrRouteNotAllowed
 	}
+	if recoveryHash := request.Transaction.RecoveryRequestBodyHash(); recoveryHash.String() != "" {
+		requestHash, hashErr := intents.HashRequestBody(request.Body, request.ContentType)
+		if hashErr != nil || requestHash != recoveryHash {
+			return ForwardResponse{}, ErrRouteNotAllowed
+		}
+	}
 	claimed, won, err := service.repository.ClaimForwarding(
 		ctx,
 		request.Transaction.TransactionID(),
@@ -138,9 +144,10 @@ func (service *ExecutionService) Execute(
 		return ForwardResponse{}, ErrAlreadyForwarded
 	}
 	if service.recorder == nil {
-		return ForwardResponse{}, errors.New(
+		err := errors.New(
 			"forwarding evidence recorder is required",
 		)
+		return ForwardResponse{}, service.failBeforeDispatch(ctx, claimed, "forwarding_evidence_unavailable", err)
 	}
 	if err := service.recorder.RecordProxyForwarding(
 		ctx,
@@ -153,7 +160,7 @@ func (service *ExecutionService) Execute(
 		},
 	); err != nil {
 		observability.Record(observability.EventEvidenceFailure)
-		return ForwardResponse{}, err
+		return ForwardResponse{}, service.failBeforeDispatch(ctx, claimed, "forwarding_evidence_unavailable", err)
 	}
 
 	signature, err := service.signer.Sign(
@@ -171,7 +178,7 @@ func (service *ExecutionService) Execute(
 	)
 	if err != nil {
 		observability.Record(observability.EventSellerForwardingFailure)
-		return ForwardResponse{}, err
+		return ForwardResponse{}, service.failBeforeDispatch(ctx, claimed, "execution_authorization_unavailable", err)
 	}
 	response, err := service.forwarder.Forward(
 		ctx,
@@ -238,10 +245,11 @@ func (service *ExecutionService) Execute(
 		)
 	} else {
 		status := response.StatusCode
-		err = claimed.MarkFailed(
+		err = claimed.MarkFailedWithRecovery(
 			"upstream_status",
 			&status,
 			&responseHash,
+			response.RetrySafe,
 			domain.NewTimestamp(service.clock.Now()),
 		)
 	}
@@ -279,6 +287,17 @@ func (service *ExecutionService) Execute(
 		)
 	}
 	return response, nil
+}
+
+func (service *ExecutionService) failBeforeDispatch(ctx context.Context, transaction transactions.Transaction, failureCode string, cause error) error {
+	expectedVersion := transaction.Version()
+	if err := transaction.MarkFailedWithRecovery(failureCode, nil, nil, true, domain.NewTimestamp(service.clock.Now())); err != nil {
+		return err
+	}
+	if err := service.repository.Update(ctx, transaction, expectedVersion); err != nil {
+		return err
+	}
+	return cause
 }
 
 // deliveryFailureCode maps transport errors to stable evidence values.
@@ -496,6 +515,8 @@ func (forwarder *Forwarder) Forward(
 		StatusCode:  upstreamResponse.StatusCode,
 		Body:        body,
 		ContentType: contentType,
+		RetrySafe: (upstreamResponse.StatusCode == http.StatusBadRequest || upstreamResponse.StatusCode == http.StatusUnprocessableEntity) &&
+			strings.EqualFold(strings.TrimSpace(upstreamResponse.Header.Get(SellerRetrySafeHeader)), SellerRetrySafeCorrectedInput),
 	}, nil
 }
 

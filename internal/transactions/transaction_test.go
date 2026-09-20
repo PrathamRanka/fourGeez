@@ -371,6 +371,77 @@ func TestTransactionCommerceLifecycleAndPriceProjection(t *testing.T) {
 	}
 }
 
+func TestFinalizedFulfillmentFailureUsesDeterministicCompensationPolicy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		failureCode  string
+		status       *int
+		retrySafe    bool
+		wantRecovery RecoveryState
+		wantAction   RecoveryAction
+		wantRetry    bool
+	}{
+		{name: "seller declared rejected input side effect free", failureCode: "upstream_status", status: intPointer(422), retrySafe: true, wantRecovery: RecoveryStateRetryAvailable, wantAction: RecoveryActionRetrySamePayment, wantRetry: true},
+		{name: "execution authorization failed before dispatch", failureCode: "execution_authorization_unavailable", retrySafe: true, wantRecovery: RecoveryStateRetryAvailable, wantAction: RecoveryActionRetrySamePayment, wantRetry: true},
+		{name: "ambiguous transport failure", failureCode: "upstream_timeout", wantRecovery: RecoveryStateSellerReview, wantAction: RecoveryActionRequestSellerReview},
+		{name: "unclassified finalized failure", failureCode: "delivery_failed", wantRecovery: RecoveryStateDisputeAvailable, wantAction: RecoveryActionOpenDispute},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			transaction := finalizedTransaction(t)
+			if err := transaction.MarkForwarded(transaction.UpdatedAt().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if err := transaction.MarkFailedWithRecovery(test.failureCode, test.status, nil, test.retrySafe, transaction.UpdatedAt().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+
+			projection := transaction.CommerceLifecycle(false)
+			if projection.PaymentState != PaymentStateFinalized || projection.FulfillmentState != FulfillmentStateFailed ||
+				projection.RecoveryState != test.wantRecovery || projection.RecoveryAction != test.wantAction ||
+				transaction.CanRetryFulfillment() != test.wantRetry {
+				t.Fatalf("recovery projection = %#v, retry = %v", projection, transaction.CanRetryFulfillment())
+			}
+		})
+	}
+}
+
+func TestFulfillmentRetryKeepsFinalizedPaymentAndIsBounded(t *testing.T) {
+	t.Parallel()
+
+	transaction := finalizedTransaction(t)
+	if err := transaction.MarkForwarded(transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	status := 422
+	if err := transaction.MarkFailedWithRecovery("upstream_status", &status, nil, true, transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	retryHash, err := intents.ParseSHA256Digest(strings.Repeat("b", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.PrepareFulfillmentRetry(retryHash, transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Status() != StatusPaymentVerified || transaction.PaymentFinality() != PaymentFinalityFinalized ||
+		transaction.PaymentIdentifier() == "" || transaction.RecoveryRequestBodyHash() != retryHash {
+		t.Fatalf("retry transaction = %#v", transaction.Snapshot())
+	}
+	if err := transaction.MarkForwarded(transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkFailedWithRecovery("upstream_status", &status, nil, true, transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if transaction.CanRetryFulfillment() {
+		t.Fatal("second fulfillment retry was allowed")
+	}
+}
+
 func TestNewTransactionValidation(t *testing.T) {
 	t.Parallel()
 
@@ -452,6 +523,21 @@ func newTestTransaction(t *testing.T) *Transaction {
 		t.Fatalf("NewTransaction() error = %v", err)
 	}
 	return &transaction
+}
+
+func finalizedTransaction(t *testing.T) Transaction {
+	t.Helper()
+	transaction := newTestTransaction(t)
+	if err := transaction.RequirePayment(transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment("payment-test", mustTransactionDigest(t, strings.Repeat("a", 64)), transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.FinalizePayment("payment-test", "0xsettled", transaction.UpdatedAt().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	return *transaction
 }
 
 func validTransactionParams(t *testing.T) TransactionParams {

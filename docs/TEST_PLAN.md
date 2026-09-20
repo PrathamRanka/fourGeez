@@ -41,6 +41,10 @@ Run without AWS or network access.
 - Payment recovery covers expired intents, rejected proofs, facilitator
   unavailability before verification, unknown settlement after verification,
   same-proof retry, changed-proof rejection, nonce replay, and idempotency.
+- Paid fulfillment recovery covers one side-effect-free 400/422 correction with
+  the identical proof, no second verification or settlement, a body-bound
+  execution capability, conditional retry claiming, a two-attempt ceiling, and
+  seller review instead of retry after ambiguous dispatch.
 - Asset/network-separated aggregate updates and duplicate-event rejection.
 - Webhook signature, retry, dead-letter, redelivery, and SSRF behavior.
 - Plan quota boundaries and immutable usage-meter events.
@@ -150,39 +154,42 @@ Run against local in-memory repositories first, then DynamoDB/S3/KMS in a dispos
    idempotently, and prove changed input, cross-seller access, unfinalized
    payment, and a non-recommended dispute fail with the documented taxonomy.
 6. Raise `quality_or_output` and receive `seller_review`.
-7. Disable Bedrock and complete the purchase through deterministic fallback.
-8. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
-9. Buy the same published product through a browser wallet and an agent/x402
+7. Settle once, receive a seller-declared side-effect-free 422, correct the
+   input, fulfill once with the same transaction and payment proof, and prove
+   verification and settlement were each called exactly once.
+8. Disable Bedrock and complete the purchase through deterministic fallback.
+9. Connect a supported coding agent, generate a seller integration, review the diff, explicitly approve publication, and pass the sandbox validator.
+10. Buy the same published product through a browser wallet and an agent/x402
    flow and verify both sales appear once in the seller dashboard.
-10. Rotate the seller payment destination and prove existing intents retain the
+11. Rotate the seller payment destination and prove existing intents retain the
     old frozen destination while new intents use the verified replacement.
-11. Disable seller webhooks, complete a purchase, and prove the dashboard and
+12. Disable seller webhooks, complete a purchase, and prove the dashboard and
     evidence remain authoritative.
-12. Generate a supported-stack storefront and validate canonical metadata,
+13. Generate a supported-stack storefront and validate canonical metadata,
     structured data, sitemap, robots, manifest, and `llms.txt` consistency.
-13. Reload during browser checkout, complete payment, later recover receipt and
+14. Reload during browser checkout, complete payment, later recover receipt and
     dispute access with the finalized payer wallet, and prove recovery cannot
     create a second intent or payment.
-14. Leave the official connector and a modified fork running, revoke or expire
+15. Leave the official connector and a modified fork running, revoke or expire
     the seller entitlement, and prove both lose MCP, publication, discovery,
     intent, x402, and transaction authority while historical access follows the
     subscription contract.
-15. Against the canonical deployed origin, use an approved private email test
+16. Against the canonical deployed origin, use an approved private email test
     recipient to complete seller sign-up, email-code verification, sign-in,
     onboarding redirect, access-token refresh, eight-hour absolute session
     expiry, and sign-out. The smoke must use production cookies and clocks,
     must not add a test-only bypass, and must never render or commit the test
     recipient or generated password.
-16. Read the deployed payment-capability endpoint and exercise missing wallet,
+17. Read the deployed payment-capability endpoint and exercise missing wallet,
     wrong network, rejected authorization, expired intent, unavailable
     facilitator, unknown settlement, and same-proof recovery without duplicate
     payment or seller invocation.
-17. From authenticated seller onboarding and dashboard routes, prove there is
+18. From authenticated seller onboarding and dashboard routes, prove there is
     no buyer checkout, wallet authorization, seller-funded test purchase,
     purchase-session link, or seller-callable commerce action. Then load the
     public product page and prove buyer checkout remains available to a human
     buyer without exposing seller credentials or changing commerce semantics.
-18. From authenticated seller onboarding, run `sandbox_validate_route` only
+19. From authenticated seller onboarding, run `sandbox_validate_route` only
     after the connector and a draft product are ready. Assert the six bounded
     server-authored checks, the persisted route-version-bound result, and its
     seller-scoped audit event. Prove the run creates no purchase intent,

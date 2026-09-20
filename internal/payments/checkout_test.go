@@ -645,6 +645,164 @@ func TestCheckoutServiceRetriesSameProofAfterUnknownSettlement(t *testing.T) {
 	}
 }
 
+func TestCheckoutServiceRetriesCorrectedFulfillmentWithoutChargingAgain(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	configureFulfillmentRetryFixture(t, &fixture)
+	repository := memory.NewTransactionRepository()
+	transactionID, err := transactionIDForIntent(fixture.purchaseIntent.IntentID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := transactions.NewTransaction(transactions.TransactionParams{
+		TransactionID: transactionID, IntentID: fixture.purchaseIntent.IntentID(), SellerID: fixture.seller.SellerID,
+		RouteID: fixture.route.RouteID, BuyerID: fixture.purchaseIntent.BuyerID(), Amount: fixture.purchaseIntent.Amount(),
+		Asset: fixture.purchaseIntent.Asset(), Network: fixture.purchaseIntent.Network(), CreatedAt: domain.NewTimestamp(fixture.clock.Now()),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.RequirePayment(transaction.UpdatedAt()); err != nil {
+		t.Fatal(err)
+	}
+	proofHash, err := paymentProofHash(MockApprovedProof)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment("payment-test", proofHash, transaction.UpdatedAt()); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.FinalizePayment("payment-test", "0xsettled", transaction.UpdatedAt()); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.MarkForwarded(transaction.UpdatedAt()); err != nil {
+		t.Fatal(err)
+	}
+	status := 422
+	if err := transaction.MarkFailedWithRecovery("upstream_status", &status, nil, true, transaction.UpdatedAt()); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Create(t.Context(), transaction); err != nil {
+		t.Fatal(err)
+	}
+
+	adapter := &recordingCheckoutAdapter{}
+	executor := &checkoutExecutor{}
+	service := NewCheckoutService(fixture.service, adapter, repository, newCheckoutEvidenceRecorder(t, fixture), executor, fixture.clock)
+	request := checkoutRequest(fixture)
+	request.Body = []byte(`{"topic":"corrected"}`)
+	request.ContentType = "application/json"
+	request.PaymentProof = "changed-proof"
+	if _, err := service.Execute(t.Context(), request); !errors.Is(err, ErrPaymentReplay) {
+		t.Fatalf("changed proof error = %v, want payment replay", err)
+	}
+	request.PaymentProof = MockApprovedProof
+	result, err := service.Execute(t.Context(), request)
+	if err != nil || result.Response == nil {
+		t.Fatalf("Execute() = (%#v, %v)", result, err)
+	}
+	if adapter.verifyCalls != 0 || adapter.settleCalls != 0 || executor.calls != 1 {
+		t.Fatalf("calls = verify %d settle %d execute %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
+	}
+	stored, err := repository.Get(t.Context(), transactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.PaymentFinality() != transactions.PaymentFinalityFinalized || stored.FulfillmentAttempts() != 1 || stored.Status() != transactions.StatusPaymentVerified {
+		t.Fatalf("stored recovery transaction = %#v", stored.Snapshot())
+	}
+}
+
+func TestCheckoutServiceRejectsUnsafeOrChangedProofFulfillmentRetry(t *testing.T) {
+	t.Parallel()
+
+	// A changed request never gets a second charge unless the stored failed
+	// transaction carries the seller's explicit side-effect-free assertion.
+	fixture := newPaidRouteFixture(t, false)
+	adapter := &recordingCheckoutAdapter{}
+	service := NewCheckoutService(fixture.service, adapter, memory.NewTransactionRepository(), newCheckoutEvidenceRecorder(t, fixture), &checkoutExecutor{}, fixture.clock)
+	request := checkoutRequest(fixture)
+	request.PaymentProof = MockApprovedProof
+	request.Body = []byte(`{"topic":"changed"}`)
+	request.ContentType = "application/json"
+	if _, err := service.Execute(t.Context(), request); !errors.Is(err, ErrPaidRouteMismatch) {
+		t.Fatalf("Execute() error = %v, want paid route mismatch", err)
+	}
+	if adapter.verifyCalls != 0 || adapter.settleCalls != 0 {
+		t.Fatalf("adapter calls = verify %d settle %d", adapter.verifyCalls, adapter.settleCalls)
+	}
+}
+
+func TestPaidButUnfulfilledRecoveryEndToEnd(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPaidRouteFixture(t, false)
+	configureFulfillmentRetryFixture(t, &fixture)
+	repository := memory.NewTransactionRepository()
+	adapter := &recordingCheckoutAdapter{}
+	executor := &recoveryCheckoutExecutor{repository: repository}
+	service := NewCheckoutService(fixture.service, adapter, repository, newCheckoutEvidenceRecorder(t, fixture), executor, fixture.clock)
+
+	request := checkoutRequest(fixture)
+	request.PaymentProof = MockApprovedProof
+	first, err := service.Execute(t.Context(), request)
+	if err != nil || first.Response == nil || first.Response.StatusCode != 422 {
+		t.Fatalf("first Execute() = (%#v, %v)", first, err)
+	}
+	failed, err := repository.Get(t.Context(), first.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failed.CommerceLifecycle(false).RecoveryAction != transactions.RecoveryActionRetrySamePayment {
+		t.Fatalf("failed recovery = %#v", failed.CommerceLifecycle(false))
+	}
+
+	request.Body = []byte(`{"topic":"corrected"}`)
+	request.ContentType = "application/json"
+	second, err := service.Execute(t.Context(), request)
+	if err != nil || second.Response == nil || second.Response.StatusCode != 200 {
+		t.Fatalf("second Execute() = (%#v, %v)", second, err)
+	}
+	fulfilled, err := repository.Get(t.Context(), first.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fulfilled.Status() != transactions.StatusFulfilled || fulfilled.PaymentFinality() != transactions.PaymentFinalityFinalized || fulfilled.FulfillmentAttempts() != 2 {
+		t.Fatalf("fulfilled transaction = %#v", fulfilled.Snapshot())
+	}
+	if fulfilled.CommerceLifecycle(false).RecoveryState != transactions.RecoveryStateResolved {
+		t.Fatalf("fulfilled recovery projection = %#v", fulfilled.CommerceLifecycle(false))
+	}
+	if adapter.verifyCalls != 1 || adapter.settleCalls != 1 || executor.calls != 2 {
+		t.Fatalf("calls = verify %d settle %d fulfill %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
+	}
+}
+
+func configureFulfillmentRetryFixture(t *testing.T, fixture *paidRouteFixture) {
+	t.Helper()
+	fixture.route.Method = catalog.RouteMethodPost
+	fixture.route.InputSchema = catalog.JSONSchema(`{"additionalProperties":false,"properties":{"topic":{"type":"string"}},"type":"object"}`)
+	snapshot := fixture.purchaseIntent.Snapshot()
+	var err error
+	fixture.purchaseIntent, err = intents.NewPurchaseIntent(intents.PurchaseIntentParams{
+		IntentID: snapshot.IntentID, SellerID: snapshot.SellerID, RouteID: snapshot.RouteID,
+		BuyerID: snapshot.BuyerID, ProductDisplayName: snapshot.ProductDisplayName, ProductSlug: snapshot.ProductSlug,
+		PaymentDestinationID: snapshot.PaymentDestinationID, PayTo: snapshot.PayTo,
+		RequestMethod: intents.RequestMethodPost, RequestPath: snapshot.RequestPath, RequestBodyHash: snapshot.RequestBodyHash,
+		Amount: snapshot.Amount, Asset: snapshot.Asset, Network: snapshot.Network, MaximumAmount: snapshot.MaximumAmount,
+		RequiresApproval: false, CreatedAt: snapshot.CreatedAt, ExpiresAt: snapshot.ExpiresAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.service = NewPaidRouteService(
+		&paidRouteCatalogRepository{seller: fixture.seller, route: fixture.route},
+		&paidRouteIntentRepository{purchaseIntent: fixture.purchaseIntent},
+		&paidRouteApprovalRepository{}, nil, fixture.clock, "https://api.example",
+	)
+}
+
 func checkoutRequest(fixture paidRouteFixture) CheckoutRequest {
 	return CheckoutRequest{PaidRouteRequest: PaidRouteRequest{
 		Slug: fixture.seller.Slug, Method: fixture.route.Method,
@@ -729,6 +887,41 @@ func (adapter *recordingCheckoutAdapter) Settle(_ context.Context, _ string, _ R
 }
 
 type checkoutExecutor struct{ calls int }
+
+type recoveryCheckoutExecutor struct {
+	repository *memory.TransactionRepository
+	calls      int
+}
+
+func (executor *recoveryCheckoutExecutor) Execute(ctx context.Context, request proxy.ExecutionRequest) (proxy.ForwardResponse, error) {
+	executor.calls++
+	claimed, won, err := executor.repository.ClaimForwarding(ctx, request.Transaction.TransactionID(), request.Transaction.Version(), request.Transaction.UpdatedAt())
+	if err != nil || !won {
+		return proxy.ForwardResponse{}, err
+	}
+	expectedVersion := claimed.Version()
+	responseHash, err := intents.HashRequestBody([]byte(`{"ok":true}`), "application/json")
+	if err != nil {
+		return proxy.ForwardResponse{}, err
+	}
+	if executor.calls == 1 {
+		status := 422
+		if err := claimed.MarkFailedWithRecovery("upstream_status", &status, &responseHash, true, claimed.UpdatedAt()); err != nil {
+			return proxy.ForwardResponse{}, err
+		}
+		if err := executor.repository.Update(ctx, claimed, expectedVersion); err != nil {
+			return proxy.ForwardResponse{}, err
+		}
+		return proxy.ForwardResponse{StatusCode: status, Body: []byte(`{"error":"invalid input"}`), ContentType: "application/json", RetrySafe: true}, nil
+	}
+	if err := claimed.MarkFulfilled(200, responseHash, transactions.ResponseSummary{ContentType: "application/json", ContentLength: 11}, claimed.UpdatedAt()); err != nil {
+		return proxy.ForwardResponse{}, err
+	}
+	if err := executor.repository.Update(ctx, claimed, expectedVersion); err != nil {
+		return proxy.ForwardResponse{}, err
+	}
+	return proxy.ForwardResponse{StatusCode: 200, Body: []byte(`{"ok":true}`), ContentType: "application/json"}, nil
+}
 
 type recordingBrowserPurchaseLifecycle struct {
 	claimedSession       browserpurchase.PurchaseSessionID

@@ -23,6 +23,7 @@ type PaymentState string
 type FulfillmentState string
 type RefundState string
 type RecoveryAction string
+type RecoveryState string
 
 type PurchaseChannel string
 type PaymentRail string
@@ -64,12 +65,23 @@ const (
 	RefundStateRecommended             RefundState      = "recommended"
 	RefundStateSellerReported          RefundState      = "seller_reported"
 	RecoveryActionRetrySameRequest     RecoveryAction   = "retry_same_request"
+	RecoveryActionRetrySamePayment     RecoveryAction   = "retry_same_payment"
 	RecoveryActionAwaitReconciliation  RecoveryAction   = "await_reconciliation"
 	RecoveryActionCreateNewIntent      RecoveryAction   = "create_new_intent"
 	RecoveryActionOpenDispute          RecoveryAction   = "open_dispute"
 	RecoveryActionAwaitResolution      RecoveryAction   = "await_resolution"
 	RecoveryActionRecordExternalRefund RecoveryAction   = "record_external_refund"
+	RecoveryActionRequestSellerReview  RecoveryAction   = "request_seller_review"
 	RecoveryActionNone                 RecoveryAction   = "none"
+	RecoveryStateNone                  RecoveryState    = "none"
+	RecoveryStateRetryAvailable        RecoveryState    = "retry_available"
+	RecoveryStateRetryInProgress       RecoveryState    = "retry_in_progress"
+	RecoveryStateSellerReview          RecoveryState    = "seller_review"
+	RecoveryStateDisputeAvailable      RecoveryState    = "dispute_available"
+	RecoveryStateDisputeOpen           RecoveryState    = "dispute_open"
+	RecoveryStateRefundRecommended     RecoveryState    = "refund_recommended"
+	RecoveryStateRefundReported        RecoveryState    = "refund_reported"
+	RecoveryStateResolved              RecoveryState    = "resolved"
 )
 
 const (
@@ -120,33 +132,36 @@ type ResponseSummary struct {
 
 // Transaction records payment, forwarding, delivery, and dispute state.
 type Transaction struct {
-	transactionID        domain.ID
-	intentID             domain.ID
-	sellerID             domain.ID
-	routeID              domain.ID
-	buyerID              string
-	purchaseSessionID    string
-	productDisplayName   string
-	productSlug          string
-	paymentDestinationID domain.ID
-	purchaseChannel      PurchaseChannel
-	paymentRail          PaymentRail
-	amount               domain.Amount
-	asset                string
-	network              string
-	status               TransactionStatus
-	paymentIdentifier    string
-	paymentProofHash     intents.SHA256Digest
-	paymentReference     string
-	paymentFinality      PaymentFinality
-	reconciledAt         *domain.Timestamp
-	upstreamStatus       *int
-	responseHash         *intents.SHA256Digest
-	responseSummary      *ResponseSummary
-	failureCode          string
-	createdAt            domain.Timestamp
-	updatedAt            domain.Timestamp
-	version              uint64
+	transactionID           domain.ID
+	intentID                domain.ID
+	sellerID                domain.ID
+	routeID                 domain.ID
+	buyerID                 string
+	purchaseSessionID       string
+	productDisplayName      string
+	productSlug             string
+	paymentDestinationID    domain.ID
+	purchaseChannel         PurchaseChannel
+	paymentRail             PaymentRail
+	amount                  domain.Amount
+	asset                   string
+	network                 string
+	status                  TransactionStatus
+	paymentIdentifier       string
+	paymentProofHash        intents.SHA256Digest
+	paymentReference        string
+	paymentFinality         PaymentFinality
+	reconciledAt            *domain.Timestamp
+	upstreamStatus          *int
+	responseHash            *intents.SHA256Digest
+	responseSummary         *ResponseSummary
+	failureCode             string
+	recoveryRequestBodyHash intents.SHA256Digest
+	fulfillmentAttempts     uint32
+	retrySafe               bool
+	createdAt               domain.Timestamp
+	updatedAt               domain.Timestamp
+	version                 uint64
 }
 
 // Response is the public transaction representation without payment secrets.
@@ -175,6 +190,7 @@ type Response struct {
 	UpstreamStatus       *int                        `json:"upstreamStatus,omitempty"`
 	ResponseHash         *intents.SHA256Digest       `json:"responseHash,omitempty"`
 	FailureCode          string                      `json:"failureCode,omitempty"`
+	FulfillmentAttempts  uint32                      `json:"fulfillmentAttempts"`
 	CreatedAt            domain.Timestamp            `json:"createdAt"`
 	UpdatedAt            domain.Timestamp            `json:"updatedAt"`
 }
@@ -186,6 +202,7 @@ type CommerceLifecycleProjection struct {
 	FulfillmentState  FulfillmentState `json:"fulfillmentState"`
 	RefundState       RefundState      `json:"refundState"`
 	RecoveryAction    RecoveryAction   `json:"recoveryAction"`
+	RecoveryState     RecoveryState    `json:"recoveryState"`
 }
 
 // Reconciliation contains the amount and safe reference for one reporting stage.
@@ -386,6 +403,13 @@ func (transaction Transaction) FailureCode() string {
 	return transaction.failureCode
 }
 
+func (transaction Transaction) RecoveryRequestBodyHash() intents.SHA256Digest {
+	return transaction.recoveryRequestBodyHash
+}
+
+func (transaction Transaction) FulfillmentAttempts() uint32 { return transaction.fulfillmentAttempts }
+func (transaction Transaction) RetrySafe() bool             { return transaction.retrySafe }
+
 // CreatedAt returns the creation timestamp.
 func (transaction Transaction) CreatedAt() domain.Timestamp {
 	return transaction.createdAt
@@ -422,6 +446,7 @@ func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) Comm
 		FulfillmentState:  FulfillmentStateNotStarted,
 		RefundState:       RefundStateNotRequested,
 		RecoveryAction:    RecoveryActionRetrySameRequest,
+		RecoveryState:     RecoveryStateNone,
 	}
 	if transaction.paymentFinality == PaymentFinalityConfirmed {
 		projection.CommerceState = CommerceStatePaymentProcessing
@@ -430,6 +455,9 @@ func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) Comm
 	} else if transaction.paymentFinality == PaymentFinalityFinalized {
 		projection.CommerceState = CommerceStatePaid
 		projection.PaymentState = PaymentStateFinalized
+		if transaction.recoveryRequestBodyHash.String() != "" {
+			projection.RecoveryState = RecoveryStateRetryInProgress
+		}
 	} else if transaction.paymentFinality == PaymentFinalityFailed {
 		projection.CommerceState = CommerceStateFailed
 		projection.PaymentState = PaymentStateFailed
@@ -444,32 +472,58 @@ func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) Comm
 	case StatusForwarded:
 		projection.CommerceState = CommerceStateFulfilling
 		projection.FulfillmentState = FulfillmentStateInProgress
+		if transaction.fulfillmentAttempts > 1 {
+			projection.RecoveryState = RecoveryStateRetryInProgress
+		}
 	case StatusFulfilled:
 		projection.CommerceState = CommerceStateFulfilled
 		projection.FulfillmentState = FulfillmentStateSucceeded
 		projection.RecoveryAction = RecoveryActionNone
+		if transaction.fulfillmentAttempts > 1 {
+			projection.RecoveryState = RecoveryStateResolved
+		}
 	case StatusFailed:
 		projection.CommerceState = CommerceStateFailed
 		projection.FulfillmentState = FulfillmentStateFailed
 		if transaction.paymentFinality == PaymentFinalityFinalized {
-			projection.RecoveryAction = RecoveryActionOpenDispute
+			switch {
+			case transaction.CanRetryFulfillment():
+				projection.RecoveryState = RecoveryStateRetryAvailable
+				projection.RecoveryAction = RecoveryActionRetrySamePayment
+			case transaction.failureCode == "upstream_timeout" || transaction.failureCode == "upstream_unavailable":
+				projection.RecoveryState = RecoveryStateSellerReview
+				projection.RecoveryAction = RecoveryActionRequestSellerReview
+			default:
+				projection.RecoveryState = RecoveryStateDisputeAvailable
+				projection.RecoveryAction = RecoveryActionOpenDispute
+			}
 		}
 	case StatusDisputed:
 		projection.CommerceState = CommerceStateDisputed
 		projection.RefundState = RefundStateDisputed
 		projection.RecoveryAction = RecoveryActionAwaitResolution
+		projection.RecoveryState = RecoveryStateDisputeOpen
 	case StatusRefundRecommended:
 		projection.CommerceState = CommerceStateRefundRecommended
 		projection.RefundState = RefundStateRecommended
 		projection.RecoveryAction = RecoveryActionRecordExternalRefund
+		projection.RecoveryState = RecoveryStateRefundRecommended
 	case StatusResolved:
 		projection.CommerceState = CommerceStateResolved
 		projection.RefundState = RefundStateDisputed
 		projection.RecoveryAction = RecoveryActionNone
+		projection.RecoveryState = RecoveryStateResolved
 	}
 	if sellerReportedRefund {
 		projection.RefundState = RefundStateSellerReported
 		projection.RecoveryAction = RecoveryActionNone
+		projection.RecoveryState = RecoveryStateRefundReported
 	}
 	return projection
+}
+
+func (transaction Transaction) CanRetryFulfillment() bool {
+	return transaction.status == StatusFailed &&
+		transaction.paymentFinality == PaymentFinalityFinalized &&
+		transaction.retrySafe && transaction.fulfillmentAttempts == 1
 }

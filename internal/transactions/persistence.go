@@ -7,65 +7,71 @@ import (
 
 // Snapshot contains the complete persisted representation of a transaction.
 type Snapshot struct {
-	TransactionID        domain.ID             `json:"transactionId"`
-	IntentID             domain.ID             `json:"intentId"`
-	SellerID             domain.ID             `json:"sellerId"`
-	RouteID              domain.ID             `json:"routeId"`
-	BuyerID              string                `json:"buyerId"`
-	PurchaseSessionID    string                `json:"purchaseSessionId,omitempty"`
-	ProductDisplayName   string                `json:"productDisplayName,omitempty"`
-	ProductSlug          string                `json:"productSlug,omitempty"`
-	PaymentDestinationID domain.ID             `json:"paymentDestinationId,omitempty"`
-	PurchaseChannel      PurchaseChannel       `json:"purchaseChannel,omitempty"`
-	PaymentRail          PaymentRail           `json:"paymentRail,omitempty"`
-	Amount               domain.Amount         `json:"amount"`
-	Asset                string                `json:"asset"`
-	Network              string                `json:"network"`
-	Status               TransactionStatus     `json:"status"`
-	PaymentIdentifier    string                `json:"paymentIdentifier,omitempty"`
-	PaymentProofHash     intents.SHA256Digest  `json:"paymentProofHash,omitempty"`
-	PaymentReference     string                `json:"paymentReference,omitempty"`
-	PaymentFinality      PaymentFinality       `json:"paymentFinality,omitempty"`
-	ReconciledAt         *domain.Timestamp     `json:"reconciledAt,omitempty"`
-	UpstreamStatus       *int                  `json:"upstreamStatus,omitempty"`
-	ResponseHash         *intents.SHA256Digest `json:"responseHash,omitempty"`
-	ResponseSummary      *ResponseSummary      `json:"responseSummary,omitempty"`
-	FailureCode          string                `json:"failureCode,omitempty"`
-	CreatedAt            domain.Timestamp      `json:"createdAt"`
-	UpdatedAt            domain.Timestamp      `json:"updatedAt"`
-	Version              uint64                `json:"version"`
+	TransactionID           domain.ID             `json:"transactionId"`
+	IntentID                domain.ID             `json:"intentId"`
+	SellerID                domain.ID             `json:"sellerId"`
+	RouteID                 domain.ID             `json:"routeId"`
+	BuyerID                 string                `json:"buyerId"`
+	PurchaseSessionID       string                `json:"purchaseSessionId,omitempty"`
+	ProductDisplayName      string                `json:"productDisplayName,omitempty"`
+	ProductSlug             string                `json:"productSlug,omitempty"`
+	PaymentDestinationID    domain.ID             `json:"paymentDestinationId,omitempty"`
+	PurchaseChannel         PurchaseChannel       `json:"purchaseChannel,omitempty"`
+	PaymentRail             PaymentRail           `json:"paymentRail,omitempty"`
+	Amount                  domain.Amount         `json:"amount"`
+	Asset                   string                `json:"asset"`
+	Network                 string                `json:"network"`
+	Status                  TransactionStatus     `json:"status"`
+	PaymentIdentifier       string                `json:"paymentIdentifier,omitempty"`
+	PaymentProofHash        intents.SHA256Digest  `json:"paymentProofHash,omitempty"`
+	PaymentReference        string                `json:"paymentReference,omitempty"`
+	PaymentFinality         PaymentFinality       `json:"paymentFinality,omitempty"`
+	ReconciledAt            *domain.Timestamp     `json:"reconciledAt,omitempty"`
+	UpstreamStatus          *int                  `json:"upstreamStatus,omitempty"`
+	ResponseHash            *intents.SHA256Digest `json:"responseHash,omitempty"`
+	ResponseSummary         *ResponseSummary      `json:"responseSummary,omitempty"`
+	FailureCode             string                `json:"failureCode,omitempty"`
+	RecoveryRequestBodyHash intents.SHA256Digest  `json:"recoveryRequestBodyHash,omitempty"`
+	FulfillmentAttempts     uint32                `json:"fulfillmentAttempts,omitempty"`
+	RetrySafe               bool                  `json:"retrySafe,omitempty"`
+	CreatedAt               domain.Timestamp      `json:"createdAt"`
+	UpdatedAt               domain.Timestamp      `json:"updatedAt"`
+	Version                 uint64                `json:"version"`
 }
 
 // Snapshot returns an isolated transaction persistence representation.
 func (transaction Transaction) Snapshot() Snapshot {
 	return Snapshot{
-		TransactionID:        transaction.transactionID,
-		IntentID:             transaction.intentID,
-		SellerID:             transaction.sellerID,
-		RouteID:              transaction.routeID,
-		BuyerID:              transaction.buyerID,
-		PurchaseSessionID:    transaction.purchaseSessionID,
-		ProductDisplayName:   transaction.productDisplayName,
-		ProductSlug:          transaction.productSlug,
-		PaymentDestinationID: transaction.paymentDestinationID,
-		PurchaseChannel:      transaction.purchaseChannel,
-		PaymentRail:          transaction.paymentRail,
-		Amount:               transaction.amount,
-		Asset:                transaction.asset,
-		Network:              transaction.network,
-		Status:               transaction.status,
-		PaymentIdentifier:    transaction.paymentIdentifier,
-		PaymentProofHash:     transaction.paymentProofHash,
-		PaymentReference:     transaction.paymentReference,
-		PaymentFinality:      transaction.paymentFinality,
-		ReconciledAt:         transaction.ReconciledAt(),
-		UpstreamStatus:       transaction.UpstreamStatus(),
-		ResponseHash:         transaction.ResponseHash(),
-		ResponseSummary:      transaction.ResponseSummary(),
-		FailureCode:          transaction.failureCode,
-		CreatedAt:            transaction.createdAt,
-		UpdatedAt:            transaction.updatedAt,
-		Version:              transaction.version,
+		TransactionID:           transaction.transactionID,
+		IntentID:                transaction.intentID,
+		SellerID:                transaction.sellerID,
+		RouteID:                 transaction.routeID,
+		BuyerID:                 transaction.buyerID,
+		PurchaseSessionID:       transaction.purchaseSessionID,
+		ProductDisplayName:      transaction.productDisplayName,
+		ProductSlug:             transaction.productSlug,
+		PaymentDestinationID:    transaction.paymentDestinationID,
+		PurchaseChannel:         transaction.purchaseChannel,
+		PaymentRail:             transaction.paymentRail,
+		Amount:                  transaction.amount,
+		Asset:                   transaction.asset,
+		Network:                 transaction.network,
+		Status:                  transaction.status,
+		PaymentIdentifier:       transaction.paymentIdentifier,
+		PaymentProofHash:        transaction.paymentProofHash,
+		PaymentReference:        transaction.paymentReference,
+		PaymentFinality:         transaction.paymentFinality,
+		ReconciledAt:            transaction.ReconciledAt(),
+		UpstreamStatus:          transaction.UpstreamStatus(),
+		ResponseHash:            transaction.ResponseHash(),
+		ResponseSummary:         transaction.ResponseSummary(),
+		FailureCode:             transaction.failureCode,
+		RecoveryRequestBodyHash: transaction.recoveryRequestBodyHash,
+		FulfillmentAttempts:     transaction.fulfillmentAttempts,
+		RetrySafe:               transaction.retrySafe,
+		CreatedAt:               transaction.createdAt,
+		UpdatedAt:               transaction.updatedAt,
+		Version:                 transaction.version,
 	}
 }
 
@@ -92,6 +98,14 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 			"stored payment finality is invalid",
 		)
 	}
+	if snapshot.RecoveryRequestBodyHash.String() != "" {
+		if _, err := intents.ParseSHA256Digest(snapshot.RecoveryRequestBodyHash.String()); err != nil {
+			return Transaction{}, domain.NewValidationError("recoveryRequestBodyHash", "persistence", "stored recovery request hash is invalid")
+		}
+	}
+	if snapshot.FulfillmentAttempts > 2 {
+		return Transaction{}, domain.NewValidationError("fulfillmentAttempts", "persistence", "stored fulfillment attempts exceed the V1 limit")
+	}
 	purchaseChannel := snapshot.PurchaseChannel
 	if purchaseChannel == "" {
 		purchaseChannel = PurchaseChannelAgent
@@ -100,34 +114,41 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 	if paymentRail == "" {
 		paymentRail = PaymentRailX402
 	}
+	fulfillmentAttempts := snapshot.FulfillmentAttempts
+	if fulfillmentAttempts == 0 && (snapshot.Status == StatusForwarded || snapshot.Status == StatusFulfilled || snapshot.Status == StatusFailed || snapshot.Status == StatusDisputed || snapshot.Status == StatusRefundRecommended || snapshot.Status == StatusResolved) {
+		fulfillmentAttempts = 1
+	}
 	return Transaction{
-		transactionID:        snapshot.TransactionID,
-		intentID:             snapshot.IntentID,
-		sellerID:             snapshot.SellerID,
-		routeID:              snapshot.RouteID,
-		buyerID:              snapshot.BuyerID,
-		purchaseSessionID:    snapshot.PurchaseSessionID,
-		productDisplayName:   snapshot.ProductDisplayName,
-		productSlug:          snapshot.ProductSlug,
-		paymentDestinationID: snapshot.PaymentDestinationID,
-		purchaseChannel:      purchaseChannel,
-		paymentRail:          paymentRail,
-		amount:               snapshot.Amount,
-		asset:                snapshot.Asset,
-		network:              snapshot.Network,
-		status:               snapshot.Status,
-		paymentIdentifier:    snapshot.PaymentIdentifier,
-		paymentProofHash:     snapshot.PaymentProofHash,
-		paymentReference:     snapshot.PaymentReference,
-		paymentFinality:      paymentFinality,
-		reconciledAt:         reconciledAt,
-		upstreamStatus:       snapshot.UpstreamStatus,
-		responseHash:         snapshot.ResponseHash,
-		responseSummary:      snapshot.ResponseSummary,
-		failureCode:          snapshot.FailureCode,
-		createdAt:            snapshot.CreatedAt,
-		updatedAt:            snapshot.UpdatedAt,
-		version:              snapshot.Version,
+		transactionID:           snapshot.TransactionID,
+		intentID:                snapshot.IntentID,
+		sellerID:                snapshot.SellerID,
+		routeID:                 snapshot.RouteID,
+		buyerID:                 snapshot.BuyerID,
+		purchaseSessionID:       snapshot.PurchaseSessionID,
+		productDisplayName:      snapshot.ProductDisplayName,
+		productSlug:             snapshot.ProductSlug,
+		paymentDestinationID:    snapshot.PaymentDestinationID,
+		purchaseChannel:         purchaseChannel,
+		paymentRail:             paymentRail,
+		amount:                  snapshot.Amount,
+		asset:                   snapshot.Asset,
+		network:                 snapshot.Network,
+		status:                  snapshot.Status,
+		paymentIdentifier:       snapshot.PaymentIdentifier,
+		paymentProofHash:        snapshot.PaymentProofHash,
+		paymentReference:        snapshot.PaymentReference,
+		paymentFinality:         paymentFinality,
+		reconciledAt:            reconciledAt,
+		upstreamStatus:          snapshot.UpstreamStatus,
+		responseHash:            snapshot.ResponseHash,
+		responseSummary:         snapshot.ResponseSummary,
+		failureCode:             snapshot.FailureCode,
+		recoveryRequestBodyHash: snapshot.RecoveryRequestBodyHash,
+		fulfillmentAttempts:     fulfillmentAttempts,
+		retrySafe:               snapshot.RetrySafe,
+		createdAt:               snapshot.CreatedAt,
+		updatedAt:               snapshot.UpdatedAt,
+		version:                 snapshot.Version,
 	}, nil
 }
 

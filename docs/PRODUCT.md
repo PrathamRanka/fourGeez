@@ -360,6 +360,16 @@ following `start_new_checkout`, including `payment_expired` and
 `route_contract_stale`; those failures may never reuse the stale payment
 contract.
 
+Paid-but-unfulfilled recovery never creates a second charge. AgentPay assigns a
+deterministic compensation path from recorded facts: one same-payment
+fulfillment retry is available only after a pre-dispatch AgentPay failure or a
+seller-declared side-effect-free HTTP 400/422 rejection; uncertain dispatch
+requires seller review; definitive non-delivery permits a dispute; and a
+refund-recommended dispute permits the seller to record an externally completed
+full refund. A retry must present the identical payment proof, which is compared
+only by its stored hash, and may carry corrected request bytes. AgentPay does
+not reverify or resettle the payment and permits at most one recovery attempt.
+
 ## Seller payment and reporting
 
 Each seller configures and proves control of an asset-and-network-specific

@@ -374,6 +374,21 @@ validated and approved; publication revisions advance monotonically; public
 responses require revalidation instead of retaining a stale framework cache;
 focused backend and web regressions pass.
 
+- [x] **EXT-007** Add deterministic paid-but-unfulfilled compensation without
+  custody or duplicate charging. Permit one same-payment fulfillment retry only
+  for a pre-dispatch failure or an explicit side-effect-free seller 400/422,
+  bind corrected bytes to a new execution capability while retaining the
+  original payment proof hash and transaction, expose seller-review, dispute,
+  refund-recommended, and seller-reported refund recovery states, and make buyer
+  and seller surfaces distinguish finalized payment from delivery failure.
+  Automatic USDC transfer remains unavailable because no refund adapter exists.
+
+EXT-007 acceptance: deterministic tests prove one settlement followed by one
+corrected fulfillment retry, no second verification or settlement call, atomic
+retry claiming, bounded attempts, ambiguous-delivery seller review, dispute and
+manual-refund paths, safe persistence without raw proofs or request bodies, and
+truthful local-only verification status.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same

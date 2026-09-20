@@ -589,6 +589,9 @@ No Lean V1 endpoint creates, exchanges, reads, or consumes this grant.
 | `responseHash` | string/null | Hash of captured response bytes |
 | `responseSummary` | object/null | Allowlisted metadata only |
 | `failureCode` | string/null | Stable internal code |
+| `fulfillmentAttempts` | integer | Seller forwarding claims; Lean V1 permits at most two when the second reuses one finalized payment |
+| `recoveryRequestBodyHash` | string/null | SHA-256 of corrected retry input; raw request bytes are never persisted |
+| `retrySafe` | boolean | True only after an explicit side-effect-free 400/422 seller rejection or a pre-dispatch AgentPay failure |
 
 For the first implementation, a transaction ID reuses its purchase intent's
 ULID payload with the `txn_` prefix. This provides a deterministic point lookup
@@ -601,6 +604,8 @@ PROPOSED -> PAYMENT_REQUIRED
 PAYMENT_REQUIRED -> PAYMENT_VERIFIED -> FORWARDED -> FULFILLED
                          |                |             |
                          +-> FAILED       +-> FAILED <---+
+                              |
+                              +-> PAYMENT_VERIFIED -> FORWARDED -> FULFILLED|FAILED
 FULFILLED|FAILED -> DISPUTED -> REFUND_RECOMMENDED|RESOLVED
 REFUND_RECOMMENDED -> RESOLVED
 ```
@@ -643,6 +648,18 @@ enters seller review and exposes `await_reconciliation`; it never invites a new
 authorization or repeats settlement. Definitive settlement rejection is
 terminal and requires a new browser purchase session or agent intent.
 
+After finalized payment, one same-payment fulfillment retry is permitted only
+when AgentPay can establish that no business side effect occurred. This is true
+for AgentPay failures before dispatch, or when the seller returns HTTP 400 or
+422 with `X-AgentPay-Retry-Safe: corrected-input`. The buyer resubmits the
+identical payment proof; AgentPay compares its stored hash, does not call
+verification or settlement again, conditionally prepares the failed
+transaction, stores only the corrected body hash, and issues a new short-lived
+execution capability bound to the corrected bytes. Concurrent or second retry
+claims fail closed. Timeouts, connection loss after dispatch, malformed seller
+responses, 5xx responses, and missing retry assertions are never retried
+automatically because fulfillment may be uncertain.
+
 The forwarding claim is one conditional mutation requiring all of
 `status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the expected transaction
 version, and no prior forwarding owner. Only that winner changes the status to
@@ -658,11 +675,13 @@ unlike currencies are never combined.
 The API also derives a `CommerceLifecycleProjection` from the authoritative
 transaction without persisting a second order record. It exposes
 `externalReference=transactionId`, an order-compatible `commerceState`,
-separate `paymentState`, `fulfillmentState`, and `refundState`, plus a bounded
-`recoveryAction`. Recovery actions are advisory and deterministic:
+separate `paymentState`, `fulfillmentState`, and `refundState`, plus bounded
+`recoveryState` and `recoveryAction` values. Recovery actions are advisory and deterministic:
 `retry_same_request` before a payment is observed, `await_reconciliation` while
-finality is unknown, `none` after successful fulfillment, `open_dispute` after
-a finalized delivery failure, `await_resolution` for an open dispute, and
+finality is unknown, `retry_same_payment` for one explicitly safe fulfillment
+retry, `request_seller_review` for uncertain dispatch, `none` after successful
+fulfillment, `open_dispute` after a definitive finalized delivery failure,
+`await_resolution` for an open dispute, and
 `record_external_refund` only for `REFUND_RECOMMENDED`. A definitive failed
 payment requires a new intent and never reuses the failed authorization.
 

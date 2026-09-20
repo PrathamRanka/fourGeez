@@ -308,6 +308,13 @@ Forbidden:
 - Payment-proof sanitization maps facilitator and wallet failures to bounded
   machine codes and safe messages; raw proofs, signatures, wallet material,
   and provider diagnostics never enter responses, evidence, persistence, or logs.
+- A paid fulfillment retry never calls the payment adapter. It requires the
+  stored finalized payment, an identical payment-proof hash, a conditional
+  failed-transaction claim, and either a pre-dispatch AgentPay failure or the
+  exact seller response header `X-AgentPay-Retry-Safe: corrected-input` on HTTP
+  400/422. The corrected request is capability-bound and only its SHA-256 hash
+  is persisted. Missing assertions, timeouts, transport ambiguity, 5xx, and a
+  second retry require seller review or dispute instead of another invocation.
 - Authenticate and authorize the seller before consuming seller-scoped API
   quota so an attacker cannot exhaust another tenant's allowance.
 - Manual refund recording never moves funds. It derives `sellerId` and

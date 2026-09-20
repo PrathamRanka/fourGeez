@@ -194,6 +194,7 @@ func transactionResponse(transaction Transaction) Response {
 		UpstreamStatus:       transaction.UpstreamStatus(),
 		ResponseHash:         transaction.ResponseHash(),
 		FailureCode:          transaction.FailureCode(),
+		FulfillmentAttempts:  transaction.FulfillmentAttempts(),
 		CreatedAt:            transaction.CreatedAt(),
 		UpdatedAt:            transaction.UpdatedAt(),
 	}
@@ -517,7 +518,11 @@ func (transaction *Transaction) MarkForwarded(at domain.Timestamp) error {
 		transaction.paymentFinality != PaymentFinalityFinalized {
 		return InvalidTransitionError{From: transaction.status, To: StatusForwarded}
 	}
-	return transaction.transition(StatusForwarded, at)
+	if err := transaction.transition(StatusForwarded, at); err != nil {
+		return err
+	}
+	transaction.fulfillmentAttempts++
+	return nil
 }
 
 // MarkFulfilled records successful seller delivery.
@@ -566,6 +571,16 @@ func (transaction *Transaction) MarkFailed(
 	responseHash *intents.SHA256Digest,
 	at domain.Timestamp,
 ) error {
+	return transaction.MarkFailedWithRecovery(failureCode, status, responseHash, false, at)
+}
+
+func (transaction *Transaction) MarkFailedWithRecovery(
+	failureCode string,
+	status *int,
+	responseHash *intents.SHA256Digest,
+	retrySafe bool,
+	at domain.Timestamp,
+) error {
 	if strings.TrimSpace(failureCode) == "" {
 		return domain.NewValidationError("failureCode", "required", "is required")
 	}
@@ -582,6 +597,9 @@ func (transaction *Transaction) MarkFailed(
 		return err
 	}
 	transaction.failureCode = strings.TrimSpace(failureCode)
+	transaction.retrySafe = retrySafe && transaction.paymentFinality == PaymentFinalityFinalized &&
+		transaction.fulfillmentAttempts == 1 && ((status != nil && (*status == 400 || *status == 422)) ||
+		(status == nil && (transaction.failureCode == "execution_authorization_unavailable" || transaction.failureCode == "forwarding_evidence_unavailable")))
 	if status != nil {
 		transaction.upstreamStatus = intPointer(*status)
 	}
@@ -589,6 +607,28 @@ func (transaction *Transaction) MarkFailed(
 		responseHashCopy := *responseHash
 		transaction.responseHash = &responseHashCopy
 	}
+	return nil
+}
+
+func (transaction *Transaction) PrepareFulfillmentRetry(requestBodyHash intents.SHA256Digest, at domain.Timestamp) error {
+	if _, err := intents.ParseSHA256Digest(requestBodyHash.String()); err != nil {
+		return domain.NewValidationError("requestBodyHash", "format", "must be a SHA-256 digest")
+	}
+	if !transaction.CanRetryFulfillment() {
+		return InvalidTransitionError{From: transaction.status, To: StatusPaymentVerified}
+	}
+	if err := transaction.validateMutationTime(at); err != nil {
+		return err
+	}
+	transaction.status = StatusPaymentVerified
+	transaction.recoveryRequestBodyHash = requestBodyHash
+	transaction.retrySafe = false
+	transaction.failureCode = ""
+	transaction.upstreamStatus = nil
+	transaction.responseHash = nil
+	transaction.responseSummary = nil
+	transaction.updatedAt = at
+	transaction.version++
 	return nil
 }
 

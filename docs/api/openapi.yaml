@@ -5,7 +5,13 @@ info:
   description: |
     Seller commerce gateway, transaction, and dispute API. AgentPay is a working name.
     Version 0.9.0 adds authoritative pre-payment validation against each
-    published route inputSchema and bounded field-level validation failures.
+    published route inputSchema, bounded field-level validation failures, and
+    deterministic paid-but-unfulfilled recovery. A seller
+    may mark only an HTTP 400 or 422 response as side-effect-free with
+    X-AgentPay-Retry-Safe: corrected-input; the buyer may then resubmit the
+    same payment proof once with corrected input. Verification and settlement
+    are not repeated. Ambiguous transport failures require seller review, and
+    refunds remain seller-reported unless a future transfer adapter is added.
     Version 0.8.0 removed the seller-callable onboarding purchase action while
     preserving public buyer storefront and external buyer-agent commerce.
     Version 0.7.0 extended the locked M7.1 production target with EXT-001 public
@@ -1703,7 +1709,16 @@ paths:
         '503': { $ref: '#/components/responses/PaymentUnavailable' }
     post:
       summary: Purchase a configured POST resource
-      description: The JSON body is required and must validate against the authoritative published route inputSchema before AgentPay creates a transaction, returns an x402 challenge, verifies a proof, or settles payment. Products with no input properties send an empty JSON object.
+      description: |
+        The JSON body is required and must validate against the authoritative
+        published route inputSchema before AgentPay creates a transaction,
+        returns an x402 challenge, verifies a proof, or settles payment.
+        Products with no input properties send an empty JSON object. The normal
+        request body must match the immutable purchase intent. After
+        a finalized transaction fails fulfillment, the same endpoint accepts
+        one corrected body only when the stored recovery state is
+        retry_available. The caller must resend the identical PAYMENT-SIGNATURE;
+        AgentPay compares its stored hash and does not verify or settle again.
       tags: [Proxy]
       operationId: postPaidResource
       security: [{ buyerAgentKey: [] }, { browserPurchaseCookie: [] }]
@@ -2638,7 +2653,7 @@ components:
     Transaction:
       type: object
       additionalProperties: false
-      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, priceBreakdown, commerceLifecycle, createdAt, updatedAt]
+      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, priceBreakdown, commerceLifecycle, fulfillmentAttempts, createdAt, updatedAt]
       properties:
         transactionId: { type: string }
         intentId: { type: string }
@@ -2664,6 +2679,7 @@ components:
         upstreamStatus: { type: [integer, 'null'] }
         responseHash: { oneOf: [{ $ref: '#/components/schemas/Sha256' }, { type: 'null' }] }
         failureCode: { type: [string, 'null'] }
+        fulfillmentAttempts: { type: integer, minimum: 0, maximum: 2 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
       allOf:
@@ -2697,14 +2713,15 @@ components:
     CommerceLifecycleProjection:
       type: object
       additionalProperties: false
-      required: [externalReference, commerceState, paymentState, fulfillmentState, refundState, recoveryAction]
+      required: [externalReference, commerceState, paymentState, fulfillmentState, refundState, recoveryAction, recoveryState]
       properties:
         externalReference: { type: string, description: Stable transaction identifier suitable for mapping into an external order system. }
         commerceState: { type: string, enum: [awaiting_payment, payment_processing, paid, fulfilling, fulfilled, failed, disputed, refund_recommended, resolved] }
         paymentState: { type: string, enum: [pending, confirmed, finalized, failed] }
         fulfillmentState: { type: string, enum: [not_started, in_progress, succeeded, failed] }
         refundState: { type: string, enum: [not_requested, disputed, recommended, seller_reported] }
-        recoveryAction: { type: string, enum: [retry_same_request, await_reconciliation, create_new_intent, open_dispute, await_resolution, record_external_refund, none] }
+        recoveryAction: { type: string, enum: [retry_same_request, retry_same_payment, await_reconciliation, create_new_intent, open_dispute, await_resolution, record_external_refund, request_seller_review, none] }
+        recoveryState: { type: string, enum: [none, retry_available, retry_in_progress, seller_review, dispute_available, dispute_open, refund_recommended, refund_reported, resolved] }
     PurchaseReceipt:
       oneOf:
         - { $ref: '#/components/schemas/PurchaseReceiptV1' }

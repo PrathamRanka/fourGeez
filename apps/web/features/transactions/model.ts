@@ -43,12 +43,24 @@ export type CommerceLifecycle = {
   refundState: "not_requested" | "disputed" | "recommended" | "seller_reported";
   recoveryAction:
     | "retry_same_request"
+    | "retry_same_payment"
     | "await_reconciliation"
     | "create_new_intent"
     | "open_dispute"
     | "await_resolution"
     | "record_external_refund"
+    | "request_seller_review"
     | "none";
+  recoveryState:
+    | "none"
+    | "retry_available"
+    | "retry_in_progress"
+    | "seller_review"
+    | "dispute_available"
+    | "dispute_open"
+    | "refund_recommended"
+    | "refund_reported"
+    | "resolved";
 };
 
 export type Transaction = {
@@ -71,6 +83,7 @@ export type Transaction = {
   upstreamStatus: number | null;
   responseHash: string | null;
   failureCode: string | null;
+  fulfillmentAttempts: number;
   createdAt: string;
   updatedAt: string;
 };

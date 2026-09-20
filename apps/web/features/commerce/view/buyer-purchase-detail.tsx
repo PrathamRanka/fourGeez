@@ -167,6 +167,14 @@ export function BuyerPurchaseDetail({
               {transactionOutcome(transaction.status)} Payment, fulfillment,
               receipt, and support records remain bound to this purchase.
             </p>
+            {transaction.status === "FAILED" &&
+            transaction.paymentFinality === "finalized" ? (
+              <p role="status">
+                {buyerRecoveryMessage(
+                  transaction.commerceLifecycle.recoveryAction,
+                )}
+              </p>
+            ) : null}
             <p className={styles.testnetNotice}>
               Testnet payment · Base Sepolia USDC · no real-money production
             </p>
@@ -580,6 +588,18 @@ function transactionOutcome(
   if (status === "FULFILLED") return "The seller completed this purchase.";
   if (status === "FAILED") return "Payment completed, but fulfillment failed.";
   return `This purchase is ${transactionStatusLabel(status).toLowerCase()}.`;
+}
+
+function buyerRecoveryMessage(
+  action: BuyerPurchaseSnapshot["transaction"]["commerceLifecycle"]["recoveryAction"],
+): string {
+  if (action === "retry_same_payment") {
+    return "Your payment succeeded. You may correct the request and retry fulfillment without authorizing another payment.";
+  }
+  if (action === "request_seller_review") {
+    return "Your payment succeeded, but delivery is uncertain. The seller must review it before any retry or refund record.";
+  }
+  return "Your payment succeeded, but delivery failed. Open a dispute for a recorded resolution path.";
 }
 
 function receiptMatchesTransaction(

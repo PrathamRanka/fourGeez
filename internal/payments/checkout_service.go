@@ -87,8 +87,22 @@ func (service *CheckoutService) Execute(
 		return CheckoutResult{}, err
 	}
 	requestBodyHash, err := intents.HashRequestBody(request.Body, request.ContentType)
-	if err != nil || requestBodyHash != resolved.PurchaseIntent.RequestBodyHash() {
+	if err != nil {
 		return CheckoutResult{}, ErrPaidRouteMismatch
+	}
+	if requestBodyHash != resolved.PurchaseIntent.RequestBodyHash() {
+		transactionID, idErr := transactionIDForIntent(resolved.PurchaseIntent.IntentID())
+		if idErr != nil {
+			return CheckoutResult{}, idErr
+		}
+		transaction, loadErr := service.transactionRepository.Get(ctx, transactionID)
+		if loadErr != nil || !transaction.CanRetryFulfillment() || len(strings.TrimSpace(request.PaymentProof)) == 0 {
+			return CheckoutResult{}, ErrPaidRouteMismatch
+		}
+		if issues := catalog.ValidateJSONAgainstSchema(resolved.Route.InputSchema, request.Body, request.ContentType); len(issues) > 0 {
+			return CheckoutResult{}, RequestValidationError{Issues: issues}
+		}
+		return service.retryCorrectedFulfillment(ctx, request, resolved, transaction, requestBodyHash)
 	}
 	if issues := catalog.ValidateJSONAgainstSchema(resolved.Route.InputSchema, request.Body, request.ContentType); len(issues) > 0 {
 		return CheckoutResult{}, RequestValidationError{Issues: issues}
@@ -356,6 +370,33 @@ func isTerminalPaymentRejection(err error) bool {
 }
 
 const paymentReviewPayerMismatch = "settlement_payer_mismatch"
+
+func (service *CheckoutService) retryCorrectedFulfillment(
+	ctx context.Context,
+	request CheckoutRequest,
+	resolved ResolvedPaidRoute,
+	transaction transactions.Transaction,
+	requestBodyHash intents.SHA256Digest,
+) (CheckoutResult, error) {
+	if strings.TrimSpace(request.PaymentProof) == "" || !transaction.CanRetryFulfillment() {
+		return CheckoutResult{}, ErrPaidRouteMismatch
+	}
+	proofHash, err := paymentProofHash(request.PaymentProof)
+	if err != nil || proofHash != transaction.PaymentProofHash() {
+		return CheckoutResult{}, ErrPaymentReplay
+	}
+	expectedVersion := transaction.Version()
+	if err := transaction.PrepareFulfillmentRetry(requestBodyHash, domain.NewTimestamp(service.clock.Now())); err != nil {
+		return CheckoutResult{}, err
+	}
+	if err := service.transactionRepository.Update(ctx, transaction, expectedVersion); err != nil {
+		if errors.Is(err, persistence.ErrConditionFailed) {
+			return CheckoutResult{}, ErrPaymentReplay
+		}
+		return CheckoutResult{}, err
+	}
+	return service.executeFinalized(ctx, request, resolved, transaction, "", "")
+}
 
 func (service *CheckoutService) executeFinalized(
 	ctx context.Context,

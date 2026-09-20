@@ -49,9 +49,9 @@ pinned official Docker images, while Java 17 or newer is required locally.
 Version 2 replaces shared seller HMAC authority for production fulfillment.
 The cloud may mint this capability only after an atomic forwarding claim whose
 condition includes `status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the
-expected transaction version, and absence of a prior forwarding owner. The
-current M7 Go repository checks status only and therefore remains development
-compatibility code until LCH-024 updates that condition.
+expected transaction version, and a valid initial or recovery forwarding state.
+The transaction may be claimed once for its initial fulfillment and once more
+only after a conditionally recorded same-payment recovery decision.
 Every AgentPay-to-seller request includes
 `X-AgentPay-Execution-Capability: <compact JWT>` and
 `X-AgentPay-Transaction-Id: txn_...` along with the exact configured method,
@@ -85,6 +85,14 @@ and claim verification, it atomically consumes `jti` in a shared replay store
 and uses `transactionId` as the seller application's fulfillment idempotency
 key. A repeated JTI returns `409`; an already completed transaction returns its
 stored outcome without rerunning business logic.
+
+If the seller rejects malformed or correctable input before any business side
+effect, it may return HTTP 400 or 422 with
+`X-AgentPay-Retry-Safe: corrected-input`. This is a strict seller assertion:
+AgentPay permits at most one corrected request for the same transaction and
+finalized payment. Sellers must omit it after any ambiguous or completed side
+effect. Timeouts, connection loss, 5xx responses, and responses without the
+exact header enter seller review or dispute instead.
 
 Verification failure returns `401`, binding or audience mismatch returns `403`,
 replay returns `409`, and JWKS/replay-store failure returns `503`. Middleware

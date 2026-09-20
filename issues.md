@@ -138,18 +138,18 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-43. There is no automatic remediation when payment settles but seller fulfillment fails.
-44. Buyers cannot safely correct an invalid request and retry fulfillment without risking a new checkout and another payment.
-45. The UI does not clearly distinguish “payment succeeded, fulfillment failed” from “payment failed.”
-46. The earlier paid-but-failed transaction requires manual refund or explicit seller resolution.
-47. AgentPay records seller-reported refunds but does not automatically transfer USDC back to the buyer.
+43. **Resolved locally (2026-09-20):** finalized fulfillment failures now receive a deterministic recovery state and action.
+44. **Resolved locally (2026-09-20):** one corrected fulfillment retry may reuse the identical finalized payment only after a pre-dispatch failure or an explicit side-effect-free seller 400/422; verification and settlement are not repeated.
+45. **Resolved locally (2026-09-20):** buyer and seller transaction views distinguish finalized payment with failed fulfillment and show the bounded next action.
+46. **Resolved locally (2026-09-20):** paid failures route explicitly to same-payment retry, seller review, dispute, or seller-reported external refund according to recorded facts.
+47. **Truthfully constrained (2026-09-20):** AgentPay still records but does not transfer refunds. No refund-transfer adapter exists, so automated USDC refunds remain out of scope and are not represented as completed.
 
 ### P1
 
-48. There is no locked compensation policy choosing among automatic fulfillment retry, seller review, refund, or dispute creation.
-49. Payment-failure and checkout-failure recovery are implemented partially but have not been fully verified live.
-50. Duplicate, non-delivery, and quality-dispute outcomes have not been exercised end to end.
-51. Transaction and order reconciliation after uncertain settlement outcomes has not been demonstrated live.
+48. **Resolved locally (2026-09-20):** EXT-007 locks the compensation policy for retry, seller review, dispute, and external refund recording.
+49. **Partially resolved (2026-09-20):** deterministic local tests cover payment and paid-fulfillment recovery; deployed live verification remains pending.
+50. **Partially resolved (2026-09-20):** deterministic dispute tests cover duplicate, non-delivery, and quality classifications; deployed end-to-end evidence remains pending under REL-005.
+51. **Partially resolved (2026-09-20):** local transaction lifecycle and reconciliation projections include explicit recovery states; deployed uncertain-settlement demonstration remains pending.
 
 ## 8. Transaction, dashboard, and lifecycle UX
 
