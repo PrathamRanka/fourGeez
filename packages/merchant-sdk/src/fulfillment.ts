@@ -30,6 +30,7 @@ export class MemoryFulfillmentStore<
 > implements FulfillmentStore<TResult> {
   readonly #records = new Map<string, MemoryFulfillmentState<TResult>>();
 
+  // Local/test only: this does not coordinate multiple processes.
   async begin(transactionId: string): Promise<FulfillmentBeginResult<TResult>> {
     const current = this.#records.get(transactionId);
     if (current?.status === "completed") {

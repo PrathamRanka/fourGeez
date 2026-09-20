@@ -65,7 +65,7 @@ export class VerificationError extends Error {
 export class MemoryReplayStore implements ReplayStore {
   readonly #transactions = new Set<string>();
 
-  // Claims a transaction once within the current process.
+  // Local/test only: claims a transaction once within the current process.
   async claim(transactionId: string): Promise<boolean> {
     if (this.#transactions.has(transactionId)) {
       return false;
@@ -82,6 +82,7 @@ export interface ExecutionReplayStore {
 export class MemoryExecutionReplayStore implements ExecutionReplayStore {
   readonly #identifiers = new Set<string>();
 
+  // Local/test only: this does not coordinate multiple processes.
   async claim(jti: string): Promise<boolean> {
     if (this.#identifiers.has(jti)) {
       return false;

@@ -225,6 +225,15 @@ Each task remains independently tested and committed.
   - September 20, 2026 production-flow correction: an authenticated, version-bound service-activation mutation enables the ES256 execution-capability integration for an HTTPS origin before project-key issuance. It creates no shared seller HMAC secret; publication still requires the cloud sandbox to verify the generated endpoint.
 - [ ] **DX-004** Produce reproducible, self-contained proprietary release artifacts for `@agentpay/local-mcp-connector` and `@agentpay/merchant-sdk`. Validate exact packed contents and clean installation, include the proprietary license and reviewed notice, generate SHA-256 checksums and source-commit provenance, and publish a Windows-first installation runbook for Claude Code, Codex, and generic stdio MCP hosts. Registry publication remains blocked; a release owner may distribute the artifacts only from a protected immutable release after approving customer-use terms and third-party provenance.
 - [x] **DX-005** Replace seller-funded onboarding proof with an authoritative automated integration verification result. Reuse the existing sandbox validator and protected seller forwarder; report bounded redacted pass/fail checks for reachability, signed request/response compatibility, closed input/output contracts, fulfillment readiness, payment gating, and replay/idempotency readiness. Persist only the latest route-version-bound result for onboarding, append a seller-scoped audit event for every completed run, and never create an intent or transaction, settle funds, invoke a paid business route, accept a caller-supplied URL, or expose secrets. Issue-register item 2.
+- [x] **DX-006** Replace the runnable seller prototype's process-local execution,
+  webhook, and fulfillment state with seller-owned DynamoDB adapters. Replay
+  claims must be atomic and TTL-bounded; fulfillment claims and completed
+  serializable results must be transaction-keyed, conditionally written, and
+  retained without TTL so restarts and concurrent instances cannot rerun a
+  completed business action. Keep memory adapters explicitly limited to tests
+  and single-process local development, fail closed on storage errors, and do
+  not add an AgentPay-managed seller-state table or mutate AWS. Issue-register
+  item 11.
 
 M7.2 acceptance: an eligible first-time seller can identify an evidenced
 maintained stack, select the matching setup workflow, diagnose local connector
@@ -234,6 +243,16 @@ setup invitation. Prices and payout destinations remain seller-controlled, and
 published products expose their canonical storefront URLs in the dashboard.
 Package-registry publication and deployed AWS reachability remain explicit
 release dependencies rather than being represented as complete.
+
+DX-006 acceptance: two store instances sharing one DynamoDB table admit one
+execution JTI, legacy request identifier, or webhook event claim; replay items
+carry numeric DynamoDB TTL values; one transaction conditionally starts
+fulfillment and later replays the exact stored result; overlapping attempts are
+rejected; failed business execution may release its own claim; uncertain
+completion remains claimed; the runnable seller prototype selects DynamoDB by
+default and permits memory state only through an explicit local-only setting;
+focused package tests, type checks, builds, and package-distribution checks
+pass.
 
 DX-004 acceptance: two independently generated artifact sets from the same
 clean commit have identical package checksums; each tarball installs into an

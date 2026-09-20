@@ -2,13 +2,11 @@ import { createServer } from "node:http";
 import {
   createHttpsMerchantAdapter,
   createRemoteJwksResolver,
-  MemoryExecutionReplayStore,
-  MemoryFulfillmentStore,
-  MemoryWebhookReplayStore,
   MerchantSdkError,
   processAgentPayFulfillment,
   verifyAgentPayWebhook,
 } from "../../packages/merchant-sdk/dist/index.js";
+import { createSellerStateStores } from "./state-stores.mjs";
 
 const apiOrigin = requiredEnvironment("AGENTPAY_API_ORIGIN");
 const sellerId = requiredEnvironment("AGENTPAY_SELLER_ID");
@@ -21,10 +19,12 @@ const keyResolver = createRemoteJwksResolver({
   jwksUrl: `${apiOrigin.replace(/\/$/, "")}/.well-known/jwks.json`,
 });
 
-// Local example only. Production deployments require shared atomic stores.
-const executionReplayStore = new MemoryExecutionReplayStore();
-const fulfillmentStore = new MemoryFulfillmentStore();
-const webhookReplayStore = new MemoryWebhookReplayStore();
+const {
+  mode: stateMode,
+  executionReplayStore,
+  fulfillmentStore,
+  webhookReplayStore,
+} = createSellerStateStores(process.env, sellerId);
 
 createServer(async (request, response) => {
   try {
@@ -80,7 +80,9 @@ createServer(async (request, response) => {
     response.end(JSON.stringify({ error: "AgentPay request failed" }));
   }
 }).listen(3001, "127.0.0.1", () => {
-  process.stdout.write("merchant example listening on http://127.0.0.1:3001\n");
+  process.stdout.write(
+    `merchant example listening on http://127.0.0.1:3001 (${stateMode} state)\n`,
+  );
 });
 
 async function readRawBody(request, maximumBytes) {

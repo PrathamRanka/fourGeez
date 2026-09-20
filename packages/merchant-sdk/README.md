@@ -68,6 +68,35 @@ const result = await processAgentPayFulfillment({
 `MemoryFulfillmentStore` are for tests and single-process local development
 only. They are not safe for horizontally scaled production deployments.
 
+AWS sellers can install the pinned optional DynamoDB peers and use the durable
+subpath without loading AWS dependencies for non-AWS integrations:
+
+```powershell
+npm install --save-exact @aws-sdk/client-dynamodb@3.1136.0 @aws-sdk/lib-dynamodb@3.1136.0
+```
+
+```ts
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import {
+  DynamoDbExecutionReplayStore,
+  DynamoDbFulfillmentStore,
+  DynamoDbWebhookReplayStore,
+} from "@agentpay/merchant-sdk/dynamodb";
+
+const client = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: process.env.AWS_REGION! }),
+);
+const storeOptions = {
+  client,
+  tableName: process.env.AGENTPAY_DYNAMODB_TABLE!,
+  sellerId: process.env.AGENTPAY_SELLER_ID!,
+};
+const replayStore = new DynamoDbExecutionReplayStore(storeOptions);
+const webhookReplayStore = new DynamoDbWebhookReplayStore(storeOptions);
+const fulfillmentStore = new DynamoDbFulfillmentStore(storeOptions);
+```
+
 ## Webhooks
 
 Load the reveal-once webhook secret from the seller's secret manager, not from

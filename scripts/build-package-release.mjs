@@ -42,9 +42,13 @@ const releasePackages = [
     requiredFiles: [
       "LICENSE",
       "NOTICE",
+      "dist/dynamodb.d.ts",
+      "dist/dynamodb.js",
       "README.md",
       "dist/index.d.ts",
       "dist/index.js",
+      "node_modules/@agentpay/verify-node/dist/dynamodb.d.ts",
+      "node_modules/@agentpay/verify-node/dist/dynamodb.js",
       "node_modules/@agentpay/verify-node/dist/index.js",
       "package.json",
     ],

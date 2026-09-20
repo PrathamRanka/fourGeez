@@ -64,6 +64,15 @@ that use seller-owned server credentials; they do not receive payment,
 publication, signing, or transaction authority and do not imply inventory,
 shipping, tax, refund, or physical-fulfillment support.
 
+The maintained AWS seller example uses a seller-owned DynamoDB table for
+execution-capability replay, legacy sandbox replay, webhook replay, and
+transaction-keyed fulfillment coordination. Conditional writes are the
+multi-instance serialization boundary. Replay claims expire through DynamoDB
+TTL only after their authentication window closes; fulfillment claims and
+completed results do not expire automatically. A storage failure fails the
+request closed. Process-local memory stores remain available only behind an
+explicit local-development setting.
+
 Setup bundle v2 also detects supported application stacks and proposes
 stack-native technical SEO, answer-engine optimization, and agent-discovery
 changes. Those changes include visible metadata, canonical URLs, structured

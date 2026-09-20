@@ -50,7 +50,12 @@ This register records issues found during the real seller onboarding, MCP config
     guidance. AgentPay MCP is limited to bounded analysis, configuration,
     verification, and seller-confirmed cloud mutations; it does not write
     repository files.
-11. The seller prototype uses in-memory replay and fulfillment state, which is unsafe for horizontal or multi-instance scaling.
+11. **Resolved (2026-09-20):** The seller prototype now defaults to a
+    seller-owned DynamoDB table for conditional execution/webhook replay claims
+    and durable transaction-keyed fulfillment results. Replay records use TTL;
+    fulfillment records deliberately do not. Process-local memory stores require
+    the explicit `local-memory` development mode, and no AWS resources were
+    created or changed.
 12. Project-key revocation has not been demonstrated while an issued MCP token remains unexpired.
 13. Seller cancellation or suspension has not been demonstrated against both the official connector and a modified connector fork.
 

@@ -117,6 +117,7 @@ async function verifyReleaseMetadata(outputDirectory, expectedDirty) {
     (artifact) => artifact.packageName === "@agentpay/merchant-sdk",
   );
   assert.equal(merchant.packedFiles.includes("dist/index.js"), true);
+  assert.equal(merchant.packedFiles.includes("dist/dynamodb.js"), true);
   assert.equal(
     merchant.packedFiles.includes(
       "node_modules/@agentpay/verify-node/dist/index.js",
@@ -263,6 +264,12 @@ async function verifyCleanInstall(outputDirectory, temporaryRoot) {
       );
       assert.equal(typeof sdk.verifyExecutionRequest, "function");
       assert.equal(typeof sdk.verifyAgentPayWebhook, "function");
+      assert.equal(
+        await stat(path.join(installedPackageRoot, "dist", "dynamodb.js")).then(
+          (entry) => entry.isFile(),
+        ),
+        true,
+      );
       const sdkPackage = JSON.parse(
         await readFile(path.join(installedPackageRoot, "package.json"), "utf8"),
       );

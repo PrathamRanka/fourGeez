@@ -26,6 +26,10 @@ Each verifier requires a secret of at least 32 bytes and checks:
 Replay storage is an explicit application boundary. The included in-memory
 implementation is for tests and local development only. Production sellers
 must use a shared atomic store when more than one process can receive requests.
+The Node package's optional `@agentpay/verify-node/dynamodb` entry point
+provides conditional-write execution and legacy replay stores for seller-owned
+DynamoDB tables; it stores only domain-separated identifier digests and TTL
+metadata.
 
 Verification failure returns `401`; replay returns `409`; verifier or replay
 store failure returns `503`. Middleware never logs or returns the secret,

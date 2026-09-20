@@ -836,6 +836,32 @@ verifies JWKS, exact audience and bindings, consumes the JTI once, and uses
 `transactionId` as its fulfillment idempotency key. Execution capabilities are
 never returned to buyers or stored in receipts, evidence, webhooks, or logs.
 
+### SellerRuntimeState (seller-owned integration table)
+
+This state belongs to the seller deployment and is not stored in or managed by
+the AgentPay authoritative table. The maintained AWS example uses a DynamoDB
+table with string `PK` and `SK` keys and numeric `expiresAt` TTL enabled.
+
+All records use `PK=AGENTPAY_SELLER#<sellerId>`. Replay records use
+`SK=REPLAY#<kind>#<sha256(identifier)>`, where `kind` is `execution`,
+`legacy_request`, or `webhook`. They contain `recordType`, `createdAt`, and a
+numeric epoch-seconds `expiresAt`. Creation is a conditional put requiring both
+keys to be absent. Execution replay expiry is the capability `exp`; legacy and
+webhook replay expiry is computed from the accepting server's current UTC time
+and a configured retention that is at least the verifier acceptance window.
+DynamoDB TTL deletion is cleanup only: a record that remains after expiry still
+blocks replay, which is fail-closed behavior.
+
+Fulfillment records use `SK=FULFILLMENT#<transactionId>` and contain
+`recordType=fulfillment`, `status=in_progress|completed`, `createdAt`,
+`updatedAt`, and, only when completed, a bounded JSON `result`. The initial
+claim is a conditional put. Completion conditionally changes only an
+`in_progress` record, and replay strongly reads and returns the completed
+result. A caught business failure may conditionally delete the `in_progress`
+claim so the same transaction can retry. A completion-store failure leaves the
+claim in progress for reconciliation. Fulfillment records have no TTL because
+automatic expiry could permit duplicate external side effects.
+
 ### QuotaCounter
 
 Operational monthly quotas use one atomic counter per seller, UTC month, and

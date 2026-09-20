@@ -330,6 +330,13 @@ Forbidden:
   raw request bytes through verification, require seller-provided atomic replay
   and fulfillment stores for multi-instance use, and never accept wallet keys,
   x402 proofs, AgentPay private signing material, or project keys.
+- The maintained AWS seller example uses a seller-owned DynamoDB table with
+  conditional writes. Replay keys are domain-separated SHA-256 digests and
+  carry numeric TTL attributes; raw capabilities, signatures, webhook secrets,
+  request bodies, and payment proofs are never persisted. Fulfillment records
+  store only transaction IDs, bounded serializable results, state, and UTC
+  timestamps. Completed or uncertain fulfillment claims have no automatic TTL,
+  because expiry could authorize duplicate business execution.
 - Shopify and WooCommerce credentials remain seller-owned deployment secrets.
   They must not appear in source, fixtures, browser bundles, generated diffs,
   logs, or AgentPay configuration.

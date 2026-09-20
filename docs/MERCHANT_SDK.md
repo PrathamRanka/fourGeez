@@ -77,10 +77,13 @@ verified envelope. The default maximum age is five minutes.
 - `complete` durably records the serializable result before it is returned;
 - `release` makes a failed attempt retryable without recording a false success.
 
-The SDK does not provide a production database implementation. Sellers must
-implement the contract with an atomic shared store such as their existing SQL,
-Redis, or platform persistence. The included memory implementation is for
-tests and single-process local development only.
+The optional `@agentpay/merchant-sdk/dynamodb` entry point provides the
+maintained AWS implementation. It stores replay claims with conditional puts
+and TTL and stores transaction-keyed fulfillment claims/results with
+conditional writes and strongly consistent replay reads. Sellers may instead
+implement the same contract with an existing atomic SQL, Redis, or platform
+store. The included memory implementation is for tests and single-process
+local development only.
 
 ## Merchant adapter interface
 
@@ -126,7 +129,9 @@ them to the repository. At deployment time, the seller configures them in the
 server's secret manager:
 
 - AgentPay API origin, seller ID, route ID, and JWKS access;
-- a durable execution-JTI replay store and fulfillment idempotency store;
+- a durable execution-JTI replay store and fulfillment idempotency store; the
+  AWS example requires a seller-owned DynamoDB table with `PK`, `SK`, and
+  numeric `expiresAt` TTL;
 - each webhook subscription signing secret;
 - for Shopify, the store domain, pinned Admin API version, and app access token;
 - for WooCommerce, the HTTPS store origin, consumer key, and consumer secret.

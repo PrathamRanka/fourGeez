@@ -42,6 +42,7 @@ export interface WebhookReplayStore {
 export class MemoryWebhookReplayStore implements WebhookReplayStore {
   readonly #eventIds = new Set<string>();
 
+  // Local/test only: this does not coordinate multiple processes.
   async claim(eventId: string): Promise<boolean> {
     if (this.#eventIds.has(eventId)) return false;
     this.#eventIds.add(eventId);
