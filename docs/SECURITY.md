@@ -82,6 +82,7 @@ transaction authority.
 | Human checkout forgery or replay | Authenticate provider callbacks, bind them to immutable intents, process them idempotently, and reuse transaction replay protection |
 | Capability downgrade or false fallback | Publish only runtime-enabled payment capabilities, bind the selected rail/network/asset to the immutable intent and challenge, and never silently substitute another rail |
 | Unknown settlement causes double authorization | Persist the verified payment identifier and proof hash before settlement; require the identical proof and intent on recovery and reject a changed proof |
+| Settled response contradicts verified payer | Preserve the verified claim and safe settlement reference at confirmed finality, block fulfillment, require reconciliation, and never invite a new authorization or repeat settlement |
 | Payout-address substitution | Verify wallet ownership, bind destinations to seller and asset/network, require explicit confirmed rotation, and freeze the destination in each purchase intent |
 | Dashboard revenue inflation | Derive aggregates idempotently from authoritative payment and transaction events and keep assets/networks separate |
 | Forged seller webhook | Sign canonical payloads, include event IDs and timestamps, use constant-time verification, and make redelivery idempotent |
@@ -294,11 +295,16 @@ Forbidden:
   or `payment_rejected`, `payment_authorization_expired`,
   `payment_signature_invalid`, `payment_wallet_mismatch`, or
   `payment_facilitator_rejected`; and `503` for `dependency_unavailable`,
-  `payment_unavailable`, or `payment_outcome_unknown`.
+  `payment_unavailable`, or `payment_outcome_unknown`. A payer contradiction
+  observed only after a successful settlement response uses
+  `payment_outcome_unknown`, not the ordinary pre-settlement wallet-mismatch
+  response.
 - Payment recovery actions are limited to `connect_wallet`, `switch_network`,
-  `sign_fresh_authorization`, `retry_same_request`, `retry_same_payment`, and
-  `start_new_checkout`. Details never contain a raw proof, wallet signature,
-  cookie, authorization header, or private wallet material.
+  `sign_fresh_authorization`, `retry_same_request`, `retry_same_payment`,
+  `await_reconciliation`, and `start_new_checkout`. A settled payer mismatch
+  uses only `await_reconciliation`; it cannot fulfill, become ordinary terminal
+  payment failure, or invite a fresh payment. Details never contain a raw proof,
+  wallet signature, cookie, authorization header, or private wallet material.
 - Payment-proof sanitization maps facilitator and wallet failures to bounded
   machine codes and safe messages; raw proofs, signatures, wallet material,
   and provider diagnostics never enter responses, evidence, persistence, or logs.

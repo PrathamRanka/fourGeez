@@ -706,4 +706,65 @@ describe("commerce checkout", () => {
       JSON.parse(String(fetchMock.mock.calls[2][1]?.body)),
     );
   });
+
+  it("does not invite another payment while a settled payer mismatch is reconciled", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          purchaseIntent: intent,
+          transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+          paymentRequired: btoa(
+            JSON.stringify({
+              scheme: "exact",
+              network: product.network,
+              asset: product.asset,
+              amount: product.amount,
+              payTo: intent.payTo,
+              resource: "http://localhost:8080/pay/northstar/research/basic",
+              maxTimeoutSeconds: 30,
+            }),
+          ),
+          paymentMode: "mock",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              code: "payment_outcome_unknown",
+              message: "Payment requires reconciliation before fulfillment.",
+              details: { recoveryAction: "await_reconciliation" },
+            },
+          },
+          503,
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CommerceCheckout
+        channel="browser"
+        product={product}
+        sellerSlug="northstar"
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /confirm/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review exact payment" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Complete local demo payment",
+      }),
+    );
+
+    expect(
+      await screen.findByText(/do not authorize another payment/i),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /try again|retry/i }),
+    ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

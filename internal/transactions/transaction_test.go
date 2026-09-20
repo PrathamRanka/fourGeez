@@ -283,6 +283,44 @@ func TestTransactionRecordsRejectedSettlementAsFailed(t *testing.T) {
 	}
 }
 
+func TestTransactionQuarantinesUncertainSettledPaymentWithoutMarkingFailure(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	createdAt := transaction.UpdatedAt()
+	if err := transaction.RequirePayment(createdAt.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.VerifyPayment(
+		"payment-123",
+		mustTransactionDigest(t, strings.Repeat("a", 64)),
+		createdAt.Add(2*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.RequirePaymentReview(
+		"settlement_payer_mismatch",
+		"0xtestnettransaction",
+		createdAt.Add(3*time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	projection := transaction.CommerceLifecycle(false)
+	if transaction.Status() != StatusPaymentVerified ||
+		transaction.PaymentFinality() != PaymentFinalityConfirmed ||
+		transaction.PaymentIdentifier() != "payment-123" ||
+		transaction.PaymentReference() != "0xtestnettransaction" ||
+		transaction.FailureCode() != "settlement_payer_mismatch" ||
+		transaction.Reconciliation().Stage != ReconciliationStageVerified ||
+		projection.CommerceState != CommerceStatePaymentProcessing ||
+		projection.PaymentState != PaymentStateConfirmed ||
+		projection.FulfillmentState != FulfillmentStateNotStarted ||
+		projection.RecoveryAction != RecoveryActionAwaitReconciliation {
+		t.Fatalf("quarantined transaction = %#v, projection = %#v", transaction.Snapshot(), projection)
+	}
+}
+
 func TestTransactionCommerceLifecycleAndPriceProjection(t *testing.T) {
 	t.Parallel()
 

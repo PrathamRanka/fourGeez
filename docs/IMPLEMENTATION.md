@@ -331,6 +331,10 @@ integrations.
 
 EXT-004 acceptance: every buyer can discover the payment capabilities enabled by the running environment, determine compatibility without guessing, and follow one bounded recovery action after a payment failure without creating a second charge or bypassing the immutable purchase intent.
 
+Settled payer contradictions preserve the payment identifier and safe reference
+under `await_reconciliation`; they never fulfill, become ordinary terminal
+payment failure, or invite another payment.
+
 - [x] **EXT-005** Harden seller-first V1 interoperability with canonical closed
   input/output schemas on route drafts, deterministic route-version contract
   hashes, seller-confirmed publish binding, signed versioned public product

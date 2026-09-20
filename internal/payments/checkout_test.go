@@ -462,17 +462,18 @@ func TestCheckoutServiceRejectsSettlementForDifferentPaymentIdentifier(t *testin
 	}
 }
 
-func TestCheckoutServiceReportsWalletMismatchWithoutFulfilling(t *testing.T) {
+func TestCheckoutServiceQuarantinesSettledWalletMismatchWithoutInvitingSecondPayment(t *testing.T) {
 	fixture := newPaidRouteFixture(t, false)
 	adapter := &recordingCheckoutAdapter{
 		verificationPayerAddress: "0x1111111111111111111111111111111111111111",
 		settlementPayerAddress:   "0x2222222222222222222222222222222222222222",
 	}
 	executor := &checkoutExecutor{}
+	transactionRepository := memory.NewTransactionRepository()
 	service := NewCheckoutService(
 		fixture.service,
 		adapter,
-		memory.NewTransactionRepository(),
+		transactionRepository,
 		newCheckoutEvidenceRecorder(t, fixture),
 		executor,
 		fixture.clock,
@@ -484,8 +485,36 @@ func TestCheckoutServiceReportsWalletMismatchWithoutFulfilling(t *testing.T) {
 	if !errors.Is(err, ErrPaymentWalletMismatch) {
 		t.Fatalf("Execute() error = %v, want wallet mismatch", err)
 	}
-	if result.RecoveryAction != RecoveryActionStartNewCheckout || executor.calls != 0 {
+	if result.RecoveryAction != RecoveryActionAwaitReconciliation || executor.calls != 0 {
 		t.Fatalf("result = %#v, executor calls = %d", result, executor.calls)
+	}
+	transaction, err := transactionRepository.Get(t.Context(), result.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transaction.Status() != transactions.StatusPaymentVerified ||
+		transaction.PaymentFinality() != transactions.PaymentFinalityConfirmed ||
+		transaction.PaymentIdentifier() != "payment-test" ||
+		transaction.PaymentReference() != "0xsettled" ||
+		transaction.FailureCode() != "settlement_payer_mismatch" {
+		t.Fatalf("quarantined transaction = %#v", transaction.Snapshot())
+	}
+
+	result, err = service.Execute(t.Context(), request)
+	if !errors.Is(err, ErrPaymentWalletMismatch) || result.RecoveryAction != RecoveryActionAwaitReconciliation {
+		t.Fatalf("retry Execute() = (%#v, %v)", result, err)
+	}
+	if adapter.verifyCalls != 1 || adapter.settleCalls != 1 || executor.calls != 0 {
+		t.Fatalf("calls after retry = verify %d settle %d execute %d", adapter.verifyCalls, adapter.settleCalls, executor.calls)
+	}
+
+	request.PaymentProof = ""
+	result, err = service.Execute(t.Context(), request)
+	if !errors.Is(err, ErrPaymentWalletMismatch) || result.RecoveryAction != RecoveryActionAwaitReconciliation {
+		t.Fatalf("proofless retry Execute() = (%#v, %v)", result, err)
+	}
+	if result.Challenge != nil || adapter.challengeCalls != 0 || executor.calls != 0 {
+		t.Fatalf("proofless retry = %#v, challenge calls = %d, executor calls = %d", result, adapter.challengeCalls, executor.calls)
 	}
 }
 

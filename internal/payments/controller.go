@@ -222,10 +222,14 @@ func (controller *HTTPController) writeError(
 			result.RecoveryAction = RecoveryActionSignFreshAuthorization
 		}
 	case errors.Is(err, ErrPaymentWalletMismatch):
-		status = http.StatusPaymentRequired
-		code = api.ErrorCodePaymentWalletMismatch
-		message = "payment wallet does not match verification"
-		if result.RecoveryAction == "" {
+		if result.RecoveryAction == RecoveryActionAwaitReconciliation {
+			status = http.StatusServiceUnavailable
+			code = api.ErrorCodePaymentOutcomeUnknown
+			message = "payment requires reconciliation before fulfillment"
+		} else {
+			status = http.StatusPaymentRequired
+			code = api.ErrorCodePaymentWalletMismatch
+			message = "payment wallet does not match verification"
 			result.RecoveryAction = RecoveryActionStartNewCheckout
 		}
 	case errors.Is(err, ErrPaymentFacilitatorRejected):

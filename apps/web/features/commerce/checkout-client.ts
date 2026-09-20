@@ -43,9 +43,11 @@ export async function requestCheckout<Value>(
             ? apiError.message
             : "AgentPay could not complete checkout.",
         retryable:
-          recoveryAction !== undefined ||
-          response.status >= 500 ||
-          response.status === 429,
+          recoveryAction === "await_reconciliation"
+            ? false
+            : recoveryAction !== undefined ||
+              response.status >= 500 ||
+              response.status === 429,
         recoveryAction,
       };
     }
@@ -69,6 +71,7 @@ function isPaymentRecoveryAction(
     value === "sign_fresh_authorization" ||
     value === "retry_same_request" ||
     value === "retry_same_payment" ||
+    value === "await_reconciliation" ||
     value === "start_new_checkout"
   );
 }

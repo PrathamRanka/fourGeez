@@ -430,6 +430,35 @@ func (transaction *Transaction) FailPayment(
 	return nil
 }
 
+// RequirePaymentReview preserves a verified claim when settlement may have
+// occurred but the response cannot safely authorize seller forwarding.
+func (transaction *Transaction) RequirePaymentReview(
+	reviewCode string,
+	paymentReference string,
+	at domain.Timestamp,
+) error {
+	if strings.TrimSpace(reviewCode) == "" {
+		return domain.NewValidationError("reviewCode", "required", "is required")
+	}
+	if err := validatePaymentReference(paymentReference, true); err != nil {
+		return err
+	}
+	if transaction.status != StatusPaymentVerified ||
+		transaction.paymentFinality != PaymentFinalityConfirmed {
+		return InvalidTransitionError{From: transaction.status, To: StatusPaymentVerified}
+	}
+	if err := transaction.validateMutationTime(at); err != nil {
+		return err
+	}
+	transaction.failureCode = strings.TrimSpace(reviewCode)
+	transaction.paymentReference = strings.TrimSpace(paymentReference)
+	reconciledAt := at
+	transaction.reconciledAt = &reconciledAt
+	transaction.updatedAt = at
+	transaction.version++
+	return nil
+}
+
 // Reconciliation returns one deterministic seller reporting bucket for this transaction.
 func (transaction Transaction) Reconciliation() Reconciliation {
 	stage := ReconciliationStage("")

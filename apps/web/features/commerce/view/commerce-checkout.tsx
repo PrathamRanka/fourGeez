@@ -643,6 +643,11 @@ function CommerceStatus({
               AgentPay will retry the same signed payment and will not request a
               second wallet authorization.
             </span>
+          ) : error.recoveryAction === "await_reconciliation" ? (
+            <span>
+              Settlement is under review. Do not authorize another payment or
+              start a new checkout.
+            </span>
           ) : null}
         </div>
       </div>
@@ -712,6 +717,8 @@ function paymentRecoveryLabel(action?: PaymentRecoveryAction): string {
       return "Retry payment verification";
     case "retry_same_payment":
       return "Retry settlement check";
+    case "await_reconciliation":
+      return "Await payment reconciliation";
     case "start_new_checkout":
       return "Start new checkout";
     default:

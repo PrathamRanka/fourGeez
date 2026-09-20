@@ -616,9 +616,14 @@ settlement records `paymentFinality=finalized`, the safe facilitator or network
 transaction reference, and `reconciledAt` before seller forwarding. A definitive
 settlement rejection records `paymentFinality=failed` and moves the transaction
 to `FAILED`; timeout or unavailable responses remain `confirmed` because final
-network outcome is unknown. Records written before this migration that contain
-a payment identifier but no finality are interpreted conservatively as
-`confirmed`, never `finalized`.
+network outcome is unknown. A response reporting settlement with a payer that
+differs from the verified payer also remains `confirmed`, preserves the verified
+payment identifier and safe settlement reference, records
+`failureCode=settlement_payer_mismatch`, and requires reconciliation without
+another verification or settlement attempt. It is not an ordinary terminal
+payment failure and cannot be forwarded.
+Records written before this migration that contain a payment identifier but no
+finality are interpreted conservatively as `confirmed`, never `finalized`.
 
 The x402 payment authorization lifetime is five minutes. It is independent of
 the seller route's one-to-thirty-second upstream fulfillment timeout: the former
@@ -633,8 +638,10 @@ Recovery does not create a second transaction or mutate the quote. Before
 verification, a rejected proof may be replaced under the same unexpired intent.
 After verification, an unavailable settlement must retry the identical proof
 whose hash and payment identifier are already stored; a changed proof is a
-replay conflict. Definitive settlement rejection is terminal and requires a new
-browser purchase session or agent intent.
+replay conflict. A settled response with inconsistent payer identity instead
+enters seller review and exposes `await_reconciliation`; it never invites a new
+authorization or repeats settlement. Definitive settlement rejection is
+terminal and requires a new browser purchase session or agent intent.
 
 The forwarding claim is one conditional mutation requiring all of
 `status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the expected transaction

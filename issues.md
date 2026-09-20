@@ -125,7 +125,7 @@ This register records issues found during the real seller onboarding, MCP config
 35. Wallet authorization previously inherited the seller HTTP timeout and expired after 30 seconds; it is now independently set to five minutes.
 36. AgentPay omitted Base Sepolia USDC EIP-712 `name` and `version`; these fields are now included in the challenge and facilitator request.
 37. The production x402 path now successfully verifies and settles exact Base Sepolia USDC directly to the seller.
-38. Payment failures now return sanitized machine-readable distinctions for authorization expiry, invalid signature, wallet mismatch, unsupported capability, and terminal facilitator rejection.
+38. Payment failures now return sanitized machine-readable distinctions for authorization expiry, invalid signature, wallet mismatch, unsupported capability, and terminal facilitator rejection. A payer mismatch reported only after settlement is treated as outcome-unknown reconciliation, never as an ordinary failed payment or a reason to start a new checkout.
 39. The paid route now validates the exact request body against the published closed input schema before verification or settlement; invalid input cannot trigger payment or fulfillment.
 
 ### Remaining P0/P1

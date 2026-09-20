@@ -350,8 +350,11 @@ may retry the same unexpired challenge. A rejected proof requires a fresh exact
 authorization. Facilitator failure before verification permits the same request
 to be retried. Settlement uncertainty after durable verification requires the
 same proof and intent; the buyer must not sign a second authorization. Expired
-intents and definitive settlement rejection require a new checkout. Responses
-identify the safe recovery action without exposing raw payment proofs.
+intents and definitive settlement rejection require a new checkout. If a
+successful settlement response identifies a different payer than verification,
+AgentPay preserves the verified claim, blocks fulfillment, and requires
+reconciliation without repeating verification or settlement. Responses identify
+the safe recovery action without exposing raw payment proofs.
 Browser checkout must discard the prior intent, challenge, and signature before
 following `start_new_checkout`, including `payment_expired` and
 `route_contract_stale`; those failures may never reuse the stale payment

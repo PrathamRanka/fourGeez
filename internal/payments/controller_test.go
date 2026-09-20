@@ -245,6 +245,7 @@ func TestPaidRouteControllerMapsPaymentRecoveryFailures(t *testing.T) {
 		{name: "unsupported", err: ErrPaymentCapabilityUnsupported, status: http.StatusUnprocessableEntity, code: "payment_capability_unsupported", recovery: RecoveryActionSignFreshAuthorization},
 		{name: "verification unavailable", err: ErrPaymentUnavailable, result: CheckoutResult{RecoveryAction: RecoveryActionRetrySameRequest}, status: http.StatusServiceUnavailable, code: "payment_unavailable", recovery: RecoveryActionRetrySameRequest, retryAfter: "2"},
 		{name: "settlement unknown", err: ErrPaymentUnavailable, result: CheckoutResult{RecoveryAction: RecoveryActionRetrySamePayment}, status: http.StatusServiceUnavailable, code: "payment_outcome_unknown", recovery: RecoveryActionRetrySamePayment, retryAfter: "2"},
+		{name: "settled payer mismatch", err: ErrPaymentWalletMismatch, result: CheckoutResult{RecoveryAction: RecoveryActionAwaitReconciliation}, status: http.StatusServiceUnavailable, code: "payment_outcome_unknown", recovery: RecoveryActionAwaitReconciliation},
 		{name: "settlement rejected", err: ErrPaymentRejected, result: CheckoutResult{RecoveryAction: RecoveryActionStartNewCheckout}, status: http.StatusPaymentRequired, code: "payment_rejected", recovery: RecoveryActionStartNewCheckout},
 	}
 

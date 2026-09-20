@@ -13,6 +13,7 @@ export type PaymentRecoveryAction =
   | "sign_fresh_authorization"
   | "retry_same_request"
   | "retry_same_payment"
+  | "await_reconciliation"
   | "start_new_checkout";
 
 export type WalletCompatibility =

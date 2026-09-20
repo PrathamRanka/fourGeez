@@ -113,6 +113,12 @@ func (service *CheckoutService) Execute(
 		return CheckoutResult{}, err
 	}
 	if strings.TrimSpace(request.PaymentProof) == "" {
+		if transaction.FailureCode() == paymentReviewPayerMismatch {
+			return CheckoutResult{
+				TransactionID:  transaction.TransactionID(),
+				RecoveryAction: RecoveryActionAwaitReconciliation,
+			}, ErrPaymentWalletMismatch
+		}
 		if transaction.Status() == transactions.StatusPaymentVerified &&
 			transaction.PaymentFinality() == transactions.PaymentFinalityFinalized {
 			return service.executeFinalized(ctx, request, resolved, transaction, "", "")
@@ -157,6 +163,12 @@ func (service *CheckoutService) Execute(
 		}
 		if transaction.PaymentFinality() != transactions.PaymentFinalityConfirmed {
 			return CheckoutResult{}, ErrPaymentReplay
+		}
+		if transaction.FailureCode() == paymentReviewPayerMismatch {
+			return CheckoutResult{
+				TransactionID:  transaction.TransactionID(),
+				RecoveryAction: RecoveryActionAwaitReconciliation,
+			}, ErrPaymentWalletMismatch
 		}
 	}
 
@@ -244,16 +256,39 @@ func (service *CheckoutService) Execute(
 		request.PaymentProof,
 		resolved.Requirements,
 	)
+	settledPayerMismatch := false
 	if err == nil && (!settlement.Settled || settlement.PaymentIdentifier != paymentIdentifier) {
 		err = ErrPaymentRejected
 	}
 	if err == nil && payerAddress != "" && settlement.PayerAddress != "" &&
 		!strings.EqualFold(payerAddress, settlement.PayerAddress) {
+		settledPayerMismatch = true
 		err = ErrPaymentWalletMismatch
 	}
 	if err != nil {
 		if IsRetryable(err) {
 			observability.Record(observability.EventFacilitatorFailure)
+		}
+		if settledPayerMismatch {
+			reviewVersion := transaction.Version()
+			if reviewErr := transaction.RequirePaymentReview(
+				paymentReviewPayerMismatch,
+				settlement.PaymentReference,
+				domain.NewTimestamp(service.clock.Now()),
+			); reviewErr != nil {
+				return CheckoutResult{}, reviewErr
+			}
+			if updateErr := service.transactionRepository.Update(
+				ctx,
+				transaction,
+				reviewVersion,
+			); updateErr != nil {
+				return CheckoutResult{}, updateErr
+			}
+			return CheckoutResult{
+				TransactionID:  transaction.TransactionID(),
+				RecoveryAction: RecoveryActionAwaitReconciliation,
+			}, err
 		}
 		if isTerminalPaymentRejection(err) {
 			failedVersion := transaction.Version()
@@ -319,6 +354,8 @@ func isTerminalPaymentRejection(err error) bool {
 		errors.Is(err, ErrPaymentWalletMismatch) ||
 		errors.Is(err, ErrPaymentFacilitatorRejected)
 }
+
+const paymentReviewPayerMismatch = "settlement_payer_mismatch"
 
 func (service *CheckoutService) executeFinalized(
 	ctx context.Context,

@@ -435,7 +435,7 @@ func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) Comm
 		projection.PaymentState = PaymentStateFailed
 		projection.RecoveryAction = RecoveryActionCreateNewIntent
 	}
-	if transaction.failureCode != "" {
+	if transaction.failureCode != "" && transaction.status != StatusPaymentVerified {
 		projection.FulfillmentState = FulfillmentStateFailed
 	} else if transaction.upstreamStatus != nil && *transaction.upstreamStatus >= 200 && *transaction.upstreamStatus <= 299 {
 		projection.FulfillmentState = FulfillmentStateSucceeded

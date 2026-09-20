@@ -392,6 +392,7 @@ destination, and workspace publication prerequisites before signing.
 | Bedrock timeout | Offer deterministic buyer fallback; never bypass the buyer maximum or wallet authorization. |
 | Facilitator unavailable before verification | Return `503 payment_unavailable` with `recoveryAction=retry_same_request`; do not call the seller. |
 | Settlement unavailable after verification | Keep finality `confirmed`, return `503 payment_outcome_unknown` with `recoveryAction=retry_same_payment`, and require the identical proof and intent. |
+| Settlement reports a different payer after verification | Preserve the verified claim and safe settlement reference at confirmed finality, return `503 payment_outcome_unknown` with `recoveryAction=await_reconciliation`, never repeat verification or settlement, and never forward. |
 | Definitive settlement rejection | Record finality `failed`, return `402 payment_rejected` with `recoveryAction=start_new_checkout`, and never forward. |
 | Evidence append fails before forwarding | Stop and return `503`; do not call the seller. |
 | Seller timeout | Record delivery failure and classify `not_delivered` disputes as refund-recommended. |

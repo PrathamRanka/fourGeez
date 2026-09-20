@@ -2630,7 +2630,7 @@ components:
       properties:
         recoveryAction:
           type: string
-          enum: [connect_wallet, switch_network, sign_fresh_authorization, retry_same_request, retry_same_payment, start_new_checkout]
+          enum: [connect_wallet, switch_network, sign_fresh_authorization, retry_same_request, retry_same_payment, await_reconciliation, start_new_checkout]
         capabilityId: { type: string }
         requiredNetwork: { type: string }
         requiredAsset: { type: string }
@@ -3229,7 +3229,7 @@ components:
         Retry-After: { schema: { type: integer, minimum: 1 } }
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     PaymentUnavailable:
-      description: 503 payment_unavailable or payment_outcome_unknown with a bounded safe recovery action
+      description: 503 payment_unavailable or payment_outcome_unknown with a bounded safe recovery action; payer inconsistency after a settled response uses await_reconciliation and must not repeat payment
       headers:
         Retry-After: { schema: { type: integer, minimum: 1 } }
       content: { application/json: { schema: { $ref: '#/components/schemas/PaymentRecoveryError' } } }

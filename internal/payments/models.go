@@ -53,6 +53,7 @@ const (
 	RecoveryActionSignFreshAuthorization RecoveryAction = "sign_fresh_authorization"
 	RecoveryActionRetrySameRequest       RecoveryAction = "retry_same_request"
 	RecoveryActionRetrySamePayment       RecoveryAction = "retry_same_payment"
+	RecoveryActionAwaitReconciliation    RecoveryAction = "await_reconciliation"
 	RecoveryActionStartNewCheckout       RecoveryAction = "start_new_checkout"
 )
 
