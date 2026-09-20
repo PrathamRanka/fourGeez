@@ -264,6 +264,14 @@ does not authorize a purchase; the cloud rechecks current seller entitlement,
 route publication, destination, quote, payment, and replay state at
 the relevant transaction checkpoints.
 
+AgentPay discovery, canonical product pages, and seller-hosted `llms.txt` are
+rendered from one durable published-catalog revision. Editing a live price
+pauses that product immediately; the unapproved value is excluded until the
+seller validates and publishes the new route version. Publication and
+availability changes refresh the shared revision so product identity,
+description, price, availability, MIME type, and schema-version references do
+not drift across discovery surfaces.
+
 ### Browser channel
 
 People browse a seller-branded storefront, choose the same published products,

@@ -25,6 +25,8 @@ func TestCatalogServiceAuditsDirectRoutePublicationAndPricing(t *testing.T) {
 		clock,
 		recorder,
 	)
+	publicationRefresher := &catalogPublicationRefresher{}
+	service.SetPublicationRefresher(publicationRefresher)
 	seller, err := service.CreateSeller(
 		t.Context(),
 		"owner-123",
@@ -73,34 +75,32 @@ func TestCatalogServiceAuditsDirectRoutePublicationAndPricing(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock.now = clock.now.Add(time.Minute)
-	pausedRoute, err := service.PauseSellerRoute(
-		t.Context(),
-		"owner-123",
-		seller.SellerID,
-		route.RouteID,
-		catalog.RouteVersionRequest{ExpectedVersion: updatedRoute.Version},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	clock.now = clock.now.Add(time.Minute)
 	if _, err := service.ArchiveSellerRoute(
 		t.Context(),
 		"owner-123",
 		seller.SellerID,
 		route.RouteID,
-		catalog.RouteVersionRequest{ExpectedVersion: pausedRoute.Version},
+		catalog.RouteVersionRequest{ExpectedVersion: updatedRoute.Version},
 	); err != nil {
 		t.Fatal(err)
 	}
 
-	if len(recorder.requests) != 4 ||
+	if len(recorder.requests) != 3 ||
 		recorder.requests[0].Action != audit.ActionRoutePublished ||
 		recorder.requests[1].Action != audit.ActionRoutePriceChanged ||
-		recorder.requests[2].Action != audit.ActionRoutePaused ||
-		recorder.requests[3].Action != audit.ActionRouteArchived {
+		recorder.requests[2].Action != audit.ActionRouteArchived {
 		t.Fatalf("audit requests = %#v", recorder.requests)
 	}
+	if publicationRefresher.calls != 3 {
+		t.Fatalf("publication refresh calls = %d, want 3", publicationRefresher.calls)
+	}
+}
+
+type catalogPublicationRefresher struct{ calls int }
+
+func (refresher *catalogPublicationRefresher) RefreshPublishedCatalog(context.Context, domain.ID) error {
+	refresher.calls++
+	return nil
 }
 
 type catalogAuditRecorder struct {

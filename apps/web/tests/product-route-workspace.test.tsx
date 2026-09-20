@@ -414,6 +414,43 @@ describe("product route workspace", () => {
     expect(screen.getByText("Version 3")).toBeVisible();
   });
 
+  it("warns that editing a published price requires republication", async () => {
+    const actions = createActions();
+    vi.mocked(actions.updatePrice).mockResolvedValue({
+      ok: true,
+      value: {
+        ...publishedRoute,
+        amount: "40000000",
+        lifecycleStatus: "paused",
+        enabled: false,
+        version: publishedRoute.version + 1,
+      },
+    });
+
+    render(
+      <ProductRouteWorkspace
+        actions={actions}
+        initialSnapshot={{ ...initialSnapshot, routes: [publishedRoute] }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Changing this price pauses the live product/),
+    ).toBeVisible();
+    const priceForm = screen.getByRole("form", {
+      name: "Update product price",
+    });
+    fireEvent.change(within(priceForm).getByLabelText("Price"), {
+      target: { value: "40" },
+    });
+    fireEvent.submit(priceForm);
+
+    expect((await screen.findAllByText("Paused"))[0]).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Validate product" }),
+    ).toBeEnabled();
+  });
+
   it("archives a stopped route and disables further edits", async () => {
     const actions = createActions();
     const pausedRoute: PaidRoute = {

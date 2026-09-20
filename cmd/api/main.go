@@ -289,6 +289,7 @@ func main() {
 		Clock: clock, CanonicalOrigin: webOrigin, APIOrigin: apiOrigin, AuditRecorder: auditAppender,
 	})
 	catalogService.SetPublicationAuthorizer(storefrontService)
+	catalogService.SetPublicationRefresher(storefrontService)
 	sandboxService.SetEndpointVerificationRecorder(storefrontService)
 	sandboxService.SetResultRecorder(workspaceService)
 	storefront.NewHTTPController(storefrontService).RegisterRoutes(mux)

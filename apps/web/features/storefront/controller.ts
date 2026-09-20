@@ -14,6 +14,7 @@ import { storefrontProductPath } from "@/features/storefront/model";
 import {
   requestPublicAgentPay,
   requestPublicAgentPayText,
+  type ActionResult,
 } from "@/lib/agentpay-api";
 
 const discoverySchemaVersion = "agentpay.discovery.v1";
@@ -116,11 +117,10 @@ export async function loadPublicProduct(
 
 export async function loadStorefrontLLMSText(
   slug: string,
-): Promise<string | null> {
-  const result = await requestPublicAgentPayText(
+): Promise<ActionResult<string>> {
+  return requestPublicAgentPayText(
     `/store/${encodeURIComponent(slug)}/llms.txt`,
   );
-  return result.ok ? result.value : null;
 }
 
 function isExpired(expiresAt: string): boolean {

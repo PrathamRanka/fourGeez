@@ -980,7 +980,8 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
     patch:
-      summary: Update the price used by future purchase intents
+      summary: Stage a new price for future purchase intents
+      description: If the route is published, the versioned update pauses it immediately. The changed price is excluded from public discovery until the seller validates and publishes the new route version and contract hash. Existing purchase intents retain their frozen quote.
       tags: [Sellers]
       operationId: updatePaidRoutePrice
       security: [{ sellerBearer: [] }]
@@ -995,7 +996,7 @@ paths:
             schema: { $ref: '#/components/schemas/UpdateRoutePriceRequest' }
       responses:
         '200':
-          description: Route price updated; existing unexpired purchase intents keep their frozen quote
+          description: Route price updated; a previously published route is returned paused and must be validated and published again
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaidRoute' }
@@ -1523,7 +1524,9 @@ paths:
           schema: { type: string, pattern: '^[a-z0-9-]+$' }
       responses:
         '200':
-          description: Plain-text agent discovery document
+          description: Plain-text projection of the latest server-authorized signed storefront catalog revision
+          headers:
+            Cache-Control: { schema: { type: string } }
           content:
             text/plain:
               schema: { type: string }

@@ -59,7 +59,7 @@ func (controller *HTTPController) listPublicProducts(response http.ResponseWrite
 
 func (controller *HTTPController) getManifest(response http.ResponseWriter, request *http.Request) {
 	result, err := controller.service.GetManifest(request.Context(), request.PathValue("slug"))
-	response.Header().Set("Cache-Control", "public, max-age=60")
+	response.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
 	if errors.Is(err, ErrSellerInactive) && result.Tombstone != nil {
 		_ = api.WriteJSON(response, http.StatusGone, result.Tombstone)
 		return
@@ -73,7 +73,7 @@ func (controller *HTTPController) getManifest(response http.ResponseWriter, requ
 
 func (controller *HTTPController) getProduct(response http.ResponseWriter, request *http.Request) {
 	document, err := controller.service.GetProduct(request.Context(), request.PathValue("sellerSlug"), request.PathValue("productSlug"))
-	response.Header().Set("Cache-Control", "public, max-age=60")
+	response.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
 	if err != nil {
 		writePublicError(response, request, err)
 		return
@@ -88,7 +88,7 @@ func (controller *HTTPController) getLLMSText(response http.ResponseWriter, requ
 		return
 	}
 	response.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	response.Header().Set("Cache-Control", "public, max-age=60")
+	response.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
 	response.WriteHeader(http.StatusOK)
 	_, _ = response.Write([]byte(document))
 }

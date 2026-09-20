@@ -86,11 +86,17 @@ Browser state never marks account verification, subscription, payment
 The signed discovery revision is persisted separately from seller and route
 records at `PK=SELLER#<sellerId>`, `SK=STOREFRONT_PUBLICATION`. It stores the
 latest domain-separated state fingerprint, monotonically increasing
-`publicationRevision`, `updatedAt`, and optimistic `version`. A fresh discovery
-read strongly reloads seller, entitlement, routes, payment destinations, and
-publication prerequisites; when their public-authority fingerprint changes it
-conditionally advances the revision. Concurrent readers may retry but may
-never decrease or reuse a revision for different authority state.
+`publicationRevision`, public seller identity, availability, the sorted
+published route/version set, `updatedAt`, and optimistic `version`. The
+fingerprint binds the complete public product fields, including price and
+schemas, without duplicating every schema into one DynamoDB item. Manifest,
+public product-document, public
+directory, and `llms.txt` rendering use that same snapshot. A publication
+mutation refreshes it immediately; a fresh discovery read also strongly reloads
+seller, entitlement, routes, payment destinations, and publication
+prerequisites and conditionally repairs a stale snapshot. Concurrent writers or
+readers may retry but may never decrease or reuse a revision for different
+public authority state.
 
 Lean V1 permits exactly one seller for each normalized identity-provider
 subject. Creation atomically reserves
@@ -335,6 +341,13 @@ request, publication recomputes the hash, and any intervening draft change
 fails closed. A successful route write atomically replaces its public-directory
 projection. The next signed discovery read includes the new route snapshot and
 advances `publicationRevision`; existing purchase intents retain frozen terms.
+
+Changing the price of a published route transitions it to `paused` in the same
+versioned write. The changed amount remains a non-public draft until the seller
+validates the new route version and explicitly publishes its contract hash.
+Publication refresh removes the paused version from the durable public catalog;
+successful republishing adds the approved version back and advances
+`publicationRevision`.
 
 ### Published product contract
 
@@ -803,7 +816,8 @@ authoritative records before an API result is returned.
 A published-route write atomically writes the owning `PaidRoute`, one listing
 projection, and at most sixteen unique normalized term projections. Pausing,
 archiving, or emergency-disabling a route atomically deletes those projections.
-A price change to a published route replaces them with the new route version.
+A price change to a published route pauses it and deletes those projections;
+the approved replacement version recreates them only when it is published.
 Terms are lowercase Unicode letter-or-digit runs of 2-32 characters derived
 from the public product display name and description. Search accepts at most
 four terms, queries the first exact term partition, and requires every

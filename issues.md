@@ -74,9 +74,9 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P0
 
-14. Seller-hosted `llms.txt` is hardcoded rather than generated from the latest signed published catalog.
-15. Dashboard product changes do not automatically refresh seller-hosted `llms.txt`.
-16. AgentPay discovery and seller-hosted metadata can diverge after product, price, availability, or schema changes.
+14. **Resolved locally (2026-09-20):** Seller-hosted `llms.txt` is generated from the same persisted catalog revision used to create the current signed AgentPay manifest and product contracts.
+15. **Resolved locally (2026-09-20):** Dashboard and MCP publication, price, pause, archive, and emergency-disable mutations refresh the durable publication snapshot; public responses require revalidation rather than retaining a stale framework cache.
+16. **Resolved locally (2026-09-20):** AgentPay directory, signed manifest/product documents, and seller-hosted `llms.txt` consume one server-authoritative publication snapshot. Editing a published price auto-pauses the route, excludes the changed draft from discovery, and requires validation plus explicit republication before exposure.
 16a. The dashboard is not yet the complete control plane for seller-owned product data, pricing, availability, schemas, payment settings, discovery metadata, and supported public files.
 16b. Every value that AgentPay is allowed to control should be editable from the dashboard and flow through validation, versioning, approval, publication, cache invalidation, and signed discovery regeneration.
 16c. Sellers need a clear draft -> validate -> preview -> publish workflow so dashboard edits never silently change live buyer contracts.

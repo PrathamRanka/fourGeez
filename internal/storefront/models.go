@@ -226,8 +226,24 @@ type PublicationState struct {
 	SellerID            domain.ID        `json:"sellerId"`
 	Fingerprint         string           `json:"fingerprint"`
 	PublicationRevision uint64           `json:"publicationRevision"`
+	Catalog             PublishedCatalog `json:"catalog"`
 	UpdatedAt           domain.Timestamp `json:"updatedAt"`
 	Version             uint64           `json:"version"`
+}
+
+// PublishedCatalog is the durable public snapshot shared by every discovery surface.
+type PublishedCatalog struct {
+	SellerID            domain.ID               `json:"sellerId"`
+	Seller              PublicSeller            `json:"seller"`
+	Availability        string                  `json:"availability"`
+	InactiveReason      InactiveReason          `json:"inactiveReason,omitempty"`
+	PublicationRevision uint64                  `json:"publicationRevision"`
+	Routes              []PublishedRouteVersion `json:"routes"`
+}
+
+type PublishedRouteVersion struct {
+	RouteID      domain.ID `json:"routeId"`
+	RouteVersion uint64    `json:"routeVersion"`
 }
 
 type PublicationRepository interface {

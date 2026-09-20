@@ -347,6 +347,24 @@ stale versions/hashes, and malformed requests fail with stable codes. Public
 capabilities explicitly keep AgentPay buyer execution, A2A, and negotiation
 disabled. Focused domain, transport, persistence, MCP, and OpenAPI checks pass.
 
+- [x] **EXT-006** Unify AgentPay discovery and seller-hosted metadata on the
+  durable `StorefrontPublication` snapshot. Persist approved seller identity,
+  availability, and route/version membership with a fingerprint that binds the
+  complete public catalog and its monotonic revision; refresh it after
+  dashboard and MCP
+  publication/lifecycle mutations, render `llms.txt` from the same signed
+  manifest projection, and require revalidation plus republication after a
+  live price edit automatically pauses the route. Keep discovery reads as a
+  server-authoritative repair path and do not expose unpublished values.
+
+EXT-006 acceptance: manifest, product document, public directory, and
+seller-hosted `llms.txt` agree on product identity, route version, description,
+price, availability, MIME type, and schema-bearing signed product contract;
+published price edits disappear from discovery until the new version is
+validated and approved; publication revisions advance monotonically; public
+responses require revalidation instead of retaining a stale framework cache;
+focused backend and web regressions pass.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same

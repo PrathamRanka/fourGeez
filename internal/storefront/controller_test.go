@@ -29,6 +29,9 @@ func TestHTTPControllerReturnsSignedActiveManifestAndProduct(t *testing.T) {
 	if manifest.Signature.Value == "" || len(manifest.Document.Products) != 1 {
 		t.Fatalf("manifest = %#v", manifest)
 	}
+	if manifestResponse.Header().Get("Cache-Control") != "public, max-age=0, must-revalidate" {
+		t.Fatalf("manifest cache control = %q", manifestResponse.Header().Get("Cache-Control"))
+	}
 
 	productResponse := httptest.NewRecorder()
 	handler.ServeHTTP(productResponse, httptest.NewRequest(http.MethodGet, "/v1/storefronts/"+fixture.seller.Slug+"/products/"+fixture.route.ProductSlug, nil))
@@ -41,6 +44,18 @@ func TestHTTPControllerReturnsSignedActiveManifestAndProduct(t *testing.T) {
 	}
 	if product.Signature.Value == "" || product.Document.Product.RouteID != fixture.route.RouteID {
 		t.Fatalf("product = %#v", product)
+	}
+	if productResponse.Header().Get("Cache-Control") != "public, max-age=0, must-revalidate" {
+		t.Fatalf("product cache control = %q", productResponse.Header().Get("Cache-Control"))
+	}
+
+	llmsResponse := httptest.NewRecorder()
+	handler.ServeHTTP(llmsResponse, httptest.NewRequest(http.MethodGet, "/store/"+fixture.seller.Slug+"/llms.txt", nil))
+	if llmsResponse.Code != http.StatusOK || !contains(llmsResponse.Body.String(), "Publication revision: 1") {
+		t.Fatalf("llms.txt status = %d, body = %s", llmsResponse.Code, llmsResponse.Body.String())
+	}
+	if llmsResponse.Header().Get("Cache-Control") != "public, max-age=0, must-revalidate" {
+		t.Fatalf("llms.txt cache control = %q", llmsResponse.Header().Get("Cache-Control"))
 	}
 }
 

@@ -130,6 +130,9 @@ func TestPaidRouteChangePrice(t *testing.T) {
 	if paidRoute.Amount.String() != "40000000" || paidRoute.Version != 2 || paidRoute.UpdatedAt != changedAt {
 		t.Fatalf("updated route = %#v", paidRoute)
 	}
+	if paidRoute.LifecycleStatus != RouteLifecyclePaused || paidRoute.Enabled {
+		t.Fatalf("published price edit remained publicly available: %#v", paidRoute)
+	}
 
 	if err := paidRoute.ChangePrice(domain.MustParseAmount("0"), changedAt.Add(time.Minute)); err == nil {
 		t.Fatal("ChangePrice() accepted zero")

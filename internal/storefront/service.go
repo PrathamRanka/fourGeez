@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -33,6 +34,11 @@ type directoryCursor struct {
 	Asset       string   `json:"asset,omitempty"`
 	Network     string   `json:"network,omitempty"`
 	After       string   `json:"after"`
+}
+
+type resolvedPublication struct {
+	State    PublicationState
+	Products []PublicProduct
 }
 
 type Service struct{ Dependencies }
@@ -177,30 +183,27 @@ func (service *Service) publicDirectoryItem(ctx context.Context, projection cata
 	if err != nil {
 		return PublicProductDirectoryItem{}, false, err
 	}
-	if seller.Status != catalog.SellerStatusActive || !seller.HasCurrentServiceEndpointVerification() || service.PublicationReadiness == nil || service.PublicationReadiness.AuthorizePublication(ctx, seller.SellerID) != nil {
-		return PublicProductDirectoryItem{}, false, nil
-	}
-	entitlement, err := service.Entitlements.ResolveSellerPlan(ctx, seller.SellerID)
-	if errors.Is(err, billing.ErrSellerEntitlementNotFound) || errors.Is(err, persistence.ErrNotFound) {
-		return PublicProductDirectoryItem{}, false, nil
-	}
+	publication, err := service.resolvePublication(ctx, seller)
 	if err != nil {
 		return PublicProductDirectoryItem{}, false, err
 	}
-	if entitlement.Assignment.Status != billing.EntitlementStatusActive || entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled || !service.Clock.Now().Before(entitlement.Assignment.AccessEndsAt.Time()) {
+	if publication.State.Catalog.Availability != AvailabilityActive {
 		return PublicProductDirectoryItem{}, false, nil
 	}
-	destinations, err := service.Destinations.ListBySeller(ctx, seller.SellerID)
-	if err != nil {
-		return PublicProductDirectoryItem{}, false, err
+	var product *PublicProduct
+	for index := range publication.Products {
+		candidate := &publication.Products[index]
+		if candidate.RouteID == route.RouteID && candidate.RouteVersion == route.Version {
+			product = candidate
+			break
+		}
 	}
-	if matchingDestination(route, destinations) == nil {
+	if product == nil {
 		return PublicProductDirectoryItem{}, false, nil
 	}
-	product := service.publicProduct(seller, route)
 	return PublicProductDirectoryItem{
-		Seller:  PublicSeller{Name: seller.Name, Slug: seller.Slug},
-		Product: product,
+		Seller:  publication.State.Catalog.Seller,
+		Product: *product,
 		Capabilities: PublicProductCapabilities{
 			BuyerChannels: []string{BuyerChannelAgent, BuyerChannelBrowser},
 			Payment: PublicPaymentCapability{
@@ -347,23 +350,19 @@ func (service *Service) GetManifest(ctx context.Context, slug string) (SignedSto
 	if err != nil {
 		return SignedStorefrontManifest{}, err
 	}
-	products, entitlement, active, stateErr := service.activeProducts(ctx, seller)
-	if stateErr != nil {
-		return SignedStorefrontManifest{}, stateErr
+	publication, err := service.resolvePublication(ctx, seller)
+	if err != nil {
+		return SignedStorefrontManifest{}, err
 	}
-	if !active {
-		tombstone, signErr := service.signTombstone(ctx, seller, inactiveReason(entitlement))
+	if publication.State.Catalog.Availability != AvailabilityActive {
+		tombstone, signErr := service.signTombstone(ctx, publication.State.Catalog)
 		if signErr != nil {
 			return SignedStorefrontManifest{}, signErr
 		}
 		return SignedStorefrontManifest{Tombstone: &tombstone}, ErrSellerInactive
 	}
-	revision, err := service.resolveRevision(ctx, seller, entitlement, products)
-	if err != nil {
-		return SignedStorefrontManifest{}, err
-	}
 	now := domain.NewTimestamp(service.Clock.Now())
-	document := StorefrontManifest{SchemaVersion: DiscoverySchemaVersion, SellerID: seller.SellerID, Seller: PublicSeller{Name: seller.Name, Slug: seller.Slug}, Availability: AvailabilityActive, PublicationRevision: revision, IssuedAt: now, ExpiresAt: now.Add(DiscoveryLifetime), CanonicalOrigin: service.CanonicalOrigin, Products: products}
+	document := StorefrontManifest{SchemaVersion: DiscoverySchemaVersion, SellerID: publication.State.Catalog.SellerID, Seller: publication.State.Catalog.Seller, Availability: AvailabilityActive, PublicationRevision: publication.State.PublicationRevision, IssuedAt: now, ExpiresAt: now.Add(DiscoveryLifetime), CanonicalOrigin: service.CanonicalOrigin, Products: publication.Products}
 	signature, err := service.sign(ctx, document)
 	return SignedStorefrontManifest{Document: document, Signature: signature}, err
 }
@@ -389,31 +388,42 @@ func (service *Service) GetLLMSText(ctx context.Context, slug string) (string, e
 		return "", err
 	}
 	var output strings.Builder
-	output.WriteString("# " + manifest.Document.Seller.Name + "\n\nCanonical manifest: " + service.CanonicalOrigin + "/store/" + slug + "/manifest.json\n\nProducts:\n")
+	output.WriteString("# " + manifest.Document.Seller.Name + "\n\nCanonical manifest: " + service.CanonicalOrigin + "/store/" + slug + "/manifest.json\nPublication revision: " + fmt.Sprint(manifest.Document.PublicationRevision) + "\n\nProducts:\n")
 	for _, product := range manifest.Document.Products {
-		output.WriteString("- " + product.DisplayName + ": " + product.CanonicalURL + " (" + product.Amount + " " + product.Asset + " on " + product.Network + ")\n")
+		output.WriteString("\n## " + product.DisplayName + "\n")
+		output.WriteString("Canonical URL: " + product.CanonicalURL + "\n")
+		output.WriteString("Product contract: " + service.APIOrigin + "/v1/storefronts/" + slug + "/products/" + product.ProductSlug + "\n")
+		output.WriteString("Route version: " + fmt.Sprint(product.RouteVersion) + "\n")
+		output.WriteString("Description: " + product.Description + "\n")
+		output.WriteString("Availability: " + product.Availability + "\n")
+		output.WriteString("Price: " + product.Amount + " " + product.Asset + " on " + product.Network + "\n")
+		output.WriteString("Output: " + product.MIMEType + "\n")
 	}
 	return output.String(), nil
 }
 
-func (service *Service) activeProducts(ctx context.Context, seller catalog.Seller) ([]PublicProduct, billing.SellerPlanResponse, bool, error) {
+func (service *Service) currentPublishedCatalog(ctx context.Context, seller catalog.Seller) (PublishedCatalog, []PublicProduct, billing.SellerPlanResponse, error) {
+	publication := PublishedCatalog{SellerID: seller.SellerID, Seller: PublicSeller{Name: seller.Name, Slug: seller.Slug}, Availability: AvailabilityInactive, Routes: []PublishedRouteVersion{}}
 	entitlement, err := service.Entitlements.ResolveSellerPlan(ctx, seller.SellerID)
 	if err != nil {
 		if errors.Is(err, billing.ErrSellerEntitlementNotFound) || errors.Is(err, persistence.ErrNotFound) {
-			return nil, entitlement, false, nil
+			publication.InactiveReason = InactiveReasonSuspended
+			return publication, nil, entitlement, nil
 		}
-		return nil, entitlement, false, err
+		return PublishedCatalog{}, nil, entitlement, err
 	}
 	if entitlement.Assignment.Status != billing.EntitlementStatusActive || entitlement.Assignment.NetworkAccess != billing.NetworkAccessEnabled || !service.Clock.Now().Before(entitlement.Assignment.AccessEndsAt.Time()) || seller.Status != catalog.SellerStatusActive || !seller.HasCurrentServiceEndpointVerification() || service.PublicationReadiness == nil || service.PublicationReadiness.AuthorizePublication(ctx, seller.SellerID) != nil {
-		return nil, entitlement, false, nil
+		publication.InactiveReason = inactiveReason(entitlement)
+		return publication, nil, entitlement, nil
 	}
+	publication.Availability = AvailabilityActive
 	routes, err := service.Catalog.ListRoutesBySeller(ctx, seller.SellerID)
 	if err != nil {
-		return nil, entitlement, false, err
+		return PublishedCatalog{}, nil, entitlement, err
 	}
 	destinations, err := service.Destinations.ListBySeller(ctx, seller.SellerID)
 	if err != nil {
-		return nil, entitlement, false, err
+		return PublishedCatalog{}, nil, entitlement, err
 	}
 	products := make([]PublicProduct, 0, len(routes))
 	for _, route := range routes {
@@ -423,7 +433,11 @@ func (service *Service) activeProducts(ctx context.Context, seller catalog.Selle
 		products = append(products, service.publicProduct(seller, route))
 	}
 	sort.Slice(products, func(i, j int) bool { return products[i].ProductSlug < products[j].ProductSlug })
-	return products, entitlement, len(products) > 0, nil
+	publication.Routes = make([]PublishedRouteVersion, 0, len(products))
+	for _, product := range products {
+		publication.Routes = append(publication.Routes, PublishedRouteVersion{RouteID: product.RouteID, RouteVersion: product.RouteVersion})
+	}
+	return publication, products, entitlement, nil
 }
 
 func matchingDestination(route catalog.PaidRoute, destinations []settlement.PaymentDestination) *settlement.PaymentDestination {
@@ -441,14 +455,9 @@ func (service *Service) publicProduct(seller catalog.Seller, route catalog.PaidR
 	return PublicProduct{SchemaVersion: ProductContractSchemaVersion, SellerID: seller.SellerID, RouteID: route.RouteID, RouteVersion: route.Version, DisplayName: route.DisplayName, ProductSlug: route.ProductSlug, Description: route.Description, MIMEType: route.MIMEType, InputSchema: route.InputSchema, OutputSchema: route.OutputSchema, Amount: route.Amount.String(), Asset: route.Asset, Network: route.Network, PaymentProtocol: PaymentProtocolX402, PaymentScheme: PaymentSchemeExact, Availability: AvailabilityActive, FulfillmentMode: FulfillmentModeSynchronous, FulfillmentTimeoutSeconds: route.UpstreamTimeoutSeconds, UpdatedAt: route.UpdatedAt, AuthoritativeForPurchase: false, CanonicalURL: base, PurchaseSessionEndpoint: service.APIOrigin + "/v1/storefronts/" + seller.Slug + "/products/" + route.ProductSlug + "/purchase-sessions"}
 }
 
-func (service *Service) signTombstone(ctx context.Context, seller catalog.Seller, reason InactiveReason) (SignedStorefrontTombstone, error) {
-	entitlement, _ := service.Entitlements.ResolveSellerPlan(ctx, seller.SellerID)
-	revision, err := service.resolveRevision(ctx, seller, entitlement, nil)
-	if err != nil {
-		return SignedStorefrontTombstone{}, err
-	}
+func (service *Service) signTombstone(ctx context.Context, publication PublishedCatalog) (SignedStorefrontTombstone, error) {
 	now := domain.NewTimestamp(service.Clock.Now())
-	document := StorefrontTombstone{SchemaVersion: DiscoverySchemaVersion, SellerID: seller.SellerID, SellerSlug: seller.Slug, Availability: AvailabilityInactive, Reason: reason, PublicationRevision: revision, IssuedAt: now, ExpiresAt: now.Add(DiscoveryLifetime), CanonicalOrigin: service.CanonicalOrigin}
+	document := StorefrontTombstone{SchemaVersion: DiscoverySchemaVersion, SellerID: publication.SellerID, SellerSlug: publication.Seller.Slug, Availability: AvailabilityInactive, Reason: publication.InactiveReason, PublicationRevision: publication.PublicationRevision, IssuedAt: now, ExpiresAt: now.Add(DiscoveryLifetime), CanonicalOrigin: service.CanonicalOrigin}
 	signature, err := service.sign(ctx, document)
 	return SignedStorefrontTombstone{Document: document, Signature: signature}, err
 }
@@ -464,46 +473,63 @@ func inactiveReason(entitlement billing.SellerPlanResponse) InactiveReason {
 	}
 }
 
-func (service *Service) resolveRevision(ctx context.Context, seller catalog.Seller, entitlement billing.SellerPlanResponse, products []PublicProduct) (uint64, error) {
+func (service *Service) resolvePublication(ctx context.Context, seller catalog.Seller) (resolvedPublication, error) {
+	publication, products, entitlement, err := service.currentPublishedCatalog(ctx, seller)
+	if err != nil {
+		return resolvedPublication{}, err
+	}
 	fingerprintBytes, err := json.Marshal(struct {
 		Seller      catalog.Seller                `json:"seller"`
 		Entitlement billing.SellerEntitlementView `json:"entitlement"`
-		Products    []PublicProduct               `json:"products"`
-	}{seller, entitlement.Assignment, products})
+		Catalog     PublishedCatalog              `json:"catalog"`
+	}{seller, entitlement.Assignment, publication})
 	if err != nil {
-		return 0, err
+		return resolvedPublication{}, err
 	}
 	digest := sha256.Sum256(append([]byte("agentpay.publication-state.v1\x00"), fingerprintBytes...))
 	fingerprint := hex.EncodeToString(digest[:])
 	for attempt := 0; attempt < 3; attempt++ {
 		state, getErr := service.Publications.Get(ctx, seller.SellerID)
 		if errors.Is(getErr, persistence.ErrNotFound) {
-			state = PublicationState{SellerID: seller.SellerID, Fingerprint: fingerprint, PublicationRevision: 1, UpdatedAt: domain.NewTimestamp(service.Clock.Now()), Version: 1}
+			publication.PublicationRevision = 1
+			state = PublicationState{SellerID: seller.SellerID, Fingerprint: fingerprint, PublicationRevision: 1, Catalog: publication, UpdatedAt: domain.NewTimestamp(service.Clock.Now()), Version: 1}
 			if putErr := service.Publications.Put(ctx, state, 0); putErr == nil {
-				return 1, nil
+				return resolvedPublication{State: state, Products: products}, nil
 			} else if !errors.Is(putErr, persistence.ErrConditionFailed) {
-				return 0, putErr
+				return resolvedPublication{}, putErr
 			}
 			continue
 		}
 		if getErr != nil {
-			return 0, getErr
+			return resolvedPublication{}, getErr
 		}
-		if state.Fingerprint == fingerprint {
-			return state.PublicationRevision, nil
+		if state.Fingerprint == fingerprint && state.Catalog.SellerID == seller.SellerID {
+			return resolvedPublication{State: state, Products: products}, nil
 		}
 		expected := state.Version
 		state.Fingerprint = fingerprint
 		state.PublicationRevision++
+		publication.PublicationRevision = state.PublicationRevision
+		state.Catalog = publication
 		state.Version++
 		state.UpdatedAt = domain.NewTimestamp(service.Clock.Now())
 		if putErr := service.Publications.Put(ctx, state, expected); putErr == nil {
-			return state.PublicationRevision, nil
+			return resolvedPublication{State: state, Products: products}, nil
 		} else if !errors.Is(putErr, persistence.ErrConditionFailed) {
-			return 0, putErr
+			return resolvedPublication{}, putErr
 		}
 	}
-	return 0, persistence.ErrConditionFailed
+	return resolvedPublication{}, persistence.ErrConditionFailed
+}
+
+// RefreshPublishedCatalog persists the latest server-authorized public catalog snapshot.
+func (service *Service) RefreshPublishedCatalog(ctx context.Context, sellerID domain.ID) error {
+	seller, err := service.Catalog.GetSeller(ctx, sellerID)
+	if err != nil {
+		return err
+	}
+	_, err = service.resolvePublication(ctx, seller)
+	return err
 }
 
 func (service *Service) sign(ctx context.Context, document any) (DiscoverySignature, error) {

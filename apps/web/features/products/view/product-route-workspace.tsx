@@ -712,6 +712,12 @@ function RouteInspector({
               {actionsPending === "price" ? "Updating…" : "Update price"}
             </Button>
           </form>
+          {route.lifecycleStatus === "published" ? (
+            <p>
+              Changing this price pauses the live product. Validate and publish
+              the new version before buyers can discover it again.
+            </p>
+          ) : null}
         </section>
 
         <section className="product-detail-section product-publication-section">

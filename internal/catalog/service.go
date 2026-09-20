@@ -52,6 +52,10 @@ type PublicationAuthorizer interface {
 	AuthorizePublication(context.Context, domain.ID, domain.ID) error
 }
 
+type PublicationRefresher interface {
+	RefreshPublishedCatalog(context.Context, domain.ID) error
+}
+
 // Service coordinates catalog domain rules with persistence boundaries.
 type Service struct {
 	repository            Repository
@@ -60,6 +64,7 @@ type Service struct {
 	auditRecorder         audit.Recorder
 	quotaEnforcer         PublishedRouteQuota
 	publicationAuthorizer PublicationAuthorizer
+	publicationRefresher  PublicationRefresher
 }
 
 // NewService creates the catalog application service.
@@ -84,6 +89,11 @@ func (service *Service) SetQuotaEnforcer(quotaEnforcer PublishedRouteQuota) {
 
 func (service *Service) SetPublicationAuthorizer(authorizer PublicationAuthorizer) {
 	service.publicationAuthorizer = authorizer
+}
+
+// SetPublicationRefresher connects catalog mutations to the durable public snapshot.
+func (service *Service) SetPublicationRefresher(refresher PublicationRefresher) {
+	service.publicationRefresher = refresher
 }
 
 // AuthorizeSeller verifies ownership without exposing another seller's record.
@@ -272,10 +282,15 @@ func (service *Service) CreateRoute(
 	}); err != nil {
 		return PaidRoute{}, err
 	}
+	if route.LifecycleStatus == RouteLifecyclePublished && service.publicationAuthorizer == nil {
+		if err := service.refreshPublishedCatalog(ctx, sellerID); err != nil {
+			return PaidRoute{}, err
+		}
+	}
 	return route, nil
 }
 
-// UpdateRoutePrice updates only future intent pricing for an owned route.
+// UpdateRoutePrice stages future pricing and pauses a currently published route.
 func (service *Service) UpdateRoutePrice(
 	ctx context.Context,
 	ownerSubject string,
@@ -297,6 +312,7 @@ func (service *Service) UpdateRoutePrice(
 	if route.SellerID != sellerID {
 		return PaidRoute{}, domain.NewValidationError("routeId", "owner", "route does not belong to the seller")
 	}
+	wasPublished := route.effectiveLifecycleStatus() == RouteLifecyclePublished
 	if err := route.ChangePrice(request.Amount, domain.NewTimestamp(service.clock.Now())); err != nil {
 		return PaidRoute{}, err
 	}
@@ -304,17 +320,18 @@ func (service *Service) UpdateRoutePrice(
 		return PaidRoute{}, err
 	}
 	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
-		SellerID:   sellerID,
-		ActorType:  audit.ActorTypeSellerUser,
-		ActorID:    ownerSubject,
-		Action:     audit.ActionRoutePriceChanged,
-		TargetType: audit.TargetTypePaidRoute,
-		TargetID:   routeID.String(),
-		Outcome:    audit.OutcomeSucceeded,
-		ChangedFields: []string{
-			"amount",
-		},
+		SellerID:      sellerID,
+		ActorType:     audit.ActorTypeSellerUser,
+		ActorID:       ownerSubject,
+		Action:        audit.ActionRoutePriceChanged,
+		TargetType:    audit.TargetTypePaidRoute,
+		TargetID:      routeID.String(),
+		Outcome:       audit.OutcomeSucceeded,
+		ChangedFields: priceChangeFields(wasPublished, route),
 	}); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.refreshPublishedCatalog(ctx, sellerID); err != nil {
 		return PaidRoute{}, err
 	}
 	return route, nil
@@ -392,6 +409,9 @@ func (service *Service) PublishSellerRoute(
 		route,
 		audit.ActionRoutePublished,
 	); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.refreshPublishedCatalog(ctx, sellerID); err != nil {
 		return PaidRoute{}, err
 	}
 	return route, nil
@@ -498,6 +518,9 @@ func (service *Service) mutateSellerRouteLifecycle(
 	); err != nil {
 		return PaidRoute{}, err
 	}
+	if err := service.refreshPublishedCatalog(ctx, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
 	return route, nil
 }
 
@@ -600,7 +623,7 @@ func (service *Service) CreateDraftRouteForIntegration(
 	return route, nil
 }
 
-// UpdateRoutePriceForIntegration changes one credential-bound seller route.
+// UpdateRoutePriceForIntegration stages pricing for one credential-bound route.
 func (service *Service) UpdateRoutePriceForIntegration(
 	ctx context.Context,
 	sellerID domain.ID,
@@ -624,7 +647,25 @@ func (service *Service) UpdateRoutePriceForIntegration(
 	); err != nil {
 		return PaidRoute{}, err
 	}
+	if err := service.refreshPublishedCatalog(ctx, sellerID); err != nil {
+		return PaidRoute{}, err
+	}
 	return route, nil
+}
+
+func (service *Service) refreshPublishedCatalog(ctx context.Context, sellerID domain.ID) error {
+	if service.publicationRefresher == nil {
+		return nil
+	}
+	return service.publicationRefresher.RefreshPublishedCatalog(ctx, sellerID)
+}
+
+func priceChangeFields(wasPublished bool, route PaidRoute) []string {
+	fields := []string{"amount"}
+	if wasPublished && route.LifecycleStatus == RouteLifecyclePaused {
+		fields = append(fields, "lifecycleStatus", "enabled")
+	}
+	return fields
 }
 
 // ValidateRouteForIntegration computes deterministic publication checks.
@@ -744,6 +785,9 @@ func (service *Service) PublishRouteForIntegration(
 		route,
 		expectedVersion,
 	); err != nil {
+		return PaidRoute{}, err
+	}
+	if err := service.refreshPublishedCatalog(ctx, sellerID); err != nil {
 		return PaidRoute{}, err
 	}
 	return route, nil
@@ -1068,7 +1112,7 @@ func (seller *Seller) Suspend(changedAt domain.Timestamp) error {
 	return nil
 }
 
-// ChangePrice updates the route price used by future purchase intents.
+// ChangePrice stages a new price and removes a published route from discovery.
 func (paidRoute *PaidRoute) ChangePrice(
 	amount domain.Amount,
 	changedAt domain.Timestamp,
@@ -1089,6 +1133,10 @@ func (paidRoute *PaidRoute) ChangePrice(
 	}
 	if paidRoute.Amount == amount {
 		return nil
+	}
+	if paidRoute.effectiveLifecycleStatus() == RouteLifecyclePublished {
+		paidRoute.LifecycleStatus = RouteLifecyclePaused
+		paidRoute.Enabled = false
 	}
 	paidRoute.Amount = amount
 	paidRoute.UpdatedAt = changedAt

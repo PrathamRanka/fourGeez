@@ -80,12 +80,79 @@ func TestServiceSignsOnlyFreshAuthoritativeDiscovery(t *testing.T) {
 	if err := fixture.catalog.UpdateRoute(t.Context(), updatedRoute, fixture.route.Version); err != nil {
 		t.Fatal(err)
 	}
+	pending, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending.Document.PublicationRevision != manifest.Document.PublicationRevision+1 || len(pending.Document.Products) != 0 {
+		t.Fatalf("pending manifest exposed an unapproved edit = %#v", pending.Document)
+	}
+	if err := updatedRoute.Publish(fixture.now.Add(2 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.catalog.UpdateRoute(t.Context(), updatedRoute, updatedRoute.Version-1); err != nil {
+		t.Fatal(err)
+	}
 	refreshed, err := fixture.service.GetManifest(t.Context(), fixture.seller.Slug)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if refreshed.Document.PublicationRevision != manifest.Document.PublicationRevision+1 || refreshed.Document.Products[0].Amount != "36000000" {
+	if refreshed.Document.PublicationRevision != pending.Document.PublicationRevision+1 || refreshed.Document.Products[0].Amount != "36000000" {
 		t.Fatalf("refreshed manifest = %#v", refreshed.Document)
+	}
+	llmsText, err := fixture.service.GetLLMSText(t.Context(), fixture.seller.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		"Publication revision: 3",
+		"Route version: 4",
+		"Description: A bounded report",
+		"Availability: active",
+		"Price: 36000000 USDC on eip155:84532",
+		"Product contract: https://api.agentpay.example/v1/storefronts/acme-research/products/research-report",
+	} {
+		if !strings.Contains(llmsText, expected) {
+			t.Fatalf("llms.txt omitted %q: %s", expected, llmsText)
+		}
+	}
+	state, err := fixture.service.Publications.Get(t.Context(), fixture.seller.SellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Catalog.PublicationRevision != refreshed.Document.PublicationRevision || len(state.Catalog.Routes) != 1 || state.Catalog.Routes[0].RouteID != refreshed.Document.Products[0].RouteID || state.Catalog.Routes[0].RouteVersion != refreshed.Document.Products[0].RouteVersion {
+		t.Fatalf("persisted publication snapshot = %#v", state)
+	}
+}
+
+func TestServiceRefreshPublicationMakesDashboardLifecycleChangesVisible(t *testing.T) {
+	t.Parallel()
+	fixture := newServiceFixture(t)
+	fixture.verifyEndpoint(t)
+
+	if err := fixture.service.RefreshPublishedCatalog(t.Context(), fixture.seller.SellerID); err != nil {
+		t.Fatal(err)
+	}
+	initial, err := fixture.service.Publications.Get(t.Context(), fixture.seller.SellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := fixture.route
+	if err := route.Pause(fixture.now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.catalog.UpdateRoute(t.Context(), route, fixture.route.Version); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.RefreshPublishedCatalog(t.Context(), fixture.seller.SellerID); err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := fixture.service.Publications.Get(t.Context(), fixture.seller.SellerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.PublicationRevision != initial.PublicationRevision+1 || len(refreshed.Catalog.Routes) != 0 {
+		t.Fatalf("refreshed publication = %#v", refreshed)
 	}
 }
 
