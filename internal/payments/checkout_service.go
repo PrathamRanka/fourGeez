@@ -175,7 +175,7 @@ func (service *CheckoutService) Execute(
 			if IsRetryable(verifyErr) {
 				observability.Record(observability.EventFacilitatorFailure)
 			}
-			if errors.Is(verifyErr, ErrPaymentRejected) {
+			if isTerminalPaymentRejection(verifyErr) {
 				challenge, challengeErr := service.adapter.CreateChallenge(
 					ctx,
 					resolved.Requirements,
@@ -249,13 +249,13 @@ func (service *CheckoutService) Execute(
 	}
 	if err == nil && payerAddress != "" && settlement.PayerAddress != "" &&
 		!strings.EqualFold(payerAddress, settlement.PayerAddress) {
-		err = ErrPaymentRejected
+		err = ErrPaymentWalletMismatch
 	}
 	if err != nil {
 		if IsRetryable(err) {
 			observability.Record(observability.EventFacilitatorFailure)
 		}
-		if errors.Is(err, ErrPaymentRejected) {
+		if isTerminalPaymentRejection(err) {
 			failedVersion := transaction.Version()
 			if failErr := transaction.FailPayment(
 				"settlement_rejected",
@@ -310,6 +310,14 @@ func (service *CheckoutService) Execute(
 		settlement.ResponseHeader,
 		firstNonEmpty(payerAddress, settlement.PayerAddress),
 	)
+}
+
+func isTerminalPaymentRejection(err error) bool {
+	return errors.Is(err, ErrPaymentRejected) ||
+		errors.Is(err, ErrPaymentAuthorizationExpired) ||
+		errors.Is(err, ErrPaymentSignatureInvalid) ||
+		errors.Is(err, ErrPaymentWalletMismatch) ||
+		errors.Is(err, ErrPaymentFacilitatorRejected)
 }
 
 func (service *CheckoutService) executeFinalized(

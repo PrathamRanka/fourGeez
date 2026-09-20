@@ -470,7 +470,7 @@ func (adapter *X402Adapter) Verify(
 		return VerificationResult{}, classifyFacilitatorError(ctx, err)
 	}
 	if response == nil || !response.IsValid {
-		return VerificationResult{}, ErrPaymentRejected
+		return VerificationResult{}, ErrPaymentFacilitatorRejected
 	}
 
 	return VerificationResult{
@@ -821,7 +821,17 @@ func classifyFacilitatorError(parent context.Context, err error) error {
 	}
 	var verifyError *x402.VerifyError
 	if errors.As(err, &verifyError) {
-		return ErrPaymentRejected
+		switch verifyError.InvalidReason {
+		case x402.ErrCodePaymentExpired:
+			return ErrPaymentAuthorizationExpired
+		case x402.ErrCodeSignatureInvalid:
+			return ErrPaymentSignatureInvalid
+		case x402.ErrCodeUnsupportedScheme, x402.ErrCodeUnsupportedNetwork,
+			x402.ErrCodeNetworkMismatch, x402.ErrCodeSchemeMismatch:
+			return ErrPaymentCapabilityUnsupported
+		default:
+			return ErrPaymentFacilitatorRejected
+		}
 	}
 	var settleError *x402.SettleError
 	if errors.As(err, &settleError) {
@@ -829,7 +839,7 @@ func classifyFacilitatorError(parent context.Context, err error) error {
 			strings.TrimSpace(settleError.Transaction) != "" {
 			return ErrPaymentUnavailable
 		}
-		return ErrPaymentRejected
+		return ErrPaymentFacilitatorRejected
 	}
 	return ErrPaymentUnavailable
 }

@@ -279,6 +279,9 @@ Forbidden:
 
 - Maximum JSON body: 1 MiB; paid-route limit is configurable downward.
 - Strict content types and JSON decoding with unknown-field rejection for control APIs.
+- Server-side schema validation checks the exact paid request body against the
+  authoritative published closed input schema before transaction creation,
+  challenge issuance, proof verification, settlement, or fulfillment.
 - Stable machine error codes; internal stack traces never leave the service.
 - Error responses use the documented status/code pairs: `401` for
   `invalid_credential`, `token_expired`, or `token_revoked`; `403` for
@@ -288,12 +291,17 @@ Forbidden:
   `payment_expired`, or an expired one-time resource; `422` for
   `validation_failed` or `payment_capability_unsupported`; `429` for
   `rate_limited`; `402` for `payment_required`
-  or `payment_rejected`; and `503` for `dependency_unavailable`,
+  or `payment_rejected`, `payment_authorization_expired`,
+  `payment_signature_invalid`, `payment_wallet_mismatch`, or
+  `payment_facilitator_rejected`; and `503` for `dependency_unavailable`,
   `payment_unavailable`, or `payment_outcome_unknown`.
 - Payment recovery actions are limited to `connect_wallet`, `switch_network`,
   `sign_fresh_authorization`, `retry_same_request`, `retry_same_payment`, and
   `start_new_checkout`. Details never contain a raw proof, wallet signature,
   cookie, authorization header, or private wallet material.
+- Payment-proof sanitization maps facilitator and wallet failures to bounded
+  machine codes and safe messages; raw proofs, signatures, wallet material,
+  and provider diagnostics never enter responses, evidence, persistence, or logs.
 - Authenticate and authorize the seller before consuming seller-scoped API
   quota so an attacker cannot exhaust another tenant's allowance.
 - Manual refund recording never moves funds. It derives `sellerId` and

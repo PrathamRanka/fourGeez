@@ -389,7 +389,7 @@ func TestX402AdapterClassifiesVerificationFailures(t *testing.T) {
 					"invalid signature",
 				)
 			},
-			wantError: ErrPaymentRejected,
+			wantError: ErrPaymentSignatureInvalid,
 		},
 		{
 			name: "expired authorization",
@@ -400,7 +400,7 @@ func TestX402AdapterClassifiesVerificationFailures(t *testing.T) {
 					"authorization expired",
 				)
 			},
-			wantError: ErrPaymentRejected,
+			wantError: ErrPaymentAuthorizationExpired,
 		},
 		{
 			name: "nonce rejected",
@@ -411,14 +411,14 @@ func TestX402AdapterClassifiesVerificationFailures(t *testing.T) {
 					"nonce already used",
 				)
 			},
-			wantError: ErrPaymentRejected,
+			wantError: ErrPaymentFacilitatorRejected,
 		},
 		{
 			name: "invalid response",
 			verify: func(context.Context, []byte, []byte) (*x402.VerifyResponse, error) {
 				return &x402.VerifyResponse{IsValid: false}, nil
 			},
-			wantError: ErrPaymentRejected,
+			wantError: ErrPaymentFacilitatorRejected,
 		},
 		{
 			name: "timeout",
@@ -457,6 +457,39 @@ func TestX402AdapterClassifiesVerificationFailures(t *testing.T) {
 			}
 			if IsRetryable(err) != test.wantRetryable {
 				t.Fatalf("IsRetryable() = %v", IsRetryable(err))
+			}
+		})
+	}
+}
+
+func TestX402AdapterPreservesSanitizedFacilitatorFailureClasses(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		reason    string
+		wantError error
+	}{
+		{name: "expired", reason: x402.ErrCodePaymentExpired, wantError: ErrPaymentAuthorizationExpired},
+		{name: "signature", reason: x402.ErrCodeSignatureInvalid, wantError: ErrPaymentSignatureInvalid},
+		{name: "unsupported network", reason: x402.ErrCodeUnsupportedNetwork, wantError: ErrPaymentCapabilityUnsupported},
+		{name: "facilitator rejection", reason: x402.ErrCodeInvalidPayment, wantError: ErrPaymentFacilitatorRejected},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			adapter := NewX402AdapterWithFacilitator(&fakeFacilitatorClient{
+				verify: func(context.Context, []byte, []byte) (*x402.VerifyResponse, error) {
+					return nil, x402.NewVerifyError(test.reason, "0xsecret-wallet", "facilitator detail")
+				},
+			}, testVerificationTimeout)
+
+			_, err := adapter.Verify(t.Context(), validPaymentProof(t, validRequirements()), validRequirements())
+			if !errors.Is(err, test.wantError) {
+				t.Fatalf("Verify() error = %v, want %v", err, test.wantError)
+			}
+			if strings.Contains(err.Error(), "0xsecret-wallet") || strings.Contains(err.Error(), "facilitator detail") {
+				t.Fatalf("Verify() leaked facilitator detail: %v", err)
 			}
 		})
 	}

@@ -156,18 +156,19 @@ func (controller *HTTPController) writeError(
 	result CheckoutResult,
 	err error,
 ) {
-	if result.Challenge != nil && errors.Is(err, ErrPaymentRejected) {
+	if result.Challenge != nil && isTerminalPaymentRejection(err) {
 		response.Header().Set(paymentRequiredHeader, result.Challenge.Header)
 		if result.TransactionID.String() != "" {
 			response.Header().Set(transactionIDHeader, result.TransactionID.String())
 		}
 		response.Header().Set("Cache-Control", "no-store")
+		code, message := paymentRejectionResponse(err)
 		api.WriteError(
 			response,
 			request,
 			http.StatusPaymentRequired,
-			api.ErrorCodePaymentRejected,
-			"payment proof was rejected",
+			code,
+			message,
 			controller.paymentRecoveryDetails(RecoveryActionSignFreshAuthorization),
 		)
 		return
@@ -206,6 +207,34 @@ func (controller *HTTPController) writeError(
 		if result.RecoveryAction == "" {
 			result.RecoveryAction = RecoveryActionSignFreshAuthorization
 		}
+	case errors.Is(err, ErrPaymentAuthorizationExpired):
+		status = http.StatusPaymentRequired
+		code = api.ErrorCodePaymentAuthorizationExpired
+		message = "payment authorization expired"
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionSignFreshAuthorization
+		}
+	case errors.Is(err, ErrPaymentSignatureInvalid):
+		status = http.StatusPaymentRequired
+		code = api.ErrorCodePaymentSignatureInvalid
+		message = "payment signature is invalid"
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionSignFreshAuthorization
+		}
+	case errors.Is(err, ErrPaymentWalletMismatch):
+		status = http.StatusPaymentRequired
+		code = api.ErrorCodePaymentWalletMismatch
+		message = "payment wallet does not match verification"
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionStartNewCheckout
+		}
+	case errors.Is(err, ErrPaymentFacilitatorRejected):
+		status = http.StatusPaymentRequired
+		code = api.ErrorCodePaymentFacilitatorRejected
+		message = "payment was rejected by the facilitator"
+		if result.RecoveryAction == "" {
+			result.RecoveryAction = RecoveryActionSignFreshAuthorization
+		}
 	case errors.Is(err, ErrPaymentCapabilityUnsupported):
 		status = http.StatusUnprocessableEntity
 		code = api.ErrorCodePaymentCapabilityUnsupported
@@ -241,6 +270,21 @@ func (controller *HTTPController) writeError(
 		details = map[string]any{"validationErrors": validationError.Issues}
 	}
 	api.WriteError(response, request, status, code, message, details)
+}
+
+func paymentRejectionResponse(err error) (string, string) {
+	switch {
+	case errors.Is(err, ErrPaymentAuthorizationExpired):
+		return api.ErrorCodePaymentAuthorizationExpired, "payment authorization expired"
+	case errors.Is(err, ErrPaymentSignatureInvalid):
+		return api.ErrorCodePaymentSignatureInvalid, "payment signature is invalid"
+	case errors.Is(err, ErrPaymentWalletMismatch):
+		return api.ErrorCodePaymentWalletMismatch, "payment wallet does not match verification"
+	case errors.Is(err, ErrPaymentFacilitatorRejected):
+		return api.ErrorCodePaymentFacilitatorRejected, "payment was rejected by the facilitator"
+	default:
+		return api.ErrorCodePaymentRejected, "payment proof was rejected"
+	}
 }
 
 func (controller *HTTPController) paymentRecoveryDetails(action RecoveryAction) map[string]any {

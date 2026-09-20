@@ -356,6 +356,61 @@ func TestCheckoutServiceRejectsInputThatViolatesPublishedSchemaBeforePayment(t *
 	}
 }
 
+func TestReleaseBoundaryBuyerMaximumRemainsCeilingWhileWalletAuthorizationIsExact(t *testing.T) {
+	fixture := newPaidRouteFixture(t, false)
+	snapshot := fixture.purchaseIntent.Snapshot()
+	var err error
+	fixture.purchaseIntent, err = intents.NewPurchaseIntent(intents.PurchaseIntentParams{
+		IntentID: snapshot.IntentID, SellerID: snapshot.SellerID, RouteID: snapshot.RouteID,
+		BuyerID: snapshot.BuyerID, PurchaseSessionID: snapshot.PurchaseSessionID, PurchaseChannel: snapshot.PurchaseChannel,
+		ProductDisplayName: snapshot.ProductDisplayName, ProductSlug: snapshot.ProductSlug,
+		PaymentDestinationID: snapshot.PaymentDestinationID, PayTo: snapshot.PayTo,
+		RequestMethod: snapshot.RequestMethod, RequestPath: snapshot.RequestPath, RequestBodyHash: snapshot.RequestBodyHash,
+		Amount: snapshot.Amount, Asset: snapshot.Asset, Network: snapshot.Network,
+		MaximumAmount: domain.MustParseAmount("20000"), RequiresApproval: false,
+		CreatedAt: snapshot.CreatedAt, ExpiresAt: snapshot.ExpiresAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.service.intentRepository = &paidRouteIntentRepository{purchaseIntent: fixture.purchaseIntent}
+	adapter := &recordingCheckoutAdapter{}
+	service := NewCheckoutService(
+		fixture.service,
+		adapter,
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		&checkoutExecutor{},
+		fixture.clock,
+	)
+
+	result, err := service.Execute(t.Context(), checkoutRequest(fixture))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Challenge == nil || result.Challenge.Requirements.Amount.String() != "10000" {
+		t.Fatalf("challenge = %#v", result.Challenge)
+	}
+	if result.Challenge.Requirements.Amount == fixture.purchaseIntent.MaximumAmount() {
+		t.Fatal("challenge incorrectly charged the buyer maximum instead of the exact seller quote")
+	}
+
+	belowMaximum := snapshot
+	_, err = intents.NewPurchaseIntent(intents.PurchaseIntentParams{
+		IntentID: belowMaximum.IntentID, SellerID: belowMaximum.SellerID, RouteID: belowMaximum.RouteID,
+		BuyerID: belowMaximum.BuyerID, PurchaseSessionID: belowMaximum.PurchaseSessionID, PurchaseChannel: belowMaximum.PurchaseChannel,
+		ProductDisplayName: belowMaximum.ProductDisplayName, ProductSlug: belowMaximum.ProductSlug,
+		PaymentDestinationID: belowMaximum.PaymentDestinationID, PayTo: belowMaximum.PayTo,
+		RequestMethod: belowMaximum.RequestMethod, RequestPath: belowMaximum.RequestPath, RequestBodyHash: belowMaximum.RequestBodyHash,
+		Amount: belowMaximum.Amount, Asset: belowMaximum.Asset, Network: belowMaximum.Network,
+		MaximumAmount: domain.MustParseAmount("9999"), RequiresApproval: false,
+		CreatedAt: belowMaximum.CreatedAt, ExpiresAt: belowMaximum.ExpiresAt,
+	})
+	if err == nil {
+		t.Fatal("purchase intent accepted a buyer maximum below the exact seller quote")
+	}
+}
+
 func TestCheckoutServiceUsesAuthoritativeTransactionStateForFinalizedRetry(t *testing.T) {
 	fixture := newPaidRouteFixture(t, false)
 	adapter := &recordingCheckoutAdapter{}
@@ -404,6 +459,33 @@ func TestCheckoutServiceRejectsSettlementForDifferentPaymentIdentifier(t *testin
 	}
 	if executor.calls != 0 {
 		t.Fatalf("executor calls = %d, want 0", executor.calls)
+	}
+}
+
+func TestCheckoutServiceReportsWalletMismatchWithoutFulfilling(t *testing.T) {
+	fixture := newPaidRouteFixture(t, false)
+	adapter := &recordingCheckoutAdapter{
+		verificationPayerAddress: "0x1111111111111111111111111111111111111111",
+		settlementPayerAddress:   "0x2222222222222222222222222222222222222222",
+	}
+	executor := &checkoutExecutor{}
+	service := NewCheckoutService(
+		fixture.service,
+		adapter,
+		memory.NewTransactionRepository(),
+		newCheckoutEvidenceRecorder(t, fixture),
+		executor,
+		fixture.clock,
+	)
+	request := checkoutRequest(fixture)
+	request.PaymentProof = MockApprovedProof
+
+	result, err := service.Execute(t.Context(), request)
+	if !errors.Is(err, ErrPaymentWalletMismatch) {
+		t.Fatalf("Execute() error = %v, want wallet mismatch", err)
+	}
+	if result.RecoveryAction != RecoveryActionStartNewCheckout || executor.calls != 0 {
+		t.Fatalf("result = %#v, executor calls = %d", result, executor.calls)
 	}
 }
 
@@ -574,13 +656,15 @@ func (authorizer *recordingCommerceAuthorizer) AuthorizeCommerce(
 }
 
 type recordingCheckoutAdapter struct {
-	challengeCalls       int
-	verifyCalls          int
-	settleCalls          int
-	afterSettlement      func()
-	settlementIdentifier string
-	verifyError          error
-	settleError          error
+	challengeCalls           int
+	verifyCalls              int
+	settleCalls              int
+	afterSettlement          func()
+	settlementIdentifier     string
+	verifyError              error
+	settleError              error
+	verificationPayerAddress string
+	settlementPayerAddress   string
 }
 
 func (adapter *recordingCheckoutAdapter) PaymentCapabilities() PaymentCapabilityCatalog {
@@ -597,7 +681,7 @@ func (adapter *recordingCheckoutAdapter) Verify(_ context.Context, _ string, _ R
 	if adapter.verifyError != nil {
 		return VerificationResult{}, adapter.verifyError
 	}
-	return VerificationResult{Valid: true, PaymentIdentifier: "payment-test"}, nil
+	return VerificationResult{Valid: true, PaymentIdentifier: "payment-test", PayerAddress: adapter.verificationPayerAddress}, nil
 }
 
 func (adapter *recordingCheckoutAdapter) Settle(_ context.Context, _ string, _ Requirements) (SettlementResult, error) {
@@ -612,7 +696,7 @@ func (adapter *recordingCheckoutAdapter) Settle(_ context.Context, _ string, _ R
 	if identifier == "" {
 		identifier = "payment-test"
 	}
-	return SettlementResult{Settled: true, PaymentIdentifier: identifier, PaymentReference: "0xsettled", ResponseHeader: "settled"}, nil
+	return SettlementResult{Settled: true, PaymentIdentifier: identifier, PaymentReference: "0xsettled", ResponseHeader: "settled", PayerAddress: adapter.settlementPayerAddress}, nil
 }
 
 type checkoutExecutor struct{ calls int }

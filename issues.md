@@ -125,14 +125,14 @@ This register records issues found during the real seller onboarding, MCP config
 35. Wallet authorization previously inherited the seller HTTP timeout and expired after 30 seconds; it is now independently set to five minutes.
 36. AgentPay omitted Base Sepolia USDC EIP-712 `name` and `version`; these fields are now included in the challenge and facilitator request.
 37. The production x402 path now successfully verifies and settles exact Base Sepolia USDC directly to the seller.
+38. Payment failures now return sanitized machine-readable distinctions for authorization expiry, invalid signature, wallet mismatch, unsupported capability, and terminal facilitator rejection.
+39. The paid route now validates the exact request body against the published closed input schema before verification or settlement; invalid input cannot trigger payment or fulfillment.
 
 ### Remaining P0/P1
 
-38. Payment rejection messages are too generic and do not distinguish expiry, invalid signature, wallet mismatch, unsupported capability, or facilitator rejection.
-39. A paid-but-invalid request proved that settlement can succeed before fulfillment input validity is established.
-40. Live buyer-maximum rejection and exact authorization boundaries have not been preserved as release evidence.
-41. Live payment replay and duplicate-request behavior has not been demonstrated end to end.
-42. Cancellation immediately before and after settlement has not been demonstrated against the documented buyer-obligation rules.
+40. Local deterministic evidence now covers buyer-maximum rejection and exact authorization boundaries; deployed wallet evidence remains pending under REL-004.
+41. Local deterministic evidence now covers changed-proof replay, same-proof recovery, and exactly-once forwarding; deployed end-to-end evidence remains pending under REL-005.
+42. Local deterministic evidence now covers cancellation immediately before and after finalized settlement according to the buyer-obligation rule; deployed race evidence remains pending under REL-014.
 
 ## 7. Fulfillment, failure recovery, and refunds
 

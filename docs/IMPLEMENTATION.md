@@ -407,7 +407,16 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-002** Run unit, integration, contract, web accessibility, and end-to-end suites.
 - [ ] **REL-003** Complete one real x402 testnet transaction and preserve its evidence bundle.
 - [ ] **REL-004** Demonstrate buyer-maximum rejection and exact wallet authorization without a buyer-approval step.
+  Local deterministic coverage completed on September 20, 2026: regression
+  tests prove a maximum below the frozen quote is rejected and a higher buyer
+  maximum remains only a ceiling while the wallet challenge authorizes the
+  exact seller amount. Deployed wallet evidence remains pending.
 - [ ] **REL-005** Demonstrate duplicate, non-delivery, and quality dispute outcomes.
+  Local payment replay and duplicate-forwarding coverage completed on
+  September 20, 2026: changed-proof replay is rejected, same-proof settlement
+  recovery does not verify or settle twice, and the atomic forwarding claim
+  permits exactly one seller invocation. Deployed evidence and the non-delivery
+  and quality-dispute demonstrations remain pending.
 - [ ] **REL-006** Rehearse deterministic fallback and AWS dependency failures.
 - [ ] **REL-007** Connect a coding agent, generate a seller integration, approve publication, and pass the sandbox validator.
 - [ ] **REL-008** Complete one browser-wallet purchase and one agent/x402 purchase for the same storefront and show both in the seller dashboard without double counting.
@@ -422,6 +431,10 @@ M8 acceptance: a new development environment can be deployed from committed Terr
   settlement, receipt, and evidence verification.
 - [-] **REL-013** Load a stale seller-hosted manifest after cancellation and demonstrate that authoritative intent creation and checkout fail while AgentPay discovery returns an inactive tombstone. Local regressions prove stale route data loses authoritative commerce access and discovery advances to a higher-revision signed cancellation tombstone; canonical deployed intent/browser checkout proof remains pending.
 - [ ] **REL-014** Exercise cancellation immediately before settlement and immediately after finalized settlement; verify that the first transaction is blocked and the second fulfills exactly once according to the documented buyer-obligation rule.
+  Local deterministic coverage completed on September 20, 2026: fresh
+  authorization denial immediately before settlement prevents a charge, while
+  cancellation after durable finality does not erase the seller's one-time
+  fulfillment obligation. Deployed race evidence remains pending.
 - [ ] **REL-015** Complete the authenticated browser journey from clean sign-up through resumable onboarding, publication, browser purchase, agent purchase, dashboard reconciliation, dispute, sign-out, and expired-session recovery using the deployed production-shaped environment.
 - [x] **REL-016** Historical implementation of a seller-owned onboarding test-purchase journey. Superseded on September 20, 2026 by issues 1 and 2: seller onboarding and dashboard surfaces expose no buyer checkout, wallet authorization, or seller-funded purchase action, and instead show the route-version-bound automated non-payment verification result. Public storefront checkout remains available only to human buyers and external buyer agents.
 

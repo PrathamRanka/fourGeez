@@ -59,6 +59,14 @@ const (
 var (
 	// ErrPaymentRejected reports a proof that cannot authorize payment.
 	ErrPaymentRejected = errors.New("payment rejected")
+	// ErrPaymentAuthorizationExpired reports an expired wallet authorization.
+	ErrPaymentAuthorizationExpired = errors.New("payment authorization expired")
+	// ErrPaymentSignatureInvalid reports a cryptographically invalid authorization.
+	ErrPaymentSignatureInvalid = errors.New("payment signature invalid")
+	// ErrPaymentWalletMismatch reports inconsistent verified and settled payer wallets.
+	ErrPaymentWalletMismatch = errors.New("payment wallet mismatch")
+	// ErrPaymentFacilitatorRejected reports a terminal facilitator rejection not safely classifiable further.
+	ErrPaymentFacilitatorRejected = errors.New("payment facilitator rejected")
 	// ErrPaymentTimeout reports that payment verification exceeded its deadline.
 	ErrPaymentTimeout = errors.New("payment verification timed out")
 	// ErrPaymentUnavailable reports that the payment provider is unavailable.

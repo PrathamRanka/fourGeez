@@ -3127,6 +3127,10 @@ components:
         - idempotency_conflict
         - payment_required
         - payment_rejected
+        - payment_authorization_expired
+        - payment_signature_invalid
+        - payment_wallet_mismatch
+        - payment_facilitator_rejected
         - payment_replayed
         - payment_capability_unsupported
         - payment_expired
@@ -3192,7 +3196,7 @@ components:
         PAYMENT-RESPONSE: { schema: { type: string }, description: x402 v2 settlement response when supplied by the payment adapter }
       content: { application/json: { schema: {} } }
     PaymentRequired:
-      description: x402 v2 challenge for payment_required or payment_rejected; PAYMENT-REQUIRED is present when the same intent may be reauthorized
+      description: x402 v2 challenge or terminal authorization failure; codes are payment_required, payment_rejected, payment_authorization_expired, payment_signature_invalid, payment_wallet_mismatch, or payment_facilitator_rejected. PAYMENT-REQUIRED is present only when the same intent may be reauthorized.
       headers:
         PAYMENT-REQUIRED: { schema: { type: string }, description: Base64-encoded x402 PaymentRequired payload }
         X-AgentPay-Transaction-Id: { schema: { type: string, pattern: '^txn_[A-Za-z0-9]+$' }, description: Stable transaction identifier created before the challenge and safe to show as the buyer support trace. }

@@ -210,6 +210,25 @@ func TestPaidRouteControllerLabelsRejectedProofWithoutLosingChallenge(t *testing
 	assertPaymentRecoveryAction(t, response, RecoveryActionSignFreshAuthorization)
 }
 
+func TestPaidRouteControllerPreservesPreciseFailureCodeWithFreshChallenge(t *testing.T) {
+	t.Parallel()
+
+	controller := &HTTPController{}
+	request := httptest.NewRequest(http.MethodPost, "/pay/demo-seller/weather", nil)
+	response := httptest.NewRecorder()
+	controller.writeError(
+		response,
+		request,
+		CheckoutResult{Challenge: &Challenge{Header: "encoded-challenge"}},
+		ErrPaymentSignatureInvalid,
+	)
+
+	if response.Header().Get(paymentRequiredHeader) != "encoded-challenge" {
+		t.Fatalf("PAYMENT-REQUIRED = %q", response.Header().Get(paymentRequiredHeader))
+	}
+	assertPaymentErrorCode(t, response, "payment_signature_invalid")
+}
+
 func TestPaidRouteControllerMapsPaymentRecoveryFailures(t *testing.T) {
 	t.Parallel()
 
@@ -243,6 +262,47 @@ func TestPaidRouteControllerMapsPaymentRecoveryFailures(t *testing.T) {
 			assertPaymentRecoveryAction(t, response, test.recovery)
 			if response.Header().Get("Retry-After") != test.retryAfter {
 				t.Fatalf("Retry-After = %q", response.Header().Get("Retry-After"))
+			}
+		})
+	}
+}
+
+func TestPaidRouteControllerReturnsSanitizedPaymentFailureTaxonomy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		err     error
+		status  int
+		code    string
+		message string
+	}{
+		{name: "authorization expired", err: ErrPaymentAuthorizationExpired, status: http.StatusPaymentRequired, code: "payment_authorization_expired", message: "payment authorization expired"},
+		{name: "invalid signature", err: ErrPaymentSignatureInvalid, status: http.StatusPaymentRequired, code: "payment_signature_invalid", message: "payment signature is invalid"},
+		{name: "wallet mismatch", err: ErrPaymentWalletMismatch, status: http.StatusPaymentRequired, code: "payment_wallet_mismatch", message: "payment wallet does not match verification"},
+		{name: "unsupported capability", err: ErrPaymentCapabilityUnsupported, status: http.StatusUnprocessableEntity, code: "payment_capability_unsupported", message: "payment capability is unsupported"},
+		{name: "facilitator rejection", err: ErrPaymentFacilitatorRejected, status: http.StatusPaymentRequired, code: "payment_facilitator_rejected", message: "payment was rejected by the facilitator"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			controller := &HTTPController{}
+			request := httptest.NewRequest(http.MethodPost, "/pay/demo-seller/weather", nil)
+			response := httptest.NewRecorder()
+			controller.writeError(response, request, CheckoutResult{}, test.err)
+
+			if response.Code != test.status {
+				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+			}
+			var body api.ErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if body.Error.Code != test.code || body.Error.Message != test.message {
+				t.Fatalf("error = %#v", body.Error)
+			}
+			if strings.Contains(response.Body.String(), "0xsecret") || strings.Contains(response.Body.String(), "facilitator detail") {
+				t.Fatalf("response leaked payment detail: %s", response.Body.String())
 			}
 		})
 	}
