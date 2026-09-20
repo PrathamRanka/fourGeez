@@ -177,7 +177,10 @@ type ProductSummary struct {
 
 type TransactionSummary struct {
 	Total     int `json:"total"`
+	Live      int `json:"live"`
+	Test      int `json:"test"`
 	Pending   int `json:"pending"`
+	Abandoned int `json:"abandoned"`
 	Fulfilled int `json:"fulfilled"`
 	Failed    int `json:"failed"`
 	Disputed  int `json:"disputed"`

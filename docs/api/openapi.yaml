@@ -1167,6 +1167,8 @@ paths:
         - { $ref: '#/components/parameters/DashboardTo' }
         - { $ref: '#/components/parameters/TransactionRouteId' }
         - { $ref: '#/components/parameters/TransactionStatus' }
+        - { $ref: '#/components/parameters/TransactionActivityMode' }
+        - { $ref: '#/components/parameters/TransactionOutcome' }
         - { $ref: '#/components/parameters/TransactionAsset' }
         - { $ref: '#/components/parameters/TransactionNetwork' }
       responses:
@@ -1200,6 +1202,8 @@ paths:
         - { $ref: '#/components/parameters/TransactionTo' }
         - { $ref: '#/components/parameters/TransactionRouteId' }
         - { $ref: '#/components/parameters/TransactionStatus' }
+        - { $ref: '#/components/parameters/TransactionActivityMode' }
+        - { $ref: '#/components/parameters/TransactionOutcome' }
         - { $ref: '#/components/parameters/TransactionAsset' }
         - { $ref: '#/components/parameters/TransactionNetwork' }
       responses:
@@ -1796,6 +1800,8 @@ components:
     DashboardTo: { name: to, in: query, required: true, description: Exclusive UTC end of the bounded reporting window; the interval must not exceed 31 days., schema: { type: string, format: date-time } }
     TransactionRouteId: { name: routeId, in: query, required: false, schema: { type: string, pattern: '^rte_[A-Za-z0-9]+$' } }
     TransactionStatus: { name: status, in: query, required: false, schema: { type: string, enum: [PROPOSED, PAYMENT_REQUIRED, PAYMENT_VERIFIED, FORWARDED, FULFILLED, FAILED, DISPUTED, REFUND_RECOMMENDED, RESOLVED] } }
+    TransactionActivityMode: { name: activityMode, in: query, required: false, schema: { type: string, enum: [test, live] } }
+    TransactionOutcome: { name: outcome, in: query, required: false, schema: { type: string, enum: [awaiting_payment, abandoned, payment_rejected, payment_processing, fulfilling, fulfilled, fulfillment_failed, disputed, refund_recommended, resolved] } }
     TransactionAsset: { name: asset, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 160 } }
     TransactionNetwork: { name: network, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 80 } }
   schemas:
@@ -2029,10 +2035,13 @@ components:
     TransactionSummary:
       type: object
       additionalProperties: false
-      required: [total, pending, fulfilled, failed, disputed]
+      required: [total, live, test, pending, abandoned, fulfilled, failed, disputed]
       properties:
         total: { type: integer, minimum: 0, maximum: 1000 }
+        live: { type: integer, minimum: 0 }
+        test: { type: integer, minimum: 0 }
         pending: { type: integer, minimum: 0 }
+        abandoned: { type: integer, minimum: 0 }
         fulfilled: { type: integer, minimum: 0 }
         failed: { type: integer, minimum: 0 }
         disputed: { type: integer, minimum: 0 }
@@ -2653,7 +2662,7 @@ components:
     Transaction:
       type: object
       additionalProperties: false
-      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, priceBreakdown, commerceLifecycle, fulfillmentAttempts, createdAt, updatedAt]
+      required: [transactionId, intentId, sellerId, routeId, buyerId, purchaseChannel, paymentRail, activityMode, checkoutExpiresAt, sellerOutcome, productDisplayName, productSlug, paymentDestinationId, status, amount, asset, network, priceBreakdown, commerceLifecycle, fulfillmentAttempts, createdAt, updatedAt]
       properties:
         transactionId: { type: string }
         intentId: { type: string }
@@ -2663,6 +2672,9 @@ components:
         purchaseSessionId: { type: [string, 'null'], pattern: '^bps_[A-Za-z0-9]+$' }
         purchaseChannel: { type: string, enum: [agent, browser] }
         paymentRail: { type: string, const: x402 }
+        activityMode: { type: string, enum: [test, live], description: Immutable reporting classification. Historical local and testnet records are test. }
+        checkoutExpiresAt: { type: string, format: date-time, description: Exclusive first-payment deadline used to derive expired abandoned checkouts. }
+        sellerOutcome: { type: string, enum: [awaiting_payment, abandoned, payment_rejected, payment_processing, fulfilling, fulfilled, fulfillment_failed, disputed, refund_recommended, resolved] }
         productDisplayName: { type: string, minLength: 1, maxLength: 120 }
         productSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         paymentDestinationId: { type: string, pattern: '^dst_[A-Za-z0-9]+$' }
@@ -2716,8 +2728,8 @@ components:
       required: [externalReference, commerceState, paymentState, fulfillmentState, refundState, recoveryAction, recoveryState]
       properties:
         externalReference: { type: string, description: Stable transaction identifier suitable for mapping into an external order system. }
-        commerceState: { type: string, enum: [awaiting_payment, payment_processing, paid, fulfilling, fulfilled, failed, disputed, refund_recommended, resolved] }
-        paymentState: { type: string, enum: [pending, confirmed, finalized, failed] }
+        commerceState: { type: string, enum: [awaiting_payment, abandoned, payment_processing, paid, fulfilling, fulfilled, failed, disputed, refund_recommended, resolved] }
+        paymentState: { type: string, enum: [pending, expired, confirmed, finalized, failed] }
         fulfillmentState: { type: string, enum: [not_started, in_progress, succeeded, failed] }
         refundState: { type: string, enum: [not_requested, disputed, recommended, seller_reported] }
         recoveryAction: { type: string, enum: [retry_same_request, retry_same_payment, await_reconciliation, create_new_intent, open_dispute, await_resolution, record_external_refund, request_seller_review, none] }

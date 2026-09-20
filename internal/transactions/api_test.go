@@ -53,6 +53,9 @@ func TestTransactionRoutesReturnVerifiedRedactedEvidence(t *testing.T) {
 	}
 	if detail.Transaction.PaymentReference != "0xtestnettransaction" ||
 		detail.Transaction.PaymentFinality != transactions.PaymentFinalityFinalized ||
+		detail.Transaction.ActivityMode != transactions.ActivityModeTest ||
+		detail.Transaction.SellerOutcome != transactions.SellerOutcomeFulfilled ||
+		detail.Transaction.CheckoutExpiresAt.Time().IsZero() ||
 		detail.Transaction.Reconciliation == nil ||
 		detail.Transaction.Reconciliation.Stage != transactions.ReconciliationStageFulfilled {
 		t.Fatalf("transaction reconciliation = %#v", detail.Transaction)
@@ -258,6 +261,8 @@ func TestSellerTransactionFiltersAndDashboardSummary(t *testing.T) {
 		"&to=" + to +
 		"&routeId=" + transaction.RouteID().String() +
 		"&status=FULFILLED" +
+		"&activityMode=test" +
+		"&outcome=fulfilled" +
 		"&asset=test-usdc" +
 		"&network=test-network"
 	listRequest := httptest.NewRequest(

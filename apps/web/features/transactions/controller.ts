@@ -20,21 +20,39 @@ export async function loadTransactionList(): Promise<TransactionListSnapshot> {
       failure: { code: "unauthorized", status: 401 },
     };
   }
-  const result = await requestAgentPay<{ items: Transaction[] }>(
-    `/v1/sellers/${encodeURIComponent(sellerId)}/transactions?limit=50`,
-    { method: "GET" },
-  );
+  const encodedSellerId = encodeURIComponent(sellerId);
+  const [liveResult, testResult] = await Promise.all([
+    requestAgentPay<{ items: Transaction[] }>(
+      `/v1/sellers/${encodedSellerId}/transactions?limit=50&activityMode=live`,
+      { method: "GET" },
+    ),
+    requestAgentPay<{ items: Transaction[] }>(
+      `/v1/sellers/${encodedSellerId}/transactions?limit=50&activityMode=test`,
+      { method: "GET" },
+    ),
+  ]);
+  const failedResult = !liveResult.ok
+    ? liveResult
+    : !testResult.ok
+      ? testResult
+      : null;
+  const transactions =
+    liveResult.ok && testResult.ok
+      ? [...liveResult.value.items, ...testResult.value.items].toSorted(
+          (left, right) => right.updatedAt.localeCompare(left.updatedAt),
+        )
+      : [];
   return {
     sellerId,
-    transactions: result.ok ? result.value.items : [],
-    error: result.ok ? undefined : result.error,
-    failure: result.ok
-      ? undefined
-      : {
-          code: result.code,
-          status: result.status,
-          retryAfterSeconds: result.retryAfterSeconds,
-        },
+    transactions,
+    error: failedResult?.error,
+    failure: failedResult
+      ? {
+          code: failedResult.code,
+          status: failedResult.status,
+          retryAfterSeconds: failedResult.retryAfterSeconds,
+        }
+      : undefined,
   };
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/fourgeez/agentpay/internal/domain"
@@ -15,6 +16,7 @@ const (
 	defaultTransactionPageLimit   = 25
 	maximumTransactionPageLimit   = 100
 	maximumPaymentReferenceLength = 512
+	defaultCheckoutLifetime       = 5 * time.Minute
 )
 
 // ErrSellerAccess reports a seller transaction request outside its tenancy.
@@ -26,6 +28,7 @@ type Service struct {
 	evidenceRepository EvidenceRepository
 	evidenceVerifier   evidence.Signer
 	sellerRepository   SellerRepository
+	clock              domain.Clock
 }
 
 // NewService creates the transaction read service.
@@ -40,7 +43,20 @@ func NewService(
 		evidenceRepository: evidenceRepository,
 		evidenceVerifier:   evidenceVerifier,
 		sellerRepository:   sellerRepository,
+		clock:              domain.SystemClock{},
 	}
+}
+
+func NewServiceWithClock(
+	repository ReadRepository,
+	evidenceRepository EvidenceRepository,
+	evidenceVerifier evidence.Signer,
+	sellerRepository SellerRepository,
+	clock domain.Clock,
+) *Service {
+	service := NewService(repository, evidenceRepository, evidenceVerifier, sellerRepository)
+	service.clock = clock
+	return service
 }
 
 // Get returns a public transaction and its evidence verification result.
@@ -98,7 +114,7 @@ func (service *Service) detail(
 		valid = false
 	}
 	return DetailResponse{
-		Transaction: transactionResponse(transaction),
+		Transaction: transactionResponse(transaction, domain.NewTimestamp(service.clock.Now())),
 		Evidence: EvidenceResponse{
 			Valid:  valid,
 			Events: events,
@@ -141,6 +157,9 @@ func (service *Service) ListSellerFiltered(
 	if query.Limit == 0 {
 		query.Limit = defaultTransactionPageLimit
 	}
+	if query.AsOf.Time().IsZero() {
+		query.AsOf = domain.NewTimestamp(service.clock.Now())
+	}
 	if query.Limit < 1 || query.Limit > maximumTransactionPageLimit {
 		return ListResponse{}, domain.NewValidationError(
 			"limit",
@@ -157,16 +176,17 @@ func (service *Service) ListSellerFiltered(
 	}
 	items := make([]Response, len(transactionPage))
 	for index, transaction := range transactionPage {
-		items[index] = transactionResponse(transaction)
+		items[index] = transactionResponse(transaction, query.AsOf)
 	}
 	return ListResponse{Items: items, NextCursor: nextCursor}, nil
 }
 
 // transactionResponse removes payment and internal persistence fields.
-func transactionResponse(transaction Transaction) Response {
+func transactionResponse(transaction Transaction, at domain.Timestamp) Response {
 	reconciliation := transaction.Reconciliation()
 	var publicReconciliation *Reconciliation
-	if reconciliation.Stage != "" {
+	sellerOutcome := transaction.SellerOutcomeAt(at)
+	if reconciliation.Stage != "" && sellerOutcome != SellerOutcomeAbandoned {
 		publicReconciliation = &reconciliation
 	}
 	return Response{
@@ -181,12 +201,15 @@ func transactionResponse(transaction Transaction) Response {
 		PaymentDestinationID: transaction.PaymentDestinationID(),
 		PurchaseChannel:      transaction.PurchaseChannel(),
 		PaymentRail:          transaction.PaymentRail(),
+		ActivityMode:         transaction.ActivityMode(),
+		CheckoutExpiresAt:    transaction.CheckoutExpiresAt(),
+		SellerOutcome:        sellerOutcome,
 		Status:               transaction.Status(),
 		Amount:               transaction.Amount(),
 		Asset:                transaction.Asset(),
 		Network:              transaction.Network(),
 		PriceBreakdown:       transaction.PriceBreakdown(),
-		CommerceLifecycle:    transaction.CommerceLifecycle(false),
+		CommerceLifecycle:    transaction.CommerceLifecycleAt(at, false),
 		PaymentFinality:      transaction.PaymentFinality(),
 		PaymentReference:     transaction.PaymentReference(),
 		ReconciledAt:         transaction.ReconciledAt(),
@@ -215,6 +238,14 @@ func NewTransaction(params TransactionParams) (Transaction, error) {
 	if paymentRail == "" {
 		paymentRail = PaymentRailX402
 	}
+	activityMode := params.ActivityMode
+	if activityMode == "" {
+		activityMode = ActivityModeTest
+	}
+	checkoutExpiresAt := params.CheckoutExpiresAt
+	if checkoutExpiresAt.Time().IsZero() {
+		checkoutExpiresAt = params.CreatedAt.Add(defaultCheckoutLifetime)
+	}
 	return Transaction{
 		transactionID:        params.TransactionID,
 		intentID:             params.IntentID,
@@ -227,6 +258,8 @@ func NewTransaction(params TransactionParams) (Transaction, error) {
 		paymentDestinationID: params.PaymentDestinationID,
 		purchaseChannel:      purchaseChannel,
 		paymentRail:          paymentRail,
+		activityMode:         activityMode,
+		checkoutExpiresAt:    checkoutExpiresAt,
 		amount:               params.Amount,
 		asset:                strings.TrimSpace(params.Asset),
 		network:              strings.TrimSpace(params.Network),
@@ -287,6 +320,12 @@ func validateTransactionParams(params TransactionParams) domain.ValidationErrors
 	}
 	if params.PaymentRail != "" && params.PaymentRail != PaymentRailX402 {
 		validationErrors = append(validationErrors, domain.NewValidationError("paymentRail", "supported", "must use x402"))
+	}
+	if params.ActivityMode != "" && params.ActivityMode != ActivityModeTest && params.ActivityMode != ActivityModeLive {
+		validationErrors = append(validationErrors, domain.NewValidationError("activityMode", "supported", "must be test or live"))
+	}
+	if !params.CheckoutExpiresAt.Time().IsZero() && !params.CreatedAt.Time().Before(params.CheckoutExpiresAt.Time()) {
+		validationErrors = append(validationErrors, domain.NewValidationError("checkoutExpiresAt", "chronology", "must occur after creation"))
 	}
 	if params.PurchaseChannel == PurchaseChannelBrowser && strings.TrimSpace(params.PurchaseSessionID) == "" {
 		validationErrors = append(validationErrors, domain.NewValidationError("purchaseSessionId", "required", "is required for browser purchases"))

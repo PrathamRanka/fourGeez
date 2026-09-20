@@ -18,6 +18,8 @@ type Snapshot struct {
 	PaymentDestinationID    domain.ID             `json:"paymentDestinationId,omitempty"`
 	PurchaseChannel         PurchaseChannel       `json:"purchaseChannel,omitempty"`
 	PaymentRail             PaymentRail           `json:"paymentRail,omitempty"`
+	ActivityMode            ActivityMode          `json:"activityMode,omitempty"`
+	CheckoutExpiresAt       domain.Timestamp      `json:"checkoutExpiresAt,omitempty"`
 	Amount                  domain.Amount         `json:"amount"`
 	Asset                   string                `json:"asset"`
 	Network                 string                `json:"network"`
@@ -53,6 +55,8 @@ func (transaction Transaction) Snapshot() Snapshot {
 		PaymentDestinationID:    transaction.paymentDestinationID,
 		PurchaseChannel:         transaction.purchaseChannel,
 		PaymentRail:             transaction.paymentRail,
+		ActivityMode:            transaction.activityMode,
+		CheckoutExpiresAt:       transaction.checkoutExpiresAt,
 		Amount:                  transaction.amount,
 		Asset:                   transaction.asset,
 		Network:                 transaction.network,
@@ -114,6 +118,20 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 	if paymentRail == "" {
 		paymentRail = PaymentRailX402
 	}
+	activityMode := snapshot.ActivityMode
+	if activityMode == "" {
+		activityMode = ActivityModeTest
+	}
+	if activityMode != ActivityModeTest && activityMode != ActivityModeLive {
+		return Transaction{}, domain.NewValidationError("activityMode", "persistence", "stored activity mode is invalid")
+	}
+	checkoutExpiresAt := snapshot.CheckoutExpiresAt
+	if checkoutExpiresAt.Time().IsZero() {
+		checkoutExpiresAt = snapshot.CreatedAt.Add(defaultCheckoutLifetime)
+	}
+	if !snapshot.CreatedAt.Time().Before(checkoutExpiresAt.Time()) {
+		return Transaction{}, domain.NewValidationError("checkoutExpiresAt", "persistence", "stored checkout expiry is invalid")
+	}
 	fulfillmentAttempts := snapshot.FulfillmentAttempts
 	if fulfillmentAttempts == 0 && (snapshot.Status == StatusForwarded || snapshot.Status == StatusFulfilled || snapshot.Status == StatusFailed || snapshot.Status == StatusDisputed || snapshot.Status == StatusRefundRecommended || snapshot.Status == StatusResolved) {
 		fulfillmentAttempts = 1
@@ -130,6 +148,8 @@ func Restore(snapshot Snapshot) (Transaction, error) {
 		paymentDestinationID:    snapshot.PaymentDestinationID,
 		purchaseChannel:         purchaseChannel,
 		paymentRail:             paymentRail,
+		activityMode:            activityMode,
+		checkoutExpiresAt:       checkoutExpiresAt,
 		amount:                  snapshot.Amount,
 		asset:                   snapshot.Asset,
 		network:                 snapshot.Network,

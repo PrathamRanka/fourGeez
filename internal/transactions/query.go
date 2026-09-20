@@ -24,6 +24,18 @@ func ParseSellerTransactionQuery(
 		Cursor:   strings.TrimSpace(values.Get("cursor")),
 		Limit:    defaultTransactionPageLimit,
 	}
+	if rawActivityMode := strings.TrimSpace(values.Get("activityMode")); rawActivityMode != "" {
+		query.ActivityMode = ActivityMode(rawActivityMode)
+		if query.ActivityMode != ActivityModeTest && query.ActivityMode != ActivityModeLive {
+			return SellerTransactionQuery{}, domain.NewValidationError("activityMode", "supported", "must be test or live")
+		}
+	}
+	if rawOutcome := strings.TrimSpace(values.Get("outcome")); rawOutcome != "" {
+		query.Outcome = SellerOutcome(rawOutcome)
+		if !validSellerOutcome(query.Outcome) {
+			return SellerTransactionQuery{}, domain.NewValidationError("outcome", "supported", "must use a documented seller outcome")
+		}
+	}
 	if rawLimit := values.Get("limit"); rawLimit != "" {
 		limit, err := strconv.Atoi(rawLimit)
 		if err != nil {
@@ -113,6 +125,12 @@ func (query SellerTransactionQuery) Matches(transaction Transaction) bool {
 	if query.Status != "" && transaction.Status() != query.Status {
 		return false
 	}
+	if query.ActivityMode != "" && transaction.ActivityMode() != query.ActivityMode {
+		return false
+	}
+	if query.Outcome != "" && transaction.SellerOutcomeAt(query.AsOf) != query.Outcome {
+		return false
+	}
 	if query.Asset != "" && transaction.Asset() != query.Asset {
 		return false
 	}
@@ -120,6 +138,19 @@ func (query SellerTransactionQuery) Matches(transaction Transaction) bool {
 		return false
 	}
 	return true
+}
+
+func validSellerOutcome(outcome SellerOutcome) bool {
+	switch outcome {
+	case SellerOutcomeAwaitingPayment, SellerOutcomeAbandoned,
+		SellerOutcomePaymentRejected, SellerOutcomePaymentProcessing,
+		SellerOutcomeFulfilling, SellerOutcomeFulfilled,
+		SellerOutcomeFulfillmentFailed, SellerOutcomeDisputed,
+		SellerOutcomeRefundRecommended, SellerOutcomeResolved:
+		return true
+	default:
+		return false
+	}
 }
 
 // parseOptionalQueryTime parses one RFC 3339 UTC filter boundary.

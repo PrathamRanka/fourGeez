@@ -384,6 +384,16 @@ fulfilled sales, failures, disputes, route performance, and usage from AgentPay
 records. Amounts are always grouped by asset and network and are never summed
 across unlike currencies.
 
+Seller reporting separates test activity from live activity. Local and testnet
+transactions are labeled `test` and excluded from live overview and revenue
+totals unless the seller explicitly selects the test view. An unpaid checkout
+whose frozen payment deadline has elapsed is shown as an expired, abandoned
+checkout rather than an active pending payment. Payment and fulfillment are
+reported independently so rejected payment, finalized payment with failed
+delivery, and completed delivery remain visibly distinct.
+Abandoned checkouts remain visible in the transaction ledger but are excluded
+from settlement and revenue summaries.
+
 Sellers may configure signed webhooks for payment, fulfillment, and dispute
 events. Webhook delivery is retried and audited, but dashboard records remain
 authoritative when a seller endpoint is unavailable.

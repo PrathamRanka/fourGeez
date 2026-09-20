@@ -87,6 +87,71 @@
   text-underline-offset: 0.2rem;
 }
 
+.filters {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 0.75rem;
+}
+
+.filters fieldset {
+  display: flex;
+  gap: 0.35rem;
+  border: 0;
+}
+
+.filters legend,
+.filters label {
+  color: var(--dash-muted);
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.filters legend {
+  margin-bottom: 0.4rem;
+}
+
+.filters button,
+.filters select {
+  min-height: 2.35rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--dash-canvas);
+  color: var(--dash-copy);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+}
+
+.filters button {
+  padding-inline: 0.75rem;
+}
+
+.filters button[aria-pressed="true"] {
+  background: var(--dash-copy);
+  color: var(--dash-canvas);
+}
+
+.filters label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.filters select {
+  min-width: 12rem;
+  padding-inline: 0.65rem;
+}
+
+.filters button:focus-visible,
+.filters select:focus-visible {
+  outline: 2px solid var(--dash-copy);
+  outline-offset: 2px;
+}
+
 .tableFrame,
 .panel,
 .emptyState,
@@ -246,6 +311,9 @@
 }
 
 .status[data-state="failed"],
+.status[data-state="abandoned"],
+.status[data-state="payment_rejected"],
+.status[data-state="fulfillment_failed"],
 .status[data-state="dead_letter"],
 .status[data-state="disputed"],
 .status[data-state="refund_recommended"],
@@ -582,6 +650,21 @@
   .lifecycle,
   .facts {
     grid-template-columns: 1fr;
+  }
+
+  .filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filters fieldset {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filters button,
+  .filters select {
+    width: 100%;
   }
 
   .ledgerSummary > div,

@@ -14,6 +14,18 @@ export type TransactionStatus =
   | "RESOLVED";
 
 export type PaymentFinality = "confirmed" | "finalized" | "failed";
+export type ActivityMode = "test" | "live";
+export type SellerOutcome =
+  | "awaiting_payment"
+  | "abandoned"
+  | "payment_rejected"
+  | "payment_processing"
+  | "fulfilling"
+  | "fulfilled"
+  | "fulfillment_failed"
+  | "disputed"
+  | "refund_recommended"
+  | "resolved";
 
 export type ExactPriceBreakdown = {
   calculation: "fixed_single_product";
@@ -37,8 +49,9 @@ export type CommerceLifecycle = {
     | "failed"
     | "disputed"
     | "refund_recommended"
-    | "resolved";
-  paymentState: "pending" | "confirmed" | "finalized" | "failed";
+    | "resolved"
+    | "abandoned";
+  paymentState: "pending" | "confirmed" | "finalized" | "failed" | "expired";
   fulfillmentState: "not_started" | "in_progress" | "succeeded" | "failed";
   refundState: "not_requested" | "disputed" | "recommended" | "seller_reported";
   recoveryAction:
@@ -71,6 +84,9 @@ export type Transaction = {
   productDisplayName?: string;
   productSlug?: string;
   buyerId: string;
+  activityMode: ActivityMode;
+  checkoutExpiresAt: string;
+  sellerOutcome: SellerOutcome;
   status: TransactionStatus;
   amount: string;
   asset: string;
@@ -150,6 +166,47 @@ export function transactionStatusLabel(status: TransactionStatus): string {
     .split("_")
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export function sellerOutcomeLabel(outcome: SellerOutcome): string {
+  const labels: Record<SellerOutcome, string> = {
+    awaiting_payment: "Awaiting payment",
+    abandoned: "Abandoned checkout",
+    payment_rejected: "Payment rejected",
+    payment_processing: "Payment processing",
+    fulfilling: "Delivery in progress",
+    fulfilled: "Fulfilled",
+    fulfillment_failed: "Delivery failed",
+    disputed: "Disputed",
+    refund_recommended: "Refund recommended",
+    resolved: "Resolved",
+  };
+  return labels[outcome];
+}
+
+export function paymentStateLabel(
+  state: CommerceLifecycle["paymentState"],
+): string {
+  const labels: Record<CommerceLifecycle["paymentState"], string> = {
+    pending: "Awaiting payment",
+    confirmed: "Verification confirmed",
+    finalized: "Payment finalized",
+    failed: "Payment rejected",
+    expired: "Checkout expired",
+  };
+  return labels[state];
+}
+
+export function fulfillmentStateLabel(
+  state: CommerceLifecycle["fulfillmentState"],
+): string {
+  const labels: Record<CommerceLifecycle["fulfillmentState"], string> = {
+    not_started: "Not started",
+    in_progress: "In progress",
+    succeeded: "Succeeded",
+    failed: "Failed",
+  };
+  return labels[state];
 }
 
 export function webhookDeliveryStatusLabel(

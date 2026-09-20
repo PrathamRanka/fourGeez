@@ -579,6 +579,8 @@ No Lean V1 endpoint creates, exchanges, reads, or consumes this grant.
 | `paymentDestinationId` | string | Immutable verified destination identifier snapshot |
 | `purchaseChannel` | enum | `agent` or `browser` |
 | `paymentRail` | enum | `x402`; future rails require a migration |
+| `activityMode` | enum | `test` or `live`; immutable environment classification used to keep test activity out of live seller reporting |
+| `checkoutExpiresAt` | timestamp | Exclusive deadline for the first payment authorization; frozen when the transaction is created and never extended by a dashboard read |
 | `status` | enum | State machine below |
 | `paymentIdentifier` | string/null | Unique replay-protection value supplied by payment adapter |
 | `paymentProofHash` | string/null | Never store raw proof |
@@ -659,6 +661,27 @@ execution capability bound to the corrected bytes. Concurrent or second retry
 claims fail closed. Timeouts, connection loss after dispatch, malformed seller
 responses, 5xx responses, and missing retry assertions are never retried
 automatically because fulfillment may be uncertain.
+
+Transactions written before the EXT-007 migration omit `activityMode` and
+`checkoutExpiresAt`. They are read as `activityMode=test`, because every
+pre-migration runtime was local or x402 testnet, and use the documented
+five-minute payment-authorization deadline measured from `createdAt`. New
+checkout writers set the deadline to the earlier of that authorization limit
+and the immutable purchase-intent expiry. A read at or after that deadline
+derives `commerceState=abandoned` and `paymentState=expired` only while the
+authoritative transaction remains `PAYMENT_REQUIRED` with no payment
+observation. This is a terminal seller-facing classification, not a persisted
+state transition, and it cannot create a payment, failure, or settlement fact.
+
+Seller outcome filters use the derived values `awaiting_payment`, `abandoned`,
+`payment_rejected`, `payment_processing`, `fulfilling`, `fulfilled`,
+`fulfillment_failed`, `disputed`, `refund_recommended`, and `resolved`.
+Payment and fulfillment states remain separate so a finalized payment followed
+by seller failure is never presented as a payment failure. Live dashboard
+summaries default to `activityMode=live`; test activity is available only
+through an explicit test filter and is never added to live revenue totals.
+Abandoned checkouts have no reconciliation projection and therefore do not
+enter payment, settlement, fulfillment, or revenue aggregates.
 
 The forwarding claim is one conditional mutation requiring all of
 `status=PAYMENT_VERIFIED`, `paymentFinality=finalized`, the expected transaction

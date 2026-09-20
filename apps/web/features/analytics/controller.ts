@@ -24,10 +24,13 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
   }
   const encodedSellerId = encodeURIComponent(sellerId);
   const windowEnd = new Date();
-  const windowStart = new Date(windowEnd.getTime() - analyticsWindowMilliseconds);
+  const windowStart = new Date(
+    windowEnd.getTime() - analyticsWindowMilliseconds,
+  );
   const summaryQuery = new URLSearchParams({
     from: windowStart.toISOString(),
     to: windowEnd.toISOString(),
+    activityMode: "live",
   });
   const [summaryResult, routeResult] = await Promise.all([
     requestAgentPay<{

@@ -16,6 +16,9 @@ const snapshot: TransactionDetailSnapshot = {
     productDisplayName: "Research Report",
     productSlug: "research-report",
     buyerId: "buyer-demo",
+    activityMode: "test",
+    checkoutExpiresAt: "2026-09-18T10:05:00Z",
+    sellerOutcome: "fulfilled",
     status: "FULFILLED",
     amount: "35000000",
     asset: "USDC",
@@ -105,13 +108,13 @@ describe("transaction detail", () => {
       screen.getByText("No tax, shipping, discounts, or platform fees"),
     ).toBeVisible();
     expect(screen.getByText("No recovery action required")).toBeVisible();
-    expect(screen.getByText("Finalized")).toBeVisible();
-    expect(screen.getAllByText("Fulfilled")).toHaveLength(2);
+    expect(screen.getAllByText("Payment finalized")).toHaveLength(2);
+    expect(screen.getByText("Succeeded")).toBeVisible();
+    expect(screen.getByText("Test")).toBeVisible();
     expect(
       screen.getByRole("region", { name: "Transaction lifecycle" }),
     ).toBeVisible();
-    expect(screen.getByText("Payment verified")).toBeVisible();
-    expect(screen.getByText("Fulfillment complete")).toBeVisible();
+    expect(screen.getByText("Delivery succeeded")).toBeVisible();
     expect(
       screen.getByText("Payment and delivery proof verified"),
     ).toBeVisible();

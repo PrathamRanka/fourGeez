@@ -24,6 +24,8 @@ type FulfillmentState string
 type RefundState string
 type RecoveryAction string
 type RecoveryState string
+type ActivityMode string
+type SellerOutcome string
 
 type PurchaseChannel string
 type PaymentRail string
@@ -52,10 +54,12 @@ const (
 	CommerceStateDisputed              CommerceState    = "disputed"
 	CommerceStateRefundRecommended     CommerceState    = "refund_recommended"
 	CommerceStateResolved              CommerceState    = "resolved"
+	CommerceStateAbandoned             CommerceState    = "abandoned"
 	PaymentStatePending                PaymentState     = "pending"
 	PaymentStateConfirmed              PaymentState     = "confirmed"
 	PaymentStateFinalized              PaymentState     = "finalized"
 	PaymentStateFailed                 PaymentState     = "failed"
+	PaymentStateExpired                PaymentState     = "expired"
 	FulfillmentStateNotStarted         FulfillmentState = "not_started"
 	FulfillmentStateInProgress         FulfillmentState = "in_progress"
 	FulfillmentStateSucceeded          FulfillmentState = "succeeded"
@@ -82,6 +86,22 @@ const (
 	RecoveryStateRefundRecommended     RecoveryState    = "refund_recommended"
 	RecoveryStateRefundReported        RecoveryState    = "refund_reported"
 	RecoveryStateResolved              RecoveryState    = "resolved"
+)
+
+const (
+	ActivityModeTest ActivityMode = "test"
+	ActivityModeLive ActivityMode = "live"
+
+	SellerOutcomeAwaitingPayment   SellerOutcome = "awaiting_payment"
+	SellerOutcomeAbandoned         SellerOutcome = "abandoned"
+	SellerOutcomePaymentRejected   SellerOutcome = "payment_rejected"
+	SellerOutcomePaymentProcessing SellerOutcome = "payment_processing"
+	SellerOutcomeFulfilling        SellerOutcome = "fulfilling"
+	SellerOutcomeFulfilled         SellerOutcome = "fulfilled"
+	SellerOutcomeFulfillmentFailed SellerOutcome = "fulfillment_failed"
+	SellerOutcomeDisputed          SellerOutcome = "disputed"
+	SellerOutcomeRefundRecommended SellerOutcome = "refund_recommended"
+	SellerOutcomeResolved          SellerOutcome = "resolved"
 )
 
 const (
@@ -118,6 +138,8 @@ type TransactionParams struct {
 	PaymentDestinationID domain.ID
 	PurchaseChannel      PurchaseChannel
 	PaymentRail          PaymentRail
+	ActivityMode         ActivityMode
+	CheckoutExpiresAt    domain.Timestamp
 	Amount               domain.Amount
 	Asset                string
 	Network              string
@@ -143,6 +165,8 @@ type Transaction struct {
 	paymentDestinationID    domain.ID
 	purchaseChannel         PurchaseChannel
 	paymentRail             PaymentRail
+	activityMode            ActivityMode
+	checkoutExpiresAt       domain.Timestamp
 	amount                  domain.Amount
 	asset                   string
 	network                 string
@@ -177,6 +201,9 @@ type Response struct {
 	PaymentDestinationID domain.ID                   `json:"paymentDestinationId,omitempty"`
 	PurchaseChannel      PurchaseChannel             `json:"purchaseChannel"`
 	PaymentRail          PaymentRail                 `json:"paymentRail"`
+	ActivityMode         ActivityMode                `json:"activityMode"`
+	CheckoutExpiresAt    domain.Timestamp            `json:"checkoutExpiresAt"`
+	SellerOutcome        SellerOutcome               `json:"sellerOutcome"`
 	Status               TransactionStatus           `json:"status"`
 	Amount               domain.Amount               `json:"amount"`
 	Asset                string                      `json:"asset"`
@@ -235,15 +262,18 @@ type ListResponse struct {
 
 // SellerTransactionQuery contains bounded seller transaction filters.
 type SellerTransactionQuery struct {
-	SellerID domain.ID
-	From     *domain.Timestamp
-	To       *domain.Timestamp
-	RouteID  *domain.ID
-	Status   TransactionStatus
-	Asset    string
-	Network  string
-	Limit    int
-	Cursor   string
+	SellerID     domain.ID
+	From         *domain.Timestamp
+	To           *domain.Timestamp
+	RouteID      *domain.ID
+	Status       TransactionStatus
+	ActivityMode ActivityMode
+	Outcome      SellerOutcome
+	Asset        string
+	Network      string
+	AsOf         domain.Timestamp
+	Limit        int
+	Cursor       string
 }
 
 // ReadRepository loads transaction read models and seller pages.
@@ -322,6 +352,10 @@ func (transaction Transaction) PaymentDestinationID() domain.ID {
 }
 func (transaction Transaction) PurchaseChannel() PurchaseChannel { return transaction.purchaseChannel }
 func (transaction Transaction) PaymentRail() PaymentRail         { return transaction.paymentRail }
+func (transaction Transaction) ActivityMode() ActivityMode       { return transaction.activityMode }
+func (transaction Transaction) CheckoutExpiresAt() domain.Timestamp {
+	return transaction.checkoutExpiresAt
+}
 
 // Amount returns the exact transaction amount.
 func (transaction Transaction) Amount() domain.Amount {
@@ -439,6 +473,10 @@ func (transaction Transaction) PriceBreakdown() intents.ExactPriceBreakdown {
 }
 
 func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) CommerceLifecycleProjection {
+	return transaction.CommerceLifecycleAt(transaction.updatedAt, sellerReportedRefund)
+}
+
+func (transaction Transaction) CommerceLifecycleAt(at domain.Timestamp, sellerReportedRefund bool) CommerceLifecycleProjection {
 	projection := CommerceLifecycleProjection{
 		ExternalReference: transaction.transactionID.String(),
 		CommerceState:     CommerceStateAwaitingPayment,
@@ -447,6 +485,14 @@ func (transaction Transaction) CommerceLifecycle(sellerReportedRefund bool) Comm
 		RefundState:       RefundStateNotRequested,
 		RecoveryAction:    RecoveryActionRetrySameRequest,
 		RecoveryState:     RecoveryStateNone,
+	}
+	if transaction.status == StatusPaymentRequired &&
+		transaction.paymentFinality == "" &&
+		!at.Time().Before(transaction.checkoutExpiresAt.Time()) {
+		projection.CommerceState = CommerceStateAbandoned
+		projection.PaymentState = PaymentStateExpired
+		projection.RecoveryAction = RecoveryActionCreateNewIntent
+		return projection
 	}
 	if transaction.paymentFinality == PaymentFinalityConfirmed {
 		projection.CommerceState = CommerceStatePaymentProcessing
@@ -526,4 +572,31 @@ func (transaction Transaction) CanRetryFulfillment() bool {
 	return transaction.status == StatusFailed &&
 		transaction.paymentFinality == PaymentFinalityFinalized &&
 		transaction.retrySafe && transaction.fulfillmentAttempts == 1
+}
+
+func (transaction Transaction) SellerOutcomeAt(at domain.Timestamp) SellerOutcome {
+	projection := transaction.CommerceLifecycleAt(at, false)
+	switch projection.CommerceState {
+	case CommerceStateAbandoned:
+		return SellerOutcomeAbandoned
+	case CommerceStatePaymentProcessing, CommerceStatePaid:
+		return SellerOutcomePaymentProcessing
+	case CommerceStateFulfilling:
+		return SellerOutcomeFulfilling
+	case CommerceStateFulfilled:
+		return SellerOutcomeFulfilled
+	case CommerceStateDisputed:
+		return SellerOutcomeDisputed
+	case CommerceStateRefundRecommended:
+		return SellerOutcomeRefundRecommended
+	case CommerceStateResolved:
+		return SellerOutcomeResolved
+	case CommerceStateFailed:
+		if projection.PaymentState == PaymentStateFailed {
+			return SellerOutcomePaymentRejected
+		}
+		return SellerOutcomeFulfillmentFailed
+	default:
+		return SellerOutcomeAwaitingPayment
+	}
 }

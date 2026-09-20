@@ -29,7 +29,7 @@ describe("analytics controller", () => {
 
     expect(requestAgentPay).toHaveBeenNthCalledWith(
       1,
-      "/v1/sellers/sel_owner/dashboard-summary?from=2026-08-20T12%3A00%3A00.000Z&to=2026-09-19T12%3A00%3A00.000Z",
+      "/v1/sellers/sel_owner/dashboard-summary?from=2026-08-20T12%3A00%3A00.000Z&to=2026-09-19T12%3A00%3A00.000Z&activityMode=live",
       { method: "GET" },
     );
   });

@@ -173,11 +173,11 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### P1
 
-52. Abandoned checkout attempts accumulate as `PAYMENT_REQUIRED` transactions.
-53. Expired and abandoned attempts need clear dashboard labels, grouping, and filtering.
-54. Dashboard summaries can become noisy because test attempts and real transactions are not clearly separated.
-55. Failed fulfillment, rejected payment, abandoned payment, and successful fulfillment require distinct buyer and seller statuses.
-56. Only one clean fulfilled production transaction has been verified; three consecutive clean runs remain pending.
+52. **Resolved locally (2026-09-20):** expired unpaid `PAYMENT_REQUIRED` rows receive a deterministic abandoned-checkout projection without rewriting the authoritative transaction state.
+53. **Resolved locally (2026-09-20):** seller transaction views label and filter awaiting, expired/abandoned, payment-rejected, fulfillment-failed, and fulfilled outcomes.
+54. **Resolved locally (2026-09-20):** transactions freeze `activityMode`; seller reporting defaults to live activity and exposes test activity only through an explicit filter.
+55. **Resolved locally (2026-09-20):** seller and buyer transaction projections expose separate payment and fulfillment states, including finalized-payment delivery failures.
+56. **Partially resolved locally (2026-09-20; deployed proof pending):** deterministic regression coverage completes the lifecycle three consecutive times without shared-state repair. REL-009 remains open because no deployed three-run production-shaped verification was performed.
 
 ## 9. Authentication, authorization, and data safety
 

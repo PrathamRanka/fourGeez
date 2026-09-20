@@ -90,7 +90,9 @@ func TestCheckoutServiceRecordsChallengeAndVerification(t *testing.T) {
 	if transaction.ProductDisplayName() != fixture.purchaseIntent.ProductDisplayName() ||
 		transaction.ProductSlug() != fixture.purchaseIntent.ProductSlug() ||
 		transaction.PaymentDestinationID() != fixture.purchaseIntent.PaymentDestinationID() ||
-		transaction.PaymentRail() != transactions.PaymentRailX402 {
+		transaction.PaymentRail() != transactions.PaymentRailX402 ||
+		transaction.ActivityMode() != transactions.ActivityModeTest ||
+		transaction.CheckoutExpiresAt().Time().After(fixture.purchaseIntent.ExpiresAt().Time()) {
 		t.Fatalf("transaction commerce snapshot = %#v", transaction.Snapshot())
 	}
 	events, err := evidenceRepository.ListByTransaction(

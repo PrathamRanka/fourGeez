@@ -20,7 +20,9 @@ import type { DisputeAction } from "@/features/disputes/model";
 import { DisputePanel } from "@/features/disputes/view/dispute-workspace";
 import type { TransactionDetailSnapshot } from "@/features/transactions/model";
 import {
-  transactionStatusLabel,
+  fulfillmentStateLabel,
+  paymentStateLabel,
+  sellerOutcomeLabel,
   webhookDeliveryStatusLabel,
 } from "@/features/transactions/model";
 import { formatAtomicPrice } from "@/lib/money";
@@ -58,7 +60,7 @@ export function TransactionDetail({
           <code>{transaction.transactionId}</code>
         </div>
         <div className={styles.headerActions}>
-          <StatusBadge status={transaction.status} />
+          <StatusBadge outcome={transaction.sellerOutcome} />
           {canDownloadReceipt ? (
             <Link
               className={`${buttonVariants()} ${styles.primaryAction}`}
@@ -80,13 +82,7 @@ export function TransactionDetail({
       <section className={styles.lifecycle} aria-label="Transaction lifecycle">
         <LifecycleStep
           index="01"
-          label={
-            transaction.paymentFinality === "failed"
-              ? "Payment failed"
-              : transaction.paymentFinality
-                ? "Payment verified"
-                : "Payment pending"
-          }
+          label={paymentStateLabel(transaction.commerceLifecycle.paymentState)}
           complete={Boolean(
             transaction.paymentFinality &&
             transaction.paymentFinality !== "failed",
@@ -103,11 +99,7 @@ export function TransactionDetail({
         />
         <LifecycleStep
           index="03"
-          label={
-            transaction.status === "FULFILLED"
-              ? "Fulfillment complete"
-              : transactionStatusLabel(transaction.status)
-          }
+          label={`Delivery ${fulfillmentStateLabel(transaction.commerceLifecycle.fulfillmentState).toLowerCase()}`}
           complete={transaction.status === "FULFILLED"}
         />
       </section>
@@ -119,15 +111,21 @@ export function TransactionDetail({
         />
         <Fact
           label="Payment"
-          value={
-            transaction.paymentFinality
-              ? titleCase(transaction.paymentFinality)
-              : "Awaiting payment"
-          }
+          value={paymentStateLabel(transaction.commerceLifecycle.paymentState)}
         />
         <Fact
           label="Delivery"
-          value={transactionStatusLabel(transaction.status)}
+          value={fulfillmentStateLabel(
+            transaction.commerceLifecycle.fulfillmentState,
+          )}
+        />
+        <Fact
+          label="Outcome"
+          value={sellerOutcomeLabel(transaction.sellerOutcome)}
+        />
+        <Fact
+          label="Activity"
+          value={transaction.activityMode === "live" ? "Live" : "Test"}
         />
         <Fact label="Network" value={transaction.network} />
         <Fact label="Pricing" value="Exact fixed price" />
@@ -371,20 +369,16 @@ function Definition({ label, value }: { label: string; value: string }) {
 }
 
 function StatusBadge({
-  status,
+  outcome,
 }: {
-  status: TransactionDetailSnapshot["transaction"]["status"];
+  outcome: TransactionDetailSnapshot["transaction"]["sellerOutcome"];
 }) {
   return (
-    <span className={styles.status} data-state={status.toLowerCase()}>
+    <span className={styles.status} data-state={outcome}>
       <span aria-hidden="true" />
-      {transactionStatusLabel(status)}
+      {sellerOutcomeLabel(outcome)}
     </span>
   );
-}
-
-function titleCase(value: string): string {
-  return value[0].toUpperCase() + value.slice(1);
 }
 
 function recoveryActionLabel(

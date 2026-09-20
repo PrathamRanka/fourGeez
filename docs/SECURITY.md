@@ -85,6 +85,7 @@ transaction authority.
 | Settled response contradicts verified payer | Preserve the verified claim and safe settlement reference at confirmed finality, block fulfillment, require reconciliation, and never invite a new authorization or repeat settlement |
 | Payout-address substitution | Verify wallet ownership, bind destinations to seller and asset/network, require explicit confirmed rotation, and freeze the destination in each purchase intent |
 | Dashboard revenue inflation | Derive aggregates idempotently from authoritative payment and transaction events and keep assets/networks separate |
+| Test activity represented as live revenue | Freeze an allowlisted `test`/`live` activity mode at transaction creation, default historical local/testnet records to `test`, require an explicit filter for test reporting, and exclude test rows from live summaries |
 | Forged seller webhook | Sign canonical payloads, include event IDs and timestamps, use constant-time verification, and make redelivery idempotent |
 | Webhook SSRF | Apply the seller-proxy public-address, DNS-rebinding, redirect, timeout, and response-size controls to webhook destinations |
 | SEO/AEO abuse | Require visible-content consistency, prohibit fabricated claims and keyword stuffing, validate structured data, and never promise ranking |
@@ -333,6 +334,10 @@ Forbidden:
   transaction, dispute, and refund-record facts. They do not authorize state
   changes, fabricate payment finality, or convert `seller_reported` remediation
   into network-verified proof.
+- Expired-checkout and abandoned-checkout labels are time-derived from the
+  frozen checkout deadline only while no payment observation exists. They do
+  not rewrite transaction state, imply facilitator rejection, or authorize a
+  retry against an expired intent.
 - Network authorization requires `status=active` and current UTC time strictly
   before `accessEndsAt`. `grace`, `suspended`, `cancelled`, and `closed` return
   `subscription_inactive`; grace never authorizes MCP, discovery, publication,

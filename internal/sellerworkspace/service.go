@@ -110,7 +110,7 @@ func (service *Service) Dashboard(ctx context.Context, principal Principal) (Das
 	}
 	return DashboardOverview{
 		Seller:     catalog.SellerResponse{SellerID: seller.SellerID, Name: seller.Name, Slug: seller.Slug, UpstreamBaseURL: seller.UpstreamBaseURL, Status: seller.Status, CreatedAt: seller.CreatedAt, UpdatedAt: seller.UpdatedAt, Version: seller.Version},
-		Onboarding: onboarding, Products: summarizeProducts(routes), Transactions: summarizeTransactions(transactionRows), Evidence: evidenceSummary,
+		Onboarding: onboarding, Products: summarizeProducts(routes), Transactions: summarizeTransactions(transactionRows, domain.NewTimestamp(service.dependencies.Clock.Now())), Evidence: evidenceSummary,
 		Webhooks: summarizeWebhooks(subscriptions, deliveries), Billing: billingSummary,
 		Credentials: summarizeCredentials(credentials, domain.NewTimestamp(service.dependencies.Clock.Now())), Settings: settings,
 	}, nil
@@ -137,7 +137,7 @@ func (service *Service) Transactions(ctx context.Context, principal Principal) (
 	if err != nil {
 		return TransactionSummary{}, err
 	}
-	return summarizeTransactions(rows), nil
+	return summarizeTransactions(rows, domain.NewTimestamp(service.dependencies.Clock.Now())), nil
 }
 
 func (service *Service) Evidence(ctx context.Context, principal Principal) (EvidenceSummary, error) {
@@ -618,9 +618,18 @@ func summarizeProducts(routes []catalog.PaidRoute) ProductSummary {
 	}
 	return summary
 }
-func summarizeTransactions(rows []transactions.Transaction) TransactionSummary {
+func summarizeTransactions(rows []transactions.Transaction, now domain.Timestamp) TransactionSummary {
 	summary := TransactionSummary{Total: len(rows)}
 	for _, row := range rows {
+		if row.ActivityMode() == transactions.ActivityModeLive {
+			summary.Live++
+		} else {
+			summary.Test++
+		}
+		if row.SellerOutcomeAt(now) == transactions.SellerOutcomeAbandoned {
+			summary.Abandoned++
+			continue
+		}
 		switch row.Status() {
 		case transactions.StatusFulfilled:
 			summary.Fulfilled++

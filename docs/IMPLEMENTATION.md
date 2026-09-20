@@ -389,6 +389,22 @@ retry claiming, bounded attempts, ambiguous-delivery seller review, dispute and
 manual-refund paths, safe persistence without raw proofs or request bodies, and
 truthful local-only verification status.
 
+- [x] **EXT-008** Classify seller transaction activity without rewriting the
+  authoritative transaction state machine. Freeze `activityMode` and the
+  checkout payment deadline on transaction creation; derive expired unpaid
+  checkouts as abandoned, preserve separate payment and fulfillment outcomes,
+  filter seller reads by activity mode and seller outcome, and exclude test
+  activity from live dashboard summaries by default. Add deterministic local
+  three-run lifecycle coverage, but keep REL-009 open until the deployed
+  production-shaped flow succeeds three consecutive times without repair.
+
+EXT-008 acceptance: expired `PAYMENT_REQUIRED` rows no longer appear as active
+payments; seller views clearly separate live and test activity and distinguish
+payment rejection, fulfillment failure, and successful fulfillment; seller
+ownership, exact-price, idempotency, replay, and redaction behavior remain
+unchanged; focused backend, persistence, OpenAPI, and accessible responsive web
+tests pass. Local deterministic repeat-run coverage is not deployed proof.
+
 ## Milestone M8 — AWS infrastructure and operations
 
 M8 begins only after M7.1 acceptance. Infrastructure must preserve the same

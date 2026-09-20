@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Transaction } from "@/features/transactions/model";
 import { TransactionList } from "@/features/transactions/view/transaction-list";
@@ -12,6 +12,9 @@ const transactions: Transaction[] = [
     productDisplayName: "Research Report",
     productSlug: "research-report",
     buyerId: "buyer-demo",
+    activityMode: "live",
+    checkoutExpiresAt: "2026-09-18T10:05:00Z",
+    sellerOutcome: "fulfilled",
     status: "FULFILLED",
     amount: "35000000",
     asset: "USDC",
@@ -53,6 +56,9 @@ const transactions: Transaction[] = [
     productDisplayName: "Data Export",
     productSlug: "data-export",
     buyerId: "agent-ops",
+    activityMode: "live",
+    checkoutExpiresAt: "2026-09-18T11:05:00Z",
+    sellerOutcome: "disputed",
     status: "DISPUTED",
     amount: "12000000",
     asset: "USDC",
@@ -88,6 +94,26 @@ const transactions: Transaction[] = [
   },
 ];
 
+const abandonedTestTransaction: Transaction = {
+  ...transactions[0],
+  transactionId: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB3",
+  intentId: "int_01ARZ3NDEKTSV4RRFFQ69G5FB3",
+  productDisplayName: "Test checkout",
+  activityMode: "test",
+  sellerOutcome: "abandoned",
+  status: "PAYMENT_REQUIRED",
+  paymentFinality: undefined,
+  paymentReference: undefined,
+  commerceLifecycle: {
+    externalReference: "txn_01ARZ3NDEKTSV4RRFFQ69G5FB3",
+    commerceState: "abandoned",
+    paymentState: "expired",
+    fulfillmentState: "not_started",
+    refundState: "not_requested",
+    recoveryAction: "create_new_intent",
+  },
+};
+
 describe("transaction list", () => {
   it("renders a dense, accessible ledger with status and settlement facts", () => {
     render(<TransactionList transactions={transactions} />);
@@ -100,7 +126,7 @@ describe("transaction list", () => {
     const table = screen.getByRole("table", { name: "Seller transactions" });
     expect(within(table).getByText("Research Report")).toBeVisible();
     expect(within(table).getByText("buyer-demo")).toBeVisible();
-    expect(within(table).getAllByText("Finalized")).toHaveLength(2);
+    expect(within(table).getAllByText("Payment finalized")).toHaveLength(2);
     expect(within(table).getByText("Disputed")).toBeVisible();
     expect(
       within(table).getByRole("link", {
@@ -110,6 +136,29 @@ describe("transaction list", () => {
       "href",
       "/dashboard/transactions/txn_01ARZ3NDEKTSV4RRFFQ69G5FAW",
     );
+  });
+
+  it("separates test activity and filters abandoned checkouts", () => {
+    render(
+      <TransactionList
+        transactions={[...transactions, abandonedTestTransaction]}
+      />,
+    );
+
+    expect(screen.queryByText("Test checkout")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Test activity" }));
+    expect(screen.getByText("Test checkout")).toBeVisible();
+    expect(screen.getByText("Abandoned checkout")).toBeVisible();
+    expect(screen.getByText("Checkout expired")).toBeVisible();
+    expect(screen.getByText("Not started")).toBeVisible();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Outcome" }), {
+      target: { value: "fulfilled" },
+    });
+    expect(screen.queryByText("Test checkout")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "No test activity" }),
+    ).toBeVisible();
   });
 
   it("renders a focused dispute queue without unrelated sales", () => {

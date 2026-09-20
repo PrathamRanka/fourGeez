@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fourgeez/agentpay/internal/domain"
 )
 
 // TestTransactionSnapshotRoundTripsPaymentReconciliation verifies PAY-010 persistence.
@@ -69,5 +71,23 @@ func TestTransactionRestoreConservativelyMigratesLegacyVerifiedPayment(t *testin
 	if restored.PaymentFinality() != PaymentFinalityConfirmed ||
 		restored.PaymentReference() != "" {
 		t.Fatalf("legacy reconciliation = %#v", restored.Reconciliation())
+	}
+}
+
+func TestTransactionRestoreClassifiesLegacyActivityAsTest(t *testing.T) {
+	t.Parallel()
+
+	transaction := newTestTransaction(t)
+	snapshot := transaction.Snapshot()
+	snapshot.ActivityMode = ""
+	snapshot.CheckoutExpiresAt = domain.Timestamp{}
+
+	restored, err := Restore(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.ActivityMode() != ActivityModeTest ||
+		restored.CheckoutExpiresAt() != restored.CreatedAt().Add(defaultCheckoutLifetime) {
+		t.Fatalf("legacy activity = %#v", restored.Snapshot())
 	}
 }

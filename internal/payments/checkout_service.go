@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/fourgeez/agentpay/internal/browserpurchase"
 	"github.com/fourgeez/agentpay/internal/catalog"
@@ -507,6 +508,10 @@ func (service *CheckoutService) loadOrCreateTransaction(
 		return transactions.Transaction{}, false, err
 	}
 	now := domain.NewTimestamp(service.clock.Now())
+	checkoutExpiresAt := now.Add(time.Duration(paymentAuthorizationTimeoutSeconds) * time.Second)
+	if resolved.PurchaseIntent.ExpiresAt().Before(checkoutExpiresAt) {
+		checkoutExpiresAt = resolved.PurchaseIntent.ExpiresAt()
+	}
 	transaction, err = transactions.NewTransaction(
 		transactions.TransactionParams{
 			TransactionID:        transactionID,
@@ -520,6 +525,8 @@ func (service *CheckoutService) loadOrCreateTransaction(
 			PurchaseSessionID:    resolved.PurchaseIntent.PurchaseSessionID(),
 			PurchaseChannel:      transactionPurchaseChannel(resolved.PurchaseIntent.PurchaseChannel()),
 			PaymentRail:          transactions.PaymentRailX402,
+			ActivityMode:         transactions.ActivityModeTest,
+			CheckoutExpiresAt:    checkoutExpiresAt,
 			Amount:               resolved.PurchaseIntent.Amount(),
 			Asset:                resolved.PurchaseIntent.Asset(),
 			Network:              resolved.PurchaseIntent.Network(),
