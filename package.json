@@ -68,7 +68,7 @@
     "quality:launch": "npm run test:e2e && npm run lint && npm run typecheck && npm test && npm run build",
     "typecheck": "npm run typecheck --workspace @agentpay/web && npm run typecheck --workspace @agentpay/verify-node && npm run typecheck:mcp-connector && npm run typecheck:merchant-sdk",
     "typecheck:mcp-connector": "npm run typecheck --workspace @agentpay/local-mcp-connector",
-    "typecheck:merchant-sdk": "npm run typecheck --workspace @agentpay/merchant-sdk",
+    "typecheck:merchant-sdk": "npm run build --workspace @agentpay/verify-node && npm run typecheck --workspace @agentpay/merchant-sdk",
     "terraform:fmt": "terraform -chdir=infra/terraform fmt -recursive",
     "terraform:validate": "terraform -chdir=infra/terraform init -backend=false && terraform -chdir=infra/terraform validate",
     "terraform:check": "terraform -chdir=infra/terraform fmt -check -recursive && terraform -chdir=infra/terraform init -backend=false && terraform -chdir=infra/terraform validate"
