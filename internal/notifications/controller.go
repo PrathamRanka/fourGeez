@@ -36,6 +36,66 @@ func (controller *HTTPController) RegisterRoutes(mux *http.ServeMux) {
 		"GET /v1/sellers/{sellerId}/webhook-subscriptions",
 		api.RequireSeller(http.HandlerFunc(controller.list)),
 	)
+	mux.Handle(
+		"POST /v1/sellers/{sellerId}/webhook-subscriptions/{subscriptionId}/disable",
+		api.RequireSeller(http.HandlerFunc(controller.disable)),
+	)
+}
+
+// disable idempotently stops new deliveries to one subscription.
+func (controller *HTTPController) disable(response http.ResponseWriter, request *http.Request) {
+	sellerID, err := domain.ParseID(request.PathValue("sellerId"), domain.SellerIDPrefix)
+	if err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	subscriptionID, err := domain.ParseID(request.PathValue("subscriptionId"), domain.WebhookSubscriptionIDPrefix)
+	if err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	request.Body = http.MaxBytesReader(response, request.Body, api.MaximumJSONBodyBytes)
+	requestBody, err := io.ReadAll(request.Body)
+	if err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	var input DisableSubscriptionRequest
+	if err := api.DecodeJSONBytes(requestBody, &input); err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	principal, _ := api.PrincipalFromContext(request.Context())
+	scope := principal.Subject + ":disableWebhookSubscription:" + sellerID.String() + ":" + subscriptionID.String()
+	decision, err := api.CheckIdempotency(request.Context(), controller.idempotencyStore, scope, request.Header.Get("Idempotency-Key"), requestBody)
+	if err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	if decision.Replay {
+		response.Header().Set("Content-Type", "application/json")
+		response.WriteHeader(decision.Status)
+		_, _ = response.Write(decision.Body)
+		return
+	}
+	disabled, err := controller.service.Disable(request.Context(), principal.Subject, sellerID, subscriptionID, input)
+	if err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	encoded, err := json.Marshal(disabled)
+	if err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	encoded = append(encoded, '\n')
+	if err := api.SaveIdempotency(request.Context(), controller.idempotencyStore, scope, decision, http.StatusOK, encoded, time.Now().UTC()); err != nil {
+		writeNotificationError(response, request, err)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(http.StatusOK)
+	_, _ = response.Write(encoded)
 }
 
 // create validates a subscription and returns its signing secret once.
@@ -134,7 +194,7 @@ func writeNotificationError(response http.ResponseWriter, request *http.Request,
 	case errors.As(err, &validationErrors), errors.As(err, &validationError):
 		status = http.StatusBadRequest
 		code = api.ErrorCodeBadRequest
-	case errors.Is(err, api.ErrIdempotencyConflict), errors.Is(err, persistence.ErrAlreadyExists):
+	case errors.Is(err, api.ErrIdempotencyConflict), errors.Is(err, persistence.ErrAlreadyExists), errors.Is(err, persistence.ErrConditionFailed):
 		status = http.StatusConflict
 		code = api.ErrorCodeConflict
 	case errors.Is(err, ErrSubscriptionNotFound), errors.Is(err, persistence.ErrNotFound):

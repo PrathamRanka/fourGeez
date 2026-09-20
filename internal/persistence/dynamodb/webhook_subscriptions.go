@@ -80,6 +80,45 @@ func (repository *WebhookSubscriptionRepository) Get(
 	return notifications.RestoreSubscription(snapshot)
 }
 
+// Update replaces one subscription when its stored version matches.
+func (repository *WebhookSubscriptionRepository) Update(
+	ctx context.Context,
+	subscription notifications.Subscription,
+	expectedVersion uint64,
+) error {
+	record, err := newStoredRecord(
+		sellerPartitionKey(subscription.SellerID().String()),
+		webhookSubscriptionSortKey(subscription.SubscriptionID().String()),
+		"webhookSubscription",
+		subscription.Snapshot(),
+	)
+	if err != nil {
+		return err
+	}
+	record.Version = subscription.Version()
+	record.Status = string(subscription.Status())
+	item, err := marshalStoredRecord(record)
+	if err != nil {
+		return err
+	}
+	condition := "#version = :expectedVersion"
+	_, err = repository.client.PutItem(ctx, &awssdk.PutItemInput{
+		TableName:           &repository.tableName,
+		Item:                item,
+		ConditionExpression: &condition,
+		ExpressionAttributeNames: map[string]string{
+			"#version": "version",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":expectedVersion": numberAttributeValue(expectedVersion),
+		},
+	})
+	if isConditionalFailure(err) {
+		return persistence.ErrConditionFailed
+	}
+	return err
+}
+
 // ListBySeller queries subscriptions without scanning the table.
 func (repository *WebhookSubscriptionRepository) ListBySeller(
 	ctx context.Context,

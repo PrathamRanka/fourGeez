@@ -209,6 +209,49 @@ func (service *Service) List(
 	return views, nil
 }
 
+// Disable stops new deliveries to one seller-owned subscription.
+func (service *Service) Disable(
+	ctx context.Context,
+	ownerSubject string,
+	sellerID domain.ID,
+	subscriptionID domain.ID,
+	request DisableSubscriptionRequest,
+) (SubscriptionView, error) {
+	if err := service.authorizer.AuthorizeSeller(ctx, ownerSubject, sellerID); err != nil {
+		return SubscriptionView{}, err
+	}
+	if request.ExpectedVersion == 0 {
+		return SubscriptionView{}, domain.NewValidationError("expectedVersion", "required", "must be greater than zero")
+	}
+	subscription, err := service.repository.Get(ctx, sellerID, subscriptionID)
+	if err != nil {
+		return SubscriptionView{}, err
+	}
+	if subscription.Version() != request.ExpectedVersion {
+		return SubscriptionView{}, domain.NewValidationError("expectedVersion", "stale", "does not match the current subscription version")
+	}
+	expectedVersion := subscription.Version()
+	if err := subscription.Disable(domain.NewTimestamp(service.clock.Now())); err != nil {
+		return SubscriptionView{}, err
+	}
+	if err := service.repository.Update(ctx, subscription, expectedVersion); err != nil {
+		return SubscriptionView{}, err
+	}
+	if err := service.auditRecorder.Record(ctx, audit.RecordRequest{
+		SellerID:      sellerID,
+		ActorType:     audit.ActorTypeSellerUser,
+		ActorID:       ownerSubject,
+		Action:        audit.ActionWebhookSubscriptionDisabled,
+		TargetType:    audit.TargetTypeWebhookSubscription,
+		TargetID:      subscription.SubscriptionID().String(),
+		Outcome:       audit.OutcomeSucceeded,
+		ChangedFields: []string{"status"},
+	}); err != nil {
+		return SubscriptionView{}, err
+	}
+	return subscriptionView(subscription), nil
+}
+
 // validateWebhookEndpoint rejects unsafe static endpoint forms before delivery-time DNS checks.
 func validateWebhookEndpoint(raw string) *domain.ValidationError {
 	parsed, err := url.Parse(raw)

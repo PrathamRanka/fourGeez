@@ -60,6 +60,30 @@ func TestDeliveryServiceQueuesEachSubscriptionOnce(t *testing.T) {
 	}
 }
 
+func TestDeliveryServiceSkipsDisabledSubscriptionAfterSecretRotation(t *testing.T) {
+	t.Parallel()
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 20, 10, 0, 0, 0, time.UTC))
+	subscription, err := NewSubscription(validSubscriptionParams(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := subscription.Disable(createdAt); err != nil {
+		t.Fatal(err)
+	}
+	subscriptions := newNotificationRepository()
+	subscriptions.subscriptions[subscription.SubscriptionID()] = subscription
+	deliveries := newDeliveryRepository()
+	service := NewDeliveryService(deliveries, subscriptions, notificationSellerAuthorizer{sellerID: subscription.SellerID()}, domain.NewULIDGenerator(nil, nil), &deliverySigner{}, &deliverySender{}, domain.FixedClock{Value: createdAt.Time()})
+
+	queued, err := service.Enqueue(t.Context(), validDeliveryParams(t, createdAt).Event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(queued) != 0 || len(deliveries.deliveries) != 0 {
+		t.Fatalf("disabled subscription deliveries = %#v", queued)
+	}
+}
+
 // TestDeliveryServiceAttemptsAndPersistsRetry verifies signed retryable delivery.
 func TestDeliveryServiceAttemptsAndPersistsRetry(t *testing.T) {
 	t.Parallel()

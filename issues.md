@@ -190,10 +190,10 @@ This register records issues found during the real seller onboarding, MCP config
 
 ### Remaining verification gaps
 
-61. Seller-session expiry and recovery have not been verified across the complete deployed journey.
-62. Seller suspension and stale discovery behavior have not been verified end to end.
-63. Secret rotation for webhooks and seller integrations has not been proven live.
-64. A full production security regression covering revocation, replay, cancellation races, and stale capabilities is incomplete.
+61. [x] The consolidated regression covers sealed-session refresh, the exclusive eight-hour expiry boundary, expired-session recovery UI, and server-only token handling. The canonical-origin timed Cognito journey remains REL-015.
+62. [x] Authoritative suspension/cancellation, still-running official and modified connectors, stale signed discovery, tombstone revision, publication, and commerce denial are covered together. Canonical deployed publication/commerce/receipt/evidence proof remains REL-012 and REL-013.
+63. [x] Seller integration rotation already revokes the predecessor atomically and securely replays the reveal-once successor response. Webhook rotation now supports replacement overlap followed by authenticated, version-guarded, idempotent predecessor disablement; disabled subscriptions receive no new deliveries. Deployed receiver, retry-drain, and DLQ evidence remains pending under AWS-012.
+64. [x] `npm run verify:security-regression` consolidates revocation, replay, cancellation races, stale capability/discovery, webhook rotation, and official receipt/evidence denial checks without logging sensitive material. The sanitized deployed sequence remains REL-011 through REL-015.
 
 ## 10. Infrastructure and deployment
 

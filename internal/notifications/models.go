@@ -59,6 +59,11 @@ type CreateSubscriptionRequest struct {
 	EventTypes  []EventType `json:"eventTypes"`
 }
 
+// DisableSubscriptionRequest provides optimistic concurrency for disabling.
+type DisableSubscriptionRequest struct {
+	ExpectedVersion uint64 `json:"expectedVersion"`
+}
+
 // SubscriptionView is the public subscription representation.
 type SubscriptionView struct {
 	SubscriptionID domain.ID          `json:"subscriptionId"`
@@ -104,6 +109,7 @@ type SignedEvent struct {
 type Repository interface {
 	Create(context.Context, Subscription) error
 	Get(context.Context, domain.ID, domain.ID) (Subscription, error)
+	Update(context.Context, Subscription, uint64) error
 	ListBySeller(context.Context, domain.ID) ([]Subscription, error)
 }
 
@@ -170,4 +176,18 @@ func (subscription Subscription) UpdatedAt() domain.Timestamp {
 // Version returns the optimistic concurrency version.
 func (subscription Subscription) Version() uint64 {
 	return subscription.version
+}
+
+// Disable prevents new deliveries while preserving historical retry records.
+func (subscription *Subscription) Disable(disabledAt domain.Timestamp) error {
+	if subscription.status != SubscriptionStatusActive {
+		return domain.NewValidationError("status", "state", "subscription is not active")
+	}
+	if disabledAt.Time().IsZero() || disabledAt.Before(subscription.updatedAt) {
+		return domain.NewValidationError("disabledAt", "time", "must not precede the current subscription state")
+	}
+	subscription.status = SubscriptionStatusDisabled
+	subscription.updatedAt = disabledAt
+	subscription.version++
+	return nil
 }

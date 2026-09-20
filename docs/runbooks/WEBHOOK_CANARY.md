@@ -1,8 +1,8 @@
 # Seller webhook canary runbook
 
-Status: **Local verification tooling is implemented. Deployed retry/DLQ and
-rotation certification remain blocked by AWS-005/AWS-012 and the missing
-seller-facing subscription replacement/disable operation.**
+Status: **Local overlap-rotation verification is implemented. Deployed
+delivery, retry/DLQ, and rotation certification remain pending AWS-012 and a
+real receiver rehearsal.**
 
 ## Purpose
 
@@ -78,10 +78,14 @@ rotation is overlap-based:
 1. Create a replacement subscription and capture its new reveal-once secret.
 2. Configure the receiver to accept old and new secrets by subscription ID.
 3. Trigger and verify an event through the replacement subscription.
-4. Disable the old subscription.
+4. Disable the old subscription through
+   `POST /v1/sellers/{sellerId}/webhook-subscriptions/{subscriptionId}/disable`
+   with the predecessor's current `expectedVersion` and a fresh idempotency
+   key. Exact replay returns the same redacted response; a stale version fails
+   closed.
 5. Remove the old secret only after no retryable old deliveries remain.
 
-The current public API can create and list subscriptions but cannot replace or
-disable one. Therefore production secret rotation is an explicit launch
-blocker; operators must not simulate it with direct DynamoDB or Secrets Manager
-edits.
+Never simulate rotation with direct DynamoDB or Secrets Manager edits. Local
+tests prove replacement creation, predecessor disablement, audit metadata, and
+that disabled subscriptions receive no new deliveries. Live endpoint delivery
+and retry-drain evidence is still required.

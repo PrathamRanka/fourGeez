@@ -785,6 +785,12 @@ version `1` and one of `payment.verified`, `fulfillment.succeeded`,
 `fulfillment.failed`, or `dispute.changed`. Canonical JSON is signed with
 HMAC-SHA256 over the event ID, delivery timestamp, and body hash.
 
+Secret rotation uses overlap: create a replacement subscription and reveal its
+new secret once, verify the receiver accepts the replacement, then disable the
+predecessor with its expected version. Disabled subscriptions receive no new
+events, while already-created delivery records retain their original secret
+reference so bounded retries and audit history remain truthful.
+
 ### PurchaseReceipt read model
 
 `PurchaseReceipt` is generated on demand and is not a second persisted payment

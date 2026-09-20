@@ -448,6 +448,32 @@ func TestWebhookDeliveryRepositoryClaimsSubscriptionEventIdentity(t *testing.T) 
 	}
 }
 
+func TestWebhookSubscriptionRepositoryUsesVersionGuardForDisable(t *testing.T) {
+	t.Parallel()
+	createdAt := domain.NewTimestamp(time.Date(2026, time.September, 20, 10, 0, 0, 0, time.UTC))
+	subscription, err := notifications.NewSubscription(notifications.SubscriptionParams{
+		SubscriptionID: domain.ID("whk_01K5D09YJ0C0M7RJM4FWQ0K9H7"),
+		SellerID:       domain.ID("sel_01K5D09YJ0C0M7RJM4FWQ0K9H7"),
+		EndpointURL:    "https://seller.example/webhook",
+		EventTypes:     []notifications.EventType{notifications.EventPaymentVerified},
+		SecretRef:      "agentpay/webhooks/test",
+		CreatedAt:      createdAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := subscription.Disable(createdAt); err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeClient{}
+	if err := NewWebhookSubscriptionRepository(client, "agentpay-dev").Update(t.Context(), subscription, 1); err != nil {
+		t.Fatal(err)
+	}
+	if client.putInput == nil || client.putInput.ConditionExpression == nil || *client.putInput.ConditionExpression != "#version = :expectedVersion" {
+		t.Fatalf("put input = %#v", client.putInput)
+	}
+}
+
 // TestIntegrationCredentialRepositoryUsesSellerScopedKeys verifies no scan path.
 func TestIntegrationCredentialRepositoryUsesSellerScopedKeys(t *testing.T) {
 	t.Parallel()

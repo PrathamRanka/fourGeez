@@ -478,6 +478,8 @@ M8 acceptance: a new development environment can be deployed from committed Terr
 - [ ] **REL-009** Run the complete demo three consecutive times without manual data repair.
 - [-] **REL-010** Verify generated storefront metadata, structured data, sitemap, `llms.txt`, and manifest output across the supported stack fixtures. Local tests now cover all 21 maintained stack prompts and require regeneration from the latest signed product contract after price, availability, input-schema, or output-schema changes; deployed generated artifacts remain pending.
 - [ ] **REL-011** Revoke a project API key while its MCP access token is still unexpired and demonstrate that the next cloud MCP request fails through the entitlement-epoch check.
+  Local coverage is included in the consolidated issue 61-64 security gate;
+  deployed proof remains pending.
 - [ ] **REL-012** Cancel or suspend a seller while its local connector and a deliberately modified fork remain running; demonstrate that neither can mint capabilities, publish, create intents, settle payments, or produce official AgentPay receipts/evidence.
       Local MCP coverage completed on September 20, 2026: automated regressions
       prove that `suspended` and `cancelled` sellers cannot mint a fresh capability
@@ -491,6 +493,9 @@ M8 acceptance: a new development environment can be deployed from committed Terr
       cancellation after durable finality does not erase the seller's one-time
       fulfillment obligation. Deployed race evidence remains pending.
 - [ ] **REL-015** Complete the authenticated browser journey from clean sign-up through resumable onboarding, publication, browser purchase, agent purchase, dashboard reconciliation, dispute, sign-out, and expired-session recovery using the deployed production-shaped environment.
+  Deterministic local coverage verifies sealed-session refresh, absolute expiry,
+  recovery messaging, and server-only token handling. The canonical deployed
+  timed Cognito journey remains pending.
 - [x] **REL-016** Historical implementation of a seller-owned onboarding test-purchase journey. Superseded on September 20, 2026 by issues 1 and 2: seller onboarding and dashboard surfaces expose no buyer checkout, wallet authorization, or seller-funded purchase action, and instead show the route-version-bound automated non-payment verification result. Public storefront checkout remains available only to human buyers and external buyer agents.
 
 M9 acceptance: all release gates in `TEST_PLAN.md` pass, generated changes are reviewable, browser-wallet and agent purchase paths work, dashboard totals reconcile by asset and network, and mocked behavior is visibly labeled.

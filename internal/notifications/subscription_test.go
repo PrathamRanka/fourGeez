@@ -10,6 +10,7 @@ import (
 
 	"github.com/fourgeez/agentpay/internal/audit"
 	"github.com/fourgeez/agentpay/internal/domain"
+	"github.com/fourgeez/agentpay/internal/persistence"
 )
 
 // TestServiceCreatesSellerWebhookSubscription verifies EVT-001 subscription creation.
@@ -63,6 +64,69 @@ func TestServiceCreatesSellerWebhookSubscription(t *testing.T) {
 	}
 	if quota.subscriptionCount != 0 {
 		t.Fatalf("subscription count = %d, want 0", quota.subscriptionCount)
+	}
+}
+
+// TestServiceDisablesReplacedWebhookSubscription verifies overlap-based secret rotation.
+func TestServiceDisablesReplacedWebhookSubscription(t *testing.T) {
+	t.Parallel()
+
+	sellerID := mustNotificationID(t, "sel_01K5D09YJ0C0M7RJM4FWQ0K9H7", domain.SellerIDPrefix)
+	repository := newNotificationRepository()
+	clock := domain.FixedClock{Value: time.Date(2026, time.September, 20, 10, 0, 0, 0, time.UTC)}
+	recorder := &notificationAuditRecorder{}
+	service := NewService(
+		repository,
+		notificationSellerAuthorizer{sellerID: sellerID},
+		domain.NewULIDGenerator(clock, strings.NewReader(strings.Repeat("w", 256))),
+		&sequenceWebhookSecretGenerator{secrets: []string{strings.Repeat("s", 43), strings.Repeat("r", 43)}},
+		&notificationSecretStore{secrets: make(map[string][]byte)},
+		clock,
+		recorder,
+	)
+	predecessor, err := service.Create(t.Context(), "seller-user", sellerID, CreateSubscriptionRequest{
+		EndpointURL: "https://seller.example/webhooks/agentpay",
+		EventTypes:  []EventType{EventPaymentVerified},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := service.Create(t.Context(), "seller-user", sellerID, CreateSubscriptionRequest{
+		EndpointURL: "https://seller.example/webhooks/agentpay-rotated",
+		EventTypes:  []EventType{EventPaymentVerified},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement.SigningSecret == predecessor.SigningSecret {
+		t.Fatal("replacement reused the predecessor signing secret")
+	}
+
+	disabled, err := service.Disable(
+		t.Context(),
+		"seller-user",
+		sellerID,
+		predecessor.SubscriptionID,
+		DisableSubscriptionRequest{ExpectedVersion: predecessor.Version},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disabled.Status != SubscriptionStatusDisabled || disabled.Version != predecessor.Version+1 {
+		t.Fatalf("disabled subscription = %#v", disabled)
+	}
+	if _, err := service.Disable(
+		t.Context(),
+		"seller-user",
+		sellerID,
+		predecessor.SubscriptionID,
+		DisableSubscriptionRequest{ExpectedVersion: predecessor.Version},
+	); err == nil {
+		t.Fatal("Disable() stale version error = nil")
+	}
+	if got := recorder.requests[len(recorder.requests)-1]; got.Action != audit.ActionWebhookSubscriptionDisabled ||
+		len(got.ChangedFields) != 1 || got.ChangedFields[0] != "status" {
+		t.Fatalf("disable audit = %#v", got)
 	}
 }
 
@@ -150,6 +214,20 @@ type notificationRepository struct {
 	subscriptions map[domain.ID]Subscription
 }
 
+// Update replaces one subscription when its stored version matches.
+func (repository *notificationRepository) Update(
+	_ context.Context,
+	subscription Subscription,
+	expectedVersion uint64,
+) error {
+	stored, exists := repository.subscriptions[subscription.SubscriptionID()]
+	if !exists || stored.Version() != expectedVersion {
+		return persistence.ErrConditionFailed
+	}
+	repository.subscriptions[subscription.SubscriptionID()] = subscription
+	return nil
+}
+
 // newNotificationRepository creates an empty subscription repository fixture.
 func newNotificationRepository() *notificationRepository {
 	return &notificationRepository{subscriptions: make(map[domain.ID]Subscription)}
@@ -209,6 +287,16 @@ func (authorizer notificationSellerAuthorizer) AuthorizeSeller(
 
 type fixedWebhookSecretGenerator struct {
 	secret string
+}
+
+type sequenceWebhookSecretGenerator struct {
+	secrets []string
+}
+
+func (generator *sequenceWebhookSecretGenerator) NewSecret() (string, error) {
+	secret := generator.secrets[0]
+	generator.secrets = generator.secrets[1:]
+	return secret, nil
 }
 
 // NewSecret returns deterministic test-only webhook secret material.

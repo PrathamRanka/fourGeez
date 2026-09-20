@@ -266,6 +266,11 @@ Operations checks additionally validate CloudWatch alarm shape, low-cardinality
 metric filters, optional notification actions, seller-partition-scoped operator
 IAM, Vercel output validation, and exact-byte webhook signature verification.
 
+The focused local gate for issue-register items 61 through 64 is
+`npm run verify:security-regression`. It composes the existing auth, revocation,
+rotation, stale-discovery, replay, cancellation, receipt, evidence, and webhook
+tests; it is deterministic and is not deployed AWS evidence.
+
 End-to-end testnet payment is a demo-release gate, not a per-commit gate.
 Execute and preserve the payment release evidence according to
 `runbooks/X402_TESTNET_RELEASE.md`; never capture wallet secrets, raw payment

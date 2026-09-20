@@ -793,6 +793,30 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /v1/sellers/{sellerId}/webhook-subscriptions/{subscriptionId}/disable:
+    post:
+      summary: Disable a seller webhook subscription after overlap rotation
+      tags: [Sellers]
+      operationId: disableWebhookSubscription
+      security: [{ sellerBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SellerId' }
+        - { name: subscriptionId, in: path, required: true, schema: { type: string, pattern: '^whk_[A-Za-z0-9]+$' } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisableWebhookSubscriptionRequest' }
+      responses:
+        '200': { description: Disabled redacted subscription, content: { application/json: { schema: { $ref: '#/components/schemas/WebhookSubscription' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/PermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /v1/sellers/{sellerId}/webhook-deliveries:
     get:
       summary: List seller webhook delivery history
@@ -2379,6 +2403,12 @@ components:
           minItems: 1
           uniqueItems: true
           items: { $ref: '#/components/schemas/WebhookEventType' }
+    DisableWebhookSubscriptionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
     WebhookSubscription:
       type: object
       additionalProperties: false

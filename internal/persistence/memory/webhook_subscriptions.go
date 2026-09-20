@@ -52,6 +52,22 @@ func (repository *WebhookSubscriptionRepository) Get(
 	return notifications.RestoreSubscription(snapshot)
 }
 
+// Update replaces one subscription when its stored version matches.
+func (repository *WebhookSubscriptionRepository) Update(
+	_ context.Context,
+	subscription notifications.Subscription,
+	expectedVersion uint64,
+) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	stored, exists := repository.subscriptions[subscription.SubscriptionID()]
+	if !exists || stored.Version != expectedVersion {
+		return persistence.ErrConditionFailed
+	}
+	repository.subscriptions[subscription.SubscriptionID()] = subscription.Snapshot()
+	return nil
+}
+
 // ListBySeller returns deterministic seller-scoped subscription metadata.
 func (repository *WebhookSubscriptionRepository) ListBySeller(
 	_ context.Context,
