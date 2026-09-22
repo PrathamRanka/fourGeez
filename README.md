@@ -44,15 +44,6 @@ AgentPay was built by team **fourGeez** for **First Commit**, Event 01 of the Bh
   <p><em>The deployed AgentPay landing page.</em></p>
 </div>
 
-## Video demo
-
-<div align="center">
-  <a href="https://www.youtube.com/watch?v=yupTRoTKlgo">
-    <img src="docs/assets/readme/agentpay-demo-video.jpg" alt="Watch: Sell APIs to AI Agents with x402 — AWS Hackathon Demo" width="820" />
-  </a>
-  <p><strong>▶ Sell APIs to AI Agents with x402 | AWS Hackathon Demo</strong></p>
-</div>
-
 ## The problem
 
 APIs are built to be called, but selling access still forces a developer to assemble authentication, pricing, checkout, payment verification, fulfillment, receipts, evidence, disputes, and separate buyer experiences. Conventional checkout is also difficult for software agents to discover and use safely.
