@@ -5,7 +5,7 @@ resource "aws_kms_key" "application_secrets" {
   deletion_window_in_days = 30
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -37,7 +37,7 @@ resource "aws_kms_key" "capability_signing" {
   deletion_window_in_days  = 30
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 

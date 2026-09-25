@@ -142,7 +142,7 @@ resource "aws_kms_key" "evidence_signing" {
   deletion_window_in_days  = 30
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -154,9 +154,10 @@ resource "aws_kms_alias" "evidence_signing" {
 resource "aws_s3_bucket" "evidence" {
   bucket              = "${local.resource_prefix}-evidence-${var.aws_account_id}-${var.aws_region}"
   object_lock_enabled = true
+  force_destroy       = true
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
