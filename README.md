@@ -16,25 +16,6 @@
 </div>
 
 ---
-
-## First Commit hackathon submission
-
-<div align="center">
-  <a href="https://www.wemakedevs.org/aws/first-commit">
-    <img src="docs/assets/readme/first-commit.jpg" alt="First Commit — Bharat Builds Tour by WeMakeDevs and AWS" width="900" />
-  </a>
-</div>
-
-AgentPay was built by team **fourGeez** for **First Commit**, Event 01 of the Bharat Builds Tour by WeMakeDevs and AWS, held September 17–20, 2026.
-
-<p align="center">
-  <a href="https://www.wemakedevs.org/aws/first-commit"><img src="docs/assets/readme/wemakedevs.svg" alt="WeMakeDevs" height="58" /></a>
-  &nbsp;&nbsp;&nbsp;&nbsp;×&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://aws.amazon.com"><img src="docs/assets/readme/aws.png" alt="Amazon Web Services" height="58" /></a>
-</p>
-
-> Event and company marks belong to their respective owners. Their inclusion identifies the hackathon and technologies used; it does not imply sponsorship, endorsement, or an award.
-
 ## Product preview
 
 <div align="center">
@@ -328,9 +309,3 @@ Authoritative progress is tracked in [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTAT
 
 AgentPay is proprietary source and is not an open-source project. Copyright © 2026 Pratham Ranka and Ayush Garg in their respective AgentPay-authored materials; all rights are reserved. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [repository governance](docs/REPOSITORY_GOVERNANCE.md).
 
-<div align="center">
-  <strong>Built for First Commit by WeMakeDevs × AWS.</strong><br />
-  <a href="https://agentpay.prathamranka.in">Live product</a> ·
-  <a href="https://www.youtube.com/watch?v=yupTRoTKlgo">Demo video</a> ·
-  <a href="https://www.wemakedevs.org/aws/first-commit">Hackathon</a>
-</div>
