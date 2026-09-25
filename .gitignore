@@ -68,3 +68,6 @@ Thumbs.db
 .worktrees/
 debug.log
 .vercel
+
+# Graphify generated files
+graphify-out/
